@@ -190,7 +190,12 @@
 
   function renderList() {
     var html = '<div class="frame">' +
-      '<div class="toolbar"><h1>Saved analyses</h1><span class="count">' + reports.length + " of " + total + "</span></div>";
+      '<div class="toolbar"><h1>Saved analyses</h1>' +
+        '<div style="display:flex;align-items:center;gap:16px">' +
+          '<span class="count">' + reports.length + " of " + total + "</span>" +
+          '<button class="ghost" id="backfill">Backfill old entries</button>' +
+        "</div>" +
+      "</div>";
 
     if (!reports.length) {
       html += '<div class="empty">Nothing saved yet.</div>';
@@ -208,6 +213,19 @@
     if (reports.length < total) {
       document.getElementById("loadmore").addEventListener("click", function () { loadReports(false); });
     }
+
+    document.getElementById("backfill").addEventListener("click", function (e) {
+      var btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = "Backfilling…";
+      api("/api/admin/backfill", { method: "POST" }).then(function (out) {
+        btn.disabled = false;
+        btn.textContent = "Backfill old entries";
+        if (!out.ok) { alert(out.d.error || "Failed to backfill."); return; }
+        if (out.d.backfilled > 0) loadReports(true);
+        else alert("Nothing to backfill — every saved entry is already indexed.");
+      });
+    });
 
     // Expand/collapse JD
     Array.prototype.forEach.call(document.querySelectorAll(".row-jd"), function (el) {
