@@ -149,41 +149,6 @@ export async function deleteReport(id) {
   return true;
 }
 
-// One-off migration: indexes any fit:* reports saved before the sorted-set
-// index existed, so they show up in the admin list too. Safe to run more
-// than once — skips ids already indexed.
-export async function backfillIndex() {
-  if (!hasKV) {
-    let count = 0;
-    for (const key of memory.keys()) {
-      if (!key.startsWith("fit:") || key === INDEX_KEY) continue;
-      const id = key.slice(4);
-      if (memIndex.some((e) => e.id === id)) continue;
-      const report = memGet(key);
-      if (!report) continue;
-      const score = report.created_at ? new Date(report.created_at).getTime() : Date.now();
-      memIndex.push({ id, score });
-      count++;
-    }
-    return count;
-  }
-
-  const store = await kv();
-  const keys = (await store.keys("fit:*")).filter((k) => k !== INDEX_KEY);
-  const existingIds = new Set(await store.zrange(INDEX_KEY, 0, -1));
-  let count = 0;
-  for (const key of keys) {
-    const id = key.slice(4); // strip "fit:" prefix
-    if (existingIds.has(id)) continue;
-    const report = await store.get(key);
-    if (!report) continue;
-    const score = report.created_at ? new Date(report.created_at).getTime() : Date.now();
-    await store.zadd(INDEX_KEY, { score, member: id });
-    count++;
-  }
-  return count;
-}
-
 // Returns { id, report } if this exact JD was already analysed, else null.
 export async function findReportByHash(jd) {
   const hash = hashJD(jd);
