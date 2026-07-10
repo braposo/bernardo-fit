@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 2000,
+        max_tokens: 4096,
         system: buildSystemPrompt(),
         messages: [
           {
@@ -76,6 +76,9 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
+    if (data.stop_reason === "max_tokens") {
+      console.error("Model response hit max_tokens before completing.");
+    }
     const raw = (data.content || [])
       .filter((b) => b.type === "text")
       .map((b) => b.text)
