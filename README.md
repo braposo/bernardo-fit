@@ -47,3 +47,5 @@ Two things keep the endpoint from running up your bill:
 - **Rate limiting.** New analyses are capped per IP (default **10 per hour**). Cached/deduped hits don't count against the limit. When someone exceeds it they get a friendly "try again in ~N minutes" message. Tune the numbers in `api/analyze.js` (the `checkAndCountRate(ip, limit, windowSeconds)` call).
 
 Both share the same store as the reports, so with Vercel KV they work across serverless invocations out of the box.
+
+<!-- deployed via GitHub integration -->
