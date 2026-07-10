@@ -1,4 +1,4 @@
-import { buildSystemPrompt } from "./_profile.js";
+import { runAnalysis } from "./_analyze.js";
 import { saveReport, findReportByHash, checkAndCountRate } from "./_store.js";
 
 // Pull the client IP from common proxy headers (Vercel/Netlify set these).
@@ -43,59 +43,11 @@ export default async function handler(req, res) {
       return;
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      res.status(500).json({ error: "Server is missing ANTHROPIC_API_KEY." });
-      return;
-    }
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 4096,
-        system: buildSystemPrompt(),
-        messages: [
-          {
-            role: "user",
-            content: `Here's the job description. Write my fit analysis:\n\n${jd}`,
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      res.status(502).json({ error: "Analysis service error", detail: text.slice(0, 500) });
-      return;
-    }
-
-    const data = await response.json();
-    if (data.stop_reason === "max_tokens") {
-      console.error("Model response hit max_tokens before completing.");
-    }
-    const raw = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("\n");
-
-    let clean = raw.replace(/```json|```/g, "").trim();
-    const first = clean.indexOf("{");
-    const last = clean.lastIndexOf("}");
-    if (first !== -1 && last !== -1 && last > first) {
-      clean = clean.slice(first, last + 1);
-    }
     let report;
     try {
-      report = JSON.parse(clean);
-    } catch {
-      console.error("Failed to parse model output as JSON:", raw);
-      res.status(502).json({ error: "Could not parse the analysis. Try again." });
+      report = await runAnalysis(jd);
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message, detail: err.detail });
       return;
     }
 

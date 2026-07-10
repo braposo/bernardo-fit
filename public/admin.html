@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>bernardo-fit — admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --accent: oklch(0.52 0.14 250);
+    --accent-deep: oklch(0.42 0.14 250);
+    --good: oklch(0.52 0.11 155);
+    --warn: oklch(0.64 0.13 70);
+    --weak: oklch(0.54 0.15 25);
+    --weak-soft: oklch(0.54 0.15 25 / 0.10);
+    --paper: #faf8f4;
+    --ink: #211f1a;
+    --sub: #78746a;
+    --hair: rgba(33, 31, 26, 0.11);
+    --hair-strong: rgba(33, 31, 26, 0.2);
+    --sans: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    --display: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --maxw: 1080px;
+    --pad: clamp(20px, 5vw, 60px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  .frame { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad); }
+
+  .masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 28px 0; flex-wrap: wrap; }
+  .mark { font-family: var(--display); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .mark .dot { color: var(--accent); }
+  .kicker { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--sub); }
+
+  /* Gate */
+  .gate { max-width: 360px; margin: 15vh auto 0; text-align: center; }
+  .gate h1 { font-family: var(--display); font-size: 26px; font-weight: 600; margin: 0 0 8px; }
+  .gate p { color: var(--sub); font-size: 14px; margin: 0 0 22px; }
+  input[type="password"] {
+    width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--hair-strong);
+    padding: 12px 2px; font-family: var(--mono); font-size: 15px; color: var(--ink); text-align: center;
+  }
+  input[type="password"]:focus { outline: none; border-bottom-color: var(--accent); }
+  button {
+    appearance: none; border: none; background: var(--ink); color: var(--paper); font-family: var(--sans);
+    font-weight: 500; font-size: 14px; padding: 11px 22px; border-radius: 100px; cursor: pointer;
+  }
+  button:hover { background: var(--accent-deep); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.ghost {
+    background: transparent; border: 1px solid var(--hair-strong); color: var(--ink); font-size: 12.5px; padding: 7px 14px;
+  }
+  button.ghost:hover { border-color: var(--accent); color: var(--accent-deep); background: transparent; }
+  button.danger { color: var(--weak); }
+  button.danger:hover { border-color: var(--weak); color: var(--weak); }
+  .gate .row { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+  .gate .err { color: var(--weak); font-size: 13px; margin-top: 14px; }
+
+  /* List */
+  .toolbar { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 8px 0 30px; flex-wrap: wrap; }
+  .toolbar h1 { font-family: var(--display); font-size: clamp(26px, 4vw, 36px); font-weight: 600; margin: 0; letter-spacing: -0.02em; }
+  .toolbar .count { font-family: var(--mono); font-size: 12px; color: var(--sub); }
+
+  .row-item { border-top: 1px solid var(--hair); padding: 20px 0; }
+  .row-item:last-child { border-bottom: 1px solid var(--hair); }
+  .row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .row-title { font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .row-title .company { color: var(--accent); }
+  .row-meta { font-family: var(--mono); font-size: 11px; color: var(--sub); margin-top: 5px; letter-spacing: 0.02em; }
+  .row-score { font-family: var(--display); font-weight: 600; font-size: 22px; flex: none; }
+  .row-jd {
+    margin-top: 12px; font-size: 13.5px; line-height: 1.55; color: var(--sub); white-space: pre-wrap;
+    max-height: 4.6em; overflow: hidden; cursor: pointer; position: relative;
+  }
+  .row-jd.expanded { max-height: none; }
+  .row-jd::after {
+    content: "show more"; display: block; font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--accent); margin-top: 4px;
+  }
+  .row-jd.expanded::after { content: "show less"; }
+  .row-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+  .row-status { font-family: var(--mono); font-size: 11px; color: var(--sub); }
+  .row-status.err { color: var(--weak); }
+  .row-status.ok { color: var(--good); }
+
+  .empty { text-align: center; color: var(--sub); padding: 80px 0; font-family: var(--display); font-size: 18px; }
+  .loadmore { text-align: center; margin: 32px 0 60px; }
+</style>
+</head>
+<body>
+  <div class="frame"><div class="masthead">
+    <div class="mark">bernardo-fit<span class="dot">.</span></div>
+    <div class="kicker">Admin</div>
+  </div></div>
+  <main id="app"></main>
+
+<script>
+(function () {
+  "use strict";
+
+  var app = document.getElementById("app");
+  var SECRET_KEY = "bfit_admin_secret";
+  var secret = sessionStorage.getItem(SECRET_KEY) || "";
+  var reports = [];
+  var total = 0;
+  var offset = 0;
+  var LIMIT = 20;
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) +
+      " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+  function tierColor(score) {
+    if (score >= 90) return "var(--good)";
+    if (score >= 75) return "var(--accent)";
+    if (score >= 60) return "var(--warn)";
+    return "var(--weak)";
+  }
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ "x-admin-secret": secret }, opts.headers || {});
+    return fetch(path, opts)
+      .then(function (res) {
+        return res.json()
+          .catch(function () { return { error: "Unexpected response from server." }; })
+          .then(function (d) { return { ok: res.ok, status: res.status, d: d }; });
+      })
+      .catch(function () {
+        return { ok: false, status: 0, d: { error: "Network error — check your connection and try again." } };
+      });
+  }
+
+  function renderGate(err) {
+    app.innerHTML =
+      '<div class="frame"><div class="gate">' +
+        "<h1>Locked</h1>" +
+        "<p>Enter the admin secret to continue.</p>" +
+        '<input type="password" id="secret" placeholder="Admin secret" autofocus />' +
+        (err ? '<div class="err">' + esc(err) + "</div>" : "") +
+        '<div class="row"><button id="unlock">Unlock</button></div>' +
+      "</div></div>";
+
+    var input = document.getElementById("secret");
+    function tryUnlock() {
+      secret = input.value.trim();
+      if (!secret) return;
+      loadReports(true);
+    }
+    document.getElementById("unlock").addEventListener("click", tryUnlock);
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") tryUnlock(); });
+  }
+
+  function rowHtml(r) {
+    var title = esc(r.job_title || "Untitled role");
+    var company = r.company ? ' <span class="company">at ' + esc(r.company) + "</span>" : "";
+    var score = r.overall_score != null ? r.overall_score : null;
+    var link = location.origin + "/?r=" + encodeURIComponent(r.id);
+    return (
+      '<div class="row-item" data-id="' + esc(r.id) + '">' +
+        '<div class="row-top">' +
+          "<div>" +
+            '<div class="row-title">' + title + company + "</div>" +
+            '<div class="row-meta">' + fmtDate(r.created_at) +
+              (r.regenerated_at ? " · regenerated " + fmtDate(r.regenerated_at) : "") +
+              " · " + esc(r.id) + "</div>" +
+          "</div>" +
+          (score != null ? '<div class="row-score" style="color:' + tierColor(score) + '">' + esc(score) + "</div>" : "") +
+        "</div>" +
+        '<div class="row-jd" data-full="1">' + esc(r.job_description || "") + "</div>" +
+        '<div class="row-actions">' +
+          '<button class="ghost" data-act="copy" data-link="' + esc(link) + '">Copy link</button>' +
+          '<a class="ghost" style="text-decoration:none;display:inline-block" href="' + esc(link) + '" target="_blank" rel="noopener">Open</a>' +
+          '<button class="ghost" data-act="regen">Regenerate</button>' +
+          '<button class="ghost danger" data-act="delete">Delete</button>' +
+          '<span class="row-status"></span>' +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderList() {
+    var html = '<div class="frame">' +
+      '<div class="toolbar"><h1>Saved analyses</h1><span class="count">' + reports.length + " of " + total + "</span></div>";
+
+    if (!reports.length) {
+      html += '<div class="empty">Nothing saved yet.</div>';
+    } else {
+      html += reports.map(rowHtml).join("");
+    }
+    html += "</div>";
+
+    if (reports.length < total) {
+      html += '<div class="loadmore"><button class="ghost" id="loadmore">Load more</button></div>';
+    }
+
+    app.innerHTML = html;
+
+    if (reports.length < total) {
+      document.getElementById("loadmore").addEventListener("click", function () { loadReports(false); });
+    }
+
+    // Expand/collapse JD
+    Array.prototype.forEach.call(document.querySelectorAll(".row-jd"), function (el) {
+      el.addEventListener("click", function () { el.classList.toggle("expanded"); });
+    });
+
+    // Row actions
+    Array.prototype.forEach.call(document.querySelectorAll(".row-item"), function (rowEl) {
+      var id = rowEl.getAttribute("data-id");
+      var status = rowEl.querySelector(".row-status");
+
+      var copyBtn = rowEl.querySelector('[data-act="copy"]');
+      copyBtn.addEventListener("click", function () {
+        navigator.clipboard.writeText(copyBtn.getAttribute("data-link")).then(function () {
+          copyBtn.textContent = "Copied";
+          setTimeout(function () { copyBtn.textContent = "Copy link"; }, 1600);
+        });
+      });
+
+      rowEl.querySelector('[data-act="delete"]').addEventListener("click", function () {
+        if (!confirm("Delete this analysis permanently? This can't be undone.")) return;
+        status.textContent = "Deleting…"; status.className = "row-status";
+        api("/api/admin/reports?id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (out) {
+          if (!out.ok) { status.textContent = out.d.error || "Failed to delete."; status.className = "row-status err"; return; }
+          rowEl.remove();
+          reports = reports.filter(function (r) { return r.id !== id; });
+          total -= 1;
+          var countEl = document.querySelector(".toolbar .count");
+          if (countEl) countEl.textContent = reports.length + " of " + total;
+        });
+      });
+
+      rowEl.querySelector('[data-act="regen"]').addEventListener("click", function (e) {
+        var btn = e.currentTarget;
+        btn.disabled = true;
+        status.textContent = "Regenerating…"; status.className = "row-status";
+        api("/api/admin/regenerate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: id }),
+        }).then(function (out) {
+          btn.disabled = false;
+          if (!out.ok) { status.textContent = out.d.error || "Failed to regenerate."; status.className = "row-status err"; return; }
+          var idx = reports.findIndex(function (r) { return r.id === id; });
+          if (idx !== -1) reports[idx] = Object.assign({ id: id }, out.d.report);
+          status.textContent = "Regenerated"; status.className = "row-status ok";
+          var fresh = document.createElement("div");
+          fresh.innerHTML = rowHtml(reports[idx]);
+          rowEl.replaceWith(fresh.firstChild);
+          renderList();
+        });
+      });
+    });
+  }
+
+  function loadReports(reset) {
+    if (reset) { offset = 0; reports = []; }
+    api("/api/admin/reports?offset=" + offset + "&limit=" + LIMIT, { method: "GET" }).then(function (out) {
+      if (!out.ok) {
+        if (out.status === 401) { sessionStorage.removeItem(SECRET_KEY); renderGate(reset ? "Wrong secret." : "Session expired."); return; }
+        renderGate(out.d && out.d.error ? out.d.error : "Something went wrong.");
+        return;
+      }
+      sessionStorage.setItem(SECRET_KEY, secret);
+      reports = reports.concat(out.d.reports);
+      total = out.d.total;
+      offset += out.d.reports.length;
+      renderList();
+    });
+  }
+
+  if (secret) loadReports(true);
+  else renderGate();
+})();
+</script>
+</body>
+</html>

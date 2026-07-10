@@ -6,10 +6,15 @@ A small tool you can host on your own site. Someone pastes a job description, an
 
 ```
 public/index.html      ← the whole frontend (no build step)
-api/analyze.js         ← runs the analysis (your API key stays server-side), saves it, returns an id
-api/report.js          ← loads a saved analysis by id (powers the permalink)
-api/_profile.js        ← your full profile + the first-person system prompt
-api/_store.js          ← storage (Vercel KV by default; swap for anything)
+public/admin.html      ← admin page: list, delete, and regenerate saved analyses
+api/analyze.js          ← runs the analysis (your API key stays server-side), saves it, returns an id
+api/report.js           ← loads a saved analysis by id (powers the permalink)
+api/_analyze.js         ← the actual Anthropic call + JSON parsing, shared by analyze and admin regenerate
+api/_profile.js         ← your full profile + the first-person system prompt
+api/_store.js           ← storage (Vercel KV by default; swap for anything)
+api/_admin.js           ← shared-secret auth for the admin endpoints
+api/admin/reports.js    ← list / delete saved analyses
+api/admin/regenerate.js ← re-run the analysis for a saved job description, in place
 ```
 
 Flow: paste JD → `/api/analyze` runs it as *you*, in first person → result is stored under a short id → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the same read forever.
@@ -30,6 +35,10 @@ Works the same way — move `api/*` to `netlify/functions/*`, and swap `api/_sto
 ## Embedding on your existing site
 
 The frontend is one self-contained `index.html`. Drop it at a path like `/fit` on your site, point the two `fetch` calls at wherever your functions live, and you're set. It carries no framework and no external JS dependencies (just Google Fonts).
+
+## Admin page
+
+`/admin` lists every saved analysis — created date, job description, score, permalink — and lets you delete an entry or regenerate its analysis in place (same id, same permalink, fresh content from the current profile/prompt). Gated by a shared secret: set an **`ADMIN_SECRET`** environment variable (a long random string) and enter it on the page — it's kept in `sessionStorage`, not persisted anywhere else. Regenerating bypasses the dedup cache and per-IP rate limit (it's you, not a visitor).
 
 ## Editing what it says about you
 

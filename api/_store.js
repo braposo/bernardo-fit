@@ -32,8 +32,11 @@ export function hashJD(jd) {
 const hasKV =
   !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
 
+const INDEX_KEY = "fit:index"; // sorted set of report ids, scored by creation time
+
 // --- In-memory fallback (dev only) ---
 const memory = new Map(); // key -> { value, expiresAt }
+const memIndex = []; // [{ id, score }], newest last
 
 function memGet(key) {
   const e = memory.get(key);
@@ -69,14 +72,17 @@ const REPORT_TTL = 60 * 60 * 24 * 365; // 1 year; set to 0 to keep forever
 export async function saveReport(report) {
   const id = makeId();
   const hash = hashJD(report.job_description || "");
+  const score = Date.now();
   if (hasKV) {
     const store = await kv();
     const opts = REPORT_TTL ? { ex: REPORT_TTL } : undefined;
     await store.set(`fit:${id}`, report, opts);
     if (hash) await store.set(`jdhash:${hash}`, id, opts);
+    await store.zadd(INDEX_KEY, { score, member: id });
   } else {
     memSet(`fit:${id}`, report, REPORT_TTL);
     if (hash) memSet(`jdhash:${hash}`, id, REPORT_TTL);
+    memIndex.push({ id, score });
   }
   return id;
 }
@@ -87,6 +93,60 @@ export async function getReport(id) {
     return (await store.get(`fit:${id}`)) || null;
   }
   return memGet(`fit:${id}`) || null;
+}
+
+// Overwrite an existing report in place (used by admin regenerate) — keeps
+// the same id and permalink, doesn't touch the dedup hash or index entry.
+export async function overwriteReport(id, report) {
+  if (hasKV) {
+    const store = await kv();
+    const opts = REPORT_TTL ? { ex: REPORT_TTL } : undefined;
+    await store.set(`fit:${id}`, report, opts);
+  } else {
+    memSet(`fit:${id}`, report, REPORT_TTL);
+  }
+}
+
+// --- Admin: list / delete ---
+
+// Most-recent-first page of saved reports.
+export async function listReports({ offset = 0, limit = 20 } = {}) {
+  if (hasKV) {
+    const store = await kv();
+    const total = await store.zcard(INDEX_KEY);
+    const ids = await store.zrange(INDEX_KEY, offset, offset + limit - 1, { rev: true });
+    if (!ids.length) return { reports: [], total };
+    const reports = await Promise.all(ids.map((id) => store.get(`fit:${id}`)));
+    return {
+      reports: ids.map((id, i) => ({ id, ...reports[i] })).filter((r) => r.created_at),
+      total,
+    };
+  }
+  const sorted = memIndex.slice().sort((a, b) => b.score - a.score);
+  const page = sorted.slice(offset, offset + limit);
+  return {
+    reports: page.map(({ id }) => ({ id, ...(memGet(`fit:${id}`) || {}) })).filter((r) => r.created_at),
+    total: memIndex.length,
+  };
+}
+
+// Deletes a report, its dedup hash entry, and its index entry.
+export async function deleteReport(id) {
+  const report = await getReport(id);
+  if (!report) return false;
+  const hash = hashJD(report.job_description || "");
+  if (hasKV) {
+    const store = await kv();
+    await store.del(`fit:${id}`);
+    if (hash) await store.del(`jdhash:${hash}`);
+    await store.zrem(INDEX_KEY, id);
+  } else {
+    memory.delete(`fit:${id}`);
+    if (hash) memory.delete(`jdhash:${hash}`);
+    const idx = memIndex.findIndex((e) => e.id === id);
+    if (idx !== -1) memIndex.splice(idx, 1);
+  }
+  return true;
 }
 
 // Returns { id, report } if this exact JD was already analysed, else null.
