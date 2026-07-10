@@ -181,10 +181,11 @@
   /* Share row — minimal, inline */
   .sharebar {
     margin-top: clamp(40px, 7vw, 60px); padding-top: clamp(24px, 4vw, 32px); border-top: 1px solid var(--hair);
-    display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 14px 20px; flex-wrap: wrap;
   }
   .sharebar .lbl { font-size: 13.5px; color: var(--sub); flex: 1; min-width: 180px; line-height: 1.5; }
   .sharebar .lbl b { color: var(--ink); font-weight: 600; }
+  .sharebar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   .linkbtn {
     appearance: none; border: 1px solid var(--hair-strong); background: transparent; color: var(--ink);
     font-family: var(--sans); font-weight: 500; font-size: 13.5px; padding: 10px 18px; border-radius: 100px;
@@ -341,9 +342,11 @@
 
         '<div class="sharebar">' +
           '<span class="lbl">' + (state.cached ? '<b>Already analysed.</b> This role was run before — same link, same read.' : '<b>Keep this link.</b> It\'ll always show this exact read.') + '</span>' +
-          '<button class="linkbtn" id="copy">Copy link</button>' +
-          '<a class="linkbtn" href="/bernardo-raposo-cv.pdf" target="_blank" rel="noopener">Download CV</a>' +
-          '<button class="linkbtn" id="new">New role</button>' +
+          '<div class="sharebar-actions">' +
+            '<button class="linkbtn" id="copy">Copy link</button>' +
+            '<a class="linkbtn" href="/bernardo-raposo-cv.pdf" target="_blank" rel="noopener">Download CV</a>' +
+            '<button class="linkbtn" id="new">New role</button>' +
+          '</div>' +
         '</div>' +
       '</div></div>' +
       FOOTER;

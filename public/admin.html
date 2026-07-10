@@ -51,12 +51,14 @@
   }
   button:hover { background: var(--accent-deep); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
-  button.ghost {
-    background: transparent; border: 1px solid var(--hair-strong); color: var(--ink); font-size: 12.5px; padding: 7px 14px;
+  .ghost {
+    appearance: none; background: transparent; border: 1px solid var(--hair-strong); color: var(--ink);
+    font-family: var(--sans); font-weight: 500; font-size: 12.5px; padding: 7px 14px; border-radius: 100px;
+    cursor: pointer; text-decoration: none; display: inline-block; line-height: 1.4;
   }
-  button.ghost:hover { border-color: var(--accent); color: var(--accent-deep); background: transparent; }
-  button.danger { color: var(--weak); }
-  button.danger:hover { border-color: var(--weak); color: var(--weak); }
+  .ghost:hover { border-color: var(--accent); color: var(--accent-deep); background: transparent; }
+  .danger { color: var(--weak); }
+  .danger:hover { border-color: var(--weak); color: var(--weak); }
   .gate .row { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
   .gate .err { color: var(--weak); font-size: 13px; margin-top: 14px; }
 
@@ -179,7 +181,7 @@
         '<div class="row-jd" data-full="1">' + esc(r.job_description || "") + "</div>" +
         '<div class="row-actions">' +
           '<button class="ghost" data-act="copy" data-link="' + esc(link) + '">Copy link</button>' +
-          '<a class="ghost" style="text-decoration:none;display:inline-block" href="' + esc(link) + '" target="_blank" rel="noopener">Open</a>' +
+          '<a class="ghost" href="' + esc(link) + '" target="_blank" rel="noopener">Open</a>' +
           '<button class="ghost" data-act="regen">Regenerate</button>' +
           '<button class="ghost danger" data-act="delete">Delete</button>' +
           '<span class="row-status"></span>' +
