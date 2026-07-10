@@ -1,0 +1,10 @@
+{
+  "name": "bernardo-fit",
+  "version": "1.0.0",
+  "description": "A first-person job-fit tool for Bernardo Raposo — paste a role, get an honest read, share a permalink.",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@vercel/kv": "^2.0.0"
+  }
+}
