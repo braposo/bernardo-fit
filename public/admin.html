@@ -73,7 +73,10 @@
   .row-title { font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
   .row-title .company { color: var(--accent); }
   .row-meta { font-family: var(--mono); font-size: 11px; color: var(--sub); margin-top: 5px; letter-spacing: 0.02em; }
-  .row-score { font-family: var(--display); font-weight: 600; font-size: 22px; flex: none; }
+  .row-verdict {
+    font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; flex: none; padding-top: 4px; white-space: nowrap;
+  }
   .row-jd {
     margin-top: 12px; font-size: 13.5px; line-height: 1.55; color: var(--sub); white-space: pre-wrap;
     max-height: 4.6em; overflow: hidden; cursor: pointer; position: relative;
@@ -121,11 +124,11 @@
     return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) +
       " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
-  function tierColor(score) {
-    if (score >= 90) return "var(--good)";
-    if (score >= 75) return "var(--accent)";
-    if (score >= 60) return "var(--warn)";
-    return "var(--weak)";
+  function verdictColor(v) {
+    return ({ STRONG_MATCH: "var(--good)", GOOD_MATCH: "var(--accent)", PARTIAL_MATCH: "var(--warn)", WEAK_MATCH: "var(--weak)" })[v] || "var(--sub)";
+  }
+  function verdictLabel(v) {
+    return ({ STRONG_MATCH: "Strong fit", GOOD_MATCH: "Good fit", PARTIAL_MATCH: "Partial fit", WEAK_MATCH: "Honest stretch" })[v] || "";
   }
 
   function api(path, opts) {
@@ -165,7 +168,7 @@
   function rowHtml(r) {
     var title = esc(r.job_title || "Untitled role");
     var company = r.company ? ' <span class="company">at ' + esc(r.company) + "</span>" : "";
-    var score = r.overall_score != null ? r.overall_score : null;
+    var verdict = verdictLabel(r.overall_verdict);
     var link = location.origin + "/?r=" + encodeURIComponent(r.id);
     return (
       '<div class="row-item" data-id="' + esc(r.id) + '">' +
@@ -176,7 +179,7 @@
               (r.regenerated_at ? " · regenerated " + fmtDate(r.regenerated_at) : "") +
               " · " + esc(r.id) + "</div>" +
           "</div>" +
-          (score != null ? '<div class="row-score" style="color:' + tierColor(score) + '">' + esc(score) + "</div>" : "") +
+          (verdict ? '<div class="row-verdict" style="color:' + verdictColor(r.overall_verdict) + '">' + esc(verdict) + "</div>" : "") +
         "</div>" +
         '<div class="row-jd" data-full="1">' + esc(r.job_description || "") + "</div>" +
         '<div class="row-actions">' +

@@ -23,7 +23,6 @@
     --body2: #45423a;
     --hair: rgba(33, 31, 26, 0.11);
     --hair-strong: rgba(33, 31, 26, 0.2);
-    --track: rgba(33, 31, 26, 0.07);
     --sans: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
     --display: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif;
     --mono: 'IBM Plex Mono', monospace;
@@ -110,28 +109,19 @@
   }
   .role-title .company { color: var(--accent); }
 
-  /* Verdict — open composition, no box */
+  /* Verdict — open composition, no box; the pitch carries the hero */
   .verdict {
     margin-top: clamp(40px, 7vw, 64px); padding-bottom: clamp(36px, 6vw, 52px);
     border-bottom: 1px solid var(--hair);
-    display: grid; grid-template-columns: auto 1fr; gap: clamp(24px, 5vw, 48px); align-items: end;
   }
-  .verdict-score { display: flex; flex-direction: column; }
-  .verdict-score .num {
-    font-family: var(--display); font-weight: 600; font-size: clamp(88px, 20vw, 168px); line-height: 0.82;
-    letter-spacing: -0.055em; font-variant-numeric: tabular-nums;
-  }
-  .verdict-meter { margin-top: 18px; height: 3px; background: var(--track); border-radius: 3px; overflow: hidden; width: clamp(120px, 30vw, 200px); }
-  .verdict-meter .fill { display: block; height: 100%; width: 0; border-radius: 3px; transition: width 1.1s var(--ease); }
-  .verdict-copy { padding-bottom: 6px; }
   .verdict-label {
     font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
     display: inline-flex; align-items: center; gap: 8px;
   }
   .verdict-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-  .verdict-copy .pitch {
-    font-family: var(--display); font-size: clamp(19px, 2.6vw, 28px); font-weight: 400; line-height: 1.4;
-    letter-spacing: -0.015em; margin: 16px 0 0; color: var(--ink); text-wrap: pretty; max-width: 34ch;
+  .verdict .pitch {
+    font-family: var(--display); font-size: clamp(21px, 3vw, 32px); font-weight: 400; line-height: 1.35;
+    letter-spacing: -0.02em; margin: 20px 0 0; color: var(--ink); text-wrap: pretty; max-width: 42ch;
   }
 
   /* Section label */
@@ -143,16 +133,12 @@
   /* Categories — editorial list, no boxes */
   .cats { display: flex; flex-direction: column; }
   .cat {
-    display: grid; grid-template-columns: clamp(54px, 9vw, 96px) minmax(0, 22ch) 1fr; column-gap: clamp(18px, 4vw, 48px); row-gap: 10px;
+    display: grid; grid-template-columns: minmax(0, 22ch) 1fr; column-gap: clamp(18px, 4vw, 48px); row-gap: 8px;
     padding: clamp(22px, 3.4vw, 34px) 0; border-top: 1px solid var(--hair); align-items: start;
   }
   .cat:last-child { border-bottom: 1px solid var(--hair); }
-  .cat-score { font-family: var(--display); font-weight: 500; font-size: clamp(34px, 5vw, 52px); letter-spacing: -0.035em; line-height: 0.9; font-variant-numeric: tabular-nums; grid-row: span 2; }
   .cat-name { font-family: var(--display); font-weight: 600; font-size: clamp(16px, 2.2vw, 21px); letter-spacing: -0.01em; }
-  .cat-body { display: flex; flex-direction: column; gap: 12px; }
   .cat-note { font-size: clamp(14.5px, 1.5vw, 16px); line-height: 1.55; color: var(--sub); text-wrap: pretty; max-width: 56ch; }
-  .cat-meter { height: 2px; background: var(--track); border-radius: 2px; overflow: hidden; max-width: 340px; }
-  .cat-meter .fill { display: block; height: 100%; width: 0; border-radius: 2px; transition: width 1s var(--ease); }
 
   /* Differentiators */
   .diffs { display: flex; flex-direction: column; }
@@ -205,9 +191,7 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
   @media (max-width: 560px) {
-    .verdict { grid-template-columns: 1fr; align-items: start; gap: 20px; }
-    .verdict-copy { padding-bottom: 0; }
-    .cat { grid-template-columns: clamp(48px, 16vw, 64px) 1fr; row-gap: 6px; }
+    .cat { grid-template-columns: 1fr; row-gap: 6px; }
   }
 </style>
 </head>
@@ -227,12 +211,6 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  function tier(n) {
-    if (n >= 90) return "strong";
-    if (n >= 75) return "good";
-    if (n >= 60) return "partial";
-    return "weak";
-  }
   function tierColor(t) {
     return ({ strong: "var(--good)", good: "var(--accent)", partial: "var(--warn)", weak: "var(--weak)" })[t];
   }
@@ -284,15 +262,10 @@
 
   function renderReport(r, id) {
     var cats = (r.categories || []).map(function (c) {
-      var col = tierColor(tier(c.score));
       return (
         '<div class="cat">' +
-          '<div class="cat-score" style="color:' + col + '">' + esc(c.score) + '</div>' +
           '<div class="cat-name">' + esc(c.name) + '</div>' +
-          '<div class="cat-body">' +
-            '<div class="cat-meter"><span class="fill" data-target="' + c.score + '%" style="background:' + col + '"></span></div>' +
-            '<div class="cat-note">' + esc(c.note) + '</div>' +
-          '</div>' +
+          '<div class="cat-note">' + esc(c.note) + '</div>' +
         '</div>'
       );
     }).join("");
@@ -319,14 +292,8 @@
         '<h1 class="role-title">' + roleLine + '</h1>' +
 
         '<div class="verdict">' +
-          '<div class="verdict-score">' +
-            '<span class="num" style="color:' + vColor + '">' + esc(r.overall_score) + '</span>' +
-            '<span class="verdict-meter"><span class="fill" data-target="' + r.overall_score + '%" style="background:' + vColor + '"></span></span>' +
-          '</div>' +
-          '<div class="verdict-copy">' +
-            '<span class="verdict-label" style="color:' + vColor + '">' + esc(verdictLabel(r.overall_verdict)) + '</span>' +
-            '<p class="pitch">' + esc(r.pitch) + '</p>' +
-          '</div>' +
+          '<span class="verdict-label" style="color:' + vColor + '">' + esc(verdictLabel(r.overall_verdict)) + '</span>' +
+          '<p class="pitch">' + esc(r.pitch) + '</p>' +
         '</div>' +
 
         '<div class="section-label">Where I land</div>' +
@@ -350,14 +317,6 @@
         '</div>' +
       '</div></div>' +
       FOOTER;
-
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        Array.prototype.forEach.call(document.querySelectorAll(".fill"), function (el) {
-          el.style.width = el.getAttribute("data-target");
-        });
-      });
-    });
 
     var copyBtn = document.getElementById("copy");
     copyBtn.addEventListener("click", function () {
@@ -384,15 +343,14 @@
   var DEMO_REPORT = {
     job_title: "Head of Frontend Engineering",
     company: "Aurora Health",
-    overall_score: 88,
     overall_verdict: "STRONG_MATCH",
     pitch: "This is close to the job I've been doing for five years, just with a sharper product edge. I lead technically while staying hands-on, and I've taken a platform through exactly this kind of modernisation before.",
     categories: [
-      { name: "Technical fit", score: 92, note: "React, Next.js, TypeScript and design systems are my daily tools — I've built two design systems from scratch." },
-      { name: "Leadership & management", score: 90, note: "Five years as EM, hiring and promoting engineers while staying the technical authority." },
-      { name: "Domain & context", score: 74, note: "No direct healthcare experience, but I've worked in regulated, high-trust B2C products before." },
-      { name: "Ways of working", score: 86, note: "High-trust, high-context, product-minded — this matches how the JD describes the team." },
-      { name: "Seniority & scope", score: 88, note: "The scope here — platform, team and roadmap — is exactly what I owned at SingleStore." }
+      { name: "Technical fit", note: "React, Next.js, TypeScript and design systems are my daily tools — I've built two design systems from scratch, at EDITED and TravelRepublic. I go from Figma to production myself, so I can hold a real technical conversation with the team rather than just reviewing from a distance." },
+      { name: "Leadership & management", note: "Five years as EM at SingleStore, hiring two engineers and writing both promotion cases myself, while staying the technical authority on the team. My whole approach is stripping interference so people can own outcomes end to end." },
+      { name: "Domain & context", note: "I haven't worked in healthcare directly since my first role, where I built the web interface for a wearable elderly-care sensor system at Critical Software — but I've spent my career on high-trust, high-traffic consumer and developer platforms where correctness and reliability matter. Travel bookings at Emirates Group scale carry a lot of the same weight." },
+      { name: "Ways of working", note: "High-trust, high-context, product-minded — I write the vision down so people know the why, then hand over real ownership. That matches how this JD describes the team almost exactly." },
+      { name: "Seniority & scope", note: "I led TravelRepublic's platform across three brands with many thousands of daily visitors as Principal Engineer, and owned website, docs, CMS, an AI assistant and an MCP server at SingleStore. The scope here — platform, team and roadmap — is the shape I've been operating at for years." }
     ],
     differentiators: [
       { headline: "Player-coach by design", detail: "I stay in code review and architecture debates while managing people — not a manager who left engineering behind." },

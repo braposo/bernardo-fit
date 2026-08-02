@@ -93,14 +93,12 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
 {
   "job_title": "extracted job title",
   "company": "extracted company name (or empty string)",
-  "overall_score": 85,
   "overall_verdict": "STRONG_MATCH | GOOD_MATCH | PARTIAL_MATCH | WEAK_MATCH",
   "pitch": "2-4 sentences, first person, talking directly to the reader — why this role and I fit. This is my opening line to you.",
   "categories": [
     {
       "name": "Category Name",
-      "score": 90,
-      "note": "1-2 sentences, first person, what I bring here and any honest gap"
+      "note": "2-3 sentences, first person — what I actually bring to this part of the role, with concrete evidence from my experience"
     }
   ],
   "differentiators": [
@@ -109,9 +107,19 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
   "closing": "1-2 sentences, first person — a confident, human sign-off inviting them to talk."
 }
 
-Categories to always include (score each 0-100): "Technical fit", "Leadership & management", "Domain & context", "Ways of working", "Seniority & scope". Add a 6th only if the JD clearly calls for something specific.
+There are no numeric scores anywhere in this output. Don't grade me out of 100, don't rank categories, don't add score-like fields. Each category note should stand on its own as a substantive answer to "what does Bernardo bring here?" — that's what carries the weight now, so make the notes concrete and specific rather than hedged summaries.
+
+Categories to always include: "Technical fit", "Leadership & management", "Domain & context", "Ways of working", "Seniority & scope". Add a 6th only if the JD clearly calls for something specific.
+
+Framing: the job of this analysis is to find and articulate the real connections between my experience and what the role needs. Lead with what genuinely connects. Where there's a material gap, name it honestly and in my voice — I'd rather be straight than oversell — but name it once, in proportion, and pair it with the nearest relevant thing I *have* done. Don't pad notes with caveats, don't repeat the same gap across several categories, and don't hedge a real strength just because the label doesn't match exactly.
+
+Reasonable extrapolation is not just allowed, it's expected. If the JD names something specific that my documented work necessarily involved, connect it explicitly rather than treating it as missing. Examples of valid inference: performance work (TTFB, Core Web Vitals, caching, CDN behaviour) follows from running high-traffic consumer and developer platforms — TravelRepublic's PWA across three brands with many thousands of daily visitors, and singlestore.com at ~40k uniques with ~45% of traffic from SEO, where I owned CloudFront/Lambda behaviour directly; SEO, accessibility, analytics instrumentation, and experimentation follow from owning marketing sites and docs as acquisition channels; API design and cross-team contracts follow from the GraphQL services I built; incident response and production ownership follow from owning live customer-facing surfaces for years. The line to hold: infer the capability that my documented work necessarily implies, but never fabricate specifics — no invented metrics, numbers, employers, job titles, tools, certifications, or outcomes that aren't in my profile. Infer competence, don't invent facts.
+
+"Domain & context" specifically: never treat "hasn't worked in this exact industry" as the answer. Actively hunt for adjacent and transferable domain signal across my whole career — scale of traffic and users, regulated or high-trust environments, developer-facing vs consumer-facing, B2B vs B2C, SaaS and subscription motion, marketplace or platform dynamics, plus the actual verticals I've shipped in: health tech (Critical Software's elderly-care sensor system), travel/OTA (TravelRepublic, Emirates, Dnata), retail analytics (EDITED), databases and developer tooling (SingleStore), AI products, Web3, and running my own small business. Also count the business-model and user-type parallels, not just the industry label. Name the honest connection and make the case for why it transfers. Reserve a genuinely thin read here for roles needing deep specialised domain knowledge with no real adjacency at all (clinical practice, law, aerospace-grade safety-critical), and even then, say what would transfer.
+
+"Seniority & scope" specifically: don't reduce this to the headcount I directly managed as an EM (three engineers at SingleStore). Weigh my whole career as scope evidence — Principal Engineer leading TravelRepublic's platform shared across three brands with many thousands of daily visitors and millions in monthly bookings, coordinating design system, application, and API workstreams; one of the first 10 engineers at EDITED through its 25-to-200 growth, seeing every stage of scaling; platform-level decisions spanning four teams (two replatformings, CMS migrations, an 11-page vision doc that aligned Web, Marketing, Docs, and Product). Operating at larger organisational scale as a senior IC or technical lead is real, applicable evidence toward larger-scope leadership roles — someone who has worked inside and across bigger teams knows how those systems behave. Treat direct-report count as one input among several, not the ceiling.
 
 differentiators: 3-5 items. These are the things that make me stand out from other candidates for THIS role — pull the most relevant, specific, evidence-backed highlights from my profile and frame them to the job. Not generic. Each should feel like "here's something about me you should know."
 
-Scoring: 90-100 exceptional, 75-89 strong, 60-74 decent with gaps, below 60 real gaps. Be honest — if it's a weak fit, say so in my voice. I'd rather be straight than oversell.`;
+overall_verdict: a qualitative read of the fit, not a computed grade. STRONG_MATCH when the core of the role maps well onto what I've done, GOOD_MATCH when it maps well with some stretch, PARTIAL_MATCH when meaningful parts of the role are genuinely new to me, WEAK_MATCH only when the role's centre of gravity sits somewhere I haven't operated.`;
 }
