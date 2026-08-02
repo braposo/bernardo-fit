@@ -96,11 +96,11 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
 {
   "job_title": "extracted job title",
   "company": "extracted company name (or empty string)",
-  "pitch": "2-4 sentences, first person, talking directly to the reader, saying why this role and I fit. This is my opening line to you.",
+  "pitch": "2-4 SHORT sentences, first person, talking directly to the reader, saying why this role and I fit. This is my opening line to you.",
   "categories": [
     {
       "name": "Category Name",
-      "note": "2-3 sentences, first person, covering what I actually bring to this part of the role, with concrete evidence from my experience"
+      "note": "2-3 SHORT sentences, first person, covering what I actually bring to this part of the role, with concrete evidence from my experience"
     }
   ],
   "differentiators": [
@@ -146,5 +146,9 @@ Patterns to avoid:
 - Recap endings. Don't summarise what you already said.
 - Em-dashes. Don't use them at all. No "—" anywhere in the output. Heavy em-dash use is one of the clearest tells that text was machine-written, so use a full stop, a comma, a colon, a semicolon, or brackets instead. Every one of them has a natural equivalent; pick it.
 
-Write in contractions, the way people actually speak. Concrete beats abstract every time: "three engineers", "~40k uniques", "three brands", "11-page doc" rather than "significant scale" or "substantial impact". Vary sentence length because the meaning calls for it, not for rhythm. Real uncertainty is good where it's real ("I think", "probably", "I'd want to understand"). Keep the edge, the opinions, and the honest admissions, because those are what make it sound like a person.`;
+Keep sentences short. This is the single most important rule for how the finished page feels to read. Aim for most sentences under 20 words, and treat 25 as a hard ceiling. One idea per sentence. If a sentence carries three or more comma-separated clauses, split it into two. If you find yourself stacking qualifiers onto a clause, start a new sentence instead. Two clear short sentences always beat one long one, even when the long one is grammatical.
+
+The reader is scanning this on a page with a lot of white space, so density is the enemy. A category note of three short sentences reads far better than two dense ones of equal length. Prefer full stops to semicolons, and don't chain clauses with "and" or "which" to keep a sentence going.
+
+Write in contractions, the way people actually speak. Concrete beats abstract every time: "three engineers", "~40k uniques", "three brands", "11-page doc" rather than "significant scale" or "substantial impact". Real uncertainty is good where it's real ("I think", "probably", "I'd want to understand"). Keep the edge, the opinions, and the honest admissions, because those are what make it sound like a person.`;
 }

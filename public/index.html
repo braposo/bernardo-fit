@@ -114,8 +114,8 @@
     border-bottom: 1px solid var(--hair);
   }
   .pitch-block .pitch {
-    font-family: var(--display); font-size: clamp(21px, 3vw, 32px); font-weight: 400; line-height: 1.35;
-    letter-spacing: -0.02em; margin: 0; color: var(--ink); text-wrap: pretty; max-width: 42ch;
+    font-family: var(--display); font-size: clamp(21px, 2.8vw, 30px); font-weight: 400; line-height: 1.45;
+    letter-spacing: -0.02em; margin: 0; color: var(--ink); text-wrap: pretty; max-width: 38ch;
   }
 
   /* Section label */
@@ -127,32 +127,32 @@
   /* Categories — editorial list, no boxes */
   .cats { display: flex; flex-direction: column; }
   .cat {
-    display: grid; grid-template-columns: minmax(0, 22ch) 1fr; column-gap: clamp(18px, 4vw, 48px); row-gap: 8px;
-    padding: clamp(22px, 3.4vw, 34px) 0; border-top: 1px solid var(--hair); align-items: start;
+    display: grid; grid-template-columns: minmax(0, 20ch) 1fr; column-gap: clamp(20px, 4.5vw, 56px); row-gap: 12px;
+    padding: clamp(26px, 4vw, 40px) 0; border-top: 1px solid var(--hair); align-items: start;
   }
   .cat:last-child { border-bottom: 1px solid var(--hair); }
-  .cat-name { font-family: var(--display); font-weight: 600; font-size: clamp(16px, 2.2vw, 21px); letter-spacing: -0.01em; }
-  .cat-note { font-size: clamp(14.5px, 1.5vw, 16px); line-height: 1.55; color: var(--sub); text-wrap: pretty; max-width: 56ch; }
+  .cat-name { font-family: var(--display); font-weight: 600; font-size: clamp(16px, 2.2vw, 21px); letter-spacing: -0.01em; line-height: 1.3; }
+  .cat-note { font-size: clamp(15px, 1.5vw, 16px); line-height: 1.72; color: var(--sub); text-wrap: pretty; max-width: 48ch; }
 
   /* Differentiators */
   .diffs { display: flex; flex-direction: column; }
   .diff {
-    display: grid; grid-template-columns: clamp(54px, 9vw, 96px) 1fr; column-gap: clamp(18px, 4vw, 48px); row-gap: 6px;
-    padding: clamp(24px, 3.6vw, 36px) 0; border-top: 1px solid var(--hair); align-items: start;
+    display: grid; grid-template-columns: clamp(54px, 9vw, 96px) 1fr; column-gap: clamp(20px, 4.5vw, 56px); row-gap: 8px;
+    padding: clamp(28px, 4.2vw, 44px) 0; border-top: 1px solid var(--hair); align-items: start;
   }
   .diff:last-child { border-bottom: 1px solid var(--hair); }
   .diff-idx {
     font-family: var(--display); font-size: clamp(30px, 5vw, 50px); color: var(--accent); font-weight: 500;
     grid-row: span 2; line-height: 0.85; letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
   }
-  .diff-headline { font-family: var(--display); font-size: clamp(18px, 2.8vw, 26px); font-weight: 600; line-height: 1.22; letter-spacing: -0.015em; }
-  .diff-detail { font-size: clamp(15px, 1.5vw, 16.5px); line-height: 1.58; color: var(--sub); margin-top: 8px; max-width: 62ch; }
+  .diff-headline { font-family: var(--display); font-size: clamp(18px, 2.6vw, 24px); font-weight: 600; line-height: 1.28; letter-spacing: -0.015em; }
+  .diff-detail { font-size: clamp(15px, 1.5vw, 16px); line-height: 1.72; color: var(--sub); margin-top: 10px; max-width: 50ch; }
 
   /* Closing — open, no band */
   .closing-wrap { margin-top: clamp(48px, 8vw, 76px); }
   .closing {
-    font-family: var(--display); font-size: clamp(22px, 4vw, 40px); font-weight: 500; line-height: 1.28;
-    margin: 0; letter-spacing: -0.025em; text-wrap: pretty;
+    font-family: var(--display); font-size: clamp(21px, 3.2vw, 34px); font-weight: 500; line-height: 1.4;
+    margin: 0; letter-spacing: -0.02em; text-wrap: pretty;
   }
   .closing .accent { color: var(--accent); }
   .sign { margin-top: 24px; font-family: var(--display); font-weight: 600; font-size: 17px; }
@@ -185,7 +185,11 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
   @media (max-width: 560px) {
-    .cat { grid-template-columns: 1fr; row-gap: 6px; }
+    .cat { grid-template-columns: 1fr; row-gap: 8px; }
+    /* Stack the index above the headline so the detail keeps a readable measure */
+    .diff { grid-template-columns: 1fr; row-gap: 4px; }
+    .diff-idx { grid-row: auto; font-size: 26px; }
+    .diff-detail { margin-top: 8px; }
   }
 </style>
 </head>
@@ -324,20 +328,20 @@
   var DEMO_REPORT = {
     job_title: "Head of Frontend Engineering",
     company: "Aurora Health",
-    pitch: "This is close to the job I've been doing for five years, with a sharper product edge. I lead technically while staying hands-on, and I've taken a platform through this kind of modernisation before — twice, at SingleStore and TravelRepublic.",
+    pitch: "This is close to the job I've been doing for five years. I lead technically while staying hands-on. I've taken a platform through this kind of modernisation twice, at SingleStore and TravelRepublic.",
     categories: [
-      { name: "Technical fit", note: "React, Next.js, TypeScript and design systems are my daily tools — I've built two design systems from scratch, at EDITED and TravelRepublic. I go from Figma to production myself, so I can hold a real technical conversation with the team rather than just reviewing from a distance." },
-      { name: "Leadership & management", note: "Five years as EM at SingleStore, hiring two engineers and writing both promotion cases myself, while staying the technical authority on the team. My whole approach is stripping interference so people can own outcomes end to end." },
-      { name: "Domain & context", note: "I haven't worked in healthcare directly since my first role, where I built the web interface for a wearable elderly-care sensor system at Critical Software — but I've spent my career on high-trust, high-traffic consumer and developer platforms where correctness and reliability matter. Travel bookings at Emirates Group scale carry a lot of the same weight." },
-      { name: "Ways of working", note: "High-trust, high-context, product-minded — I write the vision down so people know the why, then hand over real ownership. That matches how this JD describes the team almost exactly." },
-      { name: "Seniority & scope", note: "I led TravelRepublic's platform across three brands with many thousands of daily visitors as Principal Engineer, and owned website, docs, CMS, an AI assistant and an MCP server at SingleStore. The scope here — platform, team and roadmap — is the shape I've been operating at for years." }
+      { name: "Technical fit", note: "React, Next.js and TypeScript are my daily tools. I've built two design systems from scratch, at EDITED and TravelRepublic. I go from Figma to production myself, so I can hold a real technical conversation with the team." },
+      { name: "Leadership & management", note: "Five years as EM at SingleStore. I hired two engineers and wrote both promotion cases myself. My approach is stripping interference so people can own outcomes end to end." },
+      { name: "Domain & context", note: "I haven't worked in healthcare since my first role, building the interface for an elderly-care sensor system at Critical Software. But my career has been high-trust, high-traffic platforms where reliability matters. Travel bookings at Emirates Group scale carry similar weight." },
+      { name: "Ways of working", note: "High-trust, high-context, product-minded. I write the vision down so people know the why, then hand over real ownership. That matches how this role describes the team." },
+      { name: "Seniority & scope", note: "As Principal Engineer I led TravelRepublic's platform across three brands. At SingleStore I owned the website, docs, CMS, an AI assistant and an MCP server. Platform, team and roadmap is the shape I've worked at for years." }
     ],
     differentiators: [
-      { headline: "Player-coach by design", detail: "I stay in code review and architecture debates while managing people — not a manager who left engineering behind." },
-      { headline: "Shipped two replatformings", detail: "Led the vision and execution for major platform rewrites at both SingleStore and TravelRepublic." },
-      { headline: "Early on AI in production", detail: "Shipped an AI assistant and one of the first MCP servers in our space, ahead of much bigger competitors." }
+      { headline: "Player-coach by design", detail: "I stay in code review and architecture debates while managing people. I haven't left the engineering behind." },
+      { headline: "Shipped two replatformings", detail: "I led the vision and the execution for major platform rewrites at both SingleStore and TravelRepublic." },
+      { headline: "Early on AI in production", detail: "I shipped an AI assistant and one of the first MCP servers in our space, ahead of much bigger competitors." }
     ],
-    closing: "If this is the kind of platform thinking you're after, I'd love to talk."
+    closing: "If this is the kind of platform thinking you're after, I'd love to talk it through."
   };
 
   function runAnalyze() {
