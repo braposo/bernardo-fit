@@ -19,7 +19,9 @@ export async function runAnalysis(jobDescription) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-5",
-      max_tokens: 4096,
+      // Headroom matters more than it looks: short sentences mean more of
+      // them, and a 6-category report with 5 differentiators overran 4096.
+      max_tokens: 8192,
       system: buildSystemPrompt(),
       messages: [
         {
