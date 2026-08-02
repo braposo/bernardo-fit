@@ -13,7 +13,6 @@
     --accent: oklch(0.52 0.14 250);
     --accent-deep: oklch(0.42 0.14 250);
     --good: oklch(0.52 0.11 155);
-    --warn: oklch(0.64 0.13 70);
     --weak: oklch(0.54 0.15 25);
     --weak-soft: oklch(0.54 0.15 25 / 0.10);
     --paper: #faf8f4;
@@ -69,14 +68,9 @@
 
   .row-item { border-top: 1px solid var(--hair); padding: 20px 0; }
   .row-item:last-child { border-bottom: 1px solid var(--hair); }
-  .row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .row-title { font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
   .row-title .company { color: var(--accent); }
   .row-meta { font-family: var(--mono); font-size: 11px; color: var(--sub); margin-top: 5px; letter-spacing: 0.02em; }
-  .row-verdict {
-    font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em;
-    text-transform: uppercase; flex: none; padding-top: 4px; white-space: nowrap;
-  }
   .row-jd {
     margin-top: 12px; font-size: 13.5px; line-height: 1.55; color: var(--sub); white-space: pre-wrap;
     max-height: 4.6em; overflow: hidden; cursor: pointer; position: relative;
@@ -124,12 +118,6 @@
     return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) +
       " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
-  function verdictColor(v) {
-    return ({ STRONG_MATCH: "var(--good)", GOOD_MATCH: "var(--accent)", PARTIAL_MATCH: "var(--warn)", WEAK_MATCH: "var(--weak)" })[v] || "var(--sub)";
-  }
-  function verdictLabel(v) {
-    return ({ STRONG_MATCH: "Strong fit", GOOD_MATCH: "Good fit", PARTIAL_MATCH: "Partial fit", WEAK_MATCH: "Honest stretch" })[v] || "";
-  }
 
   function api(path, opts) {
     opts = opts || {};
@@ -168,19 +156,13 @@
   function rowHtml(r) {
     var title = esc(r.job_title || "Untitled role");
     var company = r.company ? ' <span class="company">at ' + esc(r.company) + "</span>" : "";
-    var verdict = verdictLabel(r.overall_verdict);
     var link = location.origin + "/?r=" + encodeURIComponent(r.id);
     return (
       '<div class="row-item" data-id="' + esc(r.id) + '">' +
-        '<div class="row-top">' +
-          "<div>" +
-            '<div class="row-title">' + title + company + "</div>" +
-            '<div class="row-meta">' + fmtDate(r.created_at) +
-              (r.regenerated_at ? " · regenerated " + fmtDate(r.regenerated_at) : "") +
-              " · " + esc(r.id) + "</div>" +
-          "</div>" +
-          (verdict ? '<div class="row-verdict" style="color:' + verdictColor(r.overall_verdict) + '">' + esc(verdict) + "</div>" : "") +
-        "</div>" +
+        '<div class="row-title">' + title + company + "</div>" +
+        '<div class="row-meta">' + fmtDate(r.created_at) +
+          (r.regenerated_at ? " · regenerated " + fmtDate(r.regenerated_at) : "") +
+          " · " + esc(r.id) + "</div>" +
         '<div class="row-jd" data-full="1">' + esc(r.job_description || "") + "</div>" +
         '<div class="row-actions">' +
           '<button class="ghost" data-act="copy" data-link="' + esc(link) + '">Copy link</button>' +

@@ -14,7 +14,6 @@
     --accent-deep: oklch(0.42 0.14 250);
     --accent-soft: oklch(0.52 0.14 250 / 0.10);
     --good: oklch(0.52 0.11 155);
-    --warn: oklch(0.64 0.13 70);
     --weak: oklch(0.54 0.15 25);
     --weak-soft: oklch(0.54 0.15 25 / 0.10);
     --paper: #faf8f4;
@@ -109,19 +108,14 @@
   }
   .role-title .company { color: var(--accent); }
 
-  /* Verdict — open composition, no box; the pitch carries the hero */
-  .verdict {
-    margin-top: clamp(40px, 7vw, 64px); padding-bottom: clamp(36px, 6vw, 52px);
+  /* Pitch — open composition, no box; carries the hero */
+  .pitch-block {
+    margin-top: clamp(32px, 5vw, 48px); padding-bottom: clamp(36px, 6vw, 52px);
     border-bottom: 1px solid var(--hair);
   }
-  .verdict-label {
-    font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
-    display: inline-flex; align-items: center; gap: 8px;
-  }
-  .verdict-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-  .verdict .pitch {
+  .pitch-block .pitch {
     font-family: var(--display); font-size: clamp(21px, 3vw, 32px); font-weight: 400; line-height: 1.35;
-    letter-spacing: -0.02em; margin: 20px 0 0; color: var(--ink); text-wrap: pretty; max-width: 42ch;
+    letter-spacing: -0.02em; margin: 0; color: var(--ink); text-wrap: pretty; max-width: 42ch;
   }
 
   /* Section label */
@@ -211,16 +205,6 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  function tierColor(t) {
-    return ({ strong: "var(--good)", good: "var(--accent)", partial: "var(--warn)", weak: "var(--weak)" })[t];
-  }
-  function verdictClass(v) {
-    return ({ STRONG_MATCH: "strong", GOOD_MATCH: "good", PARTIAL_MATCH: "partial", WEAK_MATCH: "weak" })[v] || "good";
-  }
-  function verdictLabel(v) {
-    return ({ STRONG_MATCH: "Strong fit", GOOD_MATCH: "Good fit", PARTIAL_MATCH: "Partial fit", WEAK_MATCH: "Honest stretch" })[v] || "Good fit";
-  }
-
   var MASTHEAD =
     '<div class="frame"><div class="masthead">' +
       '<div class="mark">Bernardo Raposo<span class="dot">.</span></div>' +
@@ -282,8 +266,6 @@
 
     var roleLine = esc(r.job_title || "This role");
     if (r.company) roleLine += ' <span class="company">at ' + esc(r.company) + '</span>';
-    var vClass = verdictClass(r.overall_verdict);
-    var vColor = tierColor(vClass);
 
     app.innerHTML =
       MASTHEAD +
@@ -291,8 +273,7 @@
         '<div class="to-line">On fit for</div>' +
         '<h1 class="role-title">' + roleLine + '</h1>' +
 
-        '<div class="verdict">' +
-          '<span class="verdict-label" style="color:' + vColor + '">' + esc(verdictLabel(r.overall_verdict)) + '</span>' +
+        '<div class="pitch-block">' +
           '<p class="pitch">' + esc(r.pitch) + '</p>' +
         '</div>' +
 
@@ -343,8 +324,7 @@
   var DEMO_REPORT = {
     job_title: "Head of Frontend Engineering",
     company: "Aurora Health",
-    overall_verdict: "STRONG_MATCH",
-    pitch: "This is close to the job I've been doing for five years, just with a sharper product edge. I lead technically while staying hands-on, and I've taken a platform through exactly this kind of modernisation before.",
+    pitch: "This is close to the job I've been doing for five years, with a sharper product edge. I lead technically while staying hands-on, and I've taken a platform through this kind of modernisation before — twice, at SingleStore and TravelRepublic.",
     categories: [
       { name: "Technical fit", note: "React, Next.js, TypeScript and design systems are my daily tools — I've built two design systems from scratch, at EDITED and TravelRepublic. I go from Figma to production myself, so I can hold a real technical conversation with the team rather than just reviewing from a distance." },
       { name: "Leadership & management", note: "Five years as EM at SingleStore, hiring two engineers and writing both promotion cases myself, while staying the technical authority on the team. My whole approach is stripping interference so people can own outcomes end to end." },

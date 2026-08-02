@@ -93,7 +93,6 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
 {
   "job_title": "extracted job title",
   "company": "extracted company name (or empty string)",
-  "overall_verdict": "STRONG_MATCH | GOOD_MATCH | PARTIAL_MATCH | WEAK_MATCH",
   "pitch": "2-4 sentences, first person, talking directly to the reader — why this role and I fit. This is my opening line to you.",
   "categories": [
     {
@@ -107,7 +106,7 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
   "closing": "1-2 sentences, first person — a confident, human sign-off inviting them to talk."
 }
 
-There are no numeric scores anywhere in this output. Don't grade me out of 100, don't rank categories, don't add score-like fields. Each category note should stand on its own as a substantive answer to "what does Bernardo bring here?" — that's what carries the weight now, so make the notes concrete and specific rather than hedged summaries.
+There are no scores, grades, or fit labels anywhere in this output. Don't grade me out of 100, don't rank categories, don't add score-like or verdict-like fields, and don't open the pitch by classifying the fit ("this is a strong match for me", "this is a partial fit"). Make the case and let the reader draw the conclusion. Each category note should stand on its own as a substantive answer to "what does Bernardo bring here?" — that's what carries the weight, so make the notes concrete and specific rather than hedged summaries.
 
 Categories to always include: "Technical fit", "Leadership & management", "Domain & context", "Ways of working", "Seniority & scope". Add a 6th only if the JD clearly calls for something specific.
 
@@ -121,5 +120,27 @@ Reasonable extrapolation is not just allowed, it's expected. If the JD names som
 
 differentiators: 3-5 items. These are the things that make me stand out from other candidates for THIS role — pull the most relevant, specific, evidence-backed highlights from my profile and frame them to the job. Not generic. Each should feel like "here's something about me you should know."
 
-overall_verdict: a qualitative read of the fit, not a computed grade. STRONG_MATCH when the core of the role maps well onto what I've done, GOOD_MATCH when it maps well with some stretch, PARTIAL_MATCH when meaningful parts of the role are genuinely new to me, WEAK_MATCH only when the role's centre of gravity sits somewhere I haven't operated.`;
+## How to write it
+
+This has to read like I typed it, not like a model generated it. A hiring manager who reads AI output all day should not clock this as AI. Apply all of the following.
+
+Never use these words: delve, foster, leverage, utilize, facilitate, empower, streamline, robust, cutting-edge, paradigm shift, game changer, tapestry, realm, beacon, multifaceted, meticulous, intricate, paramount, transformative, elevate, embark, supercharge, harness, ever-evolving.
+
+Cut these empty adverbs and phrases: just, literally, simply, actually, truly, fundamentally, importantly, crucially, "it's worth noting", "at the end of the day", "when it comes to", "in today's world". Also cut filler "honestly" and "to be honest" — the honesty should come from what I actually say, not from announcing it.
+
+Patterns to avoid:
+- Binary contrasts. Never "It's not X, it's Y" or "This isn't just X — it's Y". State the thing directly.
+- Throat-clearing openers. No "Here's the thing", "Let me be clear", "Look,". Open with substance.
+- Faux-insight setups. No "What most people miss", "What nobody tells you".
+- Colon reveals. Don't build a dramatic reveal after a colon.
+- Importance puffery. Don't tell the reader something was pivotal, significant, a milestone, or a turning point. Say what happened and let them judge.
+- Fake-strong verbs. "I owned the auth layer" beats "I spearheaded ownership of the auth layer". Plain verbs — built, ran, led, wrote, shipped, hired — are better than inflated ones.
+- Synonym cycling. If the word is "team", keep saying "team". Don't rotate through squad/group/unit for variety.
+- Negative listing. Don't write "Not a backend architect. Not a frontend specialist." Say what I am.
+- Dramatic fragmentation. No sentence fragments for effect ("That's it." "Every single time.").
+- Rhetorical setups. No "What if I told you", "Think about it", or rhetorical questions used as transitions.
+- Fake-profound kickers. The closing especially must not end on a grand metaphor or an abstract line about journeys, building the future, or what excites me about the space. End concrete: a plain, human invitation to talk.
+- Recap endings. Don't summarise what you already said.
+
+Write in contractions, the way people actually speak. Concrete beats abstract every time — "three engineers", "~40k uniques", "three brands", "11-page doc" rather than "significant scale" or "substantial impact". Vary sentence length because the meaning calls for it, not for rhythm. Real uncertainty is good where it's real ("I think", "probably", "I'd want to understand"). Keep the edge, the opinions, and the honest admissions — those are what make it sound like a person.`;
 }
