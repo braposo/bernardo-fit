@@ -139,18 +139,20 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
 {
   "job_title": "extracted job title",
   "company": "extracted company name (or empty string)",
-  "pitch": "2-4 SHORT sentences, first person, talking directly to the reader, saying why this role and I fit. This is my opening line to you.",
+  "pitch": "3-4 short sentences, 55 words MAXIMUM in total, first person, talking directly to the reader, saying why this role and I fit. This is my opening line to you.",
   "categories": [
     {
       "name": "Category Name",
-      "note": "2-3 SHORT sentences, first person, covering what I actually bring to this part of the role, with concrete evidence from my experience"
+      "note": "2-3 short sentences, 45 words MAXIMUM in total, first person, covering what I actually bring to this part of the role, with concrete evidence"
     }
   ],
   "differentiators": [
-    { "headline": "3-6 word punchy claim about me", "detail": "1-2 sentences, first person, the evidence" }
+    { "headline": "3-6 word punchy claim about me", "detail": "1-2 sentences, 30 words MAXIMUM in total, first person, the evidence" }
   ],
-  "closing": "1-2 sentences, first person, a confident and human sign-off inviting them to talk."
+  "closing": "1-2 sentences, 30 words MAXIMUM in total, first person, a plain human sign-off inviting them to talk."
 }
+
+Those word budgets are hard limits, not suggestions. Count the words before you finish each field. A note at 44 words is good; a note at 60 words has failed, however well written. Hitting the budget forces the short sentences, so if you're over, split and cut rather than compress into longer clauses.
 
 There are no scores, grades, or fit labels anywhere in this output. Don't grade me out of 100, don't rank categories, don't add score-like or verdict-like fields, and don't open the pitch by classifying the fit ("this is a strong match for me", "this is a partial fit"). Make the case and let the reader draw the conclusion. Each category note should stand on its own as a substantive answer to "what does Bernardo bring here?", because that is what carries the weight, so make the notes concrete and specific rather than hedged summaries.
 
