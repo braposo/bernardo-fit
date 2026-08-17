@@ -274,6 +274,27 @@ export async function findExistingJob({ externalId, threadId }) {
   );
 }
 
+// Given a freshly saved analysis, find the pipeline row it belongs to. Either
+// the report is already linked, or the job holds the same job description and
+// just hasn't been analysed yet.
+export async function findJobForReport(reportId, jd) {
+  const jobs = await listJobs();
+  const byReport = jobs.find((j) => j.fitReportId && j.fitReportId === reportId);
+  if (byReport) return byReport;
+  if (!jd) return null;
+  const target = hashJD(jd);
+  return jobs.find((j) => j.jobDescription && hashJD(j.jobDescription) === target) || null;
+}
+
+// Report ids that no pipeline row points at, so the admin page can offer to
+// pull older analyses into the pipeline.
+export async function findUnlinkedReportIds() {
+  const jobs = await listJobs();
+  const linked = new Set(jobs.map((j) => j.fitReportId).filter(Boolean));
+  const { reports } = await listReports({ offset: 0, limit: 100 });
+  return reports.filter((r) => !linked.has(r.id)).map((r) => r.id);
+}
+
 // --- Analytics ---
 //
 // Counters per report id, plus a first/last seen timestamp. Deliberately

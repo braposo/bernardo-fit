@@ -36,16 +36,6 @@
   .mark .dot { color: var(--accent); }
   .kicker { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--sub); }
 
-  /* Tabs */
-  .tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--hair); }
-  .tab {
-    appearance: none; background: none; border: none; padding: 0 0 12px; cursor: pointer;
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--sub); border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 0;
-  }
-  .tab:hover { background: none; color: var(--ink); }
-  .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
-
   /* Gate */
   .gate { max-width: 360px; margin: 15vh auto 0; text-align: center; }
   .gate h1 { font-family: var(--display); font-size: 26px; font-weight: 600; margin: 0 0 8px; }
@@ -101,6 +91,29 @@
   }
   .owedbanner:hover { background: var(--weak-soft); border-color: var(--weak); }
   .owedbanner.on { border-color: var(--weak); }
+
+  .adoptbanner {
+    display: block; width: 100%; text-align: left; background: transparent; border: 1px dashed var(--hair-strong);
+    color: var(--sub); font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em;
+    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; cursor: pointer;
+  }
+  .adoptbanner:hover { border-color: var(--accent); color: var(--accent-deep); background: transparent; }
+
+  /* Job description box */
+  .jdbox { margin-top: 12px; }
+  .jdbox summary {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--accent); cursor: pointer; list-style: none;
+  }
+  .jdbox summary::-webkit-details-marker { display: none; }
+  .jdbox summary:before { content: "+ "; }
+  .jdbox[open] summary:before { content: "- "; }
+  textarea.jd {
+    width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--hair);
+    border-radius: 8px; padding: 12px 14px; font-family: var(--sans); font-size: 13px; line-height: 1.6;
+    color: var(--ink); resize: vertical; min-height: 150px;
+  }
+  textarea.jd:focus { outline: none; border-color: var(--accent); }
 
   /* Rows */
   .row-right { display: flex; align-items: center; gap: 12px; flex: none; }
@@ -179,10 +192,6 @@
       <div class="mark">bernardo-fit<span class="dot">.</span></div>
       <div class="kicker">Admin</div>
     </div>
-    <div class="tabs" id="tabs" hidden>
-      <button class="tab active" data-view="jobs">Pipeline</button>
-      <button class="tab" data-view="reports">Analyses</button>
-    </div>
   </div>
   <main id="app"></main>
 
@@ -191,17 +200,16 @@
   "use strict";
 
   var app = document.getElementById("app");
-  var tabsEl = document.getElementById("tabs");
   var SECRET_KEY = "bfit_admin_secret";
   var secret = sessionStorage.getItem(SECRET_KEY) || "";
 
-  var view = "jobs";
   var jobs = [];
   var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_a_fit"];
   var TIERS = ["Act now", "Worth a look", "Background", "Off-target"];
   var stageFilter = null;
   var tierFilter = null;
   var owedOnly = false;
+  var unlinked = 0;
 
   var reports = [];
   var total = 0;
@@ -249,7 +257,6 @@
   // ---------- Gate ----------
 
   function renderGate(err) {
-    tabsEl.hidden = true;
     app.innerHTML =
       '<div class="frame"><div class="gate">' +
         "<h1>Locked</h1>" +
@@ -330,14 +337,18 @@
         "</div>" +
         owed +
         (j.rationale ? '<div class="rationale">' + esc(j.rationale) + "</div>" : "") +
-        (j.jobDescription ? '<div class="row-jd">' + esc(j.jobDescription) + "</div>" : "") +
+        '<details class="jdbox"' + (j.jobDescription ? "" : "") + ">" +
+          "<summary>" + (j.jobDescription ? "Job description" : "Add a job description to enable analysis") + "</summary>" +
+          '<textarea class="jd" data-act="jd" placeholder="Paste the job description here…">' + esc(j.jobDescription || "") + "</textarea>" +
+        "</details>" +
         statsHtml(j) +
         '<textarea class="notes" data-act="notes" placeholder="Notes…">' + esc(j.notes || "") + "</textarea>" +
         '<div class="row-actions">' +
           (fitLink
-            ? '<a class="ghost" href="' + esc(fitLink) + '" target="_blank" rel="noopener">Open fit page</a>' +
-              '<button class="ghost" data-act="copyfit" data-link="' + esc(fitLink) + '">Copy fit link</button>'
-            : (j.jobDescription ? '<button class="ghost" data-act="runfit">Run fit analysis</button>' : "")) +
+            ? '<a class="ghost" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page</a>' +
+              '<button class="ghost" data-act="copyfit" data-link="' + esc(fitLink) + '">Copy fit link</button>' +
+              '<button class="ghost" data-act="regen">Regenerate</button>'
+            : '<button class="ghost" data-act="runfit"' + (j.jobDescription ? "" : " disabled") + ">Generate fit analysis</button>") +
           (j.sourceUrl ? '<a class="ghost" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting</a>' : "") +
           (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
           '<button class="ghost danger" data-act="delete">Delete</button>' +
@@ -348,7 +359,6 @@
   }
 
   function renderJobs() {
-    tabsEl.hidden = false;
     var counts = {};
     stages.forEach(function (s) { counts[s] = 0; });
     jobs.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
@@ -384,6 +394,11 @@
         (owedOnly ? " · showing only these" : "") + "</button>";
     }
 
+    if (unlinked) {
+      html += '<button class="adoptbanner" id="adopt">' + unlinked + " saved analys" +
+        (unlinked === 1 ? "is is" : "es are") + " not in the pipeline yet · click to add" + "</button>";
+    }
+
     html += '<div class="stagebar">' +
         '<button class="stagechip' + (stageFilter ? "" : " on") + '" data-stage="">All stages</button>' +
         stages.map(function (s) {
@@ -411,6 +426,22 @@
 
     var owedBtn = document.getElementById("owedtoggle");
     if (owedBtn) owedBtn.addEventListener("click", function () { owedOnly = !owedOnly; renderJobs(); });
+
+    var adoptBtn = document.getElementById("adopt");
+    if (adoptBtn) {
+      adoptBtn.addEventListener("click", function () {
+        adoptBtn.disabled = true; adoptBtn.textContent = "Adding…";
+        api("/api/admin/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "adopt" }),
+        }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { alert(out.d.error || "Failed."); adoptBtn.disabled = false; return; }
+          loadJobs(false);
+        });
+      });
+    }
 
     Array.prototype.forEach.call(document.querySelectorAll("[data-tier]"), function (chip) {
       chip.addEventListener("click", function () {
@@ -501,30 +532,70 @@
         });
       }
 
+      // Job description is editable, so an alert-only row can be given one and
+      // then analysed without leaving the page.
+      var jd = rowEl.querySelector('[data-act="jd"]');
+      jd.addEventListener("blur", function () {
+        if (job && jd.value === (job.jobDescription || "")) return;
+        status.textContent = "Saving…"; status.className = "row-status";
+        patch({ jobDescription: jd.value }, function () {
+          status.textContent = "Description saved"; status.className = "row-status ok";
+          if (runFit) runFit.disabled = jd.value.trim().length < 20;
+          setTimeout(function () { status.textContent = ""; }, 1600);
+        });
+      });
+
       var runFit = rowEl.querySelector('[data-act="runfit"]');
       if (runFit) {
         runFit.addEventListener("click", function () {
+          var text = (jd.value || "").trim();
+          if (text.length < 20) {
+            status.textContent = "Add a fuller job description first."; status.className = "row-status err";
+            return;
+          }
           runFit.disabled = true;
           status.textContent = "Running analysis…"; status.className = "row-status";
-          fetch("/api/analyze", {
+          // Save the description first so the pipeline row and the analysis agree.
+          patch({ jobDescription: text }, function () {
+            fetch("/api/analyze", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ jobDescription: text }),
+            })
+              .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+              .then(function (out) {
+                if (!out.ok) {
+                  runFit.disabled = false;
+                  status.textContent = out.d.error || "Analysis failed.";
+                  status.className = "row-status err";
+                  return;
+                }
+                patch({ fitReportId: out.d.id }, function () { loadJobs(false); });
+              })
+              .catch(function () {
+                runFit.disabled = false;
+                status.textContent = "Network error."; status.className = "row-status err";
+              });
+          });
+        });
+      }
+
+      var regen = rowEl.querySelector('[data-act="regen"]');
+      if (regen) {
+        regen.addEventListener("click", function () {
+          regen.disabled = true;
+          status.textContent = "Regenerating…"; status.className = "row-status";
+          api("/api/admin/regenerate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ jobDescription: job.jobDescription }),
-          })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-            .then(function (out) {
-              if (!out.ok) {
-                runFit.disabled = false;
-                status.textContent = out.d.error || "Analysis failed.";
-                status.className = "row-status err";
-                return;
-              }
-              patch({ fitReportId: out.d.id }, function () { renderJobs(); });
-            })
-            .catch(function () {
-              runFit.disabled = false;
-              status.textContent = "Network error."; status.className = "row-status err";
-            });
+            body: JSON.stringify({ id: job.fitReportId }),
+          }).then(function (out) {
+            regen.disabled = false;
+            if (unauthorised(out)) return;
+            if (!out.ok) { status.textContent = out.d.error || "Regenerate failed."; status.className = "row-status err"; return; }
+            status.textContent = "Regenerated"; status.className = "row-status ok";
+            setTimeout(function () { status.textContent = ""; }, 1800);
+          });
         });
       }
 
@@ -548,133 +619,10 @@
       sessionStorage.setItem(SECRET_KEY, secret);
       jobs = out.d.jobs || [];
       if (out.d.stages && out.d.stages.length) stages = out.d.stages;
-      view = "jobs";
-      syncTabs();
+      unlinked = out.d.unlinked || 0;
       renderJobs();
     });
   }
-
-  // ---------- Analyses ----------
-
-  function reportHtml(r) {
-    var link = location.origin + "/?r=" + encodeURIComponent(r.id);
-    return (
-      '<div class="row-item" data-id="' + esc(r.id) + '">' +
-        '<div class="row-title">' + esc(r.job_title || "Untitled role") +
-          (r.company ? ' <span class="company">at ' + esc(r.company) + "</span>" : "") + "</div>" +
-        '<div class="row-meta">' + fmtDateTime(r.created_at) +
-          (r.regenerated_at ? " · regenerated " + fmtDateTime(r.regenerated_at) : "") +
-          " · " + esc(r.id) + "</div>" +
-        '<div class="row-jd">' + esc(r.job_description || "") + "</div>" +
-        '<div class="row-actions">' +
-          '<button class="ghost" data-act="copy" data-link="' + esc(link) + '">Copy link</button>' +
-          '<a class="ghost" href="' + esc(link) + '" target="_blank" rel="noopener">Open</a>' +
-          '<button class="ghost" data-act="regen">Regenerate</button>' +
-          '<button class="ghost danger" data-act="delete">Delete</button>' +
-          '<span class="row-status"></span>' +
-        "</div>" +
-      "</div>"
-    );
-  }
-
-  function renderReports() {
-    tabsEl.hidden = false;
-    var html = '<div class="frame">' +
-      '<div class="toolbar"><h1>Saved analyses</h1>' +
-        '<span class="count">' + reports.length + " of " + total + "</span>" +
-      "</div>";
-
-    if (!reports.length) html += '<div class="empty">Nothing saved yet.</div>';
-    else html += reports.map(reportHtml).join("");
-
-    if (reports.length < total) {
-      html += '<div class="loadmore"><button class="ghost" id="loadmore">Load more</button></div>';
-    }
-    html += '<div class="pagefoot"></div></div>';
-    app.innerHTML = html;
-
-    if (reports.length < total) {
-      document.getElementById("loadmore").addEventListener("click", function () { loadReports(false); });
-    }
-
-    Array.prototype.forEach.call(document.querySelectorAll(".row-jd"), function (el) {
-      el.addEventListener("click", function () { el.classList.toggle("expanded"); });
-    });
-
-    Array.prototype.forEach.call(document.querySelectorAll(".row-item"), function (rowEl) {
-      var id = rowEl.getAttribute("data-id");
-      var status = rowEl.querySelector(".row-status");
-
-      var copyBtn = rowEl.querySelector('[data-act="copy"]');
-      copyBtn.addEventListener("click", function () {
-        navigator.clipboard.writeText(copyBtn.getAttribute("data-link")).then(function () {
-          copyBtn.textContent = "Copied";
-          setTimeout(function () { copyBtn.textContent = "Copy link"; }, 1600);
-        });
-      });
-
-      rowEl.querySelector('[data-act="delete"]').addEventListener("click", function () {
-        if (!confirm("Delete this analysis permanently? This can't be undone.")) return;
-        status.textContent = "Deleting…"; status.className = "row-status";
-        api("/api/admin/reports?id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (out) {
-          if (unauthorised(out)) return;
-          if (!out.ok) { status.textContent = out.d.error || "Failed to delete."; status.className = "row-status err"; return; }
-          reports = reports.filter(function (r) { return r.id !== id; });
-          total -= 1;
-          renderReports();
-        });
-      });
-
-      rowEl.querySelector('[data-act="regen"]').addEventListener("click", function (e) {
-        var btn = e.currentTarget;
-        btn.disabled = true;
-        status.textContent = "Regenerating…"; status.className = "row-status";
-        api("/api/admin/regenerate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: id }),
-        }).then(function (out) {
-          btn.disabled = false;
-          if (unauthorised(out)) return;
-          if (!out.ok) { status.textContent = out.d.error || "Failed to regenerate."; status.className = "row-status err"; return; }
-          var idx = reports.findIndex(function (r) { return r.id === id; });
-          if (idx !== -1) reports[idx] = Object.assign({ id: id }, out.d.report);
-          renderReports();
-        });
-      });
-    });
-  }
-
-  function loadReports(reset) {
-    if (reset) { offset = 0; reports = []; }
-    api("/api/admin/reports?offset=" + offset + "&limit=" + LIMIT, { method: "GET" }).then(function (out) {
-      if (unauthorised(out)) return;
-      if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
-      reports = reports.concat(out.d.reports);
-      total = out.d.total;
-      offset += out.d.reports.length;
-      view = "reports";
-      syncTabs();
-      renderReports();
-    });
-  }
-
-  // ---------- Tabs ----------
-
-  function syncTabs() {
-    Array.prototype.forEach.call(tabsEl.querySelectorAll(".tab"), function (t) {
-      t.classList.toggle("active", t.getAttribute("data-view") === view);
-    });
-  }
-
-  Array.prototype.forEach.call(tabsEl.querySelectorAll(".tab"), function (t) {
-    t.addEventListener("click", function () {
-      var next = t.getAttribute("data-view");
-      if (next === view) return;
-      if (next === "jobs") loadJobs(false);
-      else loadReports(true);
-    });
-  });
 
   if (secret) loadJobs(true);
   else renderGate();

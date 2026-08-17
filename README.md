@@ -41,13 +41,17 @@ The frontend is one self-contained `index.html`. Drop it at a path like `/fit` o
 
 ## Admin page
 
-`/admin` is gated by a shared secret: set an **`ADMIN_SECRET`** environment variable (a long random string) and enter it on the page. It's kept in `sessionStorage`, nowhere else. Two tabs:
+`/admin` is one screen, gated by a shared secret: set an **`ADMIN_SECRET`** environment variable (a long random string) and enter it on the page. It's kept in `sessionStorage`, nowhere else.
 
-**Pipeline** tracks job opportunities through `new → reviewing → applied → interviewing → offer → closed`. Each entry keeps the source, the date it arrived, location and salary where known, free-text notes, and a link back to the original email thread. If an entry has a job description, one click runs it through the fit analyser and links the resulting page to it. Once linked, the row shows how many times that page was viewed, how often the link was copied, and how many times the CV was downloaded.
+Everything lives in a single pipeline. Each row is an opportunity moving through `new → reviewing → applied → interviewing → offer → rejected → not_a_fit`, carrying its source, arrival date, location and salary where known, an editable job description, free-text notes, a link to the LinkedIn posting, and a link back to the original email thread. Rows are sorted best-fit first and can be filtered by stage, by tier, or by whether a reply is owed.
 
-Opportunities come from `api/_inbox-scan.js`, a captured snapshot of a Gmail scan. The app has no mail credentials of its own; the scan is run separately and pasted in. "Import from inbox" is idempotent, matched on Gmail thread id, so re-running it never duplicates a row and never overwrites a stage or note you've already set.
+**The pipeline and the analyses are the same list.** Any analysis run on the public site creates a pipeline row automatically, taking the company and role from the analysis itself. If a row already holds that job description, the analysis links to it rather than creating a duplicate. Going the other way, any row with a job description has a "Generate fit analysis" button, and rows without one can have a description pasted straight into them. Once a row is linked you get "View fit page", "Copy fit link" and "Regenerate", plus view, link-copy and CV-download counts for that page.
 
-**Analyses** lists every saved fit report, and lets you delete one or regenerate it in place (same id, same permalink, fresh content from the current profile and prompt). Regenerating bypasses the dedup cache and the per-IP rate limit, since it's you rather than a visitor.
+Analyses saved before this behaviour existed show up as a prompt at the top of the page offering to pull them in.
+
+Opportunities also come from `api/_inbox-scan.js`, a captured snapshot of a Gmail scan. The app has no mail credentials of its own; the scan is run separately and pasted in. "Import from inbox" is an upsert keyed on `externalId` then Gmail thread id, so re-running it refreshes the scan-derived metadata while leaving your stage, notes and linked analysis untouched.
+
+Fit scores and tiers come from the scan, weighted location 0.35, AI-or-DX surface 0.35 and leadership scope 0.30. They are a model-generated read against the profile, not employer assessments.
 
 ## Analytics
 

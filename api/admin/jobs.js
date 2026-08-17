@@ -5,6 +5,8 @@ import {
   updateJob,
   deleteJob,
   findExistingJob,
+  findUnlinkedReportIds,
+  getReport,
   getStats,
   JOB_STAGES,
 } from "../_store.js";
@@ -27,6 +29,7 @@ export default async function handler(req, res) {
         jobs: jobs.map((j) => ({ ...j, stats: j.fitReportId ? stats[j.fitReportId] || null : null })),
         stages: JOB_STAGES,
         scan: INBOX_SCAN_META,
+        unlinked: (await findUnlinkedReportIds()).length,
       });
       return;
     }
@@ -56,6 +59,29 @@ export default async function handler(req, res) {
           }
         }
         res.status(200).json({ added, updated, total: INBOX_OPPORTUNITIES.length });
+        return;
+      }
+
+      // Pull analyses that predate the auto-linking into the pipeline.
+      if (body.action === "adopt") {
+        const ids = await findUnlinkedReportIds();
+        let added = 0;
+        for (const rid of ids) {
+          const r = await getReport(rid);
+          if (!r) continue;
+          await saveJob({
+            company: r.company || "",
+            role: r.job_title || "Untitled role",
+            source: "Analysed on the website",
+            sourceType: "website",
+            jobDescription: r.job_description || "",
+            fitReportId: rid,
+            stage: "new",
+            receivedAt: r.created_at || new Date().toISOString(),
+          });
+          added++;
+        }
+        res.status(200).json({ added });
         return;
       }
 
