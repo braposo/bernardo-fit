@@ -47,6 +47,8 @@ The frontend is one self-contained `index.html`. Drop it at a path like `/fit` o
 
 `/admin` is one screen, gated by a shared secret: set an **`ADMIN_SECRET`** environment variable (a long random string) and enter it on the page. It's kept in `sessionStorage`, nowhere else.
 
+A search box in the toolbar filters the list as you type, across company, role, source, location, salary, notes, rationale, recruiter and the full job description. Multiple words all have to match, so `remote ai` narrows; wrap a phrase in quotes to match it whole, since `"design system"` and `design system` are very different searches. Press `/` to jump to it from anywhere, Escape to clear.
+
 Everything lives in a single pipeline. Each row is an opportunity moving through `new → reviewing → applied → interviewing → offer → rejected → not_a_fit`, carrying its source, arrival date, location and salary where known, an editable job description, free-text notes, a link to the LinkedIn posting, and a link back to the original email thread. Rows are sorted best-fit first and can be filtered by stage, by tier, or by whether a reply is owed.
 
 **The pipeline and the analyses are the same list.** Any analysis run on the public site creates a pipeline row automatically, taking the company and role from the analysis itself. If a row already holds that job description, the analysis links to it rather than creating a duplicate. Going the other way, any row with a job description has a "Generate fit analysis" button, and rows without one can have a description pasted straight into them. Once a row is linked you get "View fit page", "Copy fit link" and "Regenerate", plus view, link-copy and CV-download counts for that page.

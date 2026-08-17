@@ -68,6 +68,14 @@
   .toolbar .count { font-family: var(--mono); font-size: 12px; color: var(--sub); }
   .toolbar .right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 
+  .searchbox {
+    appearance: none; background: transparent; border: 1px solid var(--hair-strong); color: var(--ink);
+    font-family: var(--sans); font-size: 13px; padding: 8px 14px; border-radius: 100px; width: 220px;
+  }
+  .searchbox::placeholder { color: var(--sub); }
+  .searchbox:focus { outline: none; border-color: var(--accent); }
+  .searchbox::-webkit-search-cancel-button { cursor: pointer; }
+
   /* Stage filter */
   .stagebar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .stagechip {
@@ -210,6 +218,7 @@
   var stageFilter = null;
   var tierFilter = null;
   var owedOnly = false;
+  var searchQuery = "";
   var unlinked = 0;
   var archivedCount = 0;
   var showArchived = false;
@@ -370,6 +379,62 @@
     );
   }
 
+  // Everything a search term is allowed to hit. Job descriptions are included
+  // so searching a technology finds roles that mention it, not just ones with
+  // it in the title.
+  function haystack(j) {
+    return [
+      j.company, j.role, j.source, j.location, j.locationMode, j.salary,
+      j.notes, j.rationale, j.jobDescription, j.tier, j.stage,
+      j.recruiter && j.recruiter.name, j.recruiter && j.recruiter.org,
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  // Splits a query into terms, keeping "quoted phrases" whole. Without this,
+  // searching design system matches any row with "design" and "systems" in
+  // separate sentences, which is most of them.
+  function searchTerms(q) {
+    var terms = [];
+    var re = /"([^"]*)"|(\S+)/g;
+    var m;
+    while ((m = re.exec(q)) !== null) {
+      var t = (m[1] !== undefined ? m[1] : m[2]).trim();
+      if (t) terms.push(t);
+    }
+    return terms;
+  }
+
+  // Every term has to appear somewhere, so "remote ai" narrows rather than
+  // widens, and "design system" in quotes matches the phrase.
+  function matchesSearch(j, q) {
+    if (!q) return true;
+    var hay = haystack(j);
+    return searchTerms(q).every(function (term) { return hay.indexOf(term) !== -1; });
+  }
+
+  // Applied by toggling row visibility rather than re-rendering, so the input
+  // keeps focus and the caret stays put while typing.
+  function applySearch() {
+    var q = searchQuery.trim().toLowerCase();
+    var visible = 0;
+    Array.prototype.forEach.call(document.querySelectorAll(".row-item"), function (el) {
+      var j = jobs.find(function (x) { return x.id === el.getAttribute("data-id"); });
+      var hit = !j || matchesSearch(j, q);
+      el.style.display = hit ? "" : "none";
+      if (hit) visible++;
+    });
+
+    var countEl = document.querySelector(".toolbar .count");
+    if (countEl) {
+      countEl.textContent = q
+        ? visible + " matching of " + jobs.length
+        : countEl.getAttribute("data-base") || countEl.textContent;
+    }
+
+    var none = document.getElementById("nomatches");
+    if (none) none.style.display = q && visible === 0 ? "" : "none";
+  }
+
   function renderJobs() {
     var counts = {};
     stages.forEach(function (s) { counts[s] = 0; });
@@ -395,7 +460,10 @@
       '<div class="toolbar">' +
         '<h1>' + (showArchived ? 'Archived' : 'Pipeline') + '</h1>' +
         '<div class="right">' +
-          '<span class="count">' + shown.length + (filtering ? " shown of " : " of ") + jobs.length + "</span>" +
+          '<input type="search" id="search" class="searchbox" placeholder="Search roles…" ' +
+            'value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" />' +
+          '<span class="count" data-base="' + esc(shown.length + (filtering ? " shown of " : " of ") + jobs.length) + '">' +
+            shown.length + (filtering ? " shown of " : " of ") + jobs.length + "</span>" +
 
           (archivedCount || showArchived
             ? '<button class="ghost" id="togglearchived">' +
@@ -437,7 +505,8 @@
     } else if (!shown.length) {
       html += '<div class="empty">Nothing matches these filters.</div>';
     } else {
-      html += shown.map(jobHtml).join("");
+      html += shown.map(jobHtml).join("") +
+        '<div class="empty" id="nomatches" style="display:none">Nothing matches that search.</div>';
     }
     html += '<div class="pagefoot"></div></div>';
     app.innerHTML = html;
@@ -468,6 +537,17 @@
       });
     });
 
+
+    var searchEl = document.getElementById("search");
+    if (searchEl) {
+      searchEl.addEventListener("input", function () {
+        searchQuery = searchEl.value;
+        applySearch();
+      });
+      searchEl.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") { searchEl.value = ""; searchQuery = ""; applySearch(); }
+      });
+    }
 
     var archToggle = document.getElementById("togglearchived");
     if (archToggle) {
@@ -634,6 +714,10 @@
         });
       }
     });
+
+    // Re-apply the search after any re-render, so a filter change or a saved
+    // edit doesn't quietly bring hidden rows back.
+    applySearch();
   }
 
   function loadJobs(firstTry) {
@@ -648,6 +732,16 @@
       renderJobs();
     });
   }
+
+  // '/' focuses the search from anywhere, the way it works everywhere else.
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target || {};
+    var tag = (t.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || t.isContentEditable) return;
+    var el = document.getElementById("search");
+    if (el) { e.preventDefault(); el.focus(); el.select(); }
+  });
 
   if (secret) loadJobs(true);
   else renderGate();
