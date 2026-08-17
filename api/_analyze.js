@@ -19,9 +19,11 @@ export async function runAnalysis(jobDescription) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-5",
-      // Headroom matters more than it looks: short sentences mean more of
-      // them, and a 6-category report with 5 differentiators overran 4096.
-      max_tokens: 8192,
+      // Headroom matters more than it looks. Short sentences mean more of them,
+      // a 6-category report with 5 differentiators overran 4096, and adding the
+      // internal scoring block overran 8192. This is a ceiling, not a spend:
+      // unused budget costs nothing, a truncated response costs the whole call.
+      max_tokens: 16384,
       system: buildSystemPrompt(),
       messages: [
         {
