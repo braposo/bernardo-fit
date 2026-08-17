@@ -1,4 +1,5 @@
 import { getReport } from "./_store.js";
+import { stripInternal } from "./_analyze.js";
 
 // GET /api/report?id=abc123  -> { report }
 export default async function handler(req, res) {
@@ -19,7 +20,9 @@ export default async function handler(req, res) {
       res.status(404).json({ error: "Report not found" });
       return;
     }
-    res.status(200).json({ report });
+    // Never let the private triage block reach a visitor, even if an older
+    // saved report still carries one inline.
+    res.status(200).json({ report: stripInternal(report) });
   } catch (err) {
     res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
   }

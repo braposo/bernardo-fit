@@ -19,7 +19,9 @@ api/_jd-fetched.js      ← job descriptions captured from public LinkedIn posti
 api/admin/reports.js    ← list / delete saved analyses
 api/admin/regenerate.js ← re-run the analysis for a saved job description, in place
 api/admin/jobs.js       ← the job pipeline: list, create, import, update stage, archive
-api/admin/analyse.js    ← run a fit analysis for one row or every unanalysed row
+api/admin/analyse.js    ← run a fit analysis for one row
+api/admin/ingest.js     ← write end for a scheduled inbox review
+scripts/ingest-opportunities.mjs ← posts a batch of opportunities; reads the secret itself
 ```
 
 Flow: paste JD → `/api/analyze` runs it as *you*, in first person → result is stored under a short id → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the same read forever.
@@ -57,9 +59,19 @@ Opportunities also come from `api/_inbox-scan.js`, a captured snapshot of a Gmai
 
 "Import from inbox" is an upsert keyed on `externalId` then Gmail thread id, so re-running it refreshes the scan-derived metadata while leaving your stage, notes and linked analysis untouched.
 
-**Analyse all** runs a fit analysis for every row that has a job description but no analysis yet. It goes through `POST /api/admin/analyse`, not the public endpoint, because that one is rate limited to 10 per hour per IP to protect the bill from visitors and the whole pipeline would hit that wall immediately. The limit is pointless there anyway: the caller already holds the admin secret. Deduplication still applies, so a description that has been analysed before costs nothing, and one failure doesn't abort the batch.
+Analyses are generated one row at a time, from the row itself. That goes through `POST /api/admin/analyse` rather than the public endpoint, which is rate limited to 10 per hour per IP to protect the bill from visitors — a pointless limit for a caller already holding the admin secret. Deduplication still applies, so a description analysed before costs nothing.
 
-Fit scores and tiers come from the scan, weighted location 0.35, AI-or-DX surface 0.35 and leadership scope 0.30. They are a model-generated read against the profile, not employer assessments.
+## Scoring is private
+
+Generating an analysis also produces a fit score, a tier and a one-line rationale, weighted location 0.35, AI-or-DX surface 0.35 and leadership scope 0.30. **None of it is public.** The model returns it in an `internal` block that `splitInternal()` pulls off before the report is ever saved, so the score lives on the pipeline row behind the admin secret and never travels with the report. `/api/report` strips the block again on the way out as a second line of defence, in case an older saved report still carries one inline. Regenerating an analysis rescores the row that owns it.
+
+These are a model-generated read against the profile, for triage. They are not employer assessments and no company ever sees one.
+
+## Recurring inbox review
+
+A scheduled task scans Gmail weekly, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. Same upsert rules as before: matched on `externalId` then Gmail thread id, and your stage, notes, score, linked analysis and archived state all survive. New rows arrive unscored, because scoring belongs to the analysis step.
+
+The server still holds no mail credentials. The scan runs agent-side and only the resulting JSON is posted. `scripts/ingest-opportunities.mjs` reads `ADMIN_SECRET` from `.env.local` itself and never prints or forwards it, so whatever assembles the JSON never handles the credential. Populate it once with `vercel env pull`.
 
 ## Analytics
 

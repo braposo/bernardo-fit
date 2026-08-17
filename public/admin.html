@@ -361,7 +361,8 @@
           (j.sourceUrl ? '<a class="ghost" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting</a>' : "") +
           (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
           (j.archived
-            ? '<button class="ghost" data-act="restore">Restore to pipeline</button>'
+            ? '<button class="ghost" data-act="restore">Restore to pipeline</button>' +
+              '<button class="ghost danger" data-act="delete">Delete permanently</button>'
             : '<button class="ghost" data-act="archive">Archive</button>') +
           '<span class="row-status"></span>' +
         "</div>" +
@@ -395,9 +396,7 @@
         '<h1>' + (showArchived ? 'Archived' : 'Pipeline') + '</h1>' +
         '<div class="right">' +
           '<span class="count">' + shown.length + (filtering ? " shown of " : " of ") + jobs.length + "</span>" +
-          (showArchived ? '' :
-            '<button class="ghost" id="analyseall">Analyse all</button>' +
-            '<button class="ghost" id="import">Import from inbox</button>') +
+
           (archivedCount || showArchived
             ? '<button class="ghost" id="togglearchived">' +
               (showArchived ? 'Back to pipeline' : 'Archived (' + archivedCount + ')') + '</button>'
@@ -469,24 +468,6 @@
       });
     });
 
-    document.getElementById("import").addEventListener("click", function (e) {
-      var btn = e.currentTarget;
-      btn.disabled = true; btn.textContent = "Importing…";
-      api("/api/admin/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "import" }),
-      }).then(function (out) {
-        btn.disabled = false; btn.textContent = "Import from inbox";
-        if (unauthorised(out)) return;
-        if (!out.ok) { alert(out.d.error || "Import failed."); return; }
-        var msg = [];
-        if (out.d.added) msg.push(out.d.added + " added");
-        if (out.d.updated) msg.push(out.d.updated + " refreshed (your stages and notes kept)");
-        alert(msg.length ? msg.join(", ") + "." : "Nothing to import.");
-        loadJobs(false);
-      });
-    });
 
     var archToggle = document.getElementById("togglearchived");
     if (archToggle) {
@@ -494,54 +475,6 @@
         showArchived = !showArchived;
         stageFilter = null; tierFilter = null; owedOnly = false;
         loadJobs(false);
-      });
-    }
-
-    var analyseAllBtn = document.getElementById("analyseall");
-    var pendingCount = jobs.filter(function (j) { return !j.fitReportId && (j.jobDescription || "").trim().length >= 20; }).length;
-    if (analyseAllBtn) {
-      if (!pendingCount) { analyseAllBtn.disabled = true; analyseAllBtn.textContent = "All analysed"; }
-      analyseAllBtn.addEventListener("click", function () {
-        if (!confirm("Run a fit analysis for " + pendingCount + " rows? Each one calls the API.")) return;
-        analyseAllBtn.disabled = true; analyseAllBtn.textContent = "Analysing " + pendingCount + "…";
-        api("/api/admin/analyse", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ all: true }),
-        }).then(function (out) {
-          if (unauthorised(out)) return;
-          if (!out.ok) { alert(out.d.error || "Failed."); analyseAllBtn.disabled = false; analyseAllBtn.textContent = "Analyse all"; return; }
-          var msg = out.d.analysed + " analysed";
-          if (out.d.cached) msg += " (" + out.d.cached + " already cached, free)";
-          if (out.d.failed) msg += ", " + out.d.failed + " failed";
-          alert(msg + ".");
-          loadJobs(false);
-        });
-      });
-    }
-
-    var analyseAllBtn = document.getElementById("analyseall");
-    var pendingCount = jobs.filter(function (j) { return !j.fitReportId && (j.jobDescription || "").trim().length >= 20; }).length;
-    if (analyseAllBtn) {
-      if (!pendingCount) { analyseAllBtn.disabled = true; analyseAllBtn.textContent = "All analysed"; }
-      else analyseAllBtn.textContent = "Analyse all (" + pendingCount + ")";
-      analyseAllBtn.addEventListener("click", function () {
-        if (!pendingCount) return;
-        if (!confirm("Run a fit analysis for " + pendingCount + " rows? Each one calls the API.")) return;
-        analyseAllBtn.disabled = true; analyseAllBtn.textContent = "Analysing " + pendingCount + "…";
-        api("/api/admin/analyse", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ all: true }),
-        }).then(function (out) {
-          if (unauthorised(out)) return;
-          if (!out.ok) { alert(out.d.error || "Failed."); analyseAllBtn.disabled = false; return; }
-          var msg = out.d.analysed + " analysed";
-          if (out.d.cached) msg += ", " + out.d.cached + " already cached and free";
-          if (out.d.failed) msg += ", " + out.d.failed + " failed";
-          alert(msg + ".");
-          loadJobs(false);
-        });
       });
     }
 
@@ -684,6 +617,20 @@
         restoreBtn.addEventListener("click", function () {
           status.textContent = "Restoring…"; status.className = "row-status";
           patch({ archived: false }, function () { loadJobs(false); });
+        });
+      }
+
+      var deleteBtn = rowEl.querySelector('[data-act="delete"]');
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", function () {
+          var what = (job.role || "this row") + (job.company ? " at " + job.company : "");
+          if (!confirm("Delete " + what + " for good?\n\nThe row and its notes go. The fit page itself stays up, so any link you already shared keeps working.")) return;
+          status.textContent = "Deleting…"; status.className = "row-status";
+          api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (out) {
+            if (unauthorised(out)) return;
+            if (!out.ok) { status.textContent = out.d.error || "Delete failed."; status.className = "row-status err"; return; }
+            loadJobs(false);
+          });
         });
       }
     });

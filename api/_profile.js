@@ -149,8 +149,28 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
   "differentiators": [
     { "headline": "3-6 word punchy claim about me", "detail": "1-2 sentences, 30 words MAXIMUM in total, first person, the evidence" }
   ],
-  "closing": "1-2 sentences, 30 words MAXIMUM in total, first person, a plain human sign-off inviting them to talk."
+  "closing": "1-2 sentences, 30 words MAXIMUM in total, first person, a plain human sign-off inviting them to talk.",
+  "internal": {
+    "score": 0,
+    "tier": "Act now | Worth a look | Background | Off-target",
+    "breakdown": { "location": 0, "aiDx": 0, "leadership": 0 },
+    "reasoning": "1-2 blunt sentences explaining the score, written to me rather than to them"
+  }
 }
+
+## The "internal" block
+
+Everything except "internal" is written to the company. "internal" is the opposite: it is my private triage note and the company never sees it. It is stripped out before the analysis is saved, so it never reaches the public page. Write it to me, not to them, and be blunt in a way the rest of the analysis is not. If a role is a waste of my time, say so plainly here.
+
+Score it out of 100 on three dimensions, then combine them as location*0.35 + aiDx*0.35 + leadership*0.30 and round:
+
+- location: is this remote-first, or commutable from Harrogate? 100 = fully remote or Harrogate-local. ~85 = Leeds or Yorkshire. ~55 = London. Lower if it demands relocation or heavy onsite time. Count required office days: three days a week in London is materially worse than one.
+- aiDx: is there an AI, developer-experience, or product surface? 100 = frontier AI or a developer-tools product. ~55 = a tech company with no real AI or DX angle. Under 10 = not a software role at all.
+- leadership: is there real engineering leadership scope? 100 = head-of, or multiple teams. ~55 = a single-team EM role. Under 20 = an individual contributor or tech-lead role, or not an engineering role.
+
+Tiers follow from the score: 80 and above is "Act now", 58 to 79 is "Worth a look", 40 to 57 is "Background", below 40 is "Off-target".
+
+Judge the role as advertised, not as I might wish it were. A vague posting scores lower on the dimension it is vague about.
 
 Those word budgets are hard limits, not suggestions. Count the words before you finish each field. A note at 44 words is good; a note at 60 words has failed, however well written. Hitting the budget forces the short sentences, so if you're over, split and cut rather than compress into longer clauses.
 

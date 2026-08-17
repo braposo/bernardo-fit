@@ -23,16 +23,23 @@ async function analyseJob(job) {
 
   const cached = await findReportByHash(jd);
   if (cached) {
+    // Reusing a report means no fresh scoring; leave whatever the row already has.
     await updateJob(job.id, { fitReportId: cached.id });
     return { id: job.id, reportId: cached.id, cached: true };
   }
 
-  const report = await runAnalysis(jd);
+  const { report, internal } = await runAnalysis(jd);
   report.job_description = jd;
   report.created_at = new Date().toISOString();
   const reportId = await saveReport(report);
-  await updateJob(job.id, { fitReportId: reportId });
-  return { id: job.id, reportId, cached: false };
+  await updateJob(job.id, {
+    fitReportId: reportId,
+    // Scoring is a product of the analysis and lives only on the row.
+    ...(internal
+      ? { score: internal.score, tier: internal.tier, scoreBreakdown: internal.breakdown, rationale: internal.reasoning }
+      : {}),
+  });
+  return { id: job.id, reportId, cached: false, scored: !!internal };
 }
 
 export default async function handler(req, res) {

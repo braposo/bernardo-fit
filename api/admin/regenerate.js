@@ -1,6 +1,6 @@
 import { requireAdmin } from "../_admin.js";
 import { runAnalysis } from "../_analyze.js";
-import { getReport, overwriteReport } from "../_store.js";
+import { getReport, overwriteReport, listJobs, updateJob } from "../_store.js";
 
 // POST /api/admin/regenerate  { id }
 // Re-runs the analysis for an existing report's stored job description and
@@ -25,9 +25,9 @@ export default async function handler(req, res) {
       return;
     }
 
-    let report;
+    let report, internal;
     try {
-      report = await runAnalysis(existing.job_description);
+      ({ report, internal } = await runAnalysis(existing.job_description));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message, detail: err.detail });
       return;
@@ -38,7 +38,22 @@ export default async function handler(req, res) {
     report.regenerated_at = new Date().toISOString();
 
     await overwriteReport(id, report);
-    res.status(200).json({ id, report });
+
+    // Regenerating rescores, so push the new numbers onto whichever row owns
+    // this report. Scores never travel with the report itself.
+    if (internal) {
+      const owner = (await listJobs({ includeArchived: true })).find((j) => j.fitReportId === id);
+      if (owner) {
+        await updateJob(owner.id, {
+          score: internal.score,
+          tier: internal.tier,
+          scoreBreakdown: internal.breakdown,
+          rationale: internal.reasoning,
+        });
+      }
+    }
+
+    res.status(200).json({ id, report, rescored: !!internal });
   } catch (err) {
     res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
   }

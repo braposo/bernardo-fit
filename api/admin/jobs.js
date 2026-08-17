@@ -1,8 +1,10 @@
 import { requireAdmin } from "../_admin.js";
 import {
   listJobs,
+  getJob,
   saveJob,
   updateJob,
+  deleteJob,
   findExistingJob,
   findUnlinkedReportIds,
   countArchivedJobs,
@@ -123,11 +125,26 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Deliberately no DELETE. Archiving takes a row out of the pipeline while
-    // leaving the record and its fit page intact, so a link already shared with
-    // a recruiter keeps resolving. Archive and restore both go through PATCH.
+    // Delete is only allowed once a row is archived, so removal is always a
+    // second, deliberate step rather than one misplaced click. The fit report
+    // itself is left alone: any link already shared keeps resolving.
     if (req.method === "DELETE") {
-      res.status(405).json({ error: "Rows are archived, not deleted. PATCH { archived: true } instead." });
+      const { id } = req.query || {};
+      if (!id) {
+        res.status(400).json({ error: "Missing id" });
+        return;
+      }
+      const job = await getJob(id);
+      if (!job) {
+        res.status(404).json({ error: "Job not found" });
+        return;
+      }
+      if (!job.archived) {
+        res.status(409).json({ error: "Archive this row before deleting it." });
+        return;
+      }
+      await deleteJob(id);
+      res.status(200).json({ ok: true });
       return;
     }
 

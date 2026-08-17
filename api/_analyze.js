@@ -53,10 +53,45 @@ export async function runAnalysis(jobDescription) {
     clean = clean.slice(first, last + 1);
   }
 
+  let parsed;
   try {
-    return JSON.parse(clean);
+    parsed = JSON.parse(clean);
   } catch {
     console.error("Failed to parse model output as JSON:", raw);
     throw Object.assign(new Error("Could not parse the analysis. Try again."), { status: 502 });
   }
+  return splitInternal(parsed);
+}
+
+// The model returns a private "internal" triage block alongside the public
+// analysis. It is pulled off here and never travels with the report, so a saved
+// report cannot leak a score even if something later serialises the whole
+// object. The score lives on the pipeline row instead, behind the admin secret.
+export function splitInternal(parsed) {
+  const { internal, ...report } = parsed || {};
+  const b = (internal && internal.breakdown) || {};
+  const num = (v) => (typeof v === "number" && isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : null);
+
+  const clean = internal
+    ? {
+        score: num(internal.score),
+        tier: typeof internal.tier === "string" ? internal.tier : "",
+        breakdown:
+          num(b.location) !== null || num(b.aiDx) !== null || num(b.leadership) !== null
+            ? { location: num(b.location), aiDx: num(b.aiDx), leadership: num(b.leadership) }
+            : null,
+        reasoning: typeof internal.reasoning === "string" ? internal.reasoning : "",
+      }
+    : null;
+
+  return { report, internal: clean };
+}
+
+// Defence in depth: strip the block from anything on its way to a visitor, in
+// case a report was saved by an older version that kept it inline.
+export function stripInternal(report) {
+  if (!report || typeof report !== "object") return report;
+  if (!("internal" in report)) return report;
+  const { internal, ...rest } = report;
+  return rest;
 }
