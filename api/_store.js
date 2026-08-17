@@ -37,6 +37,7 @@ const INDEX_KEY = "fit:index"; // sorted set of report ids, scored by creation t
 // --- In-memory fallback (dev only) ---
 const memory = new Map(); // key -> { value, expiresAt }
 const memIndex = []; // [{ id, score }], newest last
+const memJobIndex = []; // same shape, for opportunities
 
 function memGet(key) {
   const e = memory.get(key);
@@ -147,6 +148,159 @@ export async function deleteReport(id) {
     if (idx !== -1) memIndex.splice(idx, 1);
   }
   return true;
+}
+
+// --- Opportunities (the job pipeline) ---
+//
+// Stored one key per opportunity, with a sorted set indexing them by the date
+// the opportunity arrived so the board lists newest first.
+
+const JOBS_INDEX = "jobs:index";
+
+export const JOB_STAGES = ["new", "reviewing", "applied", "interviewing", "offer", "closed"];
+
+export async function listJobs() {
+  if (hasKV) {
+    const store = await kv();
+    const ids = await store.zrange(JOBS_INDEX, 0, -1, { rev: true });
+    if (!ids.length) return [];
+    const jobs = await Promise.all(ids.map((id) => store.get(`job:${id}`)));
+    return ids.map((id, i) => (jobs[i] ? { ...jobs[i], id } : null)).filter(Boolean);
+  }
+  return memJobIndex
+    .slice()
+    .sort((a, b) => b.score - a.score)
+    .map(({ id }) => {
+      const j = memGet(`job:${id}`);
+      return j ? { ...j, id } : null;
+    })
+    .filter(Boolean);
+}
+
+export async function getJob(id) {
+  if (hasKV) {
+    const store = await kv();
+    const j = await store.get(`job:${id}`);
+    return j ? { ...j, id } : null;
+  }
+  const j = memGet(`job:${id}`);
+  return j ? { ...j, id } : null;
+}
+
+export async function saveJob(job) {
+  const id = job.id || makeId();
+  const now = new Date().toISOString();
+  const record = {
+    company: job.company || "",
+    role: job.role || "",
+    source: job.source || "",
+    sourceType: job.sourceType || "other",
+    threadId: job.threadId || "",
+    location: job.location || "",
+    salary: job.salary || "",
+    stage: JOB_STAGES.includes(job.stage) ? job.stage : "new",
+    fitReportId: job.fitReportId || "",
+    jobDescription: job.jobDescription || "",
+    notes: job.notes || "",
+    receivedAt: job.receivedAt || now,
+    createdAt: job.createdAt || now,
+    updatedAt: now,
+  };
+  // Index by when the opportunity arrived, not when it was imported.
+  const score = new Date(record.receivedAt).getTime() || Date.now();
+  if (hasKV) {
+    const store = await kv();
+    await store.set(`job:${id}`, record);
+    await store.zadd(JOBS_INDEX, { score, member: id });
+  } else {
+    memSet(`job:${id}`, record, 0);
+    if (!memJobIndex.some((e) => e.id === id)) memJobIndex.push({ id, score });
+  }
+  return { ...record, id };
+}
+
+// Partial update. Only the fields passed in are touched.
+export async function updateJob(id, patch) {
+  const existing = await getJob(id);
+  if (!existing) return null;
+  const merged = { ...existing, ...patch, id };
+  return saveJob(merged);
+}
+
+export async function deleteJob(id) {
+  const existing = await getJob(id);
+  if (!existing) return false;
+  if (hasKV) {
+    const store = await kv();
+    await store.del(`job:${id}`);
+    await store.zrem(JOBS_INDEX, id);
+  } else {
+    memory.delete(`job:${id}`);
+    const i = memJobIndex.findIndex((e) => e.id === id);
+    if (i !== -1) memJobIndex.splice(i, 1);
+  }
+  return true;
+}
+
+// Used by the inbox import so re-running it doesn't create duplicates.
+export async function findJobByThreadId(threadId) {
+  if (!threadId) return null;
+  const jobs = await listJobs();
+  return jobs.find((j) => j.threadId === threadId) || null;
+}
+
+// --- Analytics ---
+//
+// Counters per report id, plus a first/last seen timestamp. Deliberately
+// aggregate only: no IPs, user agents, or anything identifying a viewer.
+
+const TRACKED_EVENTS = ["view", "copy_link", "cv_download"];
+
+export async function trackEvent(reportId, event) {
+  if (!reportId || !TRACKED_EVENTS.includes(event)) return false;
+  const now = new Date().toISOString();
+  if (hasKV) {
+    const store = await kv();
+    await store.hincrby(`stats:${reportId}`, event, 1);
+    await store.hset(`stats:${reportId}`, { lastAt: now });
+    await store.hsetnx(`stats:${reportId}`, "firstAt", now);
+  } else {
+    const s = memGet(`stats:${reportId}`) || {};
+    s[event] = (s[event] || 0) + 1;
+    s.lastAt = now;
+    if (!s.firstAt) s.firstAt = now;
+    memSet(`stats:${reportId}`, s, 0);
+  }
+  return true;
+}
+
+export async function getStats(reportIds) {
+  const ids = Array.isArray(reportIds) ? reportIds : [reportIds];
+  const out = {};
+  if (hasKV) {
+    const store = await kv();
+    await Promise.all(
+      ids.map(async (id) => {
+        const s = (await store.hgetall(`stats:${id}`)) || {};
+        out[id] = normaliseStats(s);
+      })
+    );
+    return out;
+  }
+  ids.forEach((id) => {
+    out[id] = normaliseStats(memGet(`stats:${id}`) || {});
+  });
+  return out;
+}
+
+function normaliseStats(s) {
+  return {
+    view: Number(s.view || 0),
+    copy_link: Number(s.copy_link || 0),
+    cv_download: Number(s.cv_download || 0),
+    firstAt: s.firstAt || null,
+    lastAt: s.lastAt || null,
+  };
 }
 
 // Returns { id, report } if this exact JD was already analysed, else null.

@@ -13,6 +13,7 @@
     --accent: oklch(0.52 0.14 250);
     --accent-deep: oklch(0.42 0.14 250);
     --good: oklch(0.52 0.11 155);
+    --warn: oklch(0.64 0.13 70);
     --weak: oklch(0.54 0.15 25);
     --weak-soft: oklch(0.54 0.15 25 / 0.10);
     --paper: #faf8f4;
@@ -30,10 +31,20 @@
   html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
   .frame { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad); }
 
-  .masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 28px 0; flex-wrap: wrap; }
+  .masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 28px 0 20px; flex-wrap: wrap; }
   .mark { font-family: var(--display); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
   .mark .dot { color: var(--accent); }
   .kicker { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--sub); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--hair); }
+  .tab {
+    appearance: none; background: none; border: none; padding: 0 0 12px; cursor: pointer;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--sub); border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 0;
+  }
+  .tab:hover { background: none; color: var(--ink); }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
 
   /* Gate */
   .gate { max-width: 360px; margin: 15vh auto 0; text-align: center; }
@@ -61,40 +72,89 @@
   .gate .row { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
   .gate .err { color: var(--weak); font-size: 13px; margin-top: 14px; }
 
-  /* List */
-  .toolbar { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 8px 0 30px; flex-wrap: wrap; }
-  .toolbar h1 { font-family: var(--display); font-size: clamp(26px, 4vw, 36px); font-weight: 600; margin: 0; letter-spacing: -0.02em; }
+  /* Toolbar */
+  .toolbar { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 30px 0 22px; flex-wrap: wrap; }
+  .toolbar h1 { font-family: var(--display); font-size: clamp(24px, 3.4vw, 32px); font-weight: 600; margin: 0; letter-spacing: -0.02em; }
   .toolbar .count { font-family: var(--mono); font-size: 12px; color: var(--sub); }
+  .toolbar .right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 
-  .row-item { border-top: 1px solid var(--hair); padding: 20px 0; }
+  /* Stage filter */
+  .stagebar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .stagechip {
+    appearance: none; background: transparent; border: 1px solid var(--hair); color: var(--sub);
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 6px 12px; border-radius: 100px; cursor: pointer;
+  }
+  .stagechip:hover { background: transparent; border-color: var(--hair-strong); color: var(--ink); }
+  .stagechip.on { border-color: var(--accent); color: var(--accent-deep); }
+
+  /* Rows */
+  .row-item { border-top: 1px solid var(--hair); padding: 22px 0; }
   .row-item:last-child { border-bottom: 1px solid var(--hair); }
+  .row-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .row-title { font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
   .row-title .company { color: var(--accent); }
-  .row-meta { font-family: var(--mono); font-size: 11px; color: var(--sub); margin-top: 5px; letter-spacing: 0.02em; }
+  .row-meta { font-family: var(--mono); font-size: 11px; color: var(--sub); margin-top: 6px; letter-spacing: 0.02em; line-height: 1.6; }
   .row-jd {
-    margin-top: 12px; font-size: 13.5px; line-height: 1.55; color: var(--sub); white-space: pre-wrap;
-    max-height: 4.6em; overflow: hidden; cursor: pointer; position: relative;
+    margin-top: 12px; font-size: 13.5px; line-height: 1.6; color: var(--sub); white-space: pre-wrap;
+    max-height: 4.8em; overflow: hidden; cursor: pointer;
   }
   .row-jd.expanded { max-height: none; }
   .row-jd::after {
     content: "show more"; display: block; font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
-    letter-spacing: 0.08em; color: var(--accent); margin-top: 4px;
+    letter-spacing: 0.08em; color: var(--accent); margin-top: 6px;
   }
   .row-jd.expanded::after { content: "show less"; }
-  .row-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+  .row-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
   .row-status { font-family: var(--mono); font-size: 11px; color: var(--sub); }
   .row-status.err { color: var(--weak); }
   .row-status.ok { color: var(--good); }
 
-  .empty { text-align: center; color: var(--sub); padding: 80px 0; font-family: var(--display); font-size: 18px; }
+  /* Stage select */
+  select {
+    appearance: none; background: transparent; border: 1px solid var(--hair-strong); color: var(--ink);
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 7px 30px 7px 13px; border-radius: 100px; cursor: pointer; flex: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2378746a' stroke-width='1.5'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+  .stage-new { color: var(--sub); }
+  .stage-reviewing { color: var(--accent-deep); border-color: var(--accent); }
+  .stage-applied { color: var(--accent-deep); border-color: var(--accent); }
+  .stage-interviewing { color: var(--warn); border-color: var(--warn); }
+  .stage-offer { color: var(--good); border-color: var(--good); }
+  .stage-closed { color: var(--sub); opacity: 0.65; }
+
+  /* Stats */
+  .stats { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; color: var(--sub); }
+  .stats b { font-weight: 500; color: var(--ink); }
+  .stats .none { opacity: 0.7; }
+
+  textarea.notes {
+    width: 100%; margin-top: 12px; background: transparent; border: 1px solid var(--hair);
+    border-radius: 8px; padding: 10px 12px; font-family: var(--sans); font-size: 13px; line-height: 1.55;
+    color: var(--ink); resize: vertical; min-height: 54px;
+  }
+  textarea.notes:focus { outline: none; border-color: var(--accent); }
+
+  .empty { text-align: center; color: var(--sub); padding: 70px 0; font-family: var(--display); font-size: 18px; }
+  .empty small { display: block; font-family: var(--sans); font-size: 13.5px; margin-top: 10px; }
   .loadmore { text-align: center; margin: 32px 0 60px; }
+  .pagefoot { height: 60px; }
 </style>
 </head>
 <body>
-  <div class="frame"><div class="masthead">
-    <div class="mark">bernardo-fit<span class="dot">.</span></div>
-    <div class="kicker">Admin</div>
-  </div></div>
+  <div class="frame">
+    <div class="masthead">
+      <div class="mark">bernardo-fit<span class="dot">.</span></div>
+      <div class="kicker">Admin</div>
+    </div>
+    <div class="tabs" id="tabs" hidden>
+      <button class="tab active" data-view="jobs">Pipeline</button>
+      <button class="tab" data-view="reports">Analyses</button>
+    </div>
+  </div>
   <main id="app"></main>
 
 <script>
@@ -102,8 +162,15 @@
   "use strict";
 
   var app = document.getElementById("app");
+  var tabsEl = document.getElementById("tabs");
   var SECRET_KEY = "bfit_admin_secret";
   var secret = sessionStorage.getItem(SECRET_KEY) || "";
+
+  var view = "jobs";
+  var jobs = [];
+  var stages = ["new", "reviewing", "applied", "interviewing", "offer", "closed"];
+  var stageFilter = null;
+
   var reports = [];
   var total = 0;
   var offset = 0;
@@ -115,8 +182,12 @@
   function fmtDate(iso) {
     if (!iso) return "—";
     var d = new Date(iso);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) +
-      " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  }
+  function fmtDateTime(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return fmtDate(iso) + " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
 
   function api(path, opts) {
@@ -124,6 +195,7 @@
     opts.headers = Object.assign({ "x-admin-secret": secret }, opts.headers || {});
     return fetch(path, opts)
       .then(function (res) {
+        if (res.status === 204) return { ok: res.ok, status: res.status, d: {} };
         return res.json()
           .catch(function () { return { error: "Unexpected response from server." }; })
           .then(function (d) { return { ok: res.ok, status: res.status, d: d }; });
@@ -133,7 +205,19 @@
       });
   }
 
+  function unauthorised(out, firstTry) {
+    if (out.status === 401) {
+      sessionStorage.removeItem(SECRET_KEY);
+      renderGate(firstTry ? "Wrong secret." : "Session expired.");
+      return true;
+    }
+    return false;
+  }
+
+  // ---------- Gate ----------
+
   function renderGate(err) {
+    tabsEl.hidden = true;
     app.innerHTML =
       '<div class="frame"><div class="gate">' +
         "<h1>Locked</h1>" +
@@ -147,23 +231,243 @@
     function tryUnlock() {
       secret = input.value.trim();
       if (!secret) return;
-      loadReports(true);
+      loadJobs(true);
     }
     document.getElementById("unlock").addEventListener("click", tryUnlock);
     input.addEventListener("keydown", function (e) { if (e.key === "Enter") tryUnlock(); });
   }
 
-  function rowHtml(r) {
-    var title = esc(r.job_title || "Untitled role");
-    var company = r.company ? ' <span class="company">at ' + esc(r.company) + "</span>" : "";
+  // ---------- Pipeline ----------
+
+  function statsHtml(j) {
+    if (!j.fitReportId) return "";
+    var s = j.stats;
+    if (!s || (!s.view && !s.copy_link && !s.cv_download)) {
+      return '<div class="stats"><span class="none">No views yet</span></div>';
+    }
+    var bits = ['<span><b>' + s.view + "</b> view" + (s.view === 1 ? "" : "s") + "</span>"];
+    if (s.copy_link) bits.push("<span><b>" + s.copy_link + "</b> link copied</span>");
+    if (s.cv_download) bits.push("<span><b>" + s.cv_download + "</b> CV download" + (s.cv_download === 1 ? "" : "s") + "</span>");
+    if (s.lastAt) bits.push("<span>last " + fmtDateTime(s.lastAt) + "</span>");
+    return '<div class="stats">' + bits.join("") + "</div>";
+  }
+
+  function jobHtml(j) {
+    var fitLink = j.fitReportId ? location.origin + "/?r=" + encodeURIComponent(j.fitReportId) : "";
+    var mailLink = j.threadId ? "https://mail.google.com/mail/u/0/#all/" + encodeURIComponent(j.threadId) : "";
+    var meta = [];
+    if (j.source) meta.push(esc(j.source));
+    meta.push(fmtDate(j.receivedAt));
+    if (j.location) meta.push(esc(j.location));
+    if (j.salary) meta.push(esc(j.salary));
+
+    var opts = stages.map(function (s) {
+      return '<option value="' + s + '"' + (j.stage === s ? " selected" : "") + ">" + s + "</option>";
+    }).join("");
+
+    return (
+      '<div class="row-item" data-id="' + esc(j.id) + '">' +
+        '<div class="row-head">' +
+          "<div>" +
+            '<div class="row-title">' + esc(j.role || "Untitled role") +
+              (j.company ? ' <span class="company">at ' + esc(j.company) + "</span>" : "") + "</div>" +
+            '<div class="row-meta">' + meta.join(" · ") + "</div>" +
+          "</div>" +
+          '<select data-act="stage" class="stage-' + esc(j.stage) + '">' + opts + "</select>" +
+        "</div>" +
+        (j.jobDescription ? '<div class="row-jd">' + esc(j.jobDescription) + "</div>" : "") +
+        statsHtml(j) +
+        '<textarea class="notes" data-act="notes" placeholder="Notes…">' + esc(j.notes || "") + "</textarea>" +
+        '<div class="row-actions">' +
+          (fitLink
+            ? '<a class="ghost" href="' + esc(fitLink) + '" target="_blank" rel="noopener">Open fit page</a>' +
+              '<button class="ghost" data-act="copyfit" data-link="' + esc(fitLink) + '">Copy fit link</button>'
+            : (j.jobDescription ? '<button class="ghost" data-act="runfit">Run fit analysis</button>' : "")) +
+          (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
+          '<button class="ghost danger" data-act="delete">Delete</button>' +
+          '<span class="row-status"></span>' +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderJobs() {
+    tabsEl.hidden = false;
+    var counts = {};
+    stages.forEach(function (s) { counts[s] = 0; });
+    jobs.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
+
+    var shown = stageFilter ? jobs.filter(function (j) { return j.stage === stageFilter; }) : jobs;
+
+    var html = '<div class="frame">' +
+      '<div class="toolbar">' +
+        "<h1>Pipeline</h1>" +
+        '<div class="right">' +
+          '<span class="count">' + shown.length + (stageFilter ? " in " + stageFilter : "") + " of " + jobs.length + "</span>" +
+          '<button class="ghost" id="import">Import from inbox</button>' +
+        "</div>" +
+      "</div>" +
+      '<div class="stagebar">' +
+        '<button class="stagechip' + (stageFilter ? "" : " on") + '" data-stage="">All ' + jobs.length + "</button>" +
+        stages.map(function (s) {
+          return '<button class="stagechip' + (stageFilter === s ? " on" : "") + '" data-stage="' + s + '">' + s + " " + counts[s] + "</button>";
+        }).join("") +
+      "</div>";
+
+    if (!jobs.length) {
+      html += '<div class="empty">No opportunities yet.<small>Use “Import from inbox” to load the ones found in your email.</small></div>';
+    } else if (!shown.length) {
+      html += '<div class="empty">Nothing at this stage.</div>';
+    } else {
+      html += shown.map(jobHtml).join("");
+    }
+    html += '<div class="pagefoot"></div></div>';
+    app.innerHTML = html;
+
+    document.getElementById("import").addEventListener("click", function (e) {
+      var btn = e.currentTarget;
+      btn.disabled = true; btn.textContent = "Importing…";
+      api("/api/admin/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "import" }),
+      }).then(function (out) {
+        btn.disabled = false; btn.textContent = "Import from inbox";
+        if (unauthorised(out)) return;
+        if (!out.ok) { alert(out.d.error || "Import failed."); return; }
+        if (out.d.added) loadJobs(false);
+        else alert("Nothing new to import. All " + out.d.skipped + " already in the pipeline.");
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll(".stagechip"), function (chip) {
+      chip.addEventListener("click", function () {
+        stageFilter = chip.getAttribute("data-stage") || null;
+        renderJobs();
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll(".row-jd"), function (el) {
+      el.addEventListener("click", function () { el.classList.toggle("expanded"); });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll(".row-item"), function (rowEl) {
+      var id = rowEl.getAttribute("data-id");
+      var status = rowEl.querySelector(".row-status");
+      var job = jobs.find(function (j) { return j.id === id; });
+
+      function patch(body, onDone) {
+        api("/api/admin/jobs?id=" + encodeURIComponent(id), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { status.textContent = out.d.error || "Save failed."; status.className = "row-status err"; return; }
+          var i = jobs.findIndex(function (j) { return j.id === id; });
+          if (i !== -1) jobs[i] = Object.assign({}, jobs[i], out.d.job);
+          if (onDone) onDone(out.d.job);
+        });
+      }
+
+      var sel = rowEl.querySelector('[data-act="stage"]');
+      sel.addEventListener("change", function () {
+        var next = sel.value;
+        sel.className = "stage-" + next;
+        status.textContent = "Saving…"; status.className = "row-status";
+        patch({ stage: next }, function () {
+          status.textContent = "Saved"; status.className = "row-status ok";
+          // Re-render after a beat so the chip counts update, and so the row
+          // drops out if a stage filter is active and no longer matches.
+          setTimeout(renderJobs, 700);
+        });
+      });
+
+      var notes = rowEl.querySelector('[data-act="notes"]');
+      notes.addEventListener("blur", function () {
+        if (job && notes.value === (job.notes || "")) return;
+        status.textContent = "Saving…"; status.className = "row-status";
+        patch({ notes: notes.value }, function () {
+          status.textContent = "Notes saved"; status.className = "row-status ok";
+          setTimeout(function () { status.textContent = ""; }, 1600);
+        });
+      });
+
+      var copyFit = rowEl.querySelector('[data-act="copyfit"]');
+      if (copyFit) {
+        copyFit.addEventListener("click", function () {
+          navigator.clipboard.writeText(copyFit.getAttribute("data-link")).then(function () {
+            copyFit.textContent = "Copied";
+            setTimeout(function () { copyFit.textContent = "Copy fit link"; }, 1600);
+          });
+        });
+      }
+
+      var runFit = rowEl.querySelector('[data-act="runfit"]');
+      if (runFit) {
+        runFit.addEventListener("click", function () {
+          runFit.disabled = true;
+          status.textContent = "Running analysis…"; status.className = "row-status";
+          fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jobDescription: job.jobDescription }),
+          })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (out) {
+              if (!out.ok) {
+                runFit.disabled = false;
+                status.textContent = out.d.error || "Analysis failed.";
+                status.className = "row-status err";
+                return;
+              }
+              patch({ fitReportId: out.d.id }, function () { renderJobs(); });
+            })
+            .catch(function () {
+              runFit.disabled = false;
+              status.textContent = "Network error."; status.className = "row-status err";
+            });
+        });
+      }
+
+      rowEl.querySelector('[data-act="delete"]').addEventListener("click", function () {
+        if (!confirm("Remove this opportunity from the pipeline?")) return;
+        status.textContent = "Deleting…"; status.className = "row-status";
+        api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { status.textContent = out.d.error || "Delete failed."; status.className = "row-status err"; return; }
+          jobs = jobs.filter(function (j) { return j.id !== id; });
+          renderJobs();
+        });
+      });
+    });
+  }
+
+  function loadJobs(firstTry) {
+    api("/api/admin/jobs", { method: "GET" }).then(function (out) {
+      if (unauthorised(out, firstTry)) return;
+      if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
+      sessionStorage.setItem(SECRET_KEY, secret);
+      jobs = out.d.jobs || [];
+      if (out.d.stages && out.d.stages.length) stages = out.d.stages;
+      view = "jobs";
+      syncTabs();
+      renderJobs();
+    });
+  }
+
+  // ---------- Analyses ----------
+
+  function reportHtml(r) {
     var link = location.origin + "/?r=" + encodeURIComponent(r.id);
     return (
       '<div class="row-item" data-id="' + esc(r.id) + '">' +
-        '<div class="row-title">' + title + company + "</div>" +
-        '<div class="row-meta">' + fmtDate(r.created_at) +
-          (r.regenerated_at ? " · regenerated " + fmtDate(r.regenerated_at) : "") +
+        '<div class="row-title">' + esc(r.job_title || "Untitled role") +
+          (r.company ? ' <span class="company">at ' + esc(r.company) + "</span>" : "") + "</div>" +
+        '<div class="row-meta">' + fmtDateTime(r.created_at) +
+          (r.regenerated_at ? " · regenerated " + fmtDateTime(r.regenerated_at) : "") +
           " · " + esc(r.id) + "</div>" +
-        '<div class="row-jd" data-full="1">' + esc(r.job_description || "") + "</div>" +
+        '<div class="row-jd">' + esc(r.job_description || "") + "</div>" +
         '<div class="row-actions">' +
           '<button class="ghost" data-act="copy" data-link="' + esc(link) + '">Copy link</button>' +
           '<a class="ghost" href="' + esc(link) + '" target="_blank" rel="noopener">Open</a>' +
@@ -175,35 +479,30 @@
     );
   }
 
-  function renderList() {
+  function renderReports() {
+    tabsEl.hidden = false;
     var html = '<div class="frame">' +
       '<div class="toolbar"><h1>Saved analyses</h1>' +
         '<span class="count">' + reports.length + " of " + total + "</span>" +
       "</div>";
 
-    if (!reports.length) {
-      html += '<div class="empty">Nothing saved yet.</div>';
-    } else {
-      html += reports.map(rowHtml).join("");
-    }
-    html += "</div>";
+    if (!reports.length) html += '<div class="empty">Nothing saved yet.</div>';
+    else html += reports.map(reportHtml).join("");
 
     if (reports.length < total) {
       html += '<div class="loadmore"><button class="ghost" id="loadmore">Load more</button></div>';
     }
-
+    html += '<div class="pagefoot"></div></div>';
     app.innerHTML = html;
 
     if (reports.length < total) {
       document.getElementById("loadmore").addEventListener("click", function () { loadReports(false); });
     }
 
-    // Expand/collapse JD
     Array.prototype.forEach.call(document.querySelectorAll(".row-jd"), function (el) {
       el.addEventListener("click", function () { el.classList.toggle("expanded"); });
     });
 
-    // Row actions
     Array.prototype.forEach.call(document.querySelectorAll(".row-item"), function (rowEl) {
       var id = rowEl.getAttribute("data-id");
       var status = rowEl.querySelector(".row-status");
@@ -220,12 +519,11 @@
         if (!confirm("Delete this analysis permanently? This can't be undone.")) return;
         status.textContent = "Deleting…"; status.className = "row-status";
         api("/api/admin/reports?id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (out) {
+          if (unauthorised(out)) return;
           if (!out.ok) { status.textContent = out.d.error || "Failed to delete."; status.className = "row-status err"; return; }
-          rowEl.remove();
           reports = reports.filter(function (r) { return r.id !== id; });
           total -= 1;
-          var countEl = document.querySelector(".toolbar .count");
-          if (countEl) countEl.textContent = reports.length + " of " + total;
+          renderReports();
         });
       });
 
@@ -239,14 +537,11 @@
           body: JSON.stringify({ id: id }),
         }).then(function (out) {
           btn.disabled = false;
+          if (unauthorised(out)) return;
           if (!out.ok) { status.textContent = out.d.error || "Failed to regenerate."; status.className = "row-status err"; return; }
           var idx = reports.findIndex(function (r) { return r.id === id; });
           if (idx !== -1) reports[idx] = Object.assign({ id: id }, out.d.report);
-          status.textContent = "Regenerated"; status.className = "row-status ok";
-          var fresh = document.createElement("div");
-          fresh.innerHTML = rowHtml(reports[idx]);
-          rowEl.replaceWith(fresh.firstChild);
-          renderList();
+          renderReports();
         });
       });
     });
@@ -255,20 +550,35 @@
   function loadReports(reset) {
     if (reset) { offset = 0; reports = []; }
     api("/api/admin/reports?offset=" + offset + "&limit=" + LIMIT, { method: "GET" }).then(function (out) {
-      if (!out.ok) {
-        if (out.status === 401) { sessionStorage.removeItem(SECRET_KEY); renderGate(reset ? "Wrong secret." : "Session expired."); return; }
-        renderGate(out.d && out.d.error ? out.d.error : "Something went wrong.");
-        return;
-      }
-      sessionStorage.setItem(SECRET_KEY, secret);
+      if (unauthorised(out)) return;
+      if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
       reports = reports.concat(out.d.reports);
       total = out.d.total;
       offset += out.d.reports.length;
-      renderList();
+      view = "reports";
+      syncTabs();
+      renderReports();
     });
   }
 
-  if (secret) loadReports(true);
+  // ---------- Tabs ----------
+
+  function syncTabs() {
+    Array.prototype.forEach.call(tabsEl.querySelectorAll(".tab"), function (t) {
+      t.classList.toggle("active", t.getAttribute("data-view") === view);
+    });
+  }
+
+  Array.prototype.forEach.call(tabsEl.querySelectorAll(".tab"), function (t) {
+    t.addEventListener("click", function () {
+      var next = t.getAttribute("data-view");
+      if (next === view) return;
+      if (next === "jobs") loadJobs(false);
+      else loadReports(true);
+    });
+  });
+
+  if (secret) loadJobs(true);
   else renderGate();
 })();
 </script>

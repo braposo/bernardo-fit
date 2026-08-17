@@ -5,16 +5,19 @@ A small tool you can host on your own site. Someone pastes a job description, an
 ## How it works
 
 ```
-public/index.html      ← the whole frontend (no build step)
-public/admin.html      ← admin page: list, delete, and regenerate saved analyses
+public/index.html       ← the whole frontend (no build step)
+public/admin.html       ← admin: job pipeline + saved analyses
 api/analyze.js          ← runs the analysis (your API key stays server-side), saves it, returns an id
 api/report.js           ← loads a saved analysis by id (powers the permalink)
+api/track.js            ← public, aggregate-only view/interaction counters
 api/_analyze.js         ← the actual Anthropic call + JSON parsing, shared by analyze and admin regenerate
 api/_profile.js         ← your full profile + the first-person system prompt
-api/_store.js           ← storage (Vercel KV by default; swap for anything)
+api/_store.js           ← storage: reports, opportunities, analytics (Vercel KV by default)
 api/_admin.js           ← shared-secret auth for the admin endpoints
+api/_inbox-scan.js      ← captured Gmail scan, the source for "Import from inbox"
 api/admin/reports.js    ← list / delete saved analyses
 api/admin/regenerate.js ← re-run the analysis for a saved job description, in place
+api/admin/jobs.js       ← the job pipeline: list, create, import, update stage, delete
 ```
 
 Flow: paste JD → `/api/analyze` runs it as *you*, in first person → result is stored under a short id → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the same read forever.
@@ -38,7 +41,17 @@ The frontend is one self-contained `index.html`. Drop it at a path like `/fit` o
 
 ## Admin page
 
-`/admin` lists every saved analysis — created date, job description, score, permalink — and lets you delete an entry or regenerate its analysis in place (same id, same permalink, fresh content from the current profile/prompt). Gated by a shared secret: set an **`ADMIN_SECRET`** environment variable (a long random string) and enter it on the page — it's kept in `sessionStorage`, not persisted anywhere else. Regenerating bypasses the dedup cache and per-IP rate limit (it's you, not a visitor).
+`/admin` is gated by a shared secret: set an **`ADMIN_SECRET`** environment variable (a long random string) and enter it on the page. It's kept in `sessionStorage`, nowhere else. Two tabs:
+
+**Pipeline** tracks job opportunities through `new → reviewing → applied → interviewing → offer → closed`. Each entry keeps the source, the date it arrived, location and salary where known, free-text notes, and a link back to the original email thread. If an entry has a job description, one click runs it through the fit analyser and links the resulting page to it. Once linked, the row shows how many times that page was viewed, how often the link was copied, and how many times the CV was downloaded.
+
+Opportunities come from `api/_inbox-scan.js`, a captured snapshot of a Gmail scan. The app has no mail credentials of its own; the scan is run separately and pasted in. "Import from inbox" is idempotent, matched on Gmail thread id, so re-running it never duplicates a row and never overwrites a stage or note you've already set.
+
+**Analyses** lists every saved fit report, and lets you delete one or regenerate it in place (same id, same permalink, fresh content from the current profile and prompt). Regenerating bypasses the dedup cache and the per-IP rate limit, since it's you rather than a visitor.
+
+## Analytics
+
+`POST /api/track` takes `{ id, event }` where event is `view`, `copy_link` or `cv_download`, and increments a counter against a saved report. It is deliberately aggregate-only: no IP addresses, user agents, or anything else identifying a visitor, so it answers "was this link opened" and not "who opened it". The report page fires `view` once per load, and the two button events on click. Demo mode never tracks. Failures are swallowed so a visitor never sees an analytics error.
 
 ## Editing what it says about you
 

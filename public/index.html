@@ -209,6 +209,25 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  // Aggregate counters only, and never in demo mode. Fire-and-forget: if it
+  // fails, the visitor should never know or care.
+  var tracked = {};
+  function track(event, id) {
+    if (DEMO || !id) return;
+    if (event === "view") {
+      if (tracked[id]) return; // once per page load
+      tracked[id] = true;
+    }
+    try {
+      fetch("/api/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: id, event: event }),
+        keepalive: true,
+      }).catch(function () {});
+    } catch (e) { /* ignore */ }
+  }
+
   var MASTHEAD =
     '<div class="frame"><div class="masthead">' +
       '<div class="mark">Bernardo Raposo<span class="dot">.</span></div>' +
@@ -296,21 +315,27 @@
           '<span class="lbl">' + (state.cached ? '<b>Already analysed.</b> This role was run before — same link, same read.' : '<b>Keep this link.</b> It\'ll always show this exact read.') + '</span>' +
           '<div class="sharebar-actions">' +
             '<button class="linkbtn" id="copy">Copy link</button>' +
-            '<a class="linkbtn" href="/bernardo-raposo-cv.pdf" target="_blank" rel="noopener">Download CV</a>' +
+            '<a class="linkbtn" id="cv" href="/bernardo-raposo-cv.pdf" target="_blank" rel="noopener">Download CV</a>' +
             '<button class="linkbtn" id="new">New role</button>' +
           '</div>' +
         '</div>' +
       '</div></div>' +
       FOOTER;
 
+    track("view", id);
+
     var copyBtn = document.getElementById("copy");
     copyBtn.addEventListener("click", function () {
       var url = location.origin + location.pathname + "?r=" + encodeURIComponent(id);
+      track("copy_link", id);
       navigator.clipboard.writeText(url).then(function () {
         copyBtn.textContent = "Link copied";
         copyBtn.classList.add("done");
         setTimeout(function () { copyBtn.textContent = "Copy link"; copyBtn.classList.remove("done"); }, 2200);
       });
+    });
+    document.getElementById("cv").addEventListener("click", function () {
+      track("cv_download", id);
     });
     document.getElementById("new").addEventListener("click", function () {
       history.pushState({}, "", location.pathname + (DEMO ? "?demo=1" : ""));
