@@ -216,6 +216,7 @@ export async function saveJob(job) {
     rationale: job.rationale || "",
     replyOwed: !!job.replyOwed,
     userViewed: !!job.userViewed,
+    closed: !!job.closed,
     recruiter: job.recruiter || null,
     stage: JOB_STAGES.includes(job.stage) ? job.stage : "new",
     fitReportId: job.fitReportId || "",

@@ -15,9 +15,11 @@ api/_profile.js         ← your full profile + the first-person system prompt
 api/_store.js           ← storage: reports, opportunities, analytics (Vercel KV by default)
 api/_admin.js           ← shared-secret auth for the admin endpoints
 api/_inbox-scan.js      ← captured Gmail scan, the source for "Import from inbox"
+api/_jd-fetched.js      ← job descriptions captured from public LinkedIn postings
 api/admin/reports.js    ← list / delete saved analyses
 api/admin/regenerate.js ← re-run the analysis for a saved job description, in place
 api/admin/jobs.js       ← the job pipeline: list, create, import, update stage, delete
+api/admin/analyse.js    ← run a fit analysis for one row or every unanalysed row
 ```
 
 Flow: paste JD → `/api/analyze` runs it as *you*, in first person → result is stored under a short id → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the same read forever.
@@ -49,7 +51,11 @@ Everything lives in a single pipeline. Each row is an opportunity moving through
 
 Analyses saved before this behaviour existed show up as a prompt at the top of the page offering to pull them in.
 
-Opportunities also come from `api/_inbox-scan.js`, a captured snapshot of a Gmail scan. The app has no mail credentials of its own; the scan is run separately and pasted in. "Import from inbox" is an upsert keyed on `externalId` then Gmail thread id, so re-running it refreshes the scan-derived metadata while leaving your stage, notes and linked analysis untouched.
+Opportunities also come from `api/_inbox-scan.js`, a captured snapshot of a Gmail scan, with the job descriptions in `api/_jd-fetched.js` pulled from the public LinkedIn view of each posting. Both are snapshots taken by hand, not live integrations: the server holds no mail credentials and never scrapes LinkedIn at runtime, since a scheduled function hitting them from a datacentre IP would be blocked quickly and would breach LinkedIn's terms. Refreshing either means re-running the fetch and replacing the file.
+
+"Import from inbox" is an upsert keyed on `externalId` then Gmail thread id, so re-running it refreshes the scan-derived metadata while leaving your stage, notes and linked analysis untouched.
+
+**Analyse all** runs a fit analysis for every row that has a job description but no analysis yet. It goes through `POST /api/admin/analyse`, not the public endpoint, because that one is rate limited to 10 per hour per IP to protect the bill from visitors and the whole pipeline would hit that wall immediately. The limit is pointless there anyway: the caller already holds the admin secret. Deduplication still applies, so a description that has been analysed before costs nothing, and one failure doesn't abort the batch.
 
 Fit scores and tiers come from the scan, weighted location 0.35, AI-or-DX surface 0.35 and leadership scope 0.30. They are a model-generated read against the profile, not employer assessments.
 

@@ -41,7 +41,7 @@ export const INBOX_OPPORTUNITIES = [
     "threadId": "",
     "location": "Distributed (Oslo/US)",
     "locationMode": "Remote-friendly",
-    "salary": "",
+    "salary": "$230k - $260k (SF); London at local market",
     "score": 95,
     "tier": "Act now",
     "scoreBreakdown": {
@@ -56,7 +56,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Software Engineering Manager, Web at Sanity. London Area or San Francisco Bay Area. Mid-senior, full-time.\n\nSanity is hiring a Software Engineering Manager for the Web team.\n\nResponsibilities:\n- Lead and develop the web team: manage and mentor a team of 2+ engineers.\n- Own the web roadmap and shift the team from reactive support to proactive innovation.\n- Drive AI-native web experiences, leveraging Sanity's platform and emerging AI tools.\n- Partner cross-functionally with marketing, design and product.\n- Own web performance and metrics, accountable for KPIs such as conversion rates.\n\nRequirements:\n- 8+ years web engineering experience with 1-3+ years in leadership roles.\n- Strong technical background in modern web development.\n- Experience owning or contributing to high-impact marketing or product websites.\n- Product mindset with cross-functional collaboration skills.\n- Familiarity with experimentation, analytics and growth optimisation.\n\nCompensation: San Francisco range $230K-$260K. London aligned to local market rates.\n\nAbout Sanity: AI-powered content operations platform used by SKIMS, Figma, Riot Games and Anthropic. Recently raised an $85M Series C.",
+    "closed": false
   },
   {
     "externalId": "openai--manager-forward-deployed-engineering",
@@ -66,7 +67,7 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "viewed",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4417178056",
     "threadId": "",
-    "location": "London",
+    "location": "London, 3 days/wk in office",
     "locationMode": "London",
     "salary": "",
     "score": 88,
@@ -83,7 +84,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Manager, Forward Deployed Engineering at OpenAI. London, hybrid, 3 days in office per week. Relocation assistance offered. Travel up to 25%.\n\nOpenAI's Forward Deployed Engineering team partners with customers to convert research breakthroughs into production systems, operating at the intersection of customer delivery and core platform development.\n\nAs an FDE manager you will lead FDEs through high-stakes, ambiguous customer deployments and own technical and business value outcomes end to end. You will grow a team that can operate under pressure and help OpenAI learn from the field. You will partner closely with Product, Research, Sales and GTM so fieldwork informs roadmap priorities and supports safe deployment at scale.\n\nResponsibilities:\n- Lead and grow a team of FDEs delivering production systems with frontier models.\n- Own end-to-end delivery outcomes through clarity, speed, coordination and technical quality.\n- Codify effective practices into tools, playbooks and roadmap inputs.\n- Identify and raise early indicators about product behaviour and delivery practices.\n- Set high performance standards and give direct, actionable feedback.\n- Define staffing and support models for scalable field teams.\n\nRequirements:\n- 8+ years engineering or technical delivery experience, 2+ years managing FDE or customer-facing engineers.\n- Led high-pressure technical projects from prototype to production.\n- Production-grade code writing and review in JavaScript or Python.\n- Ability to simplify complexity and decide under pressure.\n- Translates field experience into actionable feedback for Product and Research.",
+    "closed": false
   },
   {
     "externalId": "cinc-systems--principal-designops-engineer",
@@ -115,7 +117,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-07-28T13:27:21Z",
     "stage": "new",
     "notes": "Three emails: intro 28 Jul, follow-up 4 Aug, soft close 11 Aug (\"if the timing isn't right, that's fine\"). Not replied to. Starred in Gmail.",
-    "jobDescription": "Principal DesignOps Engineer at CINC Systems, reporting directly to the CTO.\n\nCINC Systems is a leading SaaS platform powering 50k+ property associations across the US. They are rebuilding their platform from the ground up and need a Principal DesignOps Engineer to own it all: design system, component libraries, Figma-to-code pipelines, and how AI gets woven into the UX. Real ownership, CTO-level visibility.\n\nThe person in this role will own making their entire design pipeline AI-native while the product scales to 14 million users. Suited to someone who enjoys 0 to 1 work in a highly evolving technological environment.\n\nFully remote, can be located anywhere in the world."
+    "jobDescription": "Principal DesignOps Engineer at CINC Systems, reporting directly to the CTO.\n\nCINC Systems is a leading SaaS platform powering 50k+ property associations across the US. They are rebuilding their platform from the ground up and need a Principal DesignOps Engineer to own it all: design system, component libraries, Figma-to-code pipelines, and how AI gets woven into the UX. Real ownership, CTO-level visibility.\n\nThe person in this role will own making their entire design pipeline AI-native while the product scales to 14 million users. Suited to someone who enjoys 0 to 1 work in a highly evolving technological environment.\n\nFully remote, can be located anywhere in the world.",
+    "closed": false
   },
   {
     "externalId": "via-digitech-resourcing--software-engineering-team-lead-smart-energy",
@@ -147,7 +150,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-11T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": "Software Engineering Team Lead, reporting to the CTO. Harrogate, 2 days per week in the office. Smart energy sector. Salary £90,000 - £100,000.\n\nA smart technology company driving innovation within the energy sector, creating solutions across hardware, software, and cloud services to unlock the power of customer data insights. Reporting to the CTO, you play a key role in the development and release of their products.\n\nYou will lead a high-performing engineering team responsible for building and scaling a B2B SaaS platform that delivers energy insights from IoT devices through a customer-facing portal and real-time data streams. This role combines hands-on technical leadership with people management, ensuring the team delivers reliable, scalable, and secure solutions that turn complex IoT data into actionable intelligence for customers, and provides an end-to-end customer experience.\n\nExperience needed:\n- Bachelor's or master's degree in computer science or related field.\n- Proven experience leading software development teams in a SaaS environment.\n- Strong background in backend development (APIs, microservices, distributed systems).\n- Familiarity with AWS.\n- Solid understanding of system scalability, performance optimization, and security.\n- Experience with Agile/Scrum methodologies.\n- Proven experience leading or mentoring engineering teams.\n- Software development using JavaScript or TypeScript with React and Node.js."
+    "jobDescription": "Software Engineering Team Lead, reporting to the CTO. Harrogate, 2 days per week in the office. Smart energy sector. Salary £90,000 - £100,000.\n\nA smart technology company driving innovation within the energy sector, creating solutions across hardware, software, and cloud services to unlock the power of customer data insights. Reporting to the CTO, you play a key role in the development and release of their products.\n\nYou will lead a high-performing engineering team responsible for building and scaling a B2B SaaS platform that delivers energy insights from IoT devices through a customer-facing portal and real-time data streams. This role combines hands-on technical leadership with people management, ensuring the team delivers reliable, scalable, and secure solutions that turn complex IoT data into actionable intelligence for customers, and provides an end-to-end customer experience.\n\nExperience needed:\n- Bachelor's or master's degree in computer science or related field.\n- Proven experience leading software development teams in a SaaS environment.\n- Strong background in backend development (APIs, microservices, distributed systems).\n- Familiarity with AWS.\n- Solid understanding of system scalability, performance optimization, and security.\n- Experience with Agile/Scrum methodologies.\n- Proven experience leading or mentoring engineering teams.\n- Software development using JavaScript or TypeScript with React and Node.js.",
+    "closed": false
   },
   {
     "externalId": "lightdash--head-of-engineering",
@@ -174,7 +178,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Head of Engineering at Lightdash. London Area, United Kingdom. Director level, full-time. Artificial Intelligence and Software Development.\n\nLightdash seeks a deeply technical Head of Engineering to partner with the CTO and lead the engineering organisation's next phase. The ideal candidate is a seasoned builder who thrives in high-velocity, high-ownership startup environments and believes momentum beats perfection.\n\nResponsibilities:\n- Set the bar for engineering velocity through coaching, mentoring and unblocking the team.\n- Make architectural and security decisions quickly while maintaining long-term resilience.\n- Build and own best-in-class developer experience through tooling and workflows.\n- Monitor and protect reliability and SLAs while maintaining startup speed.\n- Establish a culture celebrating iteration over perfectionism.\n\nQualifications: one of a seasoned engineer with prior Head of Engineering or EM experience at a venture-backed startup; an ex-founder who shipped under pressure; or a startup tech lead who thrives on ownership. Engineering leadership in high-velocity environments, deep technical expertise with strong architecture and security instincts, startup operator mindset, AI-first orientation with daily engagement, developer-experience focus, and execution focus on monitoring and observability.\n\nStack: TypeScript, React, Node, SQL; Express, React hooks, Redux, RTK, Mantine; Docker, GCP, Kubernetes, tracing, Prometheus.\n\nCulture: build in public, open source means moving fast with shared context, challenge problems rather than people, bias toward impact over perfection.",
+    "closed": false
   },
   {
     "externalId": "ashby--engineering-manager-uk",
@@ -186,7 +191,7 @@ export const INBOX_OPPORTUNITIES = [
     "threadId": "",
     "location": "London (remote-first co)",
     "locationMode": "Remote-friendly",
-    "salary": "",
+    "salary": "£110k - £200k",
     "score": 80,
     "tier": "Act now",
     "scoreBreakdown": {
@@ -201,7 +206,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Engineering Manager, UK at Ashby. London, England. Salary £110,000 - £200,000 per year.\n\nColin, Director of Engineering Europe, seeks an engineering manager to build a distinctive engineering culture where developers write product specs, make decisions and own projects without rigid ticketing processes. The position emphasises trusting engineers with autonomy while maintaining high standards through coaching and feedback.\n\nResponsibilities:\n- Focus on individual performance, team development and culture rather than sprint planning.\n- Mentor engineers to handle large, loosely-defined projects with minimal intervention.\n- Provide feedback on product and technical specifications to influence IC decisions.\n- Contribute hands-on code to debug issues, ship fixes and improve developer experience.\n- Manage approximately 6 direct reports for junior EMs.\n\nRequirements:\n- Passion for both technical work and management challenges.\n- Ability to hold in-depth technical conversations across infrastructure, backend and frontend.\n- Strong communication and empathy for organisational change.\n- Deep understanding of what makes exceptional engineers tick.\n- Comfort with high-trust, high-autonomy startup environments.\n- Interest in product and business thinking without controlling final decisions.\n- Genuine enjoyment of coding and staying current with technology.\n\nAshby is talent management software that automates recruitment coordination and scheduling for hiring teams.",
+    "closed": false
   },
   {
     "externalId": "getty-images--head-of-web-unsplash",
@@ -228,7 +234,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Head of Web, Unsplash at Getty Images. London, England. Full-time.\n\nLead a small engineering team building and enhancing features for unsplash.com, a visual search engine powering over 10,000 applications. This is a player-coach role combining hands-on technical contribution with leadership responsibility for team growth and product delivery.\n\nResponsibilities:\n- Lead engineers building features for unsplash.com.\n- Collaborate cross-functionally with Web, API, Design and Data teams to understand product priorities.\n- Develop and deliver product ideas aligned with business needs.\n- Promote ownership, accountability and high standards within the team.\n- Maintain and optimise the front-end platform for performance and developer experience.\n- Support team member growth and career development.\n- Drive decisions using data-driven insights.\n\nRequirements:\n- Player-coach readiness with hands-on technical contribution.\n- Team leadership experience with accountability for member growth and performance.\n- Expert-level proficiency in Node, TypeScript, React and Next.js.\n- Experience building web applications at scale.\n- Functional programming experience.\n\nNice to have: search, SEO or ecommerce feature development experience.",
+    "closed": false
   },
   {
     "externalId": "parloa--manager-forward-deployed-engineering",
@@ -255,7 +262,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Manager, Forward Deployed Engineering at Parloa. London, England. Full-time, mid-senior.\n\nLead a team of Forward Deployed Engineers managing strategic enterprise AI deployments. Ensure consistent delivery excellence, engineering quality and rapid issue resolution in complex enterprise environments while maintaining technical credibility.\n\nResponsibilities:\n- Lead and develop the FDE team through hiring, coaching, performance feedback and career growth.\n- Allocate engineers across parallel strategic projects; manage capacity and utilisation.\n- Own engineering delivery across deployments: milestones, dependencies, risk management, escalation.\n- Implement lightweight tracking and reporting for effort, progress and capacity.\n- Provide technical leadership: guide architecture choices, review designs, unblock production issues.\n- Build reusable field engineering patterns, playbooks and standards.\n- Translate recurring customer needs into productisation proposals for Product and Core Engineering.\n- Partner with customer engineering and enterprise stakeholders to build technical trust.\n\nRequirements:\n- 8+ years software engineering, systems integration, DevOps or data engineering with production responsibility.\n- Proven people leadership: formal management, team lead roles, hiring, performance development.\n- Success delivering complex technical projects in large enterprise environments.\n- Technical breadth: backend engineering, APIs, cloud platforms, Kubernetes, infrastructure-as-code, databases.\n- Strong planning, prioritisation, capacity thinking and risk management.\n- Plus: experience building or integrating AI and LLM-powered systems in forward-deployed environments.\n\nStack: TypeScript, NodeJS, OpenAI, Microsoft Azure, Kubernetes, Docker, Terraform, MongoDB, MySQL, Redis, Kafka, MCP.",
+    "closed": false
   },
   {
     "externalId": "cuvva--engineering-manager",
@@ -281,8 +289,9 @@ export const INBOX_OPPORTUNITIES = [
     "recruiter": null,
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
-    "notes": "",
-    "jobDescription": ""
+    "notes": "Posting no longer accepting applications as of 17 Aug 2026.",
+    "jobDescription": "",
+    "closed": true
   },
   {
     "externalId": "multiverse--senior-engineering-manager",
@@ -309,7 +318,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Senior Engineering Manager at Multiverse. London, England. Full-time, mid-senior.\n\nLead the Diagnose and Prescribe service estate, which determines learner and employer skill needs then directs them to appropriate apprenticeships. The role bridges product development and technical leadership, requiring hands-on involvement alongside team management.\n\nResponsibilities:\n- Own delivery, technical direction and team health across Diagnose and Prescribe services.\n- Lead diagnosis and needs assessment using AI, including RAG and LLM-scored evaluation.\n- Build prescription and eligibility products with financial and regulatory implications.\n- Manage recommendation and onboarding systems translating diagnoses into learning paths.\n- Oversee platform modernisation from legacy monolith to dedicated services.\n- Hire, mentor and develop high-performing teams in AI-native practices.\n- Write production code and review distributed system designs.\n- Balance shipping speed against technical debt using cycle time and change failure metrics.\n- Partner with Product and Design on strategy informed by learner behaviour.\n\nRequirements:\n- Engineering management of full-stack production teams with deep technical credibility.\n- Shipped AI features to real users and operated them in production.\n- Strong Python and TypeScript, React and Next.js including App Router and RSC, tRPC or GraphQL, Node and Express.\n- PostgreSQL at scale via ORM with migration discipline.\n- Event-driven systems experience: RabbitMQ, versioned events, idempotency.\n- High maturity bar: typing, testing, feature flags, ADRs, CI/CD, observability.\n- Daily AI-native development using Claude, Cursor or equivalent tools.",
+    "closed": false
   },
   {
     "externalId": "hubscale--head-of-forward-deployed-engineering",
@@ -335,8 +345,9 @@ export const INBOX_OPPORTUNITIES = [
     "recruiter": null,
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
-    "notes": "",
-    "jobDescription": ""
+    "notes": "Posting no longer accepting applications as of 17 Aug 2026.",
+    "jobDescription": "Head of Forward Deployed Engineering at Hubscale. London Area, with travel to the Gulf region. Director level, full-time. NOTE: the posting states it is no longer accepting applications.\n\nFirst Head of Forward Deployed Engineering at an AI infrastructure startup. A player-coach position owning the entire customer deployment motion, from discovery through go-live. You will establish the deployment playbook that future FDE hires follow.\n\nResponsibilities:\n- Own end-to-end customer deployments for critical infrastructure: ports, airlines, energy grids.\n- Stay hands-on: write production-grade code and ship full-stack features alongside customers.\n- Determine which one-off solutions become platform features.\n- Build and mentor an FDE team while maintaining individual contribution.\n- Define technical specifications that guide engineering priorities.\n- Measure success by operational dependency, not ticket volume.\n\nRequirements:\n- 5+ years in forward-deployed, field or customer-facing engineering roles shipping production code.\n- Personally led enterprise or government deployments to live production.\n- Strong TypeScript and React; Python or Node expertise.\n- Excellent communication with technical and non-technical stakeholders.\n- Coach junior engineers while staying hands-on.\n- Comfortable operating without detailed specifications or established processes.\n\nNice to have: AI-native product experience; enterprise security background including SSO, VPCs, compliance reviews, on-premises systems; operationally complex industry experience in logistics, aviation, energy or industrial.\n\nCompensation: competitive base plus early-stage equity. Travel a few days monthly or bi-monthly to customer sites in the Gulf region.",
+    "closed": true
   },
   {
     "externalId": "kira--engineering-manager-united-kingdom",
@@ -346,7 +357,7 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "job-alert",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4453524675",
     "threadId": "",
-    "location": "London Area",
+    "location": "London, 3 days/wk on-site",
     "locationMode": "London",
     "salary": "",
     "score": 65,
@@ -363,7 +374,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Engineering Manager, United Kingdom at Kira. London Area, hybrid with a minimum of 3 days per week on-site. Full-time, mid-senior.\n\nKira seeks an Engineering Manager to lead high-performing engineering teams building products for millions of users across Southeast Asia. The role demands a technical leader capable of managing engineers, making sound architecture decisions and driving products from concept to production while maintaining engineering quality and delivery speed.\n\nResponsibilities:\n- Lead and manage engineers across frontend, backend and full-stack development.\n- Own engineering delivery for major product areas, shipping rapidly without compromising reliability.\n- Collaborate with product, design, mobile, backend and AI teams on technical execution.\n- Drive technical architecture across APIs, databases, integrations and infrastructure.\n- Establish engineering standards for code quality, system design, testing, observability, security and reliability.\n- Participate in architecture reviews, code reviews, debugging and critical decisions.\n- Develop engineers through feedback, coaching and performance management.\n- Improve engineering processes, tooling and automation for scale.\n- Own production outcomes: monitoring, incident resolution, root cause analysis.\n\nRequirements:\n- Strong software engineering background with production system experience.\n- Leadership or management experience with software engineers.\n- Technical depth in backend, frontend, APIs, databases, distributed systems or cloud infrastructure.\n- Sound judgment on architecture and technical trade-offs.\n- Track record shipping products from concept through launch and production.\n- Strong people leadership, coaching and team-building.\n- Product sense connecting engineering to customer and business outcomes.\n\nInterview process: online assessment, technical and engineering leadership interview, CEO final round, targeted at one week for strong candidates.",
+    "closed": false
   },
   {
     "externalId": "c3-ai--forward-deployed-team-lead",
@@ -390,7 +402,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Forward Deployed Team Lead at C3 AI. London, England. Full-time, mid-senior.\n\nSenior technical leaders who own customer engagements end-to-end, combining strong technical architecture, hands-on coding, product ownership, project management and stakeholder communication.\n\nResponsibilities:\n- Technical architecture ownership across customer infrastructure.\n- Hands-on production coding: backend services, data pipelines, APIs, integrations.\n- Deployment roadmap and statement of work execution.\n- Project management including plans, milestones, risks and dependencies.\n- Customer stakeholder communication and executive briefings.\n- Production deployment across dev, UAT and production environments.\n- Enterprise security and compliance configuration.\n- Field learnings integration into the core platform.\n- Account growth and expansion opportunity identification.\n\nRequirements:\n- BS or MS in Computer Science, Software Engineering or equivalent experience.\n- 6+ years shipping production software; 2+ years as tech lead or senior contributor.\n- Proficiency in Python, TypeScript/JavaScript, Java, Go or C++.\n- Demonstrated zero-to-production system ownership in commercial or enterprise settings.\n- Deep expertise in financial services, healthcare, energy, manufacturing or defence.\n- Experience with mid-market or enterprise stakeholder management.\n- Familiarity with cloud data warehouses, REST and GraphQL APIs, ERP and CRM platforms.\n- Modern deployment practices: CI/CD, Docker, Kubernetes, infrastructure-as-code.\n\nPreferred: prior SaaS or enterprise software tech lead or staff engineer experience; AI/ML platform deployment at scale; AWS, Azure or GCP; regulated industry background.",
+    "closed": false
   },
   {
     "externalId": "via-fruition-group--engineering-manager-frontend-new-platform",
@@ -400,9 +413,9 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "recruiter-inmail",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4448159703",
     "threadId": "1a00fd55e78c4bdc",
-    "location": "Leeds",
-    "locationMode": "Yorkshire",
-    "salary": "",
+    "location": "Fully remote (listed Leeds)",
+    "locationMode": "Remote-friendly",
+    "salary": "Up to £90k",
     "score": 62,
     "tier": "Worth a look",
     "scoreBreakdown": {
@@ -422,7 +435,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-06-15T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Engineering Manager via Fruition Group. Leeds, England, but FULLY REMOTE. Salary up to £90k plus benefits.\n\nHands-on leadership position combining people management with technical oversight, building high-performing teams while delivering quality products across engineering, product, design and data functions.\n\nLeadership:\n- Lead and develop software engineering teams.\n- Foster a collaborative, inclusive culture emphasising learning.\n- Support career growth through feedback and mentoring.\n\nDelivery:\n- Own end-to-end product initiative delivery.\n- Drive engineering excellence via testing, CI/CD, documentation and code quality.\n- Monitor and enhance delivery metrics and reliability.\n\nCollaboration:\n- Partner with Product, Design and Data teams on customer solutions.\n- Communicate priorities, technical trade-offs and delivery risks.\n- Maintain team alignment with business objectives.\n\nTechnical leadership:\n- Guide architecture and technical decisions.\n- Participate in design discussions and code reviews.\n- Support teams on complex challenges.\n\nRequirements:\n- Experience leading and developing engineering teams.\n- Strong software engineering background with technical influence.\n- Track record delivering complex products in agile settings.\n- Experience improving engineering practices and delivery performance.\n- Excellent communication and stakeholder management.\n- Remote and distributed team leadership experience.\n\nStack: Ruby on Rails, React, React Native, GraphQL, with hands-on involvement required.",
+    "closed": false
   },
   {
     "externalId": "artificial-labs--lead-forward-deployed-engineer",
@@ -432,7 +446,7 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "job-alert",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4411354143",
     "threadId": "",
-    "location": "London",
+    "location": "London, 2-3 days/wk on-site",
     "locationMode": "London",
     "salary": "",
     "score": 60,
@@ -449,7 +463,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Lead Forward Deployed Engineer at Artificial Labs. London, England, hybrid 2-3 days per week on-site. Full-time, mid-senior.\n\nLead a team configuring and delivering technical solutions for insurance and insurtech clients using Brossa, a domain-specific functional programming language.\n\nResponsibilities:\n- Lead analysis of client business requirements and translate them into robust technical solutions.\n- Manage and mentor a team of Forward Deployed Engineers.\n- Own design, configuration and delivery of insurance product specifications across multiple lines of business.\n- Act as trusted technical partner to clients, shaping solutions aligned with strategic goals.\n- Collaborate with product, engineering and commercial teams on platform customisation.\n- Build and manage platform integrations ensuring reliable delivery.\n- Demonstrate product value to senior stakeholders.\n\nRequirements:\n- Strong programming foundation, comfortable with domain-specific or functional languages.\n- Proven team leadership experience building high-performing cultures.\n- Clear communication with technical and non-technical stakeholders.\n- Thrive in fast-changing scale-up environments with autonomy.\n- Excellent analytical and problem-solving skills.\n\nPreferred: insurtech or insurance industry experience; distributed work environment experience.",
+    "closed": false
   },
   {
     "externalId": "via-hunter-bond--software-engineering-manager",
@@ -475,8 +490,9 @@ export const INBOX_OPPORTUNITIES = [
     "recruiter": null,
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
-    "notes": "",
-    "jobDescription": ""
+    "notes": "Posting no longer accepting applications as of 17 Aug 2026.",
+    "jobDescription": "Software Engineering Manager via Hunter Bond. London, hybrid. Salary £110,000. NOTE: the posting states it is no longer accepting applications.\n\nA Software Engineering Manager position at a large enterprise organisation focused on digital transformation. The role involves leading multiple Agile engineering teams delivering digital products and platforms at enterprise scale, combining people leadership, technical strategy and delivery excellence.\n\nResponsibilities cover strategic leadership and delivery, technical leadership and architecture, Agile governance and continuous improvement, stakeholder and partner management, product innovation, and people leadership and development.\n\nRequirements:\n- 10+ years software engineering experience, minimum 3 years as Engineering Manager or similar.\n- Proven success delivering enterprise web and mobile platforms in Agile environments.\n- Experience leading multiple engineering teams on complex digital products.\n- Strong technical background in React, React Native and Node.js.\n- Software architecture and scalable system design knowledge.\n- DevOps practices and CI/CD pipeline implementation experience.\n- Agile delivery experience, SAFe or equivalent preferred.\n- Stakeholder management and technical-to-business translation.\n- Experience implementing AI or machine learning initiatives.",
+    "closed": true
   },
   {
     "externalId": "disco--engineering-manager",
@@ -486,8 +502,8 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "job-alert",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4448123200",
     "threadId": "",
-    "location": "London",
-    "locationMode": "London",
+    "location": "Remote (London)",
+    "locationMode": "Remote-friendly",
     "salary": "",
     "score": 58,
     "tier": "Worth a look",
@@ -503,7 +519,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Engineering Manager at DISCO. Remote, London, England. Full-time, mid-senior.\n\nDISCO is an industry-standard platform for managing and organising music and media. The Engineering Manager combines technical expertise with leadership to guide a product engineering team, balancing feature delivery with system quality and reliability. The role emphasises both hands-on technical contribution and people management.\n\nResponsibilities:\n- Define and track OKRs with Product and Design; balance feature development against technical debt.\n- Guide technical discovery, review architecture decisions and contribute to development as needed.\n- Mentor engineers through 1:1s, career development plans and structured feedback.\n- Collaborate with Product and Design on technical feasibility and solution quality.\n- Establish and implement engineering standards across teams.\n- Monitor engineering health metrics: SLOs, error rates, cycle time, costs.\n- Oversee incident response, post-mortems and resolution.\n- Drive improvements in development workflows, testing and CI/CD pipelines.\n\nRequirements:\n- Proven experience leading engineering teams in high-growth or complex product environments.\n- Deep understanding of scalable web applications, APIs and distributed systems.\n- Strong knowledge of modern backend and frontend technologies.\n- Ability to balance business priorities with technical debt.\n- Cross-functional collaboration with Product and Design.\n- Familiarity with monitoring, incident response and service reliability at scale.\n\nBonus: React, TypeScript, Python and PostgreSQL; high-scale SaaS or cloud background; modern DevOps and CI/CD; observability tooling.\n\nBenefits: five weeks paid vacation, paid sick leave, paid parental leave, laptop and office allowance, monthly internet allowance, annual learning budget, remote structure with an international team.",
+    "closed": false
   },
   {
     "externalId": "premier-farnell-via-linkedin-inmail--ui-engineering-manager",
@@ -535,7 +552,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-07-03T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "",
+    "closed": false
   },
   {
     "externalId": "baringa--senior-manager-forward-deployed-ai-engineer",
@@ -562,7 +580,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Senior Manager, Forward Deployed AI Engineer at Baringa. London, England. Full-time, mid-senior.\n\nBaringa's Solutions and AI Labs practice seeks an experienced Senior Manager to lead AI-enabled consulting engagements, combining technical depth with commercial acumen and leadership.\n\nEngagement leadership:\n- Direct end-to-end delivery of complex AI and technology consulting projects, accountable for scope, quality, risk and outcomes.\n- Lead multidisciplinary teams of engineers, data scientists and consultants.\n- Manage resourcing, forecast team needs and develop junior talent through mentoring.\n- Communicate technical complexity to both technical teams and senior client stakeholders.\n\nBusiness development:\n- Identify opportunities and shape propositions for AI and technology engagements.\n- Support or lead bids and tender responses, authoring technical sections.\n- Build client relationships as a trusted advisor.\n\nTechnical architecture and delivery:\n- Lead architecture design for AI-enabled platforms and cloud solutions.\n- Provide hands-on technical direction, reviewing designs and code.\n- Drive production-grade AI deployments beyond proof-of-concept.\n\nAI/ML expertise: agentic AI and LLM engineering including production agentic systems with major LLM SDKs, RAG, MCP servers and prompt engineering; machine learning engineering across the end-to-end lifecycle with MLOps and drift detection; software engineering with production Python services, React and Next.js frontends, cloud architecture and CI/CD.\n\nRequirements:\n- 7+ years technology consulting, software engineering or AI/ML experience.\n- Minimum 3 years senior leadership with accountability for end-to-end engagements and commercial outcomes.\n- Experience supporting or leading bid and proposal activities.\n- SME-level depth in one of agentic AI/LLM, machine learning, or software engineering.\n- Master's degree in a relevant discipline or equivalent professional certifications.\n\nDesirable: forward-deployed or embedded engineer experience; regulated industries such as energy, financial services or public sector.",
+    "closed": false
   },
   {
     "externalId": "perk--engineering-manager-london",
@@ -572,7 +591,7 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "job-alert",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4432399691",
     "threadId": "",
-    "location": "London",
+    "location": "London, 3 days/wk on-site",
     "locationMode": "London",
     "salary": "",
     "score": 56,
@@ -589,7 +608,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Engineering Manager, London at Perk. London, England, office-based 3 days weekly. Full-time, mid-senior.\n\nLead and develop a team of 8-10 software engineers, serving as a servant leader accountable for delivery and career development while maintaining technical excellence.\n\nResponsibilities:\n- Team leadership with accountability for the delivery and personal development of your teams.\n- Technical oversight: ensure systems meet organisational standards and support architecture decisions.\n- Strategic planning: develop a long-term roadmap aligned with product and tribe mission.\n- Performance management: conduct effective reviews celebrating achievements and identifying growth.\n- Recruitment: actively participate in growing the engineering team.\n- Collaboration across Product and Engineering to deliver customer-focused solutions.\n- Metrics-driven approach using business and team data.\n\nRequirements:\n- 5-8 years managing software engineers.\n- Prior hands-on software engineering background as an individual contributor.\n- Experience leading larger teams with delegation systems.\n- Strong people management building effective team culture.\n- Problem-solving skills both technically and organisationally.\n- Managing AI-driven development: experience with, or strong interest in, modern AI-augmented workflows.\n- Adaptability in fast-changing environments.",
+    "closed": false
   },
   {
     "externalId": "via-gravitas-recruitment--software-engineering-manager-leeds",
@@ -599,9 +619,9 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "job-alert",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4450119879",
     "threadId": "19ffb3c1a237680c",
-    "location": "Leeds",
+    "location": "Leeds, 2 days/wk",
     "locationMode": "Yorkshire",
-    "salary": "",
+    "salary": "£70k - £80k",
     "score": 55,
     "tier": "Background",
     "scoreBreakdown": {
@@ -616,7 +636,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Software Engineering Manager, Leeds. Hybrid, 2 days per week on-site. Salary £70,000-£80,000. Full-time, mid-senior.\n\nBuild and lead the Software Engineering function alongside the Head of Technology and Data. A hybrid position combining hands-on technical leadership with team development and strategic delivery as the company scales.\n\nResponsibilities:\n- Hire and develop Software Engineers, building the team from the ground up.\n- Provide technical leadership and coaching.\n- Drive delivery ownership and ensure project success.\n- Implement design patterns and scalable software architecture.\n- Plan and execute CI/CD strategies and deployment pipeline improvements.\n- Identify and implement automated testing opportunities.\n- Manage stakeholder communication and solve technical problems.\n\nRequirements:\n- Strong technical expertise in .NET, Azure cloud development and deployment, SQL databases, messaging and integration patterns, caching.\n- Proven track record leading and coaching Software Engineers.\n- Comprehensive hands-on SDLC knowledge from design through deployment.\n- Agile methodology and engineering best practice proficiency.\n- Design pattern implementation and scalable architecture experience.\n- CI/CD strategy planning and execution.\n- Strong communication and stakeholder management.\n- Valid driving licence.\n\nNice to have: engineering KPI definition and SLA tracking; structured code review experience; secure development and cloud governance knowledge.",
+    "closed": false
   },
   {
     "externalId": "hackajob--forward-deployed-ai-engineer-senior-manager",
@@ -643,7 +664,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Forward Deployed AI Engineer, Senior Manager, listed via hackajob. London, England. Full-time, mid-senior.\n\nThis position leads AI and technology consulting engagements within Baringa Partners' Solutions and AI Labs practice. The role combines deep technical specialism with the commercial and leadership skills to develop AI-enabled solutions embedded in client environments.\n\nEngagement leadership: direct end-to-end delivery of complex AI consulting projects accountable for scope, quality and outcomes; lead multidisciplinary teams of engineers, data scientists and consultants; manage resource forecasting and talent development; communicate with both technical teams and senior stakeholders.\n\nBusiness development: identify opportunities and lead bids for AI and technology engagements; author technical sections of proposals and RFP responses; build client relationships and develop follow-on opportunities.\n\nTechnical architecture and delivery: design AI-enabled platforms and cloud solutions; provide hands-on technical direction and code reviews; drive robust, scalable deployments from prototype to production.\n\nAI/ML specialism, expert level in at least one of agentic AI and LLM engineering, machine learning engineering, platform and cloud engineering, or software engineering.\n\nRequirements:\n- 7+ years in technology consulting, software engineering or AI/ML, minimum 3 years in senior leadership.\n- Experience supporting or leading bids and proposals.\n- SME-level expertise in at least one AI/ML or engineering domain.\n- Proven ability to lead high-performing teams in complex environments.\n- Master's degree in a relevant discipline or equivalent professional certifications.",
+    "closed": false
   },
   {
     "externalId": "accenture-uk-ireland--forward-deployed-eng-director",
@@ -669,8 +691,9 @@ export const INBOX_OPPORTUNITIES = [
     "recruiter": null,
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
-    "notes": "",
-    "jobDescription": ""
+    "notes": "Posting no longer accepting applications as of 17 Aug 2026.",
+    "jobDescription": "Forward Deployed Eng Director at Accenture UK & Ireland. London, England. Director level, full-time. NOTE: the posting states it is no longer accepting applications.\n\nThis is a production engineering position, not consulting or research. A Forward Deployed Engineer works embedded inside a client's enterprise, shoulder to shoulder with their teams, to make complex AI platforms work in real organisational environments. Success is measured by outcomes: time-to-value, adoption, reliability and scalability, not delivery milestones.\n\nResponsibilities:\n- Own account-level AI transformation from platform selection through enterprise-wide adoption.\n- Hold full accountability for deployment outcomes, reported directly to client executive leadership.\n- Drive ambiguity resolution at scale, translating strategic intent into production AI systems.\n- Define enterprise AI architecture standards and governance frameworks.\n- Own relationships with client CTO, CFO and CISO.\n- Codify reusable deployment patterns and playbooks.\n- Lead executive workshops and board-level engagements.\n- Define the FDE practice model including engineering standards and talent development.\n\nRequirements:\n- Significant cloud-native systems experience: APIs, microservices, containerisation, serverless.\n- Deep expertise designing and deploying agentic solutions in production.\n- Experience with AI platforms including OpenAI, Claude, Vertex AI and open-source models.\n- Substantial software engineering team leadership experience.\n- Demonstrated end-to-end delivery ownership in client-embedded environments.\n- Proven ability to quantify deployment impact in business terms.\n- Experience presenting to senior stakeholders at CTO, CFO and CISO level.",
+    "closed": true
   },
   {
     "externalId": "sotheby-s--engineering-manager",
@@ -680,8 +703,8 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "job-alert",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4443588150",
     "threadId": "",
-    "location": "London",
-    "locationMode": "London",
+    "location": "London or remote UK",
+    "locationMode": "Remote-friendly",
     "salary": "",
     "score": 52,
     "tier": "Background",
@@ -697,7 +720,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Engineering Manager at Sotheby's. London, England, or remote within the UK.\n\nEngineering Manager at Sotheby's, a global art and luxury goods company. The role involves building and leading distributed engineering teams supporting auction platforms, client-facing products and internal systems. Your work connects to something tangible across inventory management, compliance infrastructure and live sale operations.\n\nResponsibilities:\n- Own team health, output and growth across distributed time zones.\n- Partner with product management on roadmap prioritisation.\n- Establish quality standards for engineering practices and observability.\n- Manage delivery cadence including planning and retrospectives.\n- Handle cross-team dependencies and incident management.\n- Contribute to engineering-wide initiatives.\n- Provide regular feedback and career development.\n\nRequirements:\n- 3+ years managing teams of five or more engineers.\n- Strong technical background in software engineering.\n- Experience with remote-first, distributed teams across time zones.\n- Track record in hiring, onboarding and retention.\n- Focus on engineering quality and observability.\n\nUseful: Go, Scala, React and TypeScript, Next.js, GraphQL, gRPC; AWS and Kubernetes; real-time or high-value transaction systems; e-commerce or auction domain background.",
+    "closed": false
   },
   {
     "externalId": "accenture-uk-ireland--forward-deployed-engineering-manager",
@@ -724,7 +748,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Forward Deployed Engineering (Manager) at Accenture UK & Ireland. London, England. Full-time, mid-senior.\n\nLead enterprise AI platform deployments across complex multi-stakeholder client environments, owning programmes from architecture through adoption.\n\nResponsibilities:\n- Direct enterprise AI platform rollouts involving Anthropic, OpenAI, Microsoft, Google, Salesforce, SAP or Palantir.\n- Own programme-level delivery: time-to-value, reliability, adoption velocity, scalability with commercial metrics.\n- Drive rapid experimentation, moving from ambiguous business problems to production systems in days or weeks.\n- Architect and govern enterprise AI solutions across identity, data, security, governance, platform and workflow integration.\n- Shape AI strategy for client CTO, CFO and CISO through value architecture, ROI backlogs and multi-year adoption roadmaps.\n- Define reusable blueprints, patterns and accelerators that scale across engagements.\n- Lead architecture sessions, executive workshops and code-with sessions with engineering and C-suite teams.\n- Codify learnings, failure patterns and standards.\n\nRequirements:\n- Strong cloud-native systems experience: APIs, microservices, containerisation, serverless.\n- Expertise designing and deploying agentic solutions in production including agents, orchestration, context engineering, RAG and workflows.\n- Experience with AI platforms including OpenAI, Claude, Vertex AI and open-source models, with multi-provider pipeline abstraction layers.\n- Software engineering team leadership: delivery oversight, resource allocation, direct report development.\n- Demonstrated end-to-end delivery ownership in client-embedded environments.\n- Proven ability to quantify deployment impact in terms a CFO recognises.\n- Experience presenting to and building trust with CTO, CFO and CISO-level stakeholders.\n- People management experience including performance management and career conversations.",
+    "closed": false
   },
   {
     "externalId": "marks-and-spencer--software-engineering-manager",
@@ -751,7 +776,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Software Engineering Manager at Marks and Spencer. London Area. Full-time, mid-senior.\n\nJoin M&S to shape the digital future of a trusted UK brand. This role sits within Fashion Home and Beauty's Commercial Planning subdomain, overseeing a team delivering technical solutions within a large programme alongside vendor and implementation partners.\n\nResponsibilities:\n- Ensure operational stability and resilience of software solutions.\n- Deliver high-quality software creating measurable business value.\n- Foster an innovation culture and establish strong engineering standards.\n- Build and mentor high-performing software engineering teams.\n- Oversee planning, execution and delivery of software initiatives aligned with business goals.\n- Drive adoption of strong engineering practices and methodologies.\n- Establish quality standards for performance, reliability and usability.\n- Hold vendors and partners accountable for software delivery excellence.\n- Challenge solution architecture and guide technical approaches.\n\nRequirements:\n- Previous polyglot hands-on senior software engineer experience.\n- Experience with highly scalable software solutions across web and backend.\n- Extensive background in varied systems and technologies.\n- Proven track record building and leading senior engineers.\n- Strong system design and cloud architecture knowledge.\n- DevOps mindset: build it, you run it.\n- Testing strategies and reliability engineering expertise.\n- Excellent people management and interpersonal skills.\n\nStack: Java, Spring, SpringBoot, Micronaut, React, Next.js, TypeScript, Angular, Azure Cloud, Kubernetes, Dynatrace, SQL Server, MongoDB, Ignite, Redis.",
+    "closed": false
   },
   {
     "externalId": "holland-barrett--senior-engineering-manager",
@@ -761,7 +787,7 @@ export const INBOX_OPPORTUNITIES = [
     "sourceType": "job-alert",
     "sourceUrl": "https://www.linkedin.com/jobs/view/4448602492",
     "threadId": "",
-    "location": "London",
+    "location": "London, ~2 days/month",
     "locationMode": "London",
     "salary": "",
     "score": 48,
@@ -778,7 +804,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Senior Engineering Manager at Holland & Barrett. London, England. Hybrid with occasional London office presence, approximately twice monthly. Full-time, mid-senior.\n\nHolland & Barrett seeks an experienced Senior Engineering Manager to lead multidisciplinary engineering teams responsible for building digital products supporting merchandising operations. This leadership-focused position emphasises people management, delivery, technical direction and engineering effectiveness. While not hands-on engineering, the role requires technical depth for architecture and system design discussions.\n\nResponsibilities:\n- Lead and develop multidisciplinary engineering teams across frontend and backend.\n- Build cultures of trust, accountability, ownership and continuous improvement.\n- Own engineering delivery and partner with Product Managers on priorities and roadmaps.\n- Improve delivery predictability through risk identification and dependency management.\n- Provide technical leadership in architecture and system design discussions.\n- Champion a you build it, you own it culture emphasising quality and production ownership.\n- Enhance engineering practices and Agile methodologies.\n- Encourage responsible AI tool adoption for productivity improvements.\n\nRequirements:\n- Proven engineering management experience in software product environments.\n- Experience leading multidisciplinary frontend and backend teams.\n- Strong people leadership with team development and performance management experience.\n- Track record owning delivery, roadmap planning and stakeholder communication.\n- Understanding of software architecture and technical trade-offs.\n- Knowledge of modern engineering practices, automated testing and service ownership.\n\nBenefits: 33 days holiday, private medical insurance, virtual GP, 5% employer pension, life assurance, annual bonus up to 20%, 25% employee discount, wellness programmes, cycle to work.",
+    "closed": false
   },
   {
     "externalId": "yorkshire-building-society--cloud-platform-team-manager",
@@ -805,7 +832,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Cloud Platform Team Manager at Yorkshire Building Society. Leeds, England. Full-time, mid-senior. Financial services.\n\nLead a high-performing cloud platform engineering team to build, operate and evolve a secure, reliable Azure platform that supports modern software delivery across the organisation.\n\nResponsibilities:\n- Lead, coach and develop Cloud Platform Engineers while fostering continuous learning and engineering excellence.\n- Provide hands-on technical leadership and architectural oversight across Azure, AKS, Terraform, CI/CD, observability and platform security.\n- Own platform reliability, scalability, resilience and cost efficiency with strong governance across networking, identity, monitoring and security.\n- Drive roadmap planning, delivery prioritisation and governance aligned with organisational objectives.\n- Serve as primary contact for Cloud Platform Engineering, communicating progress and promoting adoption.\n\nRequirements:\n- Strong Azure engineering expertise at scale including networking, IAM, security and policies.\n- Hands-on experience with infrastructure-as-code, CI/CD and GitOps tools such as Terraform, GitHub Actions and ArgoCD.\n- Deep understanding of SRE principles, observability and operational excellence.\n- Proven people leadership including coaching, mentoring and team development.\n- Strong stakeholder engagement and cross-functional communication.\n\nBenefits: 25 days holiday plus bank holidays with the option to buy 5 more, 7% on-target bonus up to 15%, pension up to 11%, private medical, dental and healthcare plans, flexible working.",
+    "closed": false
   },
   {
     "externalId": "createfuture--tech-lead-mobile",
@@ -832,7 +860,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "new",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "Tech Lead (Mobile) at CreateFuture. Leeds, England.\n\nCreateFuture is a UK digital consultancy with offices in Edinburgh, Leeds, Manchester and London plus remote staff nationwide. Over 500 employees, partnering with PayPal, Adidas, NatWest and FanDuel.\n\nA hands-on leadership position managing a small, autonomous mobile team embedded with a client. The role spans mobile architecture and technical direction, leading delivery, growing engineers, and direct line management.\n\nTechnical leadership:\n- Set technical direction across iOS and Android.\n- Work hands-on in the codebase alongside engineers for coaching and modelling.\n- Drive AI-assisted delivery with reusable skills and spec-driven development.\n- Maintain code quality and healthy, maintainable codebases.\n\nTeam and people leadership:\n- Foster a collaborative, ownership-taking culture.\n- Grow engineers to own work rather than wait for direction.\n- Provide mentoring, technical guidance and performance feedback.\n- Manage line management accountabilities.\n\nClient and delivery:\n- Understand product, users and business strategy.\n- Route appropriate work to appropriate people, ensuring delivery.\n- Communicate delivery status and escalate issues with options and recommendations.\n- Maintain an asynchronous, cross-timezone working rhythm.\n\nRequirements:\n- Experienced tech lead or senior mobile engineer maintaining technical expertise.\n- Strong iOS (Swift) and Android background; Kotlin Multiplatform a bonus.\n- Product-focused mindset.\n- High tolerance for ambiguity and genuine independence.\n- Excellent written, asynchronous communication.\n- Line management experience.\n- Comfortable with difficult conversations and concrete feedback.",
+    "closed": false
   },
   {
     "externalId": "liberty-blume--senior-engineering-support-manager",
@@ -859,7 +888,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "not_a_fit",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "",
+    "closed": false
   },
   {
     "externalId": "uk-health-security-agency--infrastructure-manager",
@@ -886,7 +916,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "not_a_fit",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "",
+    "closed": false
   },
   {
     "externalId": "mabey-hire--development-engineering-manager",
@@ -913,7 +944,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "not_a_fit",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "",
+    "closed": false
   },
   {
     "externalId": "teconnex-uk--project-manager",
@@ -940,7 +972,8 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "not_a_fit",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "",
+    "closed": false
   },
   {
     "externalId": "dawsongroup--hgv-compliance-network-engineering-manager",
@@ -967,6 +1000,7 @@ export const INBOX_OPPORTUNITIES = [
     "receivedAt": "2026-08-17T09:00:00Z",
     "stage": "not_a_fit",
     "notes": "",
-    "jobDescription": ""
+    "jobDescription": "",
+    "closed": false
   }
 ];

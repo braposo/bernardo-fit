@@ -303,6 +303,8 @@
     if (j.location) meta.push(esc(j.location));
     if (j.salary) meta.push(esc(j.salary));
     if (j.userViewed) meta.push("you viewed this");
+    if (j.closed) meta.push("posting closed");
+    if (j.closed) meta.push("posting closed");
 
     var opts = stages.map(function (s) {
       return '<option value="' + s + '"' + (j.stage === s ? " selected" : "") + ">" + s.replace(/_/g, " ") + "</option>";
@@ -384,6 +386,7 @@
         "<h1>Pipeline</h1>" +
         '<div class="right">' +
           '<span class="count">' + shown.length + (filtering ? " shown of " : " of ") + jobs.length + "</span>" +
+          '<button class="ghost" id="analyseall">Analyse all</button>' +
           '<button class="ghost" id="import">Import from inbox</button>' +
         "</div>" +
       "</div>";
@@ -468,6 +471,54 @@
         loadJobs(false);
       });
     });
+
+    var analyseAllBtn = document.getElementById("analyseall");
+    var pendingCount = jobs.filter(function (j) { return !j.fitReportId && (j.jobDescription || "").trim().length >= 20; }).length;
+    if (analyseAllBtn) {
+      if (!pendingCount) { analyseAllBtn.disabled = true; analyseAllBtn.textContent = "All analysed"; }
+      analyseAllBtn.addEventListener("click", function () {
+        if (!confirm("Run a fit analysis for " + pendingCount + " rows? Each one calls the API.")) return;
+        analyseAllBtn.disabled = true; analyseAllBtn.textContent = "Analysing " + pendingCount + "…";
+        api("/api/admin/analyse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ all: true }),
+        }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { alert(out.d.error || "Failed."); analyseAllBtn.disabled = false; analyseAllBtn.textContent = "Analyse all"; return; }
+          var msg = out.d.analysed + " analysed";
+          if (out.d.cached) msg += " (" + out.d.cached + " already cached, free)";
+          if (out.d.failed) msg += ", " + out.d.failed + " failed";
+          alert(msg + ".");
+          loadJobs(false);
+        });
+      });
+    }
+
+    var analyseAllBtn = document.getElementById("analyseall");
+    var pendingCount = jobs.filter(function (j) { return !j.fitReportId && (j.jobDescription || "").trim().length >= 20; }).length;
+    if (analyseAllBtn) {
+      if (!pendingCount) { analyseAllBtn.disabled = true; analyseAllBtn.textContent = "All analysed"; }
+      else analyseAllBtn.textContent = "Analyse all (" + pendingCount + ")";
+      analyseAllBtn.addEventListener("click", function () {
+        if (!pendingCount) return;
+        if (!confirm("Run a fit analysis for " + pendingCount + " rows? Each one calls the API.")) return;
+        analyseAllBtn.disabled = true; analyseAllBtn.textContent = "Analysing " + pendingCount + "…";
+        api("/api/admin/analyse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ all: true }),
+        }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { alert(out.d.error || "Failed."); analyseAllBtn.disabled = false; return; }
+          var msg = out.d.analysed + " analysed";
+          if (out.d.cached) msg += ", " + out.d.cached + " already cached and free";
+          if (out.d.failed) msg += ", " + out.d.failed + " failed";
+          alert(msg + ".");
+          loadJobs(false);
+        });
+      });
+    }
 
     Array.prototype.forEach.call(document.querySelectorAll(".stagechip"), function (chip) {
       chip.addEventListener("click", function () {
@@ -555,27 +606,23 @@
           }
           runFit.disabled = true;
           status.textContent = "Running analysis…"; status.className = "row-status";
-          // Save the description first so the pipeline row and the analysis agree.
+          // Save the description first so the row and the analysis agree, then
+          // analyse through the admin endpoint, which skips the visitor rate limit.
           patch({ jobDescription: text }, function () {
-            fetch("/api/analyze", {
+            api("/api/admin/analyse", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ jobDescription: text }),
-            })
-              .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-              .then(function (out) {
-                if (!out.ok) {
-                  runFit.disabled = false;
-                  status.textContent = out.d.error || "Analysis failed.";
-                  status.className = "row-status err";
-                  return;
-                }
-                patch({ fitReportId: out.d.id }, function () { loadJobs(false); });
-              })
-              .catch(function () {
-                runFit.disabled = false;
-                status.textContent = "Network error."; status.className = "row-status err";
-              });
+              body: JSON.stringify({ id: id }),
+            }).then(function (out) {
+              runFit.disabled = false;
+              if (unauthorised(out)) return;
+              if (!out.ok) {
+                status.textContent = out.d.error || "Analysis failed.";
+                status.className = "row-status err";
+                return;
+              }
+              loadJobs(false);
+            });
           });
         });
       }
