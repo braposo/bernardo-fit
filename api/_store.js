@@ -157,7 +157,15 @@ export async function deleteReport(id) {
 
 const JOBS_INDEX = "jobs:index";
 
-export const JOB_STAGES = ["new", "reviewing", "applied", "interviewing", "offer", "closed"];
+export const JOB_STAGES = [
+  "new",
+  "reviewing",
+  "applied",
+  "interviewing",
+  "offer",
+  "rejected",
+  "not_a_fit",
+];
 
 export async function listJobs() {
   if (hasKV) {
@@ -191,13 +199,24 @@ export async function saveJob(job) {
   const id = job.id || makeId();
   const now = new Date().toISOString();
   const record = {
+    externalId: job.externalId || "",
     company: job.company || "",
     role: job.role || "",
     source: job.source || "",
     sourceType: job.sourceType || "other",
+    sourceUrl: job.sourceUrl || "",
     threadId: job.threadId || "",
     location: job.location || "",
+    locationMode: job.locationMode || "",
     salary: job.salary || "",
+    // Fit read from the inbox scan. Null for anything added by hand.
+    score: typeof job.score === "number" ? job.score : null,
+    tier: job.tier || "",
+    scoreBreakdown: job.scoreBreakdown || null,
+    rationale: job.rationale || "",
+    replyOwed: !!job.replyOwed,
+    userViewed: !!job.userViewed,
+    recruiter: job.recruiter || null,
     stage: JOB_STAGES.includes(job.stage) ? job.stage : "new",
     fitReportId: job.fitReportId || "",
     jobDescription: job.jobDescription || "",
@@ -243,10 +262,16 @@ export async function deleteJob(id) {
 }
 
 // Used by the inbox import so re-running it doesn't create duplicates.
-export async function findJobByThreadId(threadId) {
-  if (!threadId) return null;
+// Matches on externalId first, then falls back to the Gmail thread id so rows
+// imported by an earlier version of the scan still line up.
+export async function findExistingJob({ externalId, threadId }) {
+  if (!externalId && !threadId) return null;
   const jobs = await listJobs();
-  return jobs.find((j) => j.threadId === threadId) || null;
+  return (
+    (externalId && jobs.find((j) => j.externalId === externalId)) ||
+    (threadId && jobs.find((j) => j.threadId === threadId)) ||
+    null
+  );
 }
 
 // --- Analytics ---

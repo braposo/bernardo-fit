@@ -4,11 +4,11 @@ import {
   saveJob,
   updateJob,
   deleteJob,
-  findJobByThreadId,
+  findExistingJob,
   getStats,
   JOB_STAGES,
 } from "../_store.js";
-import { INBOX_OPPORTUNITIES } from "../_inbox-scan.js";
+import { INBOX_OPPORTUNITIES, INBOX_SCAN_META } from "../_inbox-scan.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
@@ -26,6 +26,7 @@ export default async function handler(req, res) {
       res.status(200).json({
         jobs: jobs.map((j) => ({ ...j, stats: j.fitReportId ? stats[j.fitReportId] || null : null })),
         stages: JOB_STAGES,
+        scan: INBOX_SCAN_META,
       });
       return;
     }
@@ -35,16 +36,26 @@ export default async function handler(req, res) {
 
       if (body.action === "import") {
         let added = 0;
-        let skipped = 0;
+        let updated = 0;
         for (const opp of INBOX_OPPORTUNITIES) {
-          if (await findJobByThreadId(opp.threadId)) {
-            skipped++;
-            continue;
+          const existing = await findExistingJob(opp);
+          if (existing) {
+            // Refresh the scan-derived metadata, but never touch anything the
+            // user owns: stage, notes, and any linked fit report stay as they are.
+            await updateJob(existing.id, {
+              ...opp,
+              stage: existing.stage,
+              notes: existing.notes,
+              fitReportId: existing.fitReportId,
+              createdAt: existing.createdAt,
+            });
+            updated++;
+          } else {
+            await saveJob(opp);
+            added++;
           }
-          await saveJob(opp);
-          added++;
         }
-        res.status(200).json({ added, skipped });
+        res.status(200).json({ added, updated, total: INBOX_OPPORTUNITIES.length });
         return;
       }
 
