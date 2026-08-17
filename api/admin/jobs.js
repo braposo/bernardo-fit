@@ -3,9 +3,9 @@ import {
   listJobs,
   saveJob,
   updateJob,
-  deleteJob,
   findExistingJob,
   findUnlinkedReportIds,
+  countArchivedJobs,
   getReport,
   getStats,
   JOB_STAGES,
@@ -21,7 +21,8 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
-      const jobs = await listJobs();
+      const onlyArchived = req.query && req.query.archived === "1";
+      const jobs = await listJobs({ onlyArchived });
       // Attach view/interaction counts for any job with a linked fit report.
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
       const stats = ids.length ? await getStats(ids) : {};
@@ -30,6 +31,8 @@ export default async function handler(req, res) {
         stages: JOB_STAGES,
         scan: INBOX_SCAN_META,
         unlinked: (await findUnlinkedReportIds()).length,
+        archivedCount: await countArchivedJobs(),
+        viewingArchived: onlyArchived,
       });
       return;
     }
@@ -51,6 +54,9 @@ export default async function handler(req, res) {
               notes: existing.notes,
               fitReportId: existing.fitReportId,
               createdAt: existing.createdAt,
+              // Filing something away is a decision; a re-import shouldn't undo it.
+              archived: existing.archived,
+              archivedAt: existing.archivedAt,
             });
             updated++;
           } else {
@@ -100,11 +106,15 @@ export default async function handler(req, res) {
         res.status(400).json({ error: "Missing id" });
         return;
       }
-      if (req.body && req.body.stage && !JOB_STAGES.includes(req.body.stage)) {
+      const patch = req.body || {};
+      if (patch.stage && !JOB_STAGES.includes(patch.stage)) {
         res.status(400).json({ error: "Unknown stage" });
         return;
       }
-      const job = await updateJob(id, req.body || {});
+      // Archiving stamps the time; restoring clears it.
+      if (patch.archived === true) patch.archivedAt = new Date().toISOString();
+      if (patch.archived === false) patch.archivedAt = "";
+      const job = await updateJob(id, patch);
       if (!job) {
         res.status(404).json({ error: "Job not found" });
         return;
@@ -113,18 +123,11 @@ export default async function handler(req, res) {
       return;
     }
 
+    // Deliberately no DELETE. Archiving takes a row out of the pipeline while
+    // leaving the record and its fit page intact, so a link already shared with
+    // a recruiter keeps resolving. Archive and restore both go through PATCH.
     if (req.method === "DELETE") {
-      const { id } = req.query || {};
-      if (!id) {
-        res.status(400).json({ error: "Missing id" });
-        return;
-      }
-      const ok = await deleteJob(id);
-      if (!ok) {
-        res.status(404).json({ error: "Job not found" });
-        return;
-      }
-      res.status(200).json({ ok: true });
+      res.status(405).json({ error: "Rows are archived, not deleted. PATCH { archived: true } instead." });
       return;
     }
 

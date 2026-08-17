@@ -129,6 +129,7 @@
     margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--weak);
     letter-spacing: 0.04em;
   }
+  .archnote { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--sub); letter-spacing: 0.04em; }
   .rationale { margin-top: 12px; font-size: 14px; line-height: 1.65; color: var(--ink); max-width: 62ch; }
 
   .row-item { border-top: 1px solid var(--hair); padding: 22px 0; }
@@ -210,6 +211,8 @@
   var tierFilter = null;
   var owedOnly = false;
   var unlinked = 0;
+  var archivedCount = 0;
+  var showArchived = false;
 
   var reports = [];
   var total = 0;
@@ -337,6 +340,10 @@
             '<select data-act="stage" class="stage-' + esc(j.stage) + '">' + opts + "</select>" +
           "</div>" +
         "</div>" +
+        (j.archived
+          ? '<div class="archnote">Archived' + (j.archivedAt ? ' ' + fmtDate(j.archivedAt) : '') +
+            (j.fitReportId ? '. The fit page still works for anyone holding the link.' : '.') + '</div>'
+          : '') +
         owed +
         (j.rationale ? '<div class="rationale">' + esc(j.rationale) + "</div>" : "") +
         '<details class="jdbox"' + (j.jobDescription ? "" : "") + ">" +
@@ -353,7 +360,9 @@
             : '<button class="ghost" data-act="runfit"' + (j.jobDescription ? "" : " disabled") + ">Generate fit analysis</button>") +
           (j.sourceUrl ? '<a class="ghost" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting</a>' : "") +
           (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
-          '<button class="ghost danger" data-act="delete">Delete</button>' +
+          (j.archived
+            ? '<button class="ghost" data-act="restore">Restore to pipeline</button>'
+            : '<button class="ghost" data-act="archive">Archive</button>') +
           '<span class="row-status"></span>' +
         "</div>" +
       "</div>"
@@ -383,11 +392,16 @@
 
     var html = '<div class="frame">' +
       '<div class="toolbar">' +
-        "<h1>Pipeline</h1>" +
+        '<h1>' + (showArchived ? 'Archived' : 'Pipeline') + '</h1>' +
         '<div class="right">' +
           '<span class="count">' + shown.length + (filtering ? " shown of " : " of ") + jobs.length + "</span>" +
-          '<button class="ghost" id="analyseall">Analyse all</button>' +
-          '<button class="ghost" id="import">Import from inbox</button>' +
+          (showArchived ? '' :
+            '<button class="ghost" id="analyseall">Analyse all</button>' +
+            '<button class="ghost" id="import">Import from inbox</button>') +
+          (archivedCount || showArchived
+            ? '<button class="ghost" id="togglearchived">' +
+              (showArchived ? 'Back to pipeline' : 'Archived (' + archivedCount + ')') + '</button>'
+            : '') +
         "</div>" +
       "</div>";
 
@@ -418,7 +432,9 @@
       "</div>";
 
     if (!jobs.length) {
-      html += '<div class="empty">No opportunities yet.<small>Use “Import from inbox” to load the ones found in your email.</small></div>';
+      html += showArchived
+        ? '<div class="empty">Nothing archived.</div>'
+        : '<div class="empty">No opportunities yet.<small>Use “Import from inbox” to load the ones found in your email.</small></div>';
     } else if (!shown.length) {
       html += '<div class="empty">Nothing matches these filters.</div>';
     } else {
@@ -471,6 +487,15 @@
         loadJobs(false);
       });
     });
+
+    var archToggle = document.getElementById("togglearchived");
+    if (archToggle) {
+      archToggle.addEventListener("click", function () {
+        showArchived = !showArchived;
+        stageFilter = null; tierFilter = null; owedOnly = false;
+        loadJobs(false);
+      });
+    }
 
     var analyseAllBtn = document.getElementById("analyseall");
     var pendingCount = jobs.filter(function (j) { return !j.fitReportId && (j.jobDescription || "").trim().length >= 20; }).length;
@@ -646,27 +671,33 @@
         });
       }
 
-      rowEl.querySelector('[data-act="delete"]').addEventListener("click", function () {
-        if (!confirm("Remove this opportunity from the pipeline?")) return;
-        status.textContent = "Deleting…"; status.className = "row-status";
-        api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (out) {
-          if (unauthorised(out)) return;
-          if (!out.ok) { status.textContent = out.d.error || "Delete failed."; status.className = "row-status err"; return; }
-          jobs = jobs.filter(function (j) { return j.id !== id; });
-          renderJobs();
+      var archiveBtn = rowEl.querySelector('[data-act="archive"]');
+      if (archiveBtn) {
+        archiveBtn.addEventListener("click", function () {
+          status.textContent = "Archiving…"; status.className = "row-status";
+          patch({ archived: true }, function () { loadJobs(false); });
         });
-      });
+      }
+
+      var restoreBtn = rowEl.querySelector('[data-act="restore"]');
+      if (restoreBtn) {
+        restoreBtn.addEventListener("click", function () {
+          status.textContent = "Restoring…"; status.className = "row-status";
+          patch({ archived: false }, function () { loadJobs(false); });
+        });
+      }
     });
   }
 
   function loadJobs(firstTry) {
-    api("/api/admin/jobs", { method: "GET" }).then(function (out) {
+    api("/api/admin/jobs" + (showArchived ? "?archived=1" : ""), { method: "GET" }).then(function (out) {
       if (unauthorised(out, firstTry)) return;
       if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
       sessionStorage.setItem(SECRET_KEY, secret);
       jobs = out.d.jobs || [];
       if (out.d.stages && out.d.stages.length) stages = out.d.stages;
       unlinked = out.d.unlinked || 0;
+      archivedCount = out.d.archivedCount || 0;
       renderJobs();
     });
   }

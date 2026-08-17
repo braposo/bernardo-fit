@@ -18,7 +18,7 @@ api/_inbox-scan.js      ← captured Gmail scan, the source for "Import from inb
 api/_jd-fetched.js      ← job descriptions captured from public LinkedIn postings
 api/admin/reports.js    ← list / delete saved analyses
 api/admin/regenerate.js ← re-run the analysis for a saved job description, in place
-api/admin/jobs.js       ← the job pipeline: list, create, import, update stage, delete
+api/admin/jobs.js       ← the job pipeline: list, create, import, update stage, archive
 api/admin/analyse.js    ← run a fit analysis for one row or every unanalysed row
 ```
 
@@ -50,6 +50,8 @@ Everything lives in a single pipeline. Each row is an opportunity moving through
 **The pipeline and the analyses are the same list.** Any analysis run on the public site creates a pipeline row automatically, taking the company and role from the analysis itself. If a row already holds that job description, the analysis links to it rather than creating a duplicate. Going the other way, any row with a job description has a "Generate fit analysis" button, and rows without one can have a description pasted straight into them. Once a row is linked you get "View fit page", "Copy fit link" and "Regenerate", plus view, link-copy and CV-download counts for that page.
 
 Analyses saved before this behaviour existed show up as a prompt at the top of the page offering to pull them in.
+
+**Nothing is ever deleted.** Rows are archived instead: an archived row leaves the pipeline but keeps its record, its notes and its fit page, so a link already sent to a recruiter carries on resolving. "Archived (N)" in the toolbar switches to that list, where each row can be restored. `DELETE /api/admin/jobs` returns 405 and points at `PATCH { archived: true }`. Re-importing the inbox scan won't resurrect something you archived, and bulk analysis skips archived rows.
 
 Opportunities also come from `api/_inbox-scan.js`, a captured snapshot of a Gmail scan, with the job descriptions in `api/_jd-fetched.js` pulled from the public LinkedIn view of each posting. Both are snapshots taken by hand, not live integrations: the server holds no mail credentials and never scrapes LinkedIn at runtime, since a scheduled function hitting them from a datacentre IP would be blocked quickly and would breach LinkedIn's terms. Refreshing either means re-running the fetch and replacing the file.
 

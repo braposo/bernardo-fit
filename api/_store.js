@@ -167,7 +167,10 @@ export const JOB_STAGES = [
   "not_a_fit",
 ];
 
-export async function listJobs() {
+// Every row, archived included. Internal: lookups that need to see archived
+// rows (import matching, report linking) use this so an archived row is found
+// and updated rather than silently duplicated.
+async function listAllJobs() {
   if (hasKV) {
     const store = await kv();
     const ids = await store.zrange(JOBS_INDEX, 0, -1, { rev: true });
@@ -183,6 +186,19 @@ export async function listJobs() {
       return j ? { ...j, id } : null;
     })
     .filter(Boolean);
+}
+
+// The pipeline. Archived rows are hidden by default; nothing is ever deleted,
+// so the fit page for an archived row keeps resolving for anyone holding the link.
+export async function listJobs({ includeArchived = false, onlyArchived = false } = {}) {
+  const all = await listAllJobs();
+  if (onlyArchived) return all.filter((j) => j.archived);
+  if (includeArchived) return all;
+  return all.filter((j) => !j.archived);
+}
+
+export async function countArchivedJobs() {
+  return (await listAllJobs()).filter((j) => j.archived).length;
 }
 
 export async function getJob(id) {
@@ -217,6 +233,8 @@ export async function saveJob(job) {
     replyOwed: !!job.replyOwed,
     userViewed: !!job.userViewed,
     closed: !!job.closed,
+    archived: !!job.archived,
+    archivedAt: job.archived ? job.archivedAt || now : "",
     recruiter: job.recruiter || null,
     stage: JOB_STAGES.includes(job.stage) ? job.stage : "new",
     fitReportId: job.fitReportId || "",
@@ -267,7 +285,9 @@ export async function deleteJob(id) {
 // imported by an earlier version of the scan still line up.
 export async function findExistingJob({ externalId, threadId }) {
   if (!externalId && !threadId) return null;
-  const jobs = await listJobs();
+  // Archived rows count as existing, otherwise a re-import would resurrect
+  // something you deliberately filed away as a fresh duplicate.
+  const jobs = await listAllJobs();
   return (
     (externalId && jobs.find((j) => j.externalId === externalId)) ||
     (threadId && jobs.find((j) => j.threadId === threadId)) ||
@@ -279,7 +299,9 @@ export async function findExistingJob({ externalId, threadId }) {
 // the report is already linked, or the job holds the same job description and
 // just hasn't been analysed yet.
 export async function findJobForReport(reportId, jd) {
-  const jobs = await listJobs();
+  // Archived included: re-analysing an archived role should reattach to it,
+  // not spawn a new pipeline row.
+  const jobs = await listAllJobs();
   const byReport = jobs.find((j) => j.fitReportId && j.fitReportId === reportId);
   if (byReport) return byReport;
   if (!jd) return null;
@@ -290,7 +312,7 @@ export async function findJobForReport(reportId, jd) {
 // Report ids that no pipeline row points at, so the admin page can offer to
 // pull older analyses into the pipeline.
 export async function findUnlinkedReportIds() {
-  const jobs = await listJobs();
+  const jobs = await listAllJobs();
   const linked = new Set(jobs.map((j) => j.fitReportId).filter(Boolean));
   const { reports } = await listReports({ offset: 0, limit: 100 });
   return reports.filter((r) => !linked.has(r.id)).map((r) => r.id);
