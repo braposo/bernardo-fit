@@ -123,6 +123,9 @@
   }
   textarea.jd:focus { outline: none; border-color: var(--accent); }
 
+  .insbox summary { color: var(--warn); }
+  textarea.ins { min-height: 90px; }
+
   /* Rows */
   .row-right { display: flex; align-items: center; gap: 12px; flex: none; }
   .scorebadge {
@@ -360,6 +363,10 @@
           '<textarea class="jd" data-act="jd" placeholder="Paste the job description here…">' + esc(j.jobDescription || "") + "</textarea>" +
         "</details>" +
         statsHtml(j) +
+        '<details class="jdbox insbox"' + (j.instructions ? " open" : "") + ">" +
+          "<summary>" + (j.instructions ? "Instructions for generation" : "Add instructions for generation") + "</summary>" +
+          '<textarea class="jd ins" data-act="instructions" placeholder="Steer the analysis and the letter for this role. What to emphasise, context from a call, an angle to take.">' + esc(j.instructions || "") + "</textarea>" +
+        "</details>" +
         '<textarea class="notes" data-act="notes" placeholder="Notes…">' + esc(j.notes || "") + "</textarea>" +
         '<div class="row-actions">' +
           (fitLink
@@ -615,6 +622,22 @@
           setTimeout(renderJobs, 700);
         });
       });
+
+      var ins = rowEl.querySelector('[data-act="instructions"]');
+      if (ins) {
+        ins.addEventListener("blur", function () {
+          if (job && ins.value === (job.instructions || "")) return;
+          status.textContent = "Saving…"; status.className = "row-status";
+          patch({ instructions: ins.value }, function () {
+            // Saving alone changes nothing already generated, so say so.
+            status.textContent = job && job.fitReportId
+              ? "Saved. Regenerate to apply."
+              : "Instructions saved";
+            status.className = "row-status ok";
+            setTimeout(function () { status.textContent = ""; }, 2600);
+          });
+        });
+      }
 
       var notes = rowEl.querySelector('[data-act="notes"]');
       notes.addEventListener("blur", function () {

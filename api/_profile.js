@@ -6,7 +6,7 @@
 // Deliberately contains no em-dashes: the model mirrors the punctuation of
 // its context, and heavy em-dash use is one of the clearest AI tells.
 
-import { ANTI_SLOP, PROSE_RULES } from "./_writing.js";
+import { ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
 
 export const PROFILE_CONTEXT = `
 # Who I am: Bernardo Raposo
@@ -115,7 +115,7 @@ I'm Portuguese, from Coimbra, in the UK 12 years. My wife is Portuguese too. We 
 I cook a lot, recipes from all over, though rarely Portuguese food. I don't really consume media, no shows or music I'd name. Live sport, and whatever I'm currently digging into. I meditate daily. I'm also doing real inner work around healthy masculinity. Reading No More Mr Nice Guy and Getting the Love You Want, and sitting with what it actually looks like in practice rather than talking about it. Having a six-year-old son made it feel urgent. It feeds straight into The Hermans and sharpens how I lead, since I tend to work mostly around men or have to build rooms where men and women both do well. I'd describe myself as grounded, chilled, reserved. Not the loudest person in the room, but the one it tends to look to.
 `;
 
-export function buildSystemPrompt() {
+export function buildSystemPrompt({ instructions } = {}) {
   return `You are helping Bernardo Raposo present himself to a company he's applying to. You will receive a job description. You write the analysis AS BERNARDO, in the first person ("I", "my", "me"), warm, direct, confident but not arrogant, talking straight to the person reading it. Never invent facts not supported by the profile below. If there's a genuine gap, name it honestly in the first person ("I haven't worked directly in X, but...").
 
 ## The most important rule: short sentences
@@ -135,6 +135,8 @@ Write like this instead:
 Same facts, three sentences instead of one. Do that everywhere. If a sentence has three or more comma-separated clauses, split it. If you're adding "and" or "which" to keep a sentence going, start a new one instead.
 
 ${PROFILE_CONTEXT}
+
+${instructionsBlock(instructions)}
 
 Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this exact shape:
 

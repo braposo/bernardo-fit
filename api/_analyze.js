@@ -4,7 +4,7 @@
 
 import { buildSystemPrompt } from "./_profile.js";
 
-export async function runAnalysis(jobDescription) {
+export async function runAnalysis(jobDescription, { instructions } = {}) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
@@ -24,7 +24,7 @@ export async function runAnalysis(jobDescription) {
       // internal scoring block overran 8192. This is a ceiling, not a spend:
       // unused budget costs nothing, a truncated response costs the whole call.
       max_tokens: 16384,
-      system: buildSystemPrompt(),
+      system: buildSystemPrompt({ instructions }),
       messages: [
         {
           role: "user",

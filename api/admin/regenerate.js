@@ -25,9 +25,13 @@ export default async function handler(req, res) {
       return;
     }
 
+    // Pick up any per-role steer from the row that owns this report.
+    const owner = (await listJobs({ includeArchived: true })).find((j) => j.fitReportId === id);
+    const instructions = owner ? (owner.instructions || "").trim() : "";
+
     let report, internal;
     try {
-      ({ report, internal } = await runAnalysis(existing.job_description));
+      ({ report, internal } = await runAnalysis(existing.job_description, { instructions }));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message, detail: err.detail });
       return;
@@ -42,7 +46,6 @@ export default async function handler(req, res) {
     // Regenerating rescores, so push the new numbers onto whichever row owns
     // this report. Scores never travel with the report itself.
     if (internal) {
-      const owner = (await listJobs({ includeArchived: true })).find((j) => j.fitReportId === id);
       if (owner) {
         await updateJob(owner.id, {
           score: internal.score,

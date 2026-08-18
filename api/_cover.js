@@ -1,5 +1,5 @@
 import { PROFILE_CONTEXT } from "./_profile.js";
-import { ANTI_SLOP, PROSE_RULES } from "./_writing.js";
+import { ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
 
 // Cover letter generation.
 //
@@ -11,7 +11,7 @@ import { ANTI_SLOP, PROSE_RULES } from "./_writing.js";
 
 export const COVER_MAX_WORDS = 430;
 
-export function buildCoverPrompt({ report, fitUrl }) {
+export function buildCoverPrompt({ report, fitUrl, instructions }) {
   return `You are writing a cover letter as Bernardo Raposo, in the first person. It is sent to the company, so it is public-facing writing, not a private note.
 
 ${PROFILE_CONTEXT}
@@ -84,6 +84,8 @@ Two more that matter especially in a cover letter:
 - Never open with "I am writing to apply for", "I am excited to apply", or any variant. Start with substance.
 - Do not restate my CV in prose. They have the CV. The letter exists to say what the CV cannot: why this role, what I would do about their specific problem, and where I fall short.
 
+${instructionsBlock(instructions)}
+
 ## Output
 
 Respond with ONLY valid JSON, no markdown fence, in this shape:
@@ -101,7 +103,7 @@ Rules for the text field: plain prose only. No HTML tags, no markdown, no links,
 If you know the company name, address the salutation to the team by name, for example "Dear Sanity team,". Otherwise keep "Dear Hiring Team,".${fitUrl ? "" : ""}`;
 }
 
-export async function runCoverLetter({ report, fitUrl }) {
+export async function runCoverLetter({ report, fitUrl, instructions }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
 
@@ -110,7 +112,7 @@ export async function runCoverLetter({ report, fitUrl }) {
   let lastRaw = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     const system =
-      buildCoverPrompt({ report, fitUrl }) +
+      buildCoverPrompt({ report, fitUrl, instructions }) +
       (attempt === 0
         ? ""
         : "\n\nYour previous response could not be parsed as JSON. Return ONLY the JSON object, starting with { and ending with }. No prose before or after it, no markdown fence. Do not put a double quote character anywhere inside a text value.");

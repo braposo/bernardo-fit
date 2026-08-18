@@ -50,6 +50,7 @@ export default async function handler(req, res) {
     const letter = await runCoverLetter({
       report,
       fitUrl: `${origin}/?r=${encodeURIComponent(job.fitReportId)}`,
+      instructions: (job.instructions || "").trim(),
     });
 
     await updateJob(id, { coverLetter: letter.paragraphs, coverLetterAt: letter.generatedAt });

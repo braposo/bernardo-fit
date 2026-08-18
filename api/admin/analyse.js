@@ -21,14 +21,17 @@ async function analyseJob(job) {
   const jd = (job.jobDescription || "").trim();
   if (jd.length < 20) return { id: job.id, skipped: "no job description" };
 
-  const cached = await findReportByHash(jd);
+  // Only reuse a cached analysis when there is no per-role steer. Otherwise
+  // the instructions would be silently ignored in favour of an older run.
+  const instructions = (job.instructions || "").trim();
+  const cached = instructions ? null : await findReportByHash(jd);
   if (cached) {
     // Reusing a report means no fresh scoring; leave whatever the row already has.
     await updateJob(job.id, { fitReportId: cached.id });
     return { id: job.id, reportId: cached.id, cached: true };
   }
 
-  const { report, internal } = await runAnalysis(jd);
+  const { report, internal } = await runAnalysis(jd, { instructions });
   report.job_description = jd;
   report.created_at = new Date().toISOString();
   const reportId = await saveReport(report);

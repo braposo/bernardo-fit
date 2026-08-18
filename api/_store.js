@@ -242,6 +242,9 @@ export async function saveJob(job) {
     fitReportId: job.fitReportId || "",
     jobDescription: job.jobDescription || "",
     notes: job.notes || "",
+    // Free-text steer for the analysis and the letter. Written by me, so
+    // unlike a job description this is trusted and followed as instruction.
+    instructions: job.instructions || "",
     receivedAt: job.receivedAt || now,
     createdAt: job.createdAt || now,
     updatedAt: now,
