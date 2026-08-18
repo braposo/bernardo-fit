@@ -47,6 +47,16 @@ As a builder, I think in systems, not just code: brand, product, architecture, e
 
 As a thinker, I care about incentive design and economic systems. Token economies, reputation, staking mechanics. I also learn from failure rather than sunk-costing into it. I launched The Hermans as a Web3 storytelling brand. It didn't get traction. So I pivoted to the mission I actually cared about instead of doubling down on the mechanism.
 
+## What I want to bring on AI
+
+This is the thing I most want to carry into wherever I go next. Three parts to it.
+
+**AI in the product.** I have shipped this, not argued for it from the sidelines. SQRL runs across the SingleStore website, docs, and cloud portal at real volume, including a "Fix my SQL" entry point inside the SQL editor. The MCP server put our data inside customers' own AI tools rather than making them come to ours. The principle I hold to is retrieval over generation for anything public-facing. AI selects from pre-approved material instead of writing freely, so nothing hallucinated ships. I would rather ship a narrower assistant people trust than a clever one they learn to double-check.
+
+**Ways of working with AI.** Guardrails rather than gatekeepers. Set clear boundaries AI can operate inside, then let it run. The alternative is an approval queue for every action, which spends the speed you just bought. It also has to be observable. We ran dashboards on SQRL and read conversation data against product changes, so it improved on evidence rather than on opinion. Adoption is a leadership problem more than a tooling one. People adopt AI when the boundaries are clear and someone has made it safe to try. I ran the company-wide AI hackathon at SingleStore partly to make that feel normal rather than mandated.
+
+**Teams, engineers, and agents.** I think coding is becoming a commodity, the way film photography gave way to digital. Some people will still write code. Most will describe what they want and let AI build it. So the scarce skill moves upstream: what to build, how it fits together, and where a human has to stay in the loop. I call myself an orchestrator, and increasingly that means coordinating people and agents in the same system. The Website Platform 2026 vision was built on that progression. AI assists while humans stay in control, then agents run inside guardrails while humans set the goals and handle the exceptions. My rule of thumb comes from Gallwey: performance is potential minus interference. AI is the first thing I have worked with that raises the ceiling and cuts the interference at the same time.
+
 ## My technical range
 
 **Core:** TypeScript, JavaScript, React, Next.js, Node.js, GraphQL, HTML/CSS.
@@ -153,6 +163,7 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
   "differentiators": [
     { "headline": "3-6 word punchy claim about me", "detail": "1-2 sentences, 30 words MAXIMUM in total, first person, the evidence" }
   ],
+  "ai_view": "2-3 short sentences, 55 words MAXIMUM in total, first person, what I would bring on AI in THEIR organisation. See the note on this below.",
   "closing": "1-2 sentences, 30 words MAXIMUM in total, first person, a plain human sign-off inviting them to talk.",
   "internal": {
     "score": 0,
@@ -191,6 +202,10 @@ Reasonable extrapolation is not just allowed, it's expected. If the JD names som
 "Seniority & scope" specifically: don't reduce this to the headcount I directly managed as an EM (three engineers at SingleStore). Weigh my whole career as scope evidence, including Principal Engineer leading TravelRepublic's platform shared across three brands with many thousands of daily visitors and millions in monthly bookings, coordinating design system, application, and API workstreams; one of the first 10 engineers at EDITED through its 25-to-200 growth, seeing every stage of scaling; platform-level decisions spanning four teams (two replatformings, CMS migrations, a platform vision doc that aligned Web, Marketing, Docs, and Product). Operating at larger organisational scale as a senior IC or technical lead is real, applicable evidence toward larger-scope leadership roles, because someone who has worked inside and across bigger teams knows how those systems behave. Treat direct-report count as one input among several, not the ceiling.
 
 differentiators: 3-5 items. These are the things that make me stand out from other candidates for THIS role, so pull the most relevant, specific, evidence-backed highlights from my profile and frame them to the job. Not generic. Each should feel like "here's something about me you should know."
+
+"ai_view" is the last thing they read before the sign-off, and it is the point of view I most want to leave them with. My profile has a section called "What I want to bring on AI" covering three parts: AI in the product, ways of working with AI, and how engineers and agents divide the work. Choose the ONE the job description gives you something real to say about, and write it about their organisation rather than about AI in general.
+
+Anchor it in their business. If the posting talks about AI, answer their specific version of it. If it never mentions AI, say where I see it landing in what they actually sell. Skip the industry predictions, because "AI is changing everything" tells them nothing. Do not claim to know their AI strategy. Where you are guessing, write it as what I would want to work out with them. A named tradeoff or limit reads better than enthusiasm.
 
 ## How to write it
 

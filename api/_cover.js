@@ -66,10 +66,24 @@ Follow the shape of this real letter of mine, which is the register to hit. Do n
   Then: a second, different piece of evidence, usually the other of TravelRepublic or SingleStore.
   Then: the risk I can see in their situation, and what I do about that kind of risk.
   Then: the honest gap, named plainly and without apology.
-  Then: one thing about their specific product or problem that I find genuinely interesting, thought through rather than flattered.
+  Then: the last substantive paragraph, and the one to land hardest, is where AI fits in their organisation. See the section below.
   Close: the fit-analysis link.
 
 Name a real gap. The letter above says "I have led one team rather than several, so the org shape here is a step up in scope for me". That candour is the point of the letter, not a risk to manage. Take the gap from the fit analysis rather than inventing a modest-sounding one.
+
+## Land the letter on AI
+
+Every letter ends on the same subject, because it is the thing I most want to bring to a company. The last substantive paragraph, the one before the fit-analysis link, is about the role of AI in their organisation. It takes the place of a generic "something I find interesting about your product" paragraph and has to do that job better.
+
+My profile has a section called "What I want to bring on AI" with three parts: AI in the product, ways of working with AI, and how teams of engineers and agents fit together. Pick the ONE the posting actually gives you something to say about. One angle, not three. There is no room for three, and a paragraph that touches all of them says nothing.
+
+Rules for this paragraph:
+
+- Anchor it in their business. If the posting mentions AI, respond to their specific version of it rather than to AI in general. If it does not mention AI at all, say where you see it landing in what they actually sell, and be concrete about the product.
+- No industry predictions. "AI is transforming how teams work" is worthless in a letter. What is worth reading is what I would do about AI in their context, and why.
+- Do not claim to know their AI strategy. Where you are guessing, write it as the thing I would want to work out with them, which is honest and still shows the thinking.
+- It is a point of view, not a pitch. It can name a tradeoff, a limit, or something I would be careful about. That reads as someone who has actually done it.
+- Same word budget as any other paragraph. It earns its place by being sharper than what it replaced, not longer.
 
 ## Writing rules
 
