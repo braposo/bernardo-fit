@@ -12,7 +12,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { id } = req.body || {};
+  // jobId is optional and says which row asked. It matters because dedup can
+  // point several rows at one report, and only one of them holds the
+  // instructions this regenerate is meant to honour.
+  const { id, jobId } = req.body || {};
   if (!id) {
     res.status(400).json({ error: "Missing id" });
     return;
@@ -25,8 +28,14 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Pick up any per-role steer from the row that owns this report.
-    const owner = (await listJobs({ includeArchived: true })).find((j) => j.fitReportId === id);
+    // Every row pointing at this report shares the analysis, so they all get
+    // rescored. Which one supplies the instructions is a different question.
+    const owners = (await listJobs({ includeArchived: true })).filter((j) => j.fitReportId === id);
+    const asked = jobId ? owners.find((j) => j.id === jobId) : null;
+    // Prefer the row that asked. Failing that, prefer one that actually has
+    // instructions, so a steered row is not silently ignored in favour of a
+    // bare duplicate. List order is not stable enough to rely on.
+    const owner = asked || owners.find((j) => (j.instructions || "").trim()) || owners[0] || null;
     const instructions = owner ? (owner.instructions || "").trim() : "";
 
     let report, internal;
@@ -46,8 +55,8 @@ export default async function handler(req, res) {
     // Regenerating rescores, so push the new numbers onto whichever row owns
     // this report. Scores never travel with the report itself.
     if (internal) {
-      if (owner) {
-        await updateJob(owner.id, {
+      for (const row of owners) {
+        await updateJob(row.id, {
           score: internal.score,
           tier: internal.tier,
           scoreBreakdown: internal.breakdown,

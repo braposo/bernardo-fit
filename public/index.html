@@ -148,12 +148,6 @@
   .diff-headline { font-family: var(--display); font-size: clamp(18px, 2.6vw, 24px); font-weight: 600; line-height: 1.28; letter-spacing: -0.015em; }
   .diff-detail { font-size: clamp(15px, 1.5vw, 16px); line-height: 1.72; color: var(--sub); margin-top: 10px; max-width: 50ch; }
 
-  /* Where AI fits */
-  .aiview {
-    font-size: clamp(17px, 1.9vw, 20px); line-height: 1.68; margin: 0; max-width: 62ch;
-    text-wrap: pretty;
-  }
-
   /* Closing — open, no band */
   .closing-wrap { margin-top: clamp(48px, 8vw, 76px); }
   .closing {
@@ -312,9 +306,6 @@
         '<div class="section-label">What sets me apart</div>' +
         '<div class="diffs">' + diffs + '</div>' +
 
-        (r.ai_view ? '<div class="section-label">Where AI fits</div>' +
-          '<p class="aiview">' + esc(r.ai_view) + '</p>' : '') +
-
         '<div class="closing-wrap">' +
           (r.closing ? '<p class="closing">' + esc(r.closing) + '</p>' : '') +
           '<div class="sign">— Bernardo<small>Available now · Remote-first · Harrogate, UK</small></div>' +
@@ -375,7 +366,6 @@
       { headline: "Shipped two replatformings", detail: "I led the vision and the execution for major platform rewrites at both SingleStore and TravelRepublic." },
       { headline: "Early on AI in production", detail: "I shipped an AI assistant and one of the first MCP servers in our space, ahead of much bigger competitors." }
     ],
-    ai_view: "Your editors are the bottleneck, not your writers. I would put AI in the assembly step and keep it choosing from approved modules. Nothing hallucinated reaches a customer.",
     closing: "If this is the kind of platform thinking you're after, I'd love to talk it through."
   };
 

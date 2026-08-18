@@ -260,6 +260,83 @@
       });
   }
 
+  // ---------- Work that outlives the connection ----------
+
+  // Analysis, regeneration and the cover letter each make a model call that can
+  // run for minutes. The browser sometimes gives up on the connection well
+  // before the server gives up on the work, which showed up as "Network error"
+  // on a job that had in fact completed. So when the connection drops, go and
+  // look for the result instead of reporting a failure that did not happen.
+  function pollFor(check) {
+    var tries = 30, every = 6000; // roughly three minutes
+    return new Promise(function (resolve) {
+      (function attempt(n) {
+        if (n >= tries) { resolve(null); return; }
+        setTimeout(function () {
+          check().then(
+            function (out) { if (out) resolve(out); else attempt(n + 1); },
+            function () { attempt(n + 1); }
+          );
+        }, every);
+      })(0);
+    });
+  }
+
+  // status 0 means the fetch itself was rejected, not that the server answered.
+  function recoverable(out, status, check) {
+    if (out.status !== 0) return Promise.resolve(out);
+    status.textContent = "Connection dropped. Still checking…";
+    status.className = "row-status";
+    return pollFor(check).then(function (found) { return found || out; });
+  }
+
+  function jobRow(id) {
+    return api("/api/admin/jobs" + (showArchived ? "?archived=1" : ""), { method: "GET" }).then(function (out) {
+      if (!out.ok) return null;
+      var list = out.d.jobs || [];
+      for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+      return null;
+    });
+  }
+
+  // Timestamps come back from the server, so allow a second of clock skew.
+  function newerThan(iso, since) {
+    return !!iso && new Date(iso).getTime() >= since - 1000;
+  }
+
+  function analysisLanded(id, hadReport) {
+    return jobRow(id).then(function (j) {
+      if (!j || !j.fitReportId || j.fitReportId === hadReport) return null;
+      return { ok: true, status: 200, d: { reportId: j.fitReportId } };
+    });
+  }
+
+  function regenLanded(reportId, since) {
+    return api("/api/report?id=" + encodeURIComponent(reportId), { method: "GET" }).then(function (out) {
+      if (!out.ok || !out.d.report) return null;
+      return newerThan(out.d.report.regenerated_at, since) ? { ok: true, status: 200, d: {} } : null;
+    });
+  }
+
+  // The letter is stored on the row, so its timestamp says whether the run we
+  // lost the connection to finished. Opening it needs a token, and tokenOnly
+  // mints one without rewriting the letter.
+  function coverLanded(id, since) {
+    return jobRow(id).then(function (j) {
+      if (!j || !j.coverLetter || !newerThan(j.coverLetterAt, since)) return null;
+      var words = j.coverLetter.reduce(function (n, p) {
+        return n + String(p.text || "").trim().split(/\s+/).filter(Boolean).length;
+      }, 0);
+      return api("/api/admin/cover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: id, tokenOnly: true }),
+      }).then(function (t) {
+        return t.ok ? { ok: true, status: 200, d: { words: words, token: t.d.token } } : null;
+      });
+    });
+  }
+
   function unauthorised(out, firstTry) {
     if (out.status === 401) {
       sessionStorage.removeItem(SECRET_KEY);
@@ -685,10 +762,13 @@
           // Save the description first so the row and the analysis agree, then
           // analyse through the admin endpoint, which skips the visitor rate limit.
           patch({ jobDescription: text }, function () {
+            var hadReport = job.fitReportId || "";
             api("/api/admin/analyse", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ id: id }),
+            }).then(function (out) {
+              return recoverable(out, status, function () { return analysisLanded(id, hadReport); });
             }).then(function (out) {
               runFit.disabled = false;
               if (unauthorised(out)) return;
@@ -714,10 +794,13 @@
           }
           coverBtn.disabled = true;
           status.textContent = "Writing…"; status.className = "row-status";
+          var startedAt = Date.now();
           api("/api/admin/cover", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: id }),
+          }).then(function (out) {
+            return recoverable(out, status, function () { return coverLanded(id, startedAt); });
           }).then(function (out) {
             coverBtn.disabled = false;
             if (unauthorised(out)) return;
@@ -735,10 +818,14 @@
         regen.addEventListener("click", function () {
           regen.disabled = true;
           status.textContent = "Regenerating…"; status.className = "row-status";
+          var regenStartedAt = Date.now();
+          var regenReportId = job.fitReportId;
           api("/api/admin/regenerate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: job.fitReportId }),
+            body: JSON.stringify({ id: job.fitReportId, jobId: id }),
+          }).then(function (out) {
+            return recoverable(out, status, function () { return regenLanded(regenReportId, regenStartedAt); });
           }).then(function (out) {
             regen.disabled = false;
             if (unauthorised(out)) return;

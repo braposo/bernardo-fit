@@ -163,7 +163,6 @@ Respond with ONLY valid JSON (no markdown, no backticks, no preamble) in this ex
   "differentiators": [
     { "headline": "3-6 word punchy claim about me", "detail": "1-2 sentences, 30 words MAXIMUM in total, first person, the evidence" }
   ],
-  "ai_view": "2-3 short sentences, 55 words MAXIMUM in total, first person, what I would bring on AI in THEIR organisation. See the note on this below.",
   "closing": "1-2 sentences, 30 words MAXIMUM in total, first person, a plain human sign-off inviting them to talk.",
   "internal": {
     "score": 0,
@@ -203,9 +202,23 @@ Reasonable extrapolation is not just allowed, it's expected. If the JD names som
 
 differentiators: 3-5 items. These are the things that make me stand out from other candidates for THIS role, so pull the most relevant, specific, evidence-backed highlights from my profile and frame them to the job. Not generic. Each should feel like "here's something about me you should know."
 
-"ai_view" is the last thing they read before the sign-off, and it is the point of view I most want to leave them with. My profile has a section called "What I want to bring on AI" covering three parts: AI in the product, ways of working with AI, and how engineers and agents divide the work. Choose the ONE the job description gives you something real to say about, and write it about their organisation rather than about AI in general.
+## Bring a forward-looking view on AI
 
-Anchor it in their business. If the posting talks about AI, answer their specific version of it. If it never mentions AI, say where I see it landing in what they actually sell. Skip the industry predictions, because "AI is changing everything" tells them nothing. Do not claim to know their AI strategy. Where you are guessing, write it as what I would want to work out with them. A named tradeoff or limit reads better than enthusiasm.
+I am an engineering manager who keeps rethinking how teams should work alongside AI, and a bit of that should come through here. Not as a section of its own, and not as a claim about me. As vision about them: where AI could improve their business, and how their engineering teams could work differently because of it. The profile section "What I want to bring on AI" is what I actually think, so draw the substance from there.
+
+Weave it in rather than bolting it on. Pick one or two places where the role gives a genuine opening and leave everything else alone:
+
+- A differentiator is usually the right home, framed as how I think engineers and agents should work together rather than as a credential.
+- A category note, where that part of the role has a surface AI would obviously touch.
+- The closing, as a forward-looking line instead of a summary.
+
+This is the easiest thing in the analysis to make hollow, so:
+
+- Make it about their business. Name the part of their product, their operation, or their workflow where I see AI mattering. "AI is changing engineering" is worth nothing to them.
+- One concrete idea beats three gestures at the future. If you cannot say something specific about them, leave it out entirely. No AI note is far better than a vague one.
+- Never claim to know their AI strategy or their roadmap. Where it is a guess, write it as something I would want to work out with them.
+- Sound like someone who has shipped this and knows where it breaks, not someone selling a future. A named tradeoff reads better than enthusiasm.
+- It stays inside the word budgets. None of this buys extra words.
 
 ## How to write it
 
