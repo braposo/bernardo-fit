@@ -6,6 +6,8 @@
 // Deliberately contains no em-dashes: the model mirrors the punctuation of
 // its context, and heavy em-dash use is one of the clearest AI tells.
 
+import { ANTI_SLOP, PROSE_RULES } from "./_writing.js";
+
 export const PROFILE_CONTEXT = `
 # Who I am: Bernardo Raposo
 
@@ -190,34 +192,14 @@ differentiators: 3-5 items. These are the things that make me stand out from oth
 
 ## How to write it
 
-This has to read like I typed it, not like a model generated it. A hiring manager who reads AI output all day should not clock this as AI. Apply all of the following.
-
-Never use these words: delve, foster, leverage, utilize, facilitate, empower, streamline, robust, cutting-edge, paradigm shift, game changer, tapestry, realm, beacon, multifaceted, meticulous, intricate, paramount, transformative, elevate, embark, supercharge, harness, ever-evolving.
-
-Cut these empty adverbs and phrases: just, literally, simply, actually, truly, fundamentally, importantly, crucially, "it's worth noting", "at the end of the day", "when it comes to", "in today's world". Also cut filler "honestly" and "to be honest". The honesty should come from what I actually say, not from announcing it.
-
-Patterns to avoid:
-- Binary contrasts. Never "It's not X, it's Y" or "This isn't just X, it's Y". State the thing directly.
-- Throat-clearing openers. No "Here's the thing", "Let me be clear", "Look,". Open with substance.
-- Faux-insight setups. No "What most people miss", "What nobody tells you".
-- Colon reveals. Don't build a dramatic reveal after a colon.
-- Importance puffery. Don't tell the reader something was pivotal, significant, a milestone, or a turning point. Say what happened and let them judge.
-- Fake-strong verbs. "I owned the auth layer" beats "I spearheaded ownership of the auth layer". Plain verbs (built, ran, led, wrote, shipped, hired) are better than inflated ones.
-- Synonym cycling. If the word is "team", keep saying "team". Don't rotate through squad/group/unit for variety.
-- Negative listing. Don't write "Not a backend architect. Not a frontend specialist." Say what I am.
-- Dramatic fragmentation. No sentence fragments for effect ("That's it." "Every single time.").
-- Rhetorical setups. No "What if I told you", "Think about it", or rhetorical questions used as transitions.
-- Fake-profound kickers. The closing especially must not end on a grand metaphor or an abstract line about journeys, building the future, or what excites me about the space. End concrete: a plain, human invitation to talk.
-- Recap endings. Don't summarise what you already said.
-- Em-dashes. Don't use them at all. No "—" anywhere in the output. Heavy em-dash use is one of the clearest tells that text was machine-written, so use a full stop, a comma, a colon, a semicolon, or brackets instead. Every one of them has a natural equivalent; pick it.
+${ANTI_SLOP}
 
 Keep sentences short. This is the single most important rule for how the finished page feels to read. Aim for most sentences under 20 words, and treat 25 as a hard ceiling. One idea per sentence. If a sentence carries three or more comma-separated clauses, split it into two. If you find yourself stacking qualifiers onto a clause, start a new sentence instead. Two clear short sentences always beat one long one, even when the long one is grammatical.
 
 The reader is scanning this on a page with a lot of white space, so density is the enemy. A category note of three short sentences reads far better than two dense ones of equal length. Prefer full stops to semicolons, and don't chain clauses with "and" or "which" to keep a sentence going.
 
-Be sparing with numbers. Use one only when it tells the reader something they genuinely need in order to judge scale or scope, and drop it otherwise. A number that exists to make me sound impressive reads as insecure and makes the whole thing cheesy. When in doubt, leave it out and describe the thing instead.
+${PROSE_RULES}
 
-Numbers that earn their place because they establish real scale: three engineers on the team, three brands sharing one platform, millions in bookings a month, ~40k unique visitors, 25 people growing to 200. Numbers that do not, and which you should not cite: how many pages a document ran to, GitHub star counts, npm download counts, internal promotion grades like G3 or G4, NFT holder counts, sports rankings. Say "a strategy doc that aligned four teams", never "an 11-page strategy doc". Say "open-source libraries people actually use", never "1,500+ GitHub stars". The achievement is the alignment or the adoption, not the measurement of it. Never stack several numbers into one sentence for effect.
 
-Write in contractions, the way people actually speak. Concrete beats abstract every time: "three engineers", "three brands", "a database company" rather than "significant scale" or "substantial impact". Real uncertainty is good where it's real ("I think", "probably", "I'd want to understand"). Keep the edge, the opinions, and the honest admissions, because those are what make it sound like a person.`;
+`;
 }

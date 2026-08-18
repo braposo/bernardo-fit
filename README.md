@@ -23,6 +23,7 @@ api/admin/analyse.js    ← run a fit analysis for one row
 api/admin/cover.js      ← write a cover letter from a row's fit analysis
 api/letter.js           ← serves a letter to the printable page, token-gated
 api/_cover.js           ← cover letter prompt + sanitising
+api/_writing.js         ← anti-slop writing rules, shared by every prompt
 public/letter.html      ← the printable A4 letter, print-to-PDF
 api/admin/ingest.js     ← write end for a scheduled inbox review
 scripts/ingest-opportunities.mjs ← posts a batch of opportunities; reads the secret itself
@@ -84,6 +85,10 @@ The server still holds no mail credentials. The scan runs agent-side and only th
 Any row with a fit analysis gets a **Write cover letter** button. The letter is generated from that analysis plus the profile, in the voice of a real letter used as a worked example, and saved on the row. It opens straight into a printable A4 page with the print dialog already up, so exporting a PDF is one click and a save.
 
 There is no server-side PDF renderer. The template carries correct `@page { size: A4; margin: 0 }` print CSS, so the browser produces a proper vector PDF with selectable text and real fonts. Headless Chromium on Vercel would add ~50MB of bundle, multi-second cold starts and a Chromium version to keep pinned, in exchange for saving one keystroke. Client-side libraries were worse again: html2canvas rasterises the page, which would throw away the typography the design exists for.
+
+The letter inherits the same anti-slop rules as the fit analysis, from `api/_writing.js`. Those rules used to exist twice, condensed differently in each prompt, which meant the weaker copy was quietly winning in the cover letter; the cover prompt was missing faux-insight setups, colon reveals, fake-strong verbs, synonym cycling, negative listing and dramatic fragmentation. One module now feeds both.
+
+On top of that the cover prompt carries a specificity test: could this paragraph be pasted unchanged into a letter to another company? If yes it is filler. It is told to name the company, borrow the vocabulary of the posting, address the hiring manager by name when the posting names one, and treat flattery as the opposite of specificity. The job description is passed in separately from the analysis so it can be mined for those details, and is explicitly marked as data rather than instructions.
 
 Length is treated as a layout constraint. The page is a fixed A4 box, so generation is capped at 430 words across 5 to 7 paragraphs. If a letter ever does overflow, the page says so on screen (and hides that warning when printing) rather than exporting a silently truncated letter.
 
