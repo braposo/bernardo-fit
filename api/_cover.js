@@ -91,12 +91,12 @@ Respond with ONLY valid JSON, no markdown fence, in this shape:
 {
   "salutation": "Dear Hiring Team,",
   "paragraphs": [
-    { "lead": true, "html": "First paragraph. Wrap the single sharpest phrase in <span class=\\"em\\">like this</span>, once only." },
-    { "html": "Body paragraph. You may wrap one clause in <em>like this</em> for emphasis, sparingly." }
+    { "lead": true, "text": "First paragraph. Mark the single sharpest phrase with [[double brackets]], once only." },
+    { "text": "Body paragraph. You may mark one clause with [[double brackets]] for emphasis, sparingly." }
   ]
 }
 
-Rules for the html field: plain text plus, at most, <span class="em"> in the lead and <em> elsewhere. No other tags, no links, no line breaks. The closing fit-analysis paragraph is appended automatically, so do not write one.
+Rules for the text field: plain prose only. No HTML tags, no markdown, no links, no line breaks. The one exception is [[double brackets]] for emphasis, at most once per paragraph and only where it earns it. Never use a double quote character inside the text; use single quotes if you must quote something. The closing fit-analysis paragraph is appended automatically, so do not write one.
 
 If you know the company name, address the salutation to the team by name, for example "Dear Sanity team,". Otherwise keep "Dear Hiring Team,".${fitUrl ? "" : ""}`;
 }
@@ -105,57 +105,175 @@ export async function runCoverLetter({ report, fitUrl }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-5",
-      max_tokens: 8192,
-      system: buildCoverPrompt({ report, fitUrl }),
-      messages: [{ role: "user", content: "Write the cover letter." }],
-    }),
-  });
+  // One retry. The failure this guards against is a malformed response rather
+  // than a bad model, so asking again with a blunter instruction usually works.
+  let lastRaw = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const system =
+      buildCoverPrompt({ report, fitUrl }) +
+      (attempt === 0
+        ? ""
+        : "\n\nYour previous response could not be parsed as JSON. Return ONLY the JSON object, starting with { and ending with }. No prose before or after it, no markdown fence. Do not put a double quote character anywhere inside a text value.");
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw Object.assign(new Error("Cover letter service error"), { status: 502, detail: text.slice(0, 400) });
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 16384,
+        system,
+        messages: [{ role: "user", content: "Write the cover letter." }],
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw Object.assign(new Error("Cover letter service error"), { status: 502, detail: text.slice(0, 400) });
+    }
+
+    const data = await response.json();
+    if (data.stop_reason === "max_tokens") {
+      console.error("Cover letter hit max_tokens before completing (attempt " + (attempt + 1) + ").");
+    }
+
+    lastRaw = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+    const parsed = parseLetter(lastRaw);
+    if (parsed) return normalise(parsed, fitUrl);
+
+    console.error("Cover letter parse failed on attempt " + (attempt + 1) + ": " + lastRaw.slice(0, 400));
   }
 
-  const data = await response.json();
-  if (data.stop_reason === "max_tokens") console.error("Cover letter hit max_tokens before completing.");
-
-  const raw = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
-  let clean = raw.replace(/```json|```/g, "").trim();
-  const first = clean.indexOf("{");
-  const last = clean.lastIndexOf("}");
-  if (first !== -1 && last !== -1 && last > first) clean = clean.slice(first, last + 1);
-
-  let parsed;
-  try {
-    parsed = JSON.parse(clean);
-  } catch {
-    console.error("Failed to parse cover letter as JSON:", raw.slice(0, 500));
-    throw Object.assign(new Error("Could not parse the cover letter. Try again."), { status: 502 });
+  // Both attempts produced unparseable JSON. Rather than hand back an error and
+  // lose the writing, salvage the prose so there is something to edit.
+  const salvaged = salvageProse(lastRaw);
+  if (salvaged) {
+    console.error("Cover letter salvaged from prose after two failed parses.");
+    return normalise(salvaged, fitUrl);
   }
 
-  return normalise(parsed, fitUrl);
+  throw Object.assign(new Error("Could not write the cover letter. Try again."), { status: 502 });
 }
 
-// Strips anything the template can't render, and appends the fit-page line.
+// Tolerant parse. Handles a markdown fence, prose either side of the object,
+// trailing commas, and the specific case that used to break this: an unescaped
+// double quote inside a value.
+function parseLetter(raw) {
+  let s = String(raw || "").replace(/```json/gi, "").replace(/```/g, "").trim();
+  const first = s.indexOf("{");
+  const last = s.lastIndexOf("}");
+  if (first === -1 || last === -1 || last <= first) return null;
+  s = s.slice(first, last + 1);
+
+  const attempts = [
+    s,
+    s.replace(/,\s*([}\]])/g, "$1"),          // trailing commas
+    repairInnerQuotes(s),                     // unescaped quotes inside values
+    repairInnerQuotes(s).replace(/,\s*([}\]])/g, "$1"),
+  ];
+
+  for (const candidate of attempts) {
+    try {
+      const obj = JSON.parse(candidate);
+      if (obj && Array.isArray(obj.paragraphs)) return obj;
+    } catch {
+      /* try the next repair */
+    }
+  }
+  return null;
+}
+
+// Escapes double quotes that sit inside a JSON string value. Walks the text
+// tracking whether we are inside a string, and escapes any quote that is not
+// followed by a structural character.
+function repairInnerQuotes(s) {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === "\\") { out += c + (s[i + 1] || ""); i++; continue; }
+    if (c === '"') {
+      if (!inString) { inString = true; out += c; continue; }
+      // Closing quote only if the next non-space character is structural.
+      const rest = s.slice(i + 1);
+      const next = (rest.match(/^\s*(.)/) || [])[1];
+      if (next === ":" || next === "," || next === "}" || next === "]" || next === undefined) {
+        inString = false;
+        out += c;
+      } else {
+        out += '\\"';
+      }
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+// Last resort: pull readable paragraphs out of whatever came back, so a
+// malformed response still yields a letter that can be edited rather than an
+// error and a wasted call.
+function salvageProse(raw) {
+  const text = String(raw || "")
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .replace(/^[\s\S]*?"paragraphs"\s*:\s*\[/, "")
+    .replace(/[{}\[\]]/g, " ")
+    .replace(/"(?:salutation|paragraphs|lead|text|html)"\s*:/g, " ")
+    .replace(/\btrue\b|\bfalse\b/g, " ");
+
+  const parts = text
+    .split(/\n{2,}|"\s*,\s*"/)
+    .map((p) => p.replace(/^[\s",]+|[\s",]+$/g, "").replace(/\s+/g, " ").trim())
+    .filter((p) => p.split(/\s+/).length >= 12);
+
+  if (parts.length < 2) return null;
+  return {
+    salutation: "Dear Hiring Team,",
+    paragraphs: parts.map((p, i) => ({ lead: i === 0, text: p })),
+  };
+}
+
+// Converts the model's markers into the two spans the template styles, escapes
+// everything else, and appends the fit-page line.
 function normalise(parsed, fitUrl) {
-  const allowed = /<\/?(?:em|span class="em")>/g;
-  const strip = (s) =>
-    String(s || "")
-      .replace(/<(?!\/?em\b|span class="em")[^>]*>/g, "")
+  const escapeHtml = (s) =>
+    String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  const clean = (s) =>
+    escapeHtml(s)
       .replace(/\s+/g, " ")
       .trim();
 
-  const paragraphs = (Array.isArray(parsed.paragraphs) ? parsed.paragraphs : [])
-    .map((p) => ({ lead: !!p.lead, html: strip(p && p.html) }))
+  const render = (s, isLead) => {
+    const open = isLead ? '<span class="em">' : "<em>";
+    const close = isLead ? "</span>" : "</em>";
+    // Everything is escaped first, so nothing the model writes can inject a
+    // tag. Only two constructs are then re-enabled: the [[marker]] the prompt
+    // asks for, and the emphasis tags older responses used, so a letter written
+    // the old way still renders its emphasis instead of showing raw markup.
+    return clean(s)
+      .replace(/\[\[(.+?)\]\]/g, (_, inner) => open + inner + close)
+      .replace(/&lt;span class="em"&gt;(.+?)&lt;\/span&gt;/g, (_, inner) => open + inner + close)
+      .replace(/&lt;em&gt;(.+?)&lt;\/em&gt;/g, (_, inner) => open + inner + close)
+      // Any emphasis tag left unmatched is stripped rather than shown.
+      .replace(/&lt;\/?(?:em|span)(?: class="em")?&gt;/g, "");
+  };
+
+  const source = Array.isArray(parsed.paragraphs) ? parsed.paragraphs : [];
+  const paragraphs = source
+    .map((p, i) => {
+      const lead = p && p.lead !== undefined ? !!p.lead : i === 0;
+      // Accept "text" (current) or "html" (older responses) so nothing is lost.
+      const body = p && (p.text !== undefined ? p.text : p.html);
+      return { lead, html: render(body, lead) };
+    })
     .filter((p) => p.html);
 
   if (fitUrl) {
@@ -165,14 +283,17 @@ function normalise(parsed, fitUrl) {
       fit: true,
       html:
         "I also built a tool that reads a job spec against my background and gives an honest read, gaps included. This role's is at " +
-        `<a href="${fitUrl}">${shown}</a>`,
+        '<a href="' + fitUrl + '">' + shown + "</a>",
     });
   }
 
   return {
-    salutation: strip(parsed.salutation) || "Dear Hiring Team,",
+    salutation: clean(parsed.salutation) || "Dear Hiring Team,",
     paragraphs,
-    words: paragraphs.reduce((n, p) => n + p.html.replace(/<[^>]*>/g, " ").trim().split(/\s+/).length, 0),
+    words: paragraphs.reduce(
+      (n, p) => n + p.html.replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length,
+      0
+    ),
     generatedAt: new Date().toISOString(),
   };
 }
