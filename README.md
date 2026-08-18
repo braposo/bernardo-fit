@@ -20,6 +20,10 @@ api/admin/reports.js    ← list / delete saved analyses
 api/admin/regenerate.js ← re-run the analysis for a saved job description, in place
 api/admin/jobs.js       ← the job pipeline: list, create, import, update stage, archive
 api/admin/analyse.js    ← run a fit analysis for one row
+api/admin/cover.js      ← write a cover letter from a row's fit analysis
+api/letter.js           ← serves a letter to the printable page, token-gated
+api/_cover.js           ← cover letter prompt + sanitising
+public/letter.html      ← the printable A4 letter, print-to-PDF
 api/admin/ingest.js     ← write end for a scheduled inbox review
 scripts/ingest-opportunities.mjs ← posts a batch of opportunities; reads the secret itself
 ```
@@ -74,6 +78,16 @@ These are a model-generated read against the profile, for triage. They are not e
 A scheduled task scans Gmail weekly, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. Same upsert rules as before: matched on `externalId` then Gmail thread id, and your stage, notes, score, linked analysis and archived state all survive. New rows arrive unscored, because scoring belongs to the analysis step.
 
 The server still holds no mail credentials. The scan runs agent-side and only the resulting JSON is posted. `scripts/ingest-opportunities.mjs` reads `ADMIN_SECRET` from `.env.local` itself and never prints or forwards it, so whatever assembles the JSON never handles the credential. Populate it once with `vercel env pull`.
+
+## Cover letters
+
+Any row with a fit analysis gets a **Write cover letter** button. The letter is generated from that analysis plus the profile, in the voice of a real letter used as a worked example, and saved on the row. It opens straight into a printable A4 page with the print dialog already up, so exporting a PDF is one click and a save.
+
+There is no server-side PDF renderer. The template carries correct `@page { size: A4; margin: 0 }` print CSS, so the browser produces a proper vector PDF with selectable text and real fonts. Headless Chromium on Vercel would add ~50MB of bundle, multi-second cold starts and a Chromium version to keep pinned, in exchange for saving one keystroke. Client-side libraries were worse again: html2canvas rasterises the page, which would throw away the typography the design exists for.
+
+Length is treated as a layout constraint. The page is a fixed A4 box, so generation is capped at 430 words across 5 to 7 paragraphs. If a letter ever does overflow, the page says so on screen (and hides that warning when printing) rather than exporting a silently truncated letter.
+
+The letter page is reached with a short-lived signed token rather than the admin secret. It opens in a new tab, where the admin page's `sessionStorage` isn't readable; the alternative was moving the secret to `localStorage`, which would outlive the browser session. The token is an HMAC over the job id and an expiry, valid 15 minutes, and never carries the secret itself.
 
 ## Analytics
 

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"></meta>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
+<title>Bernardo Raposo — Cover Letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"></link>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"></link>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></link>
+<style>
+  :root {
+    --accent: oklch(0.52 0.14 250);
+    --paper: #ffffff;
+    --ink: #26241f;
+    --sub: #6b675c;
+    --body2: #45423a;
+    --hair: rgba(38, 36, 31, 0.16);
+  }
+  html, body { margin: 0; padding: 0; background: #e8e6e1; }
+  .page {
+    width: 794px;
+    height: 1123px;
+    box-sizing: border-box;
+    margin: 24px auto;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 38px 50px 32px 50px;
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    font-size: 11.4px;
+    line-height: 1.54;
+    box-shadow: 0 2px 24px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+  }
+  a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); }
+
+  /* Header — identical to CV */
+  h1 {
+    font-family: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif;
+    font-size: 3.05em; font-weight: 700; margin: 0;
+    line-height: 1; letter-spacing: -0.025em;
+  }
+  h1 .dot { color: var(--accent); }
+  .headline {
+    margin: 0.7em 0 0 0; font-size: 1.1em;
+    font-family: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif; font-weight: 600;
+  }
+  .contact {
+    display: flex; flex-wrap: wrap; gap: 0.4em 1.5em; margin-top: 0.65em;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.82em; color: var(--sub);
+  }
+  .contact .status { color: var(--accent); }
+
+  /* Letter body */
+  .letter {
+    padding-top: 1.1em; margin-top: 1.1em; border-top: 1px solid var(--hair);
+    display: flex; flex-direction: column; gap: 0.72em;
+    flex: 1;
+  }
+  .letter p { margin: 0; text-wrap: pretty; }
+  .salute { font-weight: 600; }
+  .lead { font-size: 1.16em; line-height: 1.5; font-family: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif; font-weight: 500; color: var(--ink); }
+  .lead .em { color: var(--accent); }
+  em { font-style: normal; font-weight: 600; }
+
+  .sign { margin-top: 0.4em; display: flex; flex-direction: column; gap: 0.15em; }
+  .sign .name {
+    font-family: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif;
+    font-weight: 700; font-size: 1.25em; letter-spacing: -0.01em;
+  }
+  .sign .role { color: var(--sub); font-family: 'IBM Plex Mono', monospace; font-size: 0.82em; }
+
+  .overflow-warning {
+    max-width: 794px; margin: 24px auto -8px auto; padding: 10px 14px;
+    background: oklch(0.54 0.15 25 / 0.10); color: oklch(0.54 0.15 25);
+    border-radius: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  }
+
+  @media print {
+    .overflow-warning { display: none !important; }
+    @page { size: A4; margin: 0; }
+    html, body { background: #ffffff; }
+    .page {
+      margin: 0; box-shadow: none;
+      width: 210mm; height: 296mm;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    *, *::before, *::after { transition-duration: 0s !important; }
+  }
+</style>
+</head>
+<body>
+  <main class="page" data-screen-label="Cover Letter" id="page">
+    <header>
+      <h1>Bernardo Raposo<span class="dot">.</span></h1>
+      <p class="headline">Engineering Manager &amp; Hands-On Frontend Technical Leader</p>
+      <div class="contact">
+        <span>Harrogate, North Yorkshire</span>
+        <a href="mailto:hi@bernardoraposo.com">hi@bernardoraposo.com</a>
+        <a href="https://linkedin.com/in/braposo">linkedin.com/in/braposo</a>
+        <a href="https://github.com/braposo">github.com/braposo</a>
+        <span class="status">UK Settled Status — no sponsorship required</span>
+      </div>
+    </header>
+    <div class="letter" id="letter">
+      <p class="salute">Loading…</p>
+    </div>
+  </main>
+
+<script>
+(function () {
+  "use strict";
+  var params = new URLSearchParams(location.search);
+  var j = params.get("j"), t = params.get("t");
+  var letter = document.getElementById("letter");
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  // The API already limits markup to <em> and <span class="em">, plus one
+  // anchor on the closing line. Re-allow exactly those and escape the rest.
+  function safe(html) {
+    return esc(html)
+      .replace(/&lt;em&gt;/g, "<em>").replace(/&lt;\/em&gt;/g, "</em>")
+      .replace(/&lt;span class="em"&gt;/g, '<span class="em">').replace(/&lt;\/span&gt;/g, "</span>")
+      .replace(/&lt;a href="([^"]+)"&gt;/g, '<a href="$1">').replace(/&lt;\/a&gt;/g, "</a>");
+  }
+
+  function fail(msg) {
+    letter.innerHTML = '<p class="salute">' + esc(msg) + "</p>";
+  }
+
+  if (!j || !t) return fail("Open this from the dashboard.");
+
+  fetch("/api/letter?j=" + encodeURIComponent(j) + "&t=" + encodeURIComponent(t))
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (out) {
+      if (!out.ok) return fail(out.d.error || "Could not load this letter.");
+
+      var html = '<p class="salute">' + esc(out.d.salutation || "Dear Hiring Team,") + "</p>";
+      (out.d.paragraphs || []).forEach(function (p) {
+        html += "<p" + (p.lead ? ' class="lead"' : "") + ">" + safe(p.html) + "</p>";
+      });
+      html +=
+        '<div class="sign">' +
+          "<p>Best regards,</p>" +
+          '<span class="name">Bernardo Raposo</span>' +
+          '<span class="role">hi@bernardoraposo.com · linkedin.com/in/braposo</span>' +
+        "</div>";
+      letter.innerHTML = html;
+
+      document.title = "Bernardo Raposo — Cover Letter" +
+        (out.d.company ? " — " + out.d.company : "");
+
+      // The page is a fixed A4 box. If the content ever exceeds it the design
+      // breaks silently on export, so say so on screen rather than print a
+      // truncated letter. Never shown when printing.
+      requestAnimationFrame(function () {
+        var page = document.getElementById("page");
+        if (page.scrollHeight > page.clientHeight + 2) {
+          var warn = document.createElement("div");
+          warn.className = "overflow-warning";
+          warn.textContent = "This letter overflows one page. Regenerate it, or trim a paragraph before exporting.";
+          document.body.insertBefore(warn, page);
+        }
+        if (params.get("print") === "1") window.print();
+      });
+    })
+    .catch(function () { fail("Network error loading this letter."); });
+})();
+</script>
+</body>
+</html>

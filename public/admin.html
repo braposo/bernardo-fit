@@ -365,7 +365,8 @@
           (fitLink
             ? '<a class="ghost" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page</a>' +
               '<button class="ghost" data-act="copyfit" data-link="' + esc(fitLink) + '">Copy fit link</button>' +
-              '<button class="ghost" data-act="regen">Regenerate</button>'
+              '<button class="ghost" data-act="regen">Regenerate</button>' +
+              '<button class="ghost" data-act="cover">' + (j.coverLetter ? 'Cover letter' : 'Write cover letter') + '</button>'
             : '<button class="ghost" data-act="runfit"' + (j.jobDescription ? "" : " disabled") + ">Generate fit analysis</button>") +
           (j.sourceUrl ? '<a class="ghost" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting</a>' : "") +
           (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
@@ -433,6 +434,20 @@
 
     var none = document.getElementById("nomatches");
     if (none) none.style.display = q && visible === 0 ? "" : "none";
+  }
+
+  // Opens an already-written letter in a new tab, fetching a fresh
+  // short-lived token first so the secret never travels in a URL.
+  function openLetter(id) {
+    api("/api/admin/cover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id, tokenOnly: true }),
+    }).then(function (out) {
+      if (unauthorised(out)) return;
+      if (!out.ok) { alert(out.d.error || "Could not open the letter."); return; }
+      window.open("/letter?j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token) + "&print=1", "_blank", "noopener");
+    });
   }
 
   function renderJobs() {
@@ -661,6 +676,33 @@
               }
               loadJobs(false);
             });
+          });
+        });
+      }
+
+      var coverBtn = rowEl.querySelector('[data-act="cover"]');
+      if (coverBtn) {
+        coverBtn.addEventListener("click", function () {
+          var had = !!job.coverLetter;
+          if (had && !confirm("Rewrite the cover letter for this role?")) {
+            // Already have one and not rewriting: just open it.
+            openLetter(id);
+            return;
+          }
+          coverBtn.disabled = true;
+          status.textContent = "Writing…"; status.className = "row-status";
+          api("/api/admin/cover", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: id }),
+          }).then(function (out) {
+            coverBtn.disabled = false;
+            if (unauthorised(out)) return;
+            if (!out.ok) { status.textContent = out.d.error || "Could not write it."; status.className = "row-status err"; return; }
+            status.textContent = out.d.words + " words"; status.className = "row-status ok";
+            window.open("/letter?j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token) + "&print=1", "_blank", "noopener");
+            var i = jobs.findIndex(function (x) { return x.id === id; });
+            if (i !== -1) jobs[i].coverLetter = true;
           });
         });
       }

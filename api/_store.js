@@ -233,6 +233,8 @@ export async function saveJob(job) {
     replyOwed: !!job.replyOwed,
     userViewed: !!job.userViewed,
     closed: !!job.closed,
+    coverLetter: Array.isArray(job.coverLetter) ? job.coverLetter : null,
+    coverLetterAt: job.coverLetterAt || "",
     archived: !!job.archived,
     archivedAt: job.archived ? job.archivedAt || now : "",
     recruiter: job.recruiter || null,
