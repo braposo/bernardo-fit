@@ -7,7 +7,10 @@
 // argument, and never echoed back, so whoever or whatever assembles the JSON
 // does not need to hold the credential.
 //
-// Populate .env.local once with:  vercel env pull
+// Populate .env.local once with:  npx vercel env pull --environment=production
+// (the CLI is not installed globally here, so plain `vercel` will not resolve).
+// ADMIN_SECRET is the only variable this script needs, so adding that one line
+// by hand works just as well and keeps the API key off disk.
 //
 // Input shape: either a bare array, or { opportunities: [...] }. Each entry
 // needs a company or role, plus an externalId or threadId to dedupe on:
@@ -58,7 +61,7 @@ const secret = readSecret();
 if (!secret) {
   console.error(
     "ADMIN_SECRET not found.\n" +
-      "Run `vercel env pull` in fit-app to populate .env.local, or set ADMIN_SECRET in the environment."
+      "Add ADMIN_SECRET=... to fit-app/.env.local, or run `npx vercel env pull --environment=production`, or set ADMIN_SECRET in the environment."
   );
   process.exit(2);
 }
