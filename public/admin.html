@@ -92,13 +92,6 @@
   .stagechip.tierofftarget.on { border-color: var(--hair-strong); color: var(--sub); }
 
   /* Reply-owed banner */
-  .owedbanner {
-    display: block; width: 100%; text-align: left; background: var(--weak-soft); border: 1px solid transparent;
-    color: var(--weak); font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em;
-    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; cursor: pointer;
-  }
-  .owedbanner:hover { background: var(--weak-soft); border-color: var(--weak); }
-  .owedbanner.on { border-color: var(--weak); }
 
   .adoptbanner {
     display: block; width: 100%; text-align: left; background: transparent; border: 1px dashed var(--hair-strong);
@@ -220,7 +213,6 @@
   var TIERS = ["Act now", "Worth a look", "Background", "Off-target"];
   var stageFilter = null;
   var tierFilter = null;
-  var owedOnly = false;
   var searchQuery = "";
   var unlinked = 0;
   var archivedCount = 0;
@@ -546,14 +538,12 @@
     var shown = jobs.filter(function (j) {
       if (stageFilter && j.stage !== stageFilter) return false;
       if (tierFilter && j.tier !== tierFilter) return false;
-      if (owedOnly && !j.replyOwed) return false;
       return true;
     });
     // Best fit first; anything unscored sinks to the bottom.
     shown.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
 
-    var owedCount = jobs.filter(function (j) { return j.replyOwed; }).length;
-    var filtering = stageFilter || tierFilter || owedOnly;
+    var filtering = stageFilter || tierFilter;
 
     var html = '<div class="frame">' +
       '<div class="toolbar">' +
@@ -570,12 +560,6 @@
             : '') +
         "</div>" +
       "</div>";
-
-    if (owedCount) {
-      html += '<button class="owedbanner' + (owedOnly ? " on" : "") + '" id="owedtoggle">' +
-        owedCount + " recruiter" + (owedCount === 1 ? " is" : "s are") + " waiting on a reply" +
-        (owedOnly ? " · showing only these" : "") + "</button>";
-    }
 
     if (unlinked) {
       html += '<button class="adoptbanner" id="adopt">' + unlinked + " saved analys" +
@@ -610,8 +594,6 @@
     html += '<div class="pagefoot"></div></div>';
     app.innerHTML = html;
 
-    var owedBtn = document.getElementById("owedtoggle");
-    if (owedBtn) owedBtn.addEventListener("click", function () { owedOnly = !owedOnly; renderJobs(); });
 
     var adoptBtn = document.getElementById("adopt");
     if (adoptBtn) {
@@ -652,7 +634,7 @@
     if (archToggle) {
       archToggle.addEventListener("click", function () {
         showArchived = !showArchived;
-        stageFilter = null; tierFilter = null; owedOnly = false;
+        stageFilter = null; tierFilter = null;
         loadJobs(false);
       });
     }
