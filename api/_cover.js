@@ -39,7 +39,7 @@ The letter is laid out on a single fixed A4 page. Going over means the design br
 - The first paragraph is the lead and should be one or two short sentences, no more.
 - Aim for about 400 words. Landing under is fine; landing over is a failure.
 
-## Write it for them, not for anyone
+## Never count my own experience\n\nNo numbers on how many people I managed, how many I hired or promoted, or how many times I have done something. Not \"twice\", not \"at two companies\", not \"three engineers\". Name the companies instead, or say it in relative terms. A count caps me the moment their role is bigger than the number, and this is a letter to someone hiring for a bigger role.\n\n## Write it for them, not for anyone
 
 This is the difference between a letter that gets read and one that gets skimmed. Apply one test to every paragraph before you keep it:
 
