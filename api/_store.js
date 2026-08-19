@@ -165,6 +165,10 @@ export const JOB_STAGES = [
   "offer",
   "rejected",
   "not_a_fit",
+  // Terminal, and not a judgement either way: the role went away before the
+  // process did. Kept apart from rejected and not_a_fit so the pipeline counts
+  // stay honest about what actually happened.
+  "expired",
 ];
 
 // Every row, archived included. Internal: lookups that need to see archived

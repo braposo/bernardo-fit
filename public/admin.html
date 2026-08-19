@@ -171,7 +171,7 @@
   .stage-applied { color: var(--accent-deep); border-color: var(--accent); }
   .stage-interviewing { color: var(--warn); border-color: var(--warn); }
   .stage-offer { color: var(--good); border-color: var(--good); }
-  .stage-closed { color: var(--sub); opacity: 0.65; }
+  .stage-expired { color: var(--sub); opacity: 0.65; }
 
   /* Stats */
   .stats { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; color: var(--sub); }
@@ -209,7 +209,7 @@
   var secret = sessionStorage.getItem(SECRET_KEY) || "";
 
   var jobs = [];
-  var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_a_fit"];
+  var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_a_fit", "expired"];
   var TIERS = ["Act now", "Worth a look", "Background", "Off-target"];
   var stageFilter = null;
   var tierFilter = null;
@@ -387,7 +387,6 @@
     if (j.location) meta.push(esc(j.location));
     if (j.salary) meta.push(esc(j.salary));
     if (j.userViewed) meta.push("you viewed this");
-    if (j.closed) meta.push("posting closed");
     if (j.closed) meta.push("posting closed");
 
     var opts = stages.map(function (s) {
