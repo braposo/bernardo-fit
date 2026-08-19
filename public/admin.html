@@ -210,6 +210,9 @@
 
   var jobs = [];
   var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_a_fit", "expired"];
+  // These archive the row on the server, so they only ever describe archived
+  // jobs. Filtering by them in the pipeline view would always come back empty.
+  var ARCHIVE_ON_STAGE = ["expired", "not_a_fit"];
   var TIERS = ["Act now", "Worth a look", "Background", "Off-target"];
   var stageFilter = null;
   var tierFilter = null;
@@ -526,6 +529,7 @@
   }
 
   function renderJobs() {
+    if (!showArchived && ARCHIVE_ON_STAGE.indexOf(stageFilter) !== -1) stageFilter = null;
     var counts = {};
     stages.forEach(function (s) { counts[s] = 0; });
     jobs.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
@@ -567,7 +571,7 @@
 
     html += '<div class="stagebar">' +
         '<button class="stagechip' + (stageFilter ? "" : " on") + '" data-stage="">All stages</button>' +
-        stages.map(function (s) {
+        stages.filter(function (s) { return showArchived || ARCHIVE_ON_STAGE.indexOf(s) === -1; }).map(function (s) {
           return '<button class="stagechip' + (stageFilter === s ? " on" : "") + '" data-stage="' + s + '">' +
             s.replace(/_/g, " ") + " " + counts[s] + "</button>";
         }).join("") +
@@ -675,9 +679,11 @@
         status.textContent = "Saving…"; status.className = "row-status";
         patch({ stage: next }, function () {
           status.textContent = "Saved"; status.className = "row-status ok";
-          // Re-render after a beat so the chip counts update, and so the row
-          // drops out if a stage filter is active and no longer matches.
-          setTimeout(renderJobs, 700);
+          // Either the row just left the pipeline, in which case the list and
+          // the archived count both need refetching, or only the chip counts
+          // changed and a re-render is enough.
+          var left = ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived;
+          setTimeout(left ? function () { loadJobs(false); } : renderJobs, 700);
         });
       });
 
