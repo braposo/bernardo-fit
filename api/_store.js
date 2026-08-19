@@ -157,6 +157,21 @@ export async function deleteReport(id) {
 
 const JOBS_INDEX = "jobs:index";
 
+// One question from an application form. The id is stable so the page can ask
+// for a specific one to be answered without sending the whole array back.
+function normaliseQuestion(q) {
+  const limit = Math.round(Number(q && q.limit));
+  return {
+    id: (q && q.id) || Math.random().toString(36).slice(2, 10),
+    q: String((q && q.q) || "").slice(0, 2000),
+    a: String((q && q.a) || "").slice(0, 8000),
+    limit: Number.isFinite(limit) ? Math.min(500, Math.max(20, limit)) : 120,
+    refused: !!(q && q.refused),
+    reason: String((q && q.reason) || "").slice(0, 500),
+    answeredAt: (q && q.answeredAt) || "",
+  };
+}
+
 export const JOB_STAGES = [
   "new",
   "reviewing",
@@ -249,6 +264,10 @@ export async function saveJob(job) {
     // Free-text steer for the analysis and the letter. Written by me, so
     // unlike a job description this is trusted and followed as instruction.
     instructions: job.instructions || "",
+    // Extra questions an application form asks, with the drafted answers kept
+    // alongside so the set stays consistent and can be reread later. Admin
+    // only: these never travel with the fit report.
+    questions: Array.isArray(job.questions) ? job.questions.map(normaliseQuestion) : [],
     receivedAt: job.receivedAt || now,
     createdAt: job.createdAt || now,
     updatedAt: now,

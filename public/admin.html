@@ -119,6 +119,25 @@
   .insbox summary { color: var(--warn); }
   textarea.ins { min-height: 90px; }
 
+  .qabox summary { color: var(--accent-deep); }
+  .qa { border-top: 1px solid var(--hair); padding-top: 12px; margin-top: 12px; }
+  .qa:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  textarea.qq { min-height: 52px; }
+  .qa-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .qa-bar label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--sub); display: flex; align-items: center; gap: 6px; }
+  .qa-bar input[type=number] {
+    width: 68px; font-family: var(--mono); font-size: 12px; padding: 4px 6px;
+    border: 1px solid var(--hair); border-radius: 6px; background: var(--paper); color: var(--ink);
+  }
+  .qa-answer {
+    margin-top: 10px; padding: 12px 14px; border-radius: 8px; background: var(--weak-soft);
+    font-size: 14.5px; line-height: 1.6; white-space: pre-wrap;
+  }
+  .qa-answer.refused { color: var(--warn); }
+  .qa-count { font-family: var(--mono); font-size: 10.5px; color: var(--sub); letter-spacing: 0.08em; }
+  .qa-count.over { color: var(--warn); }
+
   /* Rows */
   .row-right { display: flex; align-items: center; gap: 12px; flex: none; }
   .scorebadge {
@@ -316,6 +335,15 @@
   // The letter is stored on the row, so its timestamp says whether the run we
   // lost the connection to finished. Opening it needs a token, and tokenOnly
   // mints one without rewriting the letter.
+  function answerLanded(id, qid) {
+    return jobRow(id).then(function (j) {
+      if (!j) return null;
+      var q = (j.questions || []).filter(function (x) { return x.id === qid; })[0];
+      if (!q || !q.answeredAt) return null;
+      return { ok: true, status: 200, d: { answer: q.a, refused: q.refused, reason: q.reason, words: countWords(q.a), limit: q.limit, over: countWords(q.a) > q.limit } };
+    });
+  }
+
   function coverLanded(id, since) {
     return jobRow(id).then(function (j) {
       if (!j || !j.coverLetter || !newerThan(j.coverLetterAt, since)) return null;
@@ -364,6 +392,43 @@
   }
 
   // ---------- Pipeline ----------
+
+  // Extra questions an application form asks. Kept on the row so the whole set
+  // can be reread, and so each answer knows what the earlier ones already said.
+  function questionsHtml(j) {
+    var qs = j.questions || [];
+    var body = qs.map(function (q) {
+      var answered = q.a || q.refused;
+      var over = q.a && countWords(q.a) > q.limit;
+      return '<div class="qa" data-qid="' + esc(q.id) + '">' +
+        '<textarea class="jd qq" data-act="qtext" placeholder="Paste the question from the application form…">' + esc(q.q || "") + '</textarea>' +
+        '<div class="qa-bar">' +
+          '<label>max <input type="number" data-act="qlimit" min="20" max="500" step="10" value="' + (q.limit || 120) + '"> words</label>' +
+          '<button class="ghost" data-act="qdraft">' + (answered ? "Redraft" : "Draft answer") + '</button>' +
+          (q.a ? '<button class="ghost" data-act="qcopy">Copy</button>' : "") +
+          '<button class="ghost" data-act="qdel">Remove</button>' +
+          (q.a ? '<span class="qa-count' + (over ? " over" : "") + '">' + countWords(q.a) + " / " + q.limit + '</span>' : "") +
+        '</div>' +
+        (q.refused
+          ? '<div class="qa-answer refused">Needs you: ' + esc(q.reason || "something my profile does not cover.") + '</div>'
+          : q.a ? '<div class="qa-answer">' + esc(q.a) + '</div>' : "") +
+      '</div>';
+    }).join("");
+
+    var n = qs.filter(function (q) { return q.a; }).length;
+    var label = qs.length
+      ? "Application questions (" + n + " of " + qs.length + " answered)"
+      : "Application questions";
+    return '<details class="jdbox qabox"' + (qs.length ? " open" : "") + '>' +
+      '<summary>' + label + '</summary>' +
+      body +
+      '<div class="qa-bar"><button class="ghost" data-act="qadd">Add a question</button></div>' +
+    '</details>';
+  }
+
+  function countWords(s) {
+    return String(s || "").trim().split(/s+/).filter(Boolean).length;
+  }
 
   function statsHtml(j) {
     if (!j.fitReportId) return "";
@@ -438,6 +503,7 @@
           "<summary>" + (j.instructions ? "Instructions for generation" : "Add instructions for generation") + "</summary>" +
           '<textarea class="jd ins" data-act="instructions" placeholder="Steer the analysis and the letter for this role. What to emphasise, context from a call, an angle to take.">' + esc(j.instructions || "") + "</textarea>" +
         "</details>" +
+        questionsHtml(j) +
         '<textarea class="notes" data-act="notes" placeholder="Notes…">' + esc(j.notes || "") + "</textarea>" +
         '<div class="row-actions">' +
           (fitLink
@@ -684,6 +750,93 @@
           // changed and a re-render is enough.
           var left = ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived;
           setTimeout(left ? function () { loadJobs(false); } : renderJobs, 700);
+        });
+      });
+
+      // ---- application questions ----
+      // The whole set is sent on every edit. It is a handful of short strings,
+      // and it keeps add, edit and remove as one code path instead of three.
+      function currentQuestions() {
+        return [].map.call(rowEl.querySelectorAll(".qa"), function (el) {
+          var was = (job.questions || []).filter(function (q) { return q.id === el.getAttribute("data-qid"); })[0] || {};
+          return {
+            id: el.getAttribute("data-qid"),
+            q: el.querySelector('[data-act="qtext"]').value,
+            limit: parseInt(el.querySelector('[data-act="qlimit"]').value, 10) || 120,
+            a: was.a || "",
+            refused: !!was.refused,
+            reason: was.reason || "",
+            answeredAt: was.answeredAt || "",
+          };
+        });
+      }
+
+      function saveQuestions(next, done) {
+        status.textContent = "Saving…"; status.className = "row-status";
+        patch({ questions: next }, function () {
+          status.textContent = ""; 
+          if (done) done();
+        });
+      }
+
+      var qadd = rowEl.querySelector('[data-act="qadd"]');
+      if (qadd) {
+        qadd.addEventListener("click", function () {
+          var next = currentQuestions();
+          next.push({ id: Math.random().toString(36).slice(2, 10), q: "", limit: 120, a: "", refused: false, reason: "", answeredAt: "" });
+          saveQuestions(next, function () { loadJobs(false); });
+        });
+      }
+
+      [].forEach.call(rowEl.querySelectorAll(".qa"), function (qEl) {
+        var qid = qEl.getAttribute("data-qid");
+        var text = qEl.querySelector('[data-act="qtext"]');
+        var lim = qEl.querySelector('[data-act="qlimit"]');
+
+        // Saved on blur, like the other free-text fields on the row.
+        function persist() { saveQuestions(currentQuestions()); }
+        if (text) text.addEventListener("blur", persist);
+        if (lim) lim.addEventListener("change", persist);
+
+        var del = qEl.querySelector('[data-act="qdel"]');
+        if (del) del.addEventListener("click", function () {
+          if (text.value.trim() && !confirm("Remove this question and its answer?")) return;
+          saveQuestions(currentQuestions().filter(function (q) { return q.id !== qid; }), function () { loadJobs(false); });
+        });
+
+        var copy = qEl.querySelector('[data-act="qcopy"]');
+        if (copy) copy.addEventListener("click", function () {
+          var a = (qEl.querySelector(".qa-answer") || {}).textContent || "";
+          navigator.clipboard.writeText(a).then(function () {
+            copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy"; }, 1400);
+          });
+        });
+
+        var draft = qEl.querySelector('[data-act="qdraft"]');
+        if (draft) draft.addEventListener("click", function () {
+          if (!text.value.trim()) {
+            status.textContent = "Write the question first."; status.className = "row-status err";
+            return;
+          }
+          draft.disabled = true;
+          status.textContent = "Drafting…"; status.className = "row-status";
+          // Persist the question text first, so the server answers what is on screen.
+          patch({ questions: currentQuestions() }, function () {
+            api("/api/admin/answer", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: id, questionId: qid }),
+            }).then(function (out) {
+              return recoverable(out, status, function () { return answerLanded(id, qid); });
+            }).then(function (out) {
+              draft.disabled = false;
+              if (unauthorised(out)) return;
+              if (!out.ok) { status.textContent = out.d.error || "Could not draft it."; status.className = "row-status err"; return; }
+              status.textContent = out.d.refused ? "Needs you" : out.d.words + " words";
+              status.className = "row-status " + (out.d.refused || out.d.over ? "err" : "ok");
+              loadJobs(false);
+            });
+          });
         });
       });
 
