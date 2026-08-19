@@ -7,10 +7,9 @@
 // argument, and never echoed back, so whoever or whatever assembles the JSON
 // does not need to hold the credential.
 //
-// Populate .env.local once with:  npx vercel env pull --environment=production
-// (the CLI is not installed globally here, so plain `vercel` will not resolve).
-// ADMIN_SECRET is the only variable this script needs, so adding that one line
-// by hand works just as well and keeps the API key off disk.
+// ADMIN_SECRET is the only variable this script needs. Write it into .env.local
+// by hand. `vercel env pull` does not help: the variable is marked Sensitive,
+// so the pull writes ADMIN_SECRET="[SENSITIVE]" rather than the value.
 //
 // Input shape: either a bare array, or { opportunities: [...] }. Each entry
 // needs a company or role, plus an externalId or threadId to dedupe on:
@@ -36,13 +35,24 @@ import path from "node:path";
 
 const ENDPOINT = process.env.FIT_ENDPOINT || "https://fit.bernardoraposo.com/api/admin/ingest";
 
+// A variable marked Sensitive in Vercel cannot be read back. env pull still
+// writes the name, with one of these standing in for the value, so the secret
+// looks present and then fails as a 401. Treat them as missing.
+const PLACEHOLDERS = ["[SENSITIVE]", "[REDACTED]", "encrypted"];
+
+function clean(raw) {
+  const v = String(raw).replace(/^["']|["']$/g, "").trim();
+  if (!v || PLACEHOLDERS.includes(v)) return null;
+  return v;
+}
+
 function readSecret() {
-  if (process.env.ADMIN_SECRET) return process.env.ADMIN_SECRET.trim();
+  if (process.env.ADMIN_SECRET) return clean(process.env.ADMIN_SECRET);
   const envPath = path.join(process.cwd(), ".env.local");
   if (!fs.existsSync(envPath)) return null;
   for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
     const m = line.match(/^\s*ADMIN_SECRET\s*=\s*(.*)\s*$/);
-    if (m) return m[1].replace(/^["']|["']$/g, "").trim();
+    if (m) return clean(m[1]);
   }
   return null;
 }
@@ -60,8 +70,9 @@ if (!fs.existsSync(file)) {
 const secret = readSecret();
 if (!secret) {
   console.error(
-    "ADMIN_SECRET not found.\n" +
-      "Add ADMIN_SECRET=... to fit-app/.env.local, or run `npx vercel env pull --environment=production`, or set ADMIN_SECRET in the environment."
+    "ADMIN_SECRET not usable.\n" +
+      "If .env.local shows ADMIN_SECRET=\"[SENSITIVE]\", the variable is marked Sensitive in Vercel and its value cannot be pulled back.\n" +
+      "Open fit-app/.env.local and replace that line with the real secret, or set ADMIN_SECRET in the environment."
   );
   process.exit(2);
 }
