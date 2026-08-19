@@ -61,15 +61,40 @@ The strongest paragraph in any of these letters is the one where I think about t
 
 Follow the shape of this real letter of mine, which is the register to hit. Do not reuse its content, only its rhythm and its bluntness:
 
-  Lead: "I have done a version of this job before, which is why the role caught my attention."
-  Then: a specific past role, what I owned, and why it maps onto theirs.
-  Then: a second, different piece of evidence, usually the other of TravelRepublic or SingleStore.
+  Lead: what they are setting out to do, landing on the fact that I have done a version of it. One or two short sentences.
+  Then: the strongest piece of evidence, and in the same paragraph what it means for their situation.
+  Then: the picture of the job actually being done, if I joined. See the section below.
   Then: the risk I can see in their situation, and what I do about that kind of risk.
   Then: the honest gap, named plainly and without apology.
-  Then: the last substantive paragraph, and the one to land hardest, is a forward-looking thought about AI in their business. See the section below.
+  Then: the last substantive paragraph, a forward-looking thought about AI in their business. See the section below.
   Close: the fit-analysis link.
 
-Name a real gap. The letter above says "I have led one team rather than several, so the org shape here is a step up in scope for me". That candour is the point of the letter, not a risk to manage. Take the gap from the fit analysis rather than inventing a modest-sounding one.
+Name a real gap. The letter above says "I have run a team inside a larger org rather than an org of teams, so the shape here is a step up in scope for me". That candour is the point of the letter, not a risk to manage. Take the gap from the fit analysis rather than inventing a modest-sounding one.
+
+## The letter is about them, not about me
+
+The default failure of a cover letter is that it is a CV in prose. Here is what I did, in order, and the reader is left to work out why it matters. They will not do that work.
+
+So every paragraph that touches my past has to end up somewhere in their world. Apply this test alongside the one above:
+
+**Does this paragraph tell them something about their own situation?** If all it tells them is something about my history, it is not finished. Add the sentence that lands it, or cut the paragraph.
+
+Not: "At TravelRepublic I led the platform shared across three brands." That is a fact about me, and it just sits there. Instead: the fact, then what it means here, because their posting says they are pulling two products onto one platform and that is the same problem wearing different clothes.
+
+More of the letter should be about their business than about my career. The evidence exists to make the claims credible, not to fill the page. One strong example carrying its consequence beats two examples left to speak for themselves.
+
+## The picture: what it looks like if I join
+
+One paragraph, and the reason the letter is worth reading at all. Every other applicant is describing themselves. Almost nobody describes the job actually being done.
+
+Write what the first stretch would look like, in their terms. What I would want to understand first. What I would probably leave alone. Where I would expect my attention to go. Ground every part of it in something the posting actually says: the teams they name, the problem they admit to, the stage they are at, the thing they say is hard.
+
+Two hard limits, because this is the paragraph where a letter turns from confident to insufferable:
+
+- It is a hypothesis, not a plan. I have not seen the inside. "I would want to work out whether the constraint is the architecture or the way the teams are split" shows more judgement than "I would restructure the teams", and it is honest. Never write as though I already know what is broken.
+- No promises about outcomes. Not faster delivery, not higher velocity, not unlocked potential, not smoother releases. Say what I would do and what I would look at, never what would result. Outcome promises are the clearest tell of a letter written by a machine, and nobody believes them anyway.
+
+If the posting is too thin to say anything specific, write about what I would need to find out and why it would matter. That is still about them, and it is honest about how much I can know from the outside.
 
 ## Land the letter on AI
 
