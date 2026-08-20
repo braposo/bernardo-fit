@@ -1,4 +1,5 @@
 import { PROFILE_CONTEXT } from "./_profile.js";
+import { resolveModel, refusalError } from "./_models.js";
 import { SLOP_TOP, ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
 
 // Cover letter generation.
@@ -149,7 +150,7 @@ Rules for the text field: plain prose only. No HTML tags, no markdown, no links,
 If you know the company name, address the salutation to the team by name, for example "Dear Sanity team,". Otherwise keep "Dear Hiring Team,".${fitUrl ? "" : ""}`;
 }
 
-export async function runCoverLetter({ report, fitUrl, instructions }) {
+export async function runCoverLetter({ report, fitUrl, instructions, model }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
 
@@ -171,7 +172,7 @@ export async function runCoverLetter({ report, fitUrl, instructions }) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-5",
+        model: resolveModel(model),
         max_tokens: 16384,
         system,
         messages: [{ role: "user", content: "Write the cover letter." }],
@@ -184,6 +185,10 @@ export async function runCoverLetter({ report, fitUrl, instructions }) {
     }
 
     const data = await response.json();
+    // A refusal is not a parse problem, so retrying the same prompt will not
+    // help. Surface it instead of burning the second attempt on it.
+    const refused = refusalError(data);
+    if (refused) throw refused;
     if (data.stop_reason === "max_tokens") {
       console.error("Cover letter hit max_tokens before completing (attempt " + (attempt + 1) + ").");
     }

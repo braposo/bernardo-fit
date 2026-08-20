@@ -138,6 +138,20 @@
   .qa-count { font-family: var(--mono); font-size: 10.5px; color: var(--sub); letter-spacing: 0.08em; }
   .qa-count.over { color: var(--warn); }
 
+  .modelpick {
+    display: flex; align-items: center; gap: 8px; font-family: var(--mono);
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--sub);
+  }
+  .modelpick select {
+    font-family: var(--mono); font-size: 11px; padding: 5px 8px; border-radius: 6px;
+    border: 1px solid var(--hair); background: var(--paper); color: var(--ink); cursor: pointer;
+  }
+  .modelpick select.opus { border-color: var(--warn); color: var(--warn); }
+  .modelbadge {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--sub);
+  }
+
   /* Rows */
   .row-right { display: flex; align-items: center; gap: 12px; flex: none; }
   .scorebadge {
@@ -231,6 +245,21 @@
   var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_a_fit", "expired"];
   // These archive the row on the server, so they only ever describe archived
   // jobs. Filtering by them in the pipeline view would always come back empty.
+  // Which model writes the next analysis, letter or answer. Kept in
+  // localStorage so a reload does not quietly send generations back to the
+  // default halfway through a comparison.
+  var MODELS = [
+    { id: "claude-sonnet-5", label: "Sonnet" },
+    { id: "claude-opus-5", label: "Opus" }
+  ];
+  var MODEL_KEY = "fit.model";
+  var model = localStorage.getItem(MODEL_KEY) || "claude-sonnet-5";
+  if (!MODELS.some(function (m) { return m.id === model; })) model = "claude-sonnet-5";
+  function modelLabel(id) {
+    for (var i = 0; i < MODELS.length; i++) if (MODELS[i].id === id) return MODELS[i].label;
+    return "";
+  }
+
   var ARCHIVE_ON_STAGE = ["expired", "not_a_fit"];
   var TIERS = ["Act now", "Worth a look", "Background", "Off-target"];
   var stageFilter = null;
@@ -456,6 +485,7 @@
     if (j.salary) meta.push(esc(j.salary));
     if (j.userViewed) meta.push("you viewed this");
     if (j.closed) meta.push("posting closed");
+    if (j.coverLetterModel) meta.push("letter: " + modelLabel(j.coverLetterModel));
 
     var opts = stages.map(function (s) {
       return '<option value="' + s + '"' + (j.stage === s ? " selected" : "") + ">" + s.replace(/_/g, " ") + "</option>";
@@ -622,6 +652,12 @@
             'value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" />' +
           '<span class="count" data-base="' + esc(shown.length + (filtering ? " shown of " : " of ") + jobs.length) + '">' +
             shown.length + (filtering ? " shown of " : " of ") + jobs.length + "</span>" +
+          '<span class="modelpick">model' +
+            '<select id="modelsel" class="' + (model === "claude-opus-5" ? "opus" : "") + '">' +
+              MODELS.map(function (m) {
+                return '<option value="' + m.id + '"' + (model === m.id ? " selected" : "") + ">" + m.label + "</option>";
+              }).join("") +
+            "</select></span>" +
 
           (archivedCount || showArchived
             ? '<button class="ghost" id="togglearchived">' +
@@ -698,6 +734,13 @@
         if (e.key === "Escape") { searchEl.value = ""; searchQuery = ""; applySearch(); }
       });
     }
+
+    var modelSel = document.getElementById("modelsel");
+    if (modelSel) modelSel.addEventListener("change", function () {
+      model = modelSel.value;
+      localStorage.setItem(MODEL_KEY, model);
+      modelSel.className = model === "claude-opus-5" ? "opus" : "";
+    });
 
     var archToggle = document.getElementById("togglearchived");
     if (archToggle) {
@@ -825,7 +868,7 @@
             api("/api/admin/answer", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: id, questionId: qid }),
+              body: JSON.stringify({ id: id, questionId: qid, model: model }),
             }).then(function (out) {
               return recoverable(out, status, function () { return answerLanded(id, qid); });
             }).then(function (out) {
@@ -906,7 +949,7 @@
             api("/api/admin/analyse", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: id }),
+              body: JSON.stringify({ id: id, model: model }),
             }).then(function (out) {
               return recoverable(out, status, function () { return analysisLanded(id, hadReport); });
             }).then(function (out) {
@@ -938,7 +981,7 @@
           api("/api/admin/cover", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: id }),
+            body: JSON.stringify({ id: id, model: model }),
           }).then(function (out) {
             return recoverable(out, status, function () { return coverLanded(id, startedAt); });
           }).then(function (out) {
@@ -963,7 +1006,7 @@
           api("/api/admin/regenerate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: job.fitReportId, jobId: id }),
+            body: JSON.stringify({ id: job.fitReportId, jobId: id, model: model }),
           }).then(function (out) {
             return recoverable(out, status, function () { return regenLanded(regenReportId, regenStartedAt); });
           }).then(function (out) {

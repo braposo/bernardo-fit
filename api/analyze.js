@@ -94,6 +94,9 @@ export default async function handler(req, res) {
 
     let report, internal;
     try {
+    // Deliberately no model parameter here. This endpoint is open to anyone
+    // with the URL, and letting a visitor pick the expensive model is a bill
+    // waiting to happen. Choosing a model is an admin thing.
       ({ report, internal } = await runAnalysis(jd));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message, detail: err.detail });

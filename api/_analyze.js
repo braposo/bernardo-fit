@@ -2,9 +2,10 @@
 // and the admin regenerate endpoint, so the Anthropic call + JSON parsing
 // only lives in one place.
 
+import { resolveModel, refusalError } from "./_models.js";
 import { buildSystemPrompt } from "./_profile.js";
 
-export async function runAnalysis(jobDescription, { instructions } = {}) {
+export async function runAnalysis(jobDescription, { instructions, model } = {}) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
@@ -18,7 +19,7 @@ export async function runAnalysis(jobDescription, { instructions } = {}) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-5",
+      model: resolveModel(model),
       // Headroom matters more than it looks. Short sentences mean more of them,
       // a 6-category report with 5 differentiators overran 4096, and adding the
       // internal scoring block overran 8192. This is a ceiling, not a spend:
@@ -40,6 +41,8 @@ export async function runAnalysis(jobDescription, { instructions } = {}) {
   }
 
   const data = await response.json();
+  const refused = refusalError(data);
+  if (refused) throw refused;
   if (data.stop_reason === "max_tokens") {
     console.error("Model response hit max_tokens before completing.");
   }

@@ -1,4 +1,5 @@
 import { requireAdmin, makeViewToken } from "../_admin.js";
+import { resolveModel } from "../_models.js";
 import { runCoverLetter } from "../_cover.js";
 import { getJob, updateJob, getReport } from "../_store.js";
 
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { id, tokenOnly } = req.body || {};
+  const { id, tokenOnly, model } = req.body || {};
   if (!id) {
     res.status(400).json({ error: "Missing id" });
     return;
@@ -51,13 +52,19 @@ export default async function handler(req, res) {
       report,
       fitUrl: `${origin}/?r=${encodeURIComponent(job.fitReportId)}`,
       instructions: (job.instructions || "").trim(),
+      model: resolveModel(model),
     });
 
-    await updateJob(id, { coverLetter: letter.paragraphs, coverLetterAt: letter.generatedAt });
+    await updateJob(id, {
+      coverLetter: letter.paragraphs,
+      coverLetterAt: letter.generatedAt,
+      coverLetterModel: resolveModel(model),
+    });
 
     res.status(200).json({
       ok: true,
       words: letter.words,
+      model: resolveModel(model),
       salutation: letter.salutation,
       token: makeViewToken(id),
     });

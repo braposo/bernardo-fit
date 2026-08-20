@@ -1,4 +1,5 @@
 import { PROFILE_CONTEXT } from "./_profile.js";
+import { resolveModel, refusalError } from "./_models.js";
 import { SLOP_TOP, ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
 
 export const DEFAULT_LIMIT = 120;
@@ -138,7 +139,7 @@ export function finish(raw, budget) {
   };
 }
 
-export async function runAnswer({ question, limit, report, jobDescription, previous, instructions }) {
+export async function runAnswer({ question, limit, report, jobDescription, previous, instructions, model }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
 
@@ -156,7 +157,7 @@ export async function runAnswer({ question, limit, report, jobDescription, previ
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-5",
+      model: resolveModel(model),
       max_tokens: 4096,
       system,
       messages: [{ role: "user", content: "Draft the answer." }],
@@ -169,6 +170,8 @@ export async function runAnswer({ question, limit, report, jobDescription, previ
   }
 
   const data = await response.json();
+  const refused = refusalError(data);
+  if (refused) throw refused;
   if (data.stop_reason === "max_tokens") {
     console.error("Answer hit max_tokens before completing.");
   }

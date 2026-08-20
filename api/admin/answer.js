@@ -1,4 +1,5 @@
 import { requireAdmin } from "../_admin.js";
+import { resolveModel } from "../_models.js";
 import { runAnswer } from "../_answer.js";
 import { getJob, updateJob, getReport } from "../_store.js";
 
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { id, questionId } = req.body || {};
+  const { id, questionId, model } = req.body || {};
   if (!id || !questionId) {
     res.status(400).json({ error: "Missing id or questionId" });
     return;
@@ -55,6 +56,7 @@ export default async function handler(req, res) {
       jobDescription: job.jobDescription,
       previous,
       instructions: (job.instructions || "").trim(),
+      model: resolveModel(model),
     });
 
     const next = questions.map((q) =>
@@ -71,6 +73,7 @@ export default async function handler(req, res) {
       refused: out.refused,
       reason: out.reason,
       words: out.words,
+      model: resolveModel(model),
       limit: out.limit,
       over: out.over,
     });

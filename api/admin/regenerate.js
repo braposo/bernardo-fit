@@ -1,4 +1,5 @@
 import { requireAdmin } from "../_admin.js";
+import { resolveModel } from "../_models.js";
 import { runAnalysis } from "../_analyze.js";
 import { getReport, overwriteReport, listJobs, updateJob } from "../_store.js";
 
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
   // jobId is optional and says which row asked. It matters because dedup can
   // point several rows at one report, and only one of them holds the
   // instructions this regenerate is meant to honour.
-  const { id, jobId } = req.body || {};
+  const { id, jobId, model } = req.body || {};
   if (!id) {
     res.status(400).json({ error: "Missing id" });
     return;
@@ -40,7 +41,7 @@ export default async function handler(req, res) {
 
     let report, internal;
     try {
-      ({ report, internal } = await runAnalysis(existing.job_description, { instructions }));
+      ({ report, internal } = await runAnalysis(existing.job_description, { instructions, model: resolveModel(model) }));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message, detail: err.detail });
       return;
@@ -49,6 +50,7 @@ export default async function handler(req, res) {
     report.job_description = existing.job_description;
     report.created_at = existing.created_at;
     report.regenerated_at = new Date().toISOString();
+    report.model = resolveModel(model);
 
     await overwriteReport(id, report);
 
@@ -65,7 +67,7 @@ export default async function handler(req, res) {
       }
     }
 
-    res.status(200).json({ id, report, rescored: !!internal });
+    res.status(200).json({ id, report, rescored: !!internal, model: resolveModel(model) });
   } catch (err) {
     res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
   }
