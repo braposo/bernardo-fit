@@ -192,6 +192,9 @@
   .row-item:hover .titlepen, .titlepen:focus { opacity: 1; }
   .titlepen:hover { color: var(--accent); }
   .titleedit { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  /* An author display rule outranks the UA display:none that the hidden
+     attribute relies on, so both halves stayed visible. */
+  .row-title[hidden], .titleedit[hidden] { display: none; }
   .titleedit input {
     font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
     padding: 3px 8px; border: 1px solid var(--hair-strong); border-radius: 6px;
