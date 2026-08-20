@@ -183,6 +183,23 @@
   .row-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .row-title { font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
   .row-title .company { color: var(--accent); }
+  .row-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .titlepen {
+    appearance: none; background: none; border: none; cursor: pointer; padding: 0;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--sub); opacity: 0; transition: opacity 0.12s;
+  }
+  .row-item:hover .titlepen, .titlepen:focus { opacity: 1; }
+  .titlepen:hover { color: var(--accent); }
+  .titleedit { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .titleedit input {
+    font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+    padding: 3px 8px; border: 1px solid var(--hair-strong); border-radius: 6px;
+    background: var(--paper); color: var(--ink); min-width: 150px;
+  }
+  .titleedit input.co { color: var(--accent); }
+  .titleedit input:focus { outline: none; border-color: var(--accent); }
+  .titleedit .at { color: var(--sub); font-family: var(--mono); font-size: 11px; }
   .row-meta { font-family: var(--mono); font-size: 11px; color: var(--sub); margin-top: 6px; letter-spacing: 0.02em; line-height: 1.6; }
   .row-jd {
     margin-top: 12px; font-size: 13.5px; line-height: 1.6; color: var(--sub); white-space: pre-wrap;
@@ -535,8 +552,15 @@
       '<div class="row-item" data-id="' + esc(j.id) + '">' +
         '<div class="row-head">' +
           "<div>" +
-            '<div class="row-title">' + esc(j.role || "Untitled role") +
-              (j.company ? ' <span class="company">at ' + esc(j.company) + "</span>" : "") + "</div>" +
+            '<div class="row-title" data-act="titleview">' + esc(j.role || "Untitled role") +
+              (j.company ? ' <span class="company">at ' + esc(j.company) + "</span>" : ' <span class="company">no company</span>') +
+              '<button class="titlepen" data-act="edittitle" title="Edit role and company">edit</button>' +
+            "</div>" +
+            '<div class="titleedit" data-act="titleform" hidden>' +
+              '<input data-act="erole" value="' + esc(j.role || "") + '" placeholder="Role" />' +
+              '<span class="at">at</span>' +
+              '<input class="co" data-act="ecompany" value="' + esc(j.company || "") + '" placeholder="Company" />' +
+            "</div>" +
             '<div class="row-meta">' + meta.join(" · ") + "</div>" +
           "</div>" +
           '<div class="row-right">' +
@@ -897,6 +921,60 @@
           });
         });
       });
+
+      // ---- role and company ----
+      // The inbox scan does not always find a company name, and a job can be
+      // retitled after a conversation, so both are editable here. The PATCH
+      // endpoint already accepted them; there was just no way in.
+      var titleView = rowEl.querySelector('[data-act="titleview"]');
+      var titleForm = rowEl.querySelector('[data-act="titleform"]');
+      if (titleView && titleForm) {
+        var eRole = titleForm.querySelector('[data-act="erole"]');
+        var eCompany = titleForm.querySelector('[data-act="ecompany"]');
+        var closing = false;
+
+        function openTitle() {
+          titleView.hidden = true;
+          titleForm.hidden = false;
+          eRole.focus();
+          eRole.select();
+        }
+        function closeTitle() {
+          titleForm.hidden = true;
+          titleView.hidden = false;
+        }
+        function saveTitle() {
+          // Blur fires when moving between the two inputs, so only save once
+          // focus has actually left the pair.
+          if (closing) return;
+          closing = true;
+          setTimeout(function () {
+            closing = false;
+            if (titleForm.contains(document.activeElement)) return;
+            var role = eRole.value.trim();
+            var company = eCompany.value.trim();
+            if (role === (job.role || "") && company === (job.company || "")) { closeTitle(); return; }
+            status.textContent = "Saving…"; status.className = "row-status";
+            patch({ role: role, company: company }, function () {
+              status.textContent = "Saved"; status.className = "row-status ok";
+              loadJobs(false);
+            });
+          }, 0);
+        }
+
+        rowEl.querySelector('[data-act="edittitle"]').addEventListener("click", openTitle);
+        [eRole, eCompany].forEach(function (el) {
+          el.addEventListener("blur", saveTitle);
+          el.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") { e.preventDefault(); el.blur(); }
+            if (e.key === "Escape") {
+              eRole.value = job.role || "";
+              eCompany.value = job.company || "";
+              closeTitle();
+            }
+          });
+        });
+      }
 
       // ---- versions ----
       var verBox = rowEl.querySelector('[data-act="verbox"]');
