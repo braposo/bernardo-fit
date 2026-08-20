@@ -55,11 +55,12 @@
 
   /* Body: a label column and a content column, like the original */
   .body { margin-top: 1.05em; border-top: 1px solid var(--hair); padding-top: 1.05em; flex: 1; }
-  section { display: grid; grid-template-columns: 96px 1fr; gap: 18px; margin-bottom: 0.8em; }
+  section { display: grid; grid-template-columns: 96px 1fr; gap: 18px; margin-bottom: 0.55em; }
+  section + section { border-top: 1px solid var(--hair); padding-top: 0.55em; }
   section:last-child { margin-bottom: 0; }
   .label {
     font-family: 'IBM Plex Mono', monospace; font-size: 0.78em; letter-spacing: 0.16em;
-    text-transform: uppercase; color: var(--sub); line-height: 1.5; padding-top: 0.15em;
+    text-transform: uppercase; color: var(--accent); line-height: 1.5; padding-top: 0.15em;
   }
   .content > p { margin: 0 0 0.42em 0; text-wrap: pretty; }
   .content > p:last-child { margin-bottom: 0; }
