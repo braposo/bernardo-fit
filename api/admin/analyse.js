@@ -44,7 +44,7 @@ async function analyseJob(job, model) {
   report.job_description = jd;
   report.created_at = new Date().toISOString();
   report.model = wanted;
-  const reportId = await saveReport(report);
+  const reportId = await saveReport(report, internal);
   await updateJob(job.id, {
     fitReportId: reportId,
     // Scoring is a product of the analysis and lives only on the row.

@@ -88,10 +88,6 @@
   .stagechip:hover { background: transparent; border-color: var(--hair-strong); color: var(--ink); }
   .stagechip.on { border-color: var(--accent); color: var(--accent-deep); }
 
-  .stagechip.tieractnow.on { border-color: var(--good); color: var(--good); }
-  .stagechip.tierworthalook.on { border-color: var(--accent); color: var(--accent-deep); }
-  .stagechip.tierbackground.on { border-color: var(--warn); color: var(--warn); }
-  .stagechip.tierofftarget.on { border-color: var(--hair-strong); color: var(--sub); }
 
   /* Reply-owed banner */
 
@@ -148,11 +144,22 @@
     font-family: var(--mono); font-size: 11px; padding: 5px 8px; border-radius: 6px;
     border: 1px solid var(--hair); background: var(--paper); color: var(--ink); cursor: pointer;
   }
-  .modelpick select.opus { border-color: var(--warn); color: var(--warn); }
+  .modelpick select.backup { border-color: var(--sub); color: var(--sub); }
   .modelbadge {
     font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--sub);
   }
+
+  .verbox summary { color: var(--sub); }
+  .ver { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 7px 0; border-top: 1px solid var(--hair); font-size: 13px; }
+  .ver:first-of-type { border-top: none; }
+  .ver .vmeta { font-family: var(--mono); font-size: 11px; color: var(--sub); letter-spacing: 0.04em; }
+  .ver .vlive { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--good); }
+  .verhead { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--sub); margin: 12px 0 2px; }
+  .verhead:first-child { margin-top: 0; }
 
   /* Rows */
   .row-right { display: flex; align-items: center; gap: 12px; flex: none; }
@@ -251,21 +258,19 @@
   // localStorage so a reload does not quietly send generations back to the
   // default halfway through a comparison.
   var MODELS = [
-    { id: "claude-sonnet-5", label: "Sonnet" },
-    { id: "claude-opus-5", label: "Opus" }
+    { id: "claude-opus-5", label: "Opus" },
+    { id: "claude-sonnet-5", label: "Sonnet" }
   ];
   var MODEL_KEY = "fit.model";
-  var model = localStorage.getItem(MODEL_KEY) || "claude-sonnet-5";
-  if (!MODELS.some(function (m) { return m.id === model; })) model = "claude-sonnet-5";
+  var model = localStorage.getItem(MODEL_KEY) || "claude-opus-5";
+  if (!MODELS.some(function (m) { return m.id === model; })) model = "claude-opus-5";
   function modelLabel(id) {
     for (var i = 0; i < MODELS.length; i++) if (MODELS[i].id === id) return MODELS[i].label;
     return "";
   }
 
-  var ARCHIVE_ON_STAGE = ["expired", "not_a_fit"];
-  var TIERS = ["Act now", "Worth a look", "Background", "Off-target"];
+  var ARCHIVE_ON_STAGE = ["expired", "not_a_fit", "rejected"];
   var stageFilter = null;
-  var tierFilter = null;
   var searchQuery = "";
   var unlinked = 0;
   var archivedCount = 0;
@@ -426,6 +431,30 @@
 
   // Extra questions an application form asks. Kept on the row so the whole set
   // can be reread, and so each answer knows what the earlier ones already said.
+  // Loaded when the box is opened rather than with the list, since most rows
+  // have one version of each and nobody looks at them.
+  function versionsHtml(j) {
+    var n = (j.coverLetterVersions || []).length;
+    var label = j.fitReportId || n ? "Versions" : "";
+    if (!label) return "";
+    return '<details class="jdbox verbox" data-act="verbox">' +
+      "<summary>Versions</summary>" +
+      '<div class="verlist">Loading…</div>' +
+    "</details>";
+  }
+
+  function versionRow(v, kind) {
+    var bits = [fmtDateTime(v.at), modelLabel(v.model) || v.model];
+    if (kind === "letter" && v.words) bits.push(v.words + " words");
+    if (kind === "fit" && v.score != null) bits.push("score " + v.score);
+    return '<div class="ver">' +
+      '<span class="vmeta">' + esc(bits.join(" · ")) + "</span>" +
+      (v.active
+        ? '<span class="vlive">live</span>'
+        : '<button class="ghost" data-act="veruse" data-kind="' + kind + '" data-vid="' + esc(v.vid) + '">Use this</button>') +
+    "</div>";
+  }
+
   function questionsHtml(j) {
     var qs = j.questions || [];
     var body = qs.map(function (q) {
@@ -535,6 +564,7 @@
           "<summary>" + (j.instructions ? "Instructions for generation" : "Add instructions for generation") + "</summary>" +
           '<textarea class="jd ins" data-act="instructions" placeholder="Steer the analysis and the letter for this role. What to emphasise, context from a call, an angle to take.">' + esc(j.instructions || "") + "</textarea>" +
         "</details>" +
+        versionsHtml(j) +
         questionsHtml(j) +
         '<textarea class="notes" data-act="notes" placeholder="Notes…">' + esc(j.notes || "") + "</textarea>" +
         '<div class="row-actions">' +
@@ -632,19 +662,15 @@
     stages.forEach(function (s) { counts[s] = 0; });
     jobs.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
 
-    var tierCounts = {};
-    TIERS.forEach(function (t) { tierCounts[t] = 0; });
-    jobs.forEach(function (j) { if (tierCounts[j.tier] != null) tierCounts[j.tier]++; });
 
     var shown = jobs.filter(function (j) {
       if (stageFilter && j.stage !== stageFilter) return false;
-      if (tierFilter && j.tier !== tierFilter) return false;
       return true;
     });
     // Best fit first; anything unscored sinks to the bottom.
     shown.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
 
-    var filtering = stageFilter || tierFilter;
+    var filtering = stageFilter;
 
     var html = '<div class="frame">' +
       '<div class="toolbar">' +
@@ -655,7 +681,7 @@
           '<span class="count" data-base="' + esc(shown.length + (filtering ? " shown of " : " of ") + jobs.length) + '">' +
             shown.length + (filtering ? " shown of " : " of ") + jobs.length + "</span>" +
           '<span class="modelpick">model' +
-            '<select id="modelsel" class="' + (model === "claude-opus-5" ? "opus" : "") + '">' +
+            '<select id="modelsel" class="' + (model === "claude-sonnet-5" ? "backup" : "") + '">' +
               MODELS.map(function (m) {
                 return '<option value="' + m.id + '"' + (model === m.id ? " selected" : "") + ">" + m.label + "</option>";
               }).join("") +
@@ -678,13 +704,6 @@
         stages.filter(function (s) { return showArchived || ARCHIVE_ON_STAGE.indexOf(s) === -1; }).map(function (s) {
           return '<button class="stagechip' + (stageFilter === s ? " on" : "") + '" data-stage="' + s + '">' +
             s.replace(/_/g, " ") + " " + counts[s] + "</button>";
-        }).join("") +
-      "</div>" +
-      '<div class="stagebar">' +
-        '<button class="stagechip' + (tierFilter ? "" : " on") + '" data-tier="">All tiers</button>' +
-        TIERS.map(function (t) {
-          return '<button class="stagechip ' + tierClass(t) + (tierFilter === t ? " on" : "") + '" data-tier="' + esc(t) + '">' +
-            esc(t) + " " + tierCounts[t] + "</button>";
         }).join("") +
       "</div>";
 
@@ -718,12 +737,6 @@
       });
     }
 
-    Array.prototype.forEach.call(document.querySelectorAll("[data-tier]"), function (chip) {
-      chip.addEventListener("click", function () {
-        tierFilter = chip.getAttribute("data-tier") || null;
-        renderJobs();
-      });
-    });
 
 
     var searchEl = document.getElementById("search");
@@ -741,14 +754,14 @@
     if (modelSel) modelSel.addEventListener("change", function () {
       model = modelSel.value;
       localStorage.setItem(MODEL_KEY, model);
-      modelSel.className = model === "claude-opus-5" ? "opus" : "";
+      modelSel.className = model === "claude-sonnet-5" ? "backup" : "";
     });
 
     var archToggle = document.getElementById("togglearchived");
     if (archToggle) {
       archToggle.addEventListener("click", function () {
         showArchived = !showArchived;
-        stageFilter = null; tierFilter = null;
+        stageFilter = null;
         loadJobs(false);
       });
     }
@@ -884,6 +897,60 @@
           });
         });
       });
+
+      // ---- versions ----
+      var verBox = rowEl.querySelector('[data-act="verbox"]');
+      if (verBox) {
+        var verList = verBox.querySelector(".verlist");
+        var loaded = false;
+        function paintVersions(d) {
+          var html = "";
+          if ((d.fit || []).length) {
+            html += '<div class="verhead">Fit analysis</div>' +
+              d.fit.map(function (v) { return versionRow(v, "fit"); }).join("");
+          }
+          if ((d.letter || []).length) {
+            html += '<div class="verhead">Cover letter</div>' +
+              d.letter.map(function (v) { return versionRow(v, "letter"); }).join("");
+          }
+          verList.innerHTML = html || '<div class="ver"><span class="vmeta">Nothing generated yet.</span></div>';
+          wireUse();
+        }
+        function loadVersions() {
+          api("/api/admin/versions?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
+            if (unauthorised(out)) return;
+            if (!out.ok) { verList.textContent = out.d.error || "Could not load versions."; return; }
+            loaded = true;
+            paintVersions(out.d);
+          });
+        }
+        function wireUse() {
+          [].forEach.call(verList.querySelectorAll('[data-act="veruse"]'), function (btn) {
+            btn.addEventListener("click", function () {
+              btn.disabled = true;
+              status.textContent = "Switching…"; status.className = "row-status";
+              api("/api/admin/versions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: id, kind: btn.getAttribute("data-kind"), vid: btn.getAttribute("data-vid") }),
+              }).then(function (out) {
+                if (unauthorised(out)) return;
+                if (!out.ok) {
+                  btn.disabled = false;
+                  status.textContent = out.d.error || "Could not switch."; status.className = "row-status err";
+                  return;
+                }
+                status.textContent = "Switched"; status.className = "row-status ok";
+                loadVersions();
+                loadJobs(false);
+              });
+            });
+          });
+        }
+        verBox.addEventListener("toggle", function () {
+          if (verBox.open && !loaded) loadVersions();
+        });
+      }
 
       var ins = rowEl.querySelector('[data-act="instructions"]');
       if (ins) {

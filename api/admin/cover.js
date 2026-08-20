@@ -55,10 +55,23 @@ export default async function handler(req, res) {
       model: resolveModel(model),
     });
 
+    // Keep every draft, newest first, so a rewrite that comes out worse can
+    // be swapped back. coverLetter stays whichever one is live.
+    const version = {
+      vid: Math.random().toString(36).slice(2, 10),
+      at: letter.generatedAt,
+      model: resolveModel(model),
+      words: letter.words,
+      salutation: letter.salutation,
+      paragraphs: letter.paragraphs,
+      active: true,
+    };
+    const kept = (job.coverLetterVersions || []).map((v) => ({ ...v, active: false }));
     await updateJob(id, {
       coverLetter: letter.paragraphs,
       coverLetterAt: letter.generatedAt,
       coverLetterModel: resolveModel(model),
+      coverLetterVersions: [version, ...kept].slice(0, 10),
     });
 
     res.status(200).json({

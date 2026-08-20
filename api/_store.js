@@ -70,7 +70,7 @@ const REPORT_TTL = 60 * 60 * 24 * 365; // 1 year; set to 0 to keep forever
 
 // --- Reports ---
 
-export async function saveReport(report) {
+export async function saveReport(report, internal) {
   const id = makeId();
   const hash = hashJD(report.job_description || "");
   const score = Date.now();
@@ -85,6 +85,9 @@ export async function saveReport(report) {
     if (hash) memSet(`jdhash:${hash}`, id, REPORT_TTL);
     memIndex.push({ id, score });
   }
+  // The first generation is a version too, so the list is never empty and the
+  // live report always has an entry matching it.
+  await addReportVersion(id, report, internal);
   return id;
 }
 
@@ -106,6 +109,67 @@ export async function overwriteReport(id, report) {
   } else {
     memSet(`fit:${id}`, report, REPORT_TTL);
   }
+}
+
+// --- Report versions ---
+//
+// The live report stays at fit:{id}, so the public read path and the permalink
+// are untouched: whatever is live is what a shared link shows. Every generated
+// version, including the live one, is also kept at fitver:{id} so an earlier
+// one can be put back. Duplicating the live copy costs a few KB and keeps the
+// public path a single get.
+
+const MAX_VERSIONS = 10;
+
+function versionKey(id) {
+  return `fitver:${id}`;
+}
+
+export async function listReportVersions(id) {
+  const raw = hasKV ? await (await kv()).get(versionKey(id)) : memGet(versionKey(id));
+  return Array.isArray(raw) ? raw : [];
+}
+
+async function writeVersions(id, versions) {
+  const trimmed = versions.slice(0, MAX_VERSIONS);
+  if (hasKV) {
+    const store = await kv();
+    const opts = REPORT_TTL ? { ex: REPORT_TTL } : undefined;
+    await store.set(versionKey(id), trimmed, opts);
+  } else {
+    memSet(versionKey(id), trimmed, REPORT_TTL);
+  }
+  return trimmed;
+}
+
+// Records a generated report as a version and marks it live. Newest first.
+export async function addReportVersion(id, report, internal) {
+  const vid = makeId();
+  const existing = await listReportVersions(id);
+  const entry = {
+    vid,
+    createdAt: report.regenerated_at || report.created_at || new Date().toISOString(),
+    model: report.model || "",
+    // Scores never travel with the public report, so the version carries its
+    // own snapshot. Without it, restoring an older analysis would leave the
+    // row showing the newer run's score.
+    internal: internal || null,
+    report,
+  };
+  const next = [entry, ...existing].map((v, i) => ({ ...v, active: i === 0 }));
+  await writeVersions(id, next);
+  return vid;
+}
+
+// Puts a stored version back on the live key. The report keeps its id, so
+// anyone holding the link sees whichever version is chosen here.
+export async function activateReportVersion(id, vid) {
+  const versions = await listReportVersions(id);
+  const wanted = versions.find((v) => v.vid === vid);
+  if (!wanted) return null;
+  await overwriteReport(id, wanted.report);
+  await writeVersions(id, versions.map((v) => ({ ...v, active: v.vid === vid })));
+  return wanted.report;
 }
 
 // --- Admin: list / delete ---
@@ -140,6 +204,7 @@ export async function deleteReport(id) {
     const store = await kv();
     await store.del(`fit:${id}`);
     if (hash) await store.del(`jdhash:${hash}`);
+    await store.del(versionKey(id));
     await store.zrem(INDEX_KEY, id);
   } else {
     memory.delete(`fit:${id}`);
@@ -255,6 +320,11 @@ export async function saveJob(job) {
     coverLetter: Array.isArray(job.coverLetter) ? job.coverLetter : null,
     coverLetterAt: job.coverLetterAt || "",
     coverLetterModel: job.coverLetterModel || "",
+    // Every letter written for this role, newest first, so an earlier draft
+    // can be put back. coverLetter above is whichever one is live.
+    coverLetterVersions: Array.isArray(job.coverLetterVersions)
+      ? job.coverLetterVersions.slice(0, 10)
+      : [],
     archived: !!job.archived,
     archivedAt: job.archived ? job.archivedAt || now : "",
     recruiter: job.recruiter || null,

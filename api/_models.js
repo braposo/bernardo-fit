@@ -1,42 +1,41 @@
 // Which model writes the analysis, the letter and the form answers.
 //
-// Sonnet stays the default. Opus is there to compare against, since the whole
-// value of this app is writing quality and that is worth measuring rather than
-// assuming.
+// Opus is the default. It costs more, but the whole value of this app is
+// writing quality, and comparing the two on real roles made the difference
+// clear enough to pay for. Sonnet stays available as the cheaper fallback.
 //
 // Two behavioural differences that matter here, from the Claude API docs:
 //
 //   - Opus 5 runs adaptive thinking by default; Sonnet 5 does not unless asked.
-//     That is a good thing for writing quality and the reason to try it, but it
-//     costs tokens and time on generations that already take a while. Thinking
-//     blocks are returned with empty text by default and every caller filters
-//     to text blocks, so nothing downstream needs to change.
+//     That is the reason it writes better, and it costs tokens and time on
+//     generations that already take a while. Thinking blocks are returned with
+//     empty text by default and every caller filters to text blocks, so nothing
+//     downstream needs to change.
 //   - Opus 5 can answer with stop_reason "refusal". Callers check for it, so a
 //     refusal surfaces as a clear error rather than an empty draft that then
 //     fails somewhere less obvious.
 //
 // budget_tokens is rejected by both, so nothing here sets it.
 
-export const DEFAULT_MODEL = "claude-sonnet-5";
+export const DEFAULT_MODEL = "claude-opus-5";
 
 export const MODELS = [
   {
-    id: "claude-sonnet-5",
-    label: "Sonnet",
-    note: "Default. Faster and cheaper.",
-  },
-  {
     id: "claude-opus-5",
     label: "Opus",
-    note: "Thinks before writing. Slower and dearer.",
+    note: "Default. Thinks before writing.",
+  },
+  {
+    id: "claude-sonnet-5",
+    label: "Sonnet",
+    note: "Backup. Faster and cheaper.",
   },
 ];
 
 const IDS = MODELS.map((m) => m.id);
 
 // Anything unrecognised falls back rather than erroring. A bad value in a
-// request body should not stop a letter being written, and silently spending
-// Opus money because of a typo would be worse than ignoring it.
+// request body should not stop a letter being written.
 export function resolveModel(id) {
   const v = String(id || "").trim();
   return IDS.includes(v) ? v : DEFAULT_MODEL;

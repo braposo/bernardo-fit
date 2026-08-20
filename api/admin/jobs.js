@@ -19,7 +19,7 @@ import { INBOX_OPPORTUNITIES, INBOX_SCAN_META } from "../_inbox-scan.js";
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...)
 // DELETE /api/admin/jobs?id=abc       -> remove
 // Stages that take a row out of the pipeline by themselves.
-const ARCHIVE_ON_STAGE = ["expired", "not_a_fit"];
+const ARCHIVE_ON_STAGE = ["expired", "not_a_fit", "rejected"];
 
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;

@@ -106,7 +106,7 @@ export default async function handler(req, res) {
     report.job_description = jd;
     report.created_at = new Date().toISOString();
 
-    const id = await saveReport(report);
+    const id = await saveReport(report, internal);
     await linkToPipeline(id, report, jd, internal);
     res.status(200).json({ id, report, cached: false });
   } catch (err) {
