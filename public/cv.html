@@ -156,7 +156,7 @@
               <li>Drove the replatformings. Moved marketing surfaces off Netlify onto a headless CMS, then owned the platform vision for the next generation (Next.js and Sanity, module-based architecture), aligning Web, Marketing, Docs and Product behind one direction.</li>
               <li>Shipped <b>SQRL</b>, the company's AI assistant, across the website, docs and cloud portal. Built on retrieval over generation, so nothing hallucinated reached a customer. Also shipped one of the first MCP server integrations among database companies, owning auth, transport and security hardening.</li>
               <li>Led the Docs v2 replatforming end to end: new frontend, Algolia search, performance work and deployment infrastructure, for a platform treated internally as a primary acquisition channel (SEO drives ~45% of traffic).</li>
-              <li>Owned cross-surface performance, security and infrastructure: CloudFront and Lambda behaviour, redirects, vulnerability remediation, analytics and consent, embedded into standards and code review.</li>
+              <li>Owned cross-surface performance, security and infrastructure: CloudFront and Lambda behaviour, vulnerability remediation, analytics and consent, embedded into standards and code review.</li>
               <li>Ran the company-wide AI hackathon in March 2026 and established AI-assisted engineering practices inside the team.</li>
             </ul>
           </div>
@@ -188,8 +188,8 @@
         <div class="label">Built recently</div>
         <div class="content">
           <ul>
-            <li><b>Fit</b> (<a href="https://fit.bernardoraposo.com">fit.bernardoraposo.com</a>). A tool I built to run my own job search. Paste a job description and it gives an honest read of where I fit, on a permalink I can share. It drafts cover letters and application answers too. I directed it and made the architecture calls; an agent wrote most of the code. Vercel functions, Redis and the Anthropic API, with no frontend framework and no build step.</li>
-            <li><b>The Hermans</b>, where I am CTO and now own the project. Built <b>SWAI</b>, a modular AI-agent architecture splitting decision logic, memory, signal detection and action execution, running across several model providers.</li>
+            <li><b>Fit</b> (<a href="https://fit.bernardoraposo.com">fit.bernardoraposo.com</a>). A tool I built to run my own job search. Paste a job description and it gives an honest read of where I fit, on a permalink I can share. It drafts cover letters and application answers too. I directed it and made the architecture calls; an agent wrote most of the code. Vercel functions, Redis and the Anthropic API, no frontend framework.</li>
+            <li><b>The Hermans</b>, where I am CTO and now own the project. Built <b>SWAI</b>, a modular AI-agent architecture separating decision logic, memory, signal detection and action, across several model providers.</li>
           </ul>
         </div>
       </section>
@@ -223,7 +223,11 @@
     (function () {
       function check() {
         var page = document.getElementById("page");
-        var over = page.scrollHeight - page.clientHeight;
+        var sections = page.querySelectorAll("section");
+        var last = sections[sections.length - 1];
+        if (!last) return;
+        var padBottom = parseFloat(getComputedStyle(page).paddingBottom) || 0;
+        var over = Math.round(last.getBoundingClientRect().bottom - (page.getBoundingClientRect().bottom - padBottom));
         var existing = document.querySelector(".overflow-warning");
         if (over > 2) {
           if (!existing) {
