@@ -1,6 +1,7 @@
 import { requireAdmin } from "../_admin.js";
 import {
   getJob,
+  getReport,
   updateJob,
   listReportVersions,
   activateReportVersion,
@@ -36,7 +37,22 @@ export default async function handler(req, res) {
         res.status(404).json({ error: "Job not found" });
         return;
       }
-      const fit = job.fitReportId ? await listReportVersions(job.fitReportId) : [];
+      let fit = job.fitReportId ? await listReportVersions(job.fitReportId) : [];
+      // Analyses generated before versioning existed have no version list.
+      // Rather than show an empty panel next to a live report, describe the
+      // live one. There is nothing to switch to, so it needs no vid.
+      if (!fit.length && job.fitReportId) {
+        const live = await getReport(job.fitReportId);
+        if (live) {
+          fit = [{
+            vid: "",
+            createdAt: live.regenerated_at || live.created_at || "",
+            model: live.model || "",
+            active: true,
+            internal: job.score != null ? { score: job.score } : null,
+          }];
+        }
+      }
       res.status(200).json({
         fit: fit.map((v) => meta(v, "fit")),
         letter: (job.coverLetterVersions || []).map((v) => meta(v, "letter")),

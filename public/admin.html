@@ -449,7 +449,7 @@
     if (kind === "fit" && v.score != null) bits.push("score " + v.score);
     return '<div class="ver">' +
       '<span class="vmeta">' + esc(bits.join(" · ")) + "</span>" +
-      (v.active
+      (v.active || !v.vid
         ? '<span class="vlive">live</span>'
         : '<button class="ghost" data-act="veruse" data-kind="' + kind + '" data-vid="' + esc(v.vid) + '">Use this</button>') +
     "</div>";
