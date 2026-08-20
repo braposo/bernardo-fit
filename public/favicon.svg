@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>Fit</title>
+  <style>
+    /* A tab is not the page. The site is light only, but browser chrome is
+       whatever the reader set, so the mark carries its own dark variant. */
+    .bg   { fill: #faf8f4; }
+    .ring { stroke: #211f1a; }
+    .dot  { fill: #116bb5; }
+    @media (prefers-color-scheme: dark) {
+      .bg   { fill: none; }
+      .ring { stroke: #faf8f4; }
+      .dot  { fill: #5a9fe0; }
+    }
+  </style>
+  <rect class="bg" width="32" height="32" rx="7"/>
+  <circle class="ring" cx="16" cy="16" r="9.5" fill="none" stroke-width="2.2"/>
+  <circle class="dot" cx="20.2" cy="12.6" r="4.6"/>
+</svg>
