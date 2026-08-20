@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"></meta>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
+<title>Bernardo Raposo · CV</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" href="/favicon.svg" sizes="any" />
+<link rel="preconnect" href="https://fonts.googleapis.com"></link>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"></link>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></link>
+<style>
+  :root {
+    --accent: oklch(0.52 0.14 250);
+    --paper: #ffffff;
+    --ink: #26241f;
+    --sub: #6b675c;
+    --body2: #45423a;
+    --hair: rgba(38, 36, 31, 0.16);
+  }
+  html, body { margin: 0; padding: 0; background: #e8e6e1; }
+  .page {
+    width: 794px;
+    height: 1123px;
+    box-sizing: border-box;
+    margin: 24px auto;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 36px 50px 30px 50px;
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    font-size: 10.6px;
+    line-height: 1.5;
+    box-shadow: 0 2px 24px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+  }
+  a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); }
+
+  /* Header — matches the cover letter */
+  h1 {
+    font-family: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif;
+    font-size: 3.05em; font-weight: 700; margin: 0;
+    line-height: 1; letter-spacing: -0.025em;
+  }
+  h1 .dot { color: var(--accent); }
+  .headline {
+    margin: 0.7em 0 0 0; font-size: 1.1em;
+    font-family: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif; font-weight: 600;
+  }
+  .contact {
+    display: flex; flex-wrap: wrap; gap: 0.35em 1.4em; margin-top: 0.6em;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.84em; color: var(--sub);
+  }
+  .contact .status { color: var(--accent); }
+
+  /* Body: a label column and a content column, like the original */
+  .body { margin-top: 1.15em; border-top: 1px solid var(--hair); padding-top: 1.15em; flex: 1; }
+  section { display: grid; grid-template-columns: 96px 1fr; gap: 18px; margin-bottom: 1.1em; }
+  section:last-child { margin-bottom: 0; }
+  .label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.78em; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--sub); line-height: 1.5; padding-top: 0.15em;
+  }
+  .content > p { margin: 0 0 0.5em 0; text-wrap: pretty; }
+  .content > p:last-child { margin-bottom: 0; }
+
+  .role { margin-bottom: 0.75em; }
+  .role:last-child { margin-bottom: 0; }
+  .role-head {
+    font-family: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif; font-weight: 600;
+    font-size: 1.08em; display: flex; justify-content: space-between; gap: 1em; align-items: baseline;
+  }
+  .role-head .when {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.78em; color: var(--sub);
+    font-weight: 400; white-space: nowrap;
+  }
+  .role-where {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.8em; color: var(--sub);
+    margin: 0.1em 0 0.3em 0;
+  }
+  ul { margin: 0; padding-left: 1.05em; }
+  li { margin-bottom: 0.22em; text-wrap: pretty; }
+  li:last-child { margin-bottom: 0; }
+  li::marker { color: var(--accent); }
+  b { font-weight: 600; }
+  .skill { margin-bottom: 0.28em; }
+  .skill:last-child { margin-bottom: 0; }
+  .skill .k { font-weight: 600; }
+
+  .printbar {
+    max-width: 794px; margin: 24px auto 0 auto; display: flex; gap: 10px; align-items: center;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #6b675c;
+  }
+  .printbar button {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 7px 14px;
+    border: 1px solid rgba(38,36,31,0.2); border-radius: 8px; background: #fff;
+    color: #26241f; cursor: pointer;
+  }
+  .printbar button:hover { border-color: var(--accent); color: var(--accent); }
+  .overflow-warning {
+    max-width: 794px; margin: 16px auto -8px auto; padding: 10px 14px;
+    background: oklch(0.54 0.15 25 / 0.10); color: oklch(0.54 0.15 25);
+    border-radius: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  }
+
+  @media print {
+    .printbar, .overflow-warning { display: none !important; }
+    @page { size: A4; margin: 0; }
+    html, body { background: #ffffff; }
+    .page {
+      margin: 0; box-shadow: none;
+      width: 210mm; height: 296mm;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    *, *::before, *::after { transition-duration: 0s !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="printbar">
+    <button id="print">Print / Save as PDF</button>
+    <span>A4, one page. Choose "Save as PDF" and turn headers and footers off.</span>
+  </div>
+
+  <main class="page" id="page">
+    <header>
+      <h1>Bernardo Raposo<span class="dot">.</span></h1>
+      <p class="headline">Engineering Manager · Platform and AI products</p>
+      <div class="contact">
+        <span>Harrogate, North Yorkshire</span>
+        <a href="mailto:hi@bernardoraposo.com">hi@bernardoraposo.com</a>
+        <a href="https://linkedin.com/in/braposo">linkedin.com/in/braposo</a>
+        <a href="https://github.com/braposo">github.com/braposo</a>
+        <a href="https://noti.st/braposo">noti.st/braposo</a>
+        <span class="status">UK Settled Status, no sponsorship required</span>
+      </div>
+    </header>
+
+    <div class="body">
+      <section>
+        <div class="label">Profile</div>
+        <div class="content">
+          <p>Hands-on engineering leader, 15+ years building customer-facing web platforms at scale. Five years as Engineering Manager at SingleStore, owning the web platform and our customer-facing AI products.</p>
+          <p>I work as a player-coach. I set architecture and standards, write the vision documents, and stay close to the code through reviews and prototypes. Most of my attention now goes on where AI belongs in a product, and on how engineering teams work alongside it.</p>
+        </div>
+      </section>
+
+      <section>
+        <div class="label">Experience</div>
+        <div class="content">
+          <div class="role">
+            <div class="role-head"><span>Engineering Manager · SingleStore</span><span class="when">Aug 2020 – May 2026</span></div>
+            <p class="role-where">Remote · US-headquartered database company, globally distributed teams</p>
+            <ul>
+              <li>Led the Web team owning singlestore.com, the documentation platform, CMS infrastructure and customer-facing AI products. Line manager and technical authority: hiring, coaching, and writing promotion cases.</li>
+              <li>Drove the replatformings. Moved marketing surfaces off Netlify onto a headless CMS, then owned the platform vision for the next generation (Next.js and Sanity, module-based architecture), aligning Web, Marketing, Docs and Product behind one direction.</li>
+              <li>Shipped <b>SQRL</b>, the company's AI assistant, across the website, docs and cloud portal. Built on retrieval over generation, so nothing hallucinated reached a customer. Also shipped one of the first MCP server integrations among database companies, owning auth, transport and security hardening.</li>
+              <li>Led the Docs v2 replatforming end to end: new frontend, Algolia search, performance work and deployment infrastructure, for a platform treated internally as a primary acquisition channel (SEO drives ~45% of traffic).</li>
+              <li>Owned cross-surface performance, security and infrastructure: CloudFront and Lambda behaviour, redirects, vulnerability remediation, analytics and consent, embedded into standards and code review.</li>
+              <li>Ran the company-wide AI hackathon in March 2026 and established AI-assisted engineering practices inside the team.</li>
+            </ul>
+          </div>
+
+          <div class="role">
+            <div class="role-head"><span>Principal Engineer · TravelRepublic (Emirates Group)</span><span class="when">2018 – 2020</span></div>
+            <p class="role-where">London · High-traffic B2C ecommerce, millions in bookings a month</p>
+            <ul>
+              <li>Lead engineer on a full platform rewrite for one of the UK's main online travel agencies. A mobile-first Next.js PWA shared across three brands (TravelRepublic, Emirates Holidays, Dnata Travel), serving many thousands of daily visitors.</li>
+              <li>Built the shared React design system and the GraphQL layer connecting the frontend to booking and inventory systems. Drove SPA performance, caching and rendering for a conversion-critical funnel.</li>
+              <li>Raised engineering standards across the group: code quality, practices and architecture inside a large, distributed enterprise.</li>
+            </ul>
+          </div>
+
+          <div class="role">
+            <div class="role-head"><span>Senior Engineer · EDITED</span><span class="when">2014 – 2018</span></div>
+            <p class="role-where">London · Retail analytics, joined as one of the first engineers and grew with it from 25 to around 200 people</p>
+            <ul>
+              <li>Built core features of a complex React data-analytics product for major retailers, and created the design system from scratch with the design team.</li>
+              <li>Moved into owning the public website end to end. Early evidence of a career-long pattern of working across engineering, design and marketing.</li>
+            </ul>
+          </div>
+
+          <p>Earlier: Founder, Connect Coimbra, a profitable coworking business (2010 – 2014). Junior Engineer, Critical Software, health tech (2009 – 2010).</p>
+        </div>
+      </section>
+
+      <section>
+        <div class="label">Built recently</div>
+        <div class="content">
+          <ul>
+            <li><b>Fit</b> (<a href="https://fit.bernardoraposo.com">fit.bernardoraposo.com</a>). A tool I built to run my own job search. Paste a job description and it gives an honest read of where I fit, on a permalink I can share. It drafts cover letters and application answers too. I directed it and made the architecture calls; an agent wrote most of the code. Vercel functions, Redis and the Anthropic API, with no frontend framework and no build step.</li>
+            <li><b>The Hermans</b>, where I am CTO and now own the project. Built <b>SWAI</b>, a modular AI-agent architecture splitting decision logic, memory, signal detection and action execution, running across several model providers.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <div class="label">Core skills</div>
+        <div class="content">
+          <div class="skill"><span class="k">Frontend</span> · React, Next.js, TypeScript, Node.js, GraphQL, SPA and PWA architecture, design systems, Storybook, modular patterns</div>
+          <div class="skill"><span class="k">AI engineering</span> · LLM-powered products, MCP servers, retrieval over generation, agent architectures, AI-assisted development practices</div>
+          <div class="skill"><span class="k">Performance &amp; quality</span> · Core Web Vitals, rendering and caching strategies (client, edge, CDN), SEO, CI/CD, observability, code review standards</div>
+          <div class="skill"><span class="k">Platform</span> · AWS (CloudFront, Lambda), headless CMS, Algolia search, analytics and consent</div>
+          <div class="skill"><span class="k">Leadership</span> · Line management, hiring, promotions, architectural documentation, cross-functional delivery with Product, Design and Marketing</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="label">Education &amp; beyond</div>
+        <div class="content">
+          <p>MSc and BSc in Informatics Engineering, University of Coimbra, Portugal.</p>
+          <p>Open-source author of libraries people actually use, and an international conference speaker: React Advanced London, GraphQL Conf, Design Systems London, Solana Breakpoint.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    document.getElementById("print").addEventListener("click", function () { window.print(); });
+
+    // The page is a fixed A4 box, so content that overruns is silently clipped
+    // in the PDF. Say so on screen rather than letting it print short.
+    (function () {
+      function check() {
+        var page = document.getElementById("page");
+        var over = page.scrollHeight - page.clientHeight;
+        var existing = document.querySelector(".overflow-warning");
+        if (over > 2) {
+          if (!existing) {
+            var d = document.createElement("div");
+            d.className = "overflow-warning";
+            d.textContent = "Content overflows the page by about " + over + "px. Trim it, or it will be cut off in the PDF.";
+            document.body.insertBefore(d, document.body.firstChild);
+          }
+        } else if (existing) {
+          existing.remove();
+        }
+      }
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(check);
+      window.addEventListener("load", check);
+      setTimeout(check, 600);
+    })();
+  </script>
+</body>
+</html>
