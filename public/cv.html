@@ -89,13 +89,19 @@
   .skill .k { font-weight: 600; }
 
   .printbar {
-    max-width: 794px; margin: 24px auto 0 auto; display: flex; gap: 10px; align-items: center;
-    font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #6b675c;
+    width: 794px; max-width: calc(100% - 32px); margin: 26px auto 0 auto;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .printbar .what {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #8a867b;
   }
   .printbar button {
-    font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 7px 14px;
-    border: 1px solid rgba(38,36,31,0.2); border-radius: 8px; background: #fff;
-    color: #26241f; cursor: pointer;
+    appearance: none; border: 1px solid rgba(38,36,31,0.2); background: transparent;
+    color: #26241f; font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    font-weight: 500; font-size: 13px; line-height: 1; padding: 10px 18px;
+    border-radius: 100px; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
   }
   .printbar button:hover { border-color: var(--accent); color: var(--accent); }
   .overflow-warning {
@@ -119,8 +125,8 @@
 </head>
 <body>
   <div class="printbar">
-    <button id="print">Print / Save as PDF</button>
-    <span>A4, one page. Choose "Save as PDF" and turn headers and footers off.</span>
+    <span class="what">A4 · one page · print with headers off</span>
+    <button id="print">Save as PDF</button>
   </div>
 
   <main class="page" id="page">
@@ -215,6 +221,11 @@
 
   <script>
     document.getElementById("print").addEventListener("click", function () { window.print(); });
+
+    // The letter page does the same, so a link can go straight to the dialog.
+    if (new URLSearchParams(location.search).get("print") === "1") {
+      window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 400); });
+    }
 
     // The page is a fixed A4 box, so content that overruns is silently clipped
     // in the PDF. Say so on screen rather than letting it print short.
