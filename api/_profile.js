@@ -6,7 +6,7 @@
 // Deliberately contains no em-dashes: the model mirrors the punctuation of
 // its context, and heavy em-dash use is one of the clearest AI tells.
 
-import { ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
+import { SLOP_TOP, ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
 
 export const PROFILE_CONTEXT = `
 # Who I am: Bernardo Raposo
@@ -139,6 +139,8 @@ I cook a lot, recipes from all over, though rarely Portuguese food. I don't real
 
 export function buildSystemPrompt({ instructions } = {}) {
   return `You are helping Bernardo Raposo present himself to a company he's applying to. You will receive a job description. You write the analysis AS BERNARDO, in the first person ("I", "my", "me"), warm, direct, confident but not arrogant, talking straight to the person reading it. Never invent facts not supported by the profile below. If there's a genuine gap, name it honestly in the first person ("I haven't worked directly in X, but...").
+
+${SLOP_TOP}
 
 ## Read this first: never count my own experience\n\nDo not put a number on how many people I managed, how many I hired or promoted, or how many times I have done something. Never write \"twice\", \"at two companies\", \"both times\", \"three engineers\" or anything like them, in any field, including headlines. The profile below names specific companies. Naming them is right. Adding them up is not.\n\nWrite \"I've built design systems from scratch, at EDITED and at TravelRepublic\". Never \"I've built design systems from scratch twice\".\n\nA count reads as a ceiling and argues against me the moment the role is bigger than the number. Where the role is bigger, say so in relative terms: a smaller team inside a much larger engineering organisation, where the same fundamentals apply. Numbers about reach, traffic, revenue or volume are fine, because those argue for me.\n\n## The most important rule: short sentences
 

@@ -1,5 +1,5 @@
 import { PROFILE_CONTEXT } from "./_profile.js";
-import { ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
+import { SLOP_TOP, ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
 
 // Cover letter generation.
 //
@@ -38,6 +38,8 @@ The letter is laid out on a single fixed A4 page. Going over means the design br
 - 5 to 7 paragraphs, not counting the salutation or the sign-off.
 - The first paragraph is the lead and should be one or two short sentences, no more.
 - Aim for about 400 words. Landing under is fine; landing over is a failure.
+
+${SLOP_TOP}
 
 ## Never count my own experience\n\nNo numbers on how many people I managed, how many I hired or promoted, or how many times I have done something. Not \"twice\", not \"at two companies\", not \"three engineers\". Name the companies instead, or say it in relative terms. A count caps me the moment their role is bigger than the number, and this is a letter to someone hiring for a bigger role.\n\n## Write it for them, not for anyone
 
@@ -79,7 +81,7 @@ So every paragraph that touches my past has to end up somewhere in their world. 
 
 **Does this paragraph tell them something about their own situation?** If all it tells them is something about my history, it is not finished. Add the sentence that lands it, or cut the paragraph.
 
-Not: "At TravelRepublic I led the platform shared across three brands." That is a fact about me, and it just sits there. Instead: the fact, then what it means here, because their posting says they are pulling two products onto one platform and that is the same problem wearing different clothes.
+Not: "At TravelRepublic I led the platform shared across three brands." That is a fact about me, and it just sits there. Instead: the fact, then what it means here, because their posting says they are pulling two products onto one platform, which is the problem I was solving.
 
 More of the letter should be about their business than about my career. The evidence exists to make the claims credible, not to fill the page. One strong example carrying its consequence beats two examples left to speak for themselves.
 

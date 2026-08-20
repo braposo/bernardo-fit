@@ -1,5 +1,5 @@
 import { PROFILE_CONTEXT } from "./_profile.js";
-import { ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
+import { SLOP_TOP, ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
 
 export const DEFAULT_LIMIT = 120;
 export const MIN_LIMIT = 20;
@@ -44,6 +44,8 @@ export function buildAnswerPrompt({ question, limit, report, jobDescription, pre
 ## Read this first: the length is a hard limit
 
 ${budget} words MAXIMUM. Application forms enforce their limits and cut off anything over, so going over is a failure however well written. Count the words before you finish. Landing under is fine.
+
+${SLOP_TOP}
 
 ## Answer the question that was asked
 
