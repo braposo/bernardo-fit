@@ -8,3 +8,6 @@ npm-debug.log*
 .vercel
 .env*
 !.env.example
+
+# Local ledger for scripts/live-check.mjs
+scripts/.live-check-ledger.json

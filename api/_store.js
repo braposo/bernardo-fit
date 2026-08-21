@@ -32,6 +32,18 @@ export function hashJD(jd) {
 const hasKV =
   !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
 
+// The in-memory store exists so the tests and local work do not need Redis.
+// In production it is a trap: writes look fine, a visitor gets a permalink,
+// and the next request lands on a different lambda where it never existed.
+// Silent data loss is worse than a dead endpoint, so refuse to start.
+if (!hasKV && process.env.VERCEL_ENV === "production") {
+  throw new Error(
+    "KV is not configured but this is a production deployment. Refusing to " +
+      "start with the in-memory store, which would hand out permalinks that " +
+      "immediately 404. Set KV_REST_API_URL and KV_REST_API_TOKEN."
+  );
+}
+
 const INDEX_KEY = "fit:index"; // sorted set of report ids, scored by creation time
 
 // --- In-memory fallback (dev only) ---
@@ -66,7 +78,9 @@ async function kv() {
   return mod.kv;
 }
 
-const REPORT_TTL = 60 * 60 * 24 * 365; // 1 year; set to 0 to keep forever
+// Kept forever. These links go on a CV and into cover letters, so one that
+// 404s eighteen months later costs more than the storage it saves.
+const REPORT_TTL = 0;
 
 // --- Reports ---
 

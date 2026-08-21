@@ -12,7 +12,6 @@ import {
   getStats,
   JOB_STAGES,
 } from "../_store.js";
-import { INBOX_OPPORTUNITIES, INBOX_SCAN_META } from "../_inbox-scan.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
@@ -34,7 +33,6 @@ export default async function handler(req, res) {
       res.status(200).json({
         jobs: jobs.map((j) => ({ ...j, stats: j.fitReportId ? stats[j.fitReportId] || null : null })),
         stages: JOB_STAGES,
-        scan: INBOX_SCAN_META,
         unlinked: (await findUnlinkedReportIds()).length,
         archivedCount: await countArchivedJobs(),
         viewingArchived: onlyArchived,
@@ -44,34 +42,6 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const body = req.body || {};
-
-      if (body.action === "import") {
-        let added = 0;
-        let updated = 0;
-        for (const opp of INBOX_OPPORTUNITIES) {
-          const existing = await findExistingJob(opp);
-          if (existing) {
-            // Refresh the scan-derived metadata, but never touch anything the
-            // user owns: stage, notes, and any linked fit report stay as they are.
-            await updateJob(existing.id, {
-              ...opp,
-              stage: existing.stage,
-              notes: existing.notes,
-              fitReportId: existing.fitReportId,
-              createdAt: existing.createdAt,
-              // Filing something away is a decision; a re-import shouldn't undo it.
-              archived: existing.archived,
-              archivedAt: existing.archivedAt,
-            });
-            updated++;
-          } else {
-            await saveJob(opp);
-            added++;
-          }
-        }
-        res.status(200).json({ added, updated, total: INBOX_OPPORTUNITIES.length });
-        return;
-      }
 
       // Pull analyses that predate the auto-linking into the pipeline.
       if (body.action === "adopt") {

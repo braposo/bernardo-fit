@@ -32,6 +32,11 @@ export const MODELS = [
   },
 ];
 
+// What anonymous visitors get. Pinned deliberately: the default above is
+// chosen for the quality of my own letters, and letting a public endpoint
+// follow it means every stranger runs the expensive model.
+export const PUBLIC_MODEL = "claude-sonnet-5";
+
 const IDS = MODELS.map((m) => m.id);
 
 // Anything unrecognised falls back rather than erroring. A bad value in a

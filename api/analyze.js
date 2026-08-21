@@ -1,4 +1,5 @@
 import { runAnalysis } from "./_analyze.js";
+import { PUBLIC_MODEL } from "./_models.js";
 import {
   saveReport,
   findReportByHash,
@@ -94,10 +95,11 @@ export default async function handler(req, res) {
 
     let report, internal;
     try {
-    // Deliberately no model parameter here. This endpoint is open to anyone
-    // with the URL, and letting a visitor pick the expensive model is a bill
-    // waiting to happen. Choosing a model is an admin thing.
-      ({ report, internal } = await runAnalysis(jd));
+    // Pinned rather than left to the default, which is Opus. This endpoint is
+    // open to anyone with the URL, so it must not follow a default chosen for
+    // the quality of my own letters. Visitors get the cheaper model; the admin
+    // picks per generation.
+      ({ report, internal } = await runAnalysis(jd, { model: PUBLIC_MODEL }));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message, detail: err.detail });
       return;
