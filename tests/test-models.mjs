@@ -153,6 +153,7 @@ const publicSrc = fs.readFileSync(root + "api/analyze.js", "utf8");
 check("takes no model from the body", !/req\.body[\s\S]{0,120}model/.test(publicSrc));
 check("forwards the pinned model, not one from the request", /runAnalysis\(jd, \{ model: PUBLIC_MODEL \}\)/.test(publicSrc));
 check("and that model is the cheap one", M.PUBLIC_MODEL === SONNET, M.PUBLIC_MODEL);
+check("and records it, so admin dedup does not mistake it for the default", /report.model = PUBLIC_MODEL/.test(publicSrc));
 check("and says why", publicSrc.includes("must not follow a default chosen for"));
 
 console.log("\n--- the page ---");

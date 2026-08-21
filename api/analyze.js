@@ -107,6 +107,10 @@ export default async function handler(req, res) {
 
     report.job_description = jd;
     report.created_at = new Date().toISOString();
+    // Record which model wrote it, the same as the admin path does. Without
+    // this the report looks unattributed, and the admin dedup treats a missing
+    // model as the default, so an Opus run would silently reuse this Sonnet one.
+    report.model = PUBLIC_MODEL;
 
     const id = await saveReport(report, internal);
     await linkToPipeline(id, report, jd, internal);
