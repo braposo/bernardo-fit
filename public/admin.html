@@ -187,9 +187,12 @@
   .titlepen {
     appearance: none; background: none; border: none; cursor: pointer; padding: 0;
     font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--sub); opacity: 0; transition: opacity 0.12s;
+    color: var(--sub); opacity: 0.55; transition: opacity 0.12s;
   }
   .row-item:hover .titlepen, .titlepen:focus { opacity: 1; }
+  /* Hover does not exist on a touch screen, so it must never be the only
+     thing that reveals a control. */
+  @media (hover: none) { .titlepen { opacity: 1; } }
   .titlepen:hover { color: var(--accent); }
   .titleedit { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   /* An author display rule outranks the UA display:none that the hidden
@@ -484,7 +487,7 @@
         '<textarea class="jd qq" data-act="qtext" placeholder="Paste the question from the application form…">' + esc(q.q || "") + '</textarea>' +
         '<div class="qa-bar">' +
           '<label>max <input type="number" data-act="qlimit" min="20" max="500" step="10" value="' + (q.limit || 120) + '"> words</label>' +
-          '<button class="ghost" data-act="qdraft">' + (answered ? "Redraft" : "Draft answer") + '</button>' +
+          '<button class="ghost" data-act="qdraft">' + (answered ? "Draft again" : "Draft answer") + '</button>' +
           (q.a ? '<button class="ghost" data-act="qcopy">Copy</button>' : "") +
           '<button class="ghost" data-act="qdel">Remove</button>' +
           (q.a ? '<span class="qa-count' + (over ? " over" : "") + '">' + countWords(q.a) + " / " + q.limit + '</span>' : "") +
@@ -507,7 +510,7 @@
   }
 
   function countWords(s) {
-    return String(s || "").trim().split(/s+/).filter(Boolean).length;
+    return String(s || "").trim().split(/\s+/).filter(Boolean).length;
   }
 
   function statsHtml(j) {
