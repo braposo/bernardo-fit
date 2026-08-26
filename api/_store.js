@@ -394,18 +394,18 @@ export async function deleteJob(id) {
 }
 
 // Used by the inbox import so re-running it doesn't create duplicates.
-// Matches on externalId first, then falls back to the Gmail thread id so rows
-// imported by an earlier version of the scan still line up.
+// Matches on externalId when the caller supplies one; only falls back to the
+// Gmail thread id when it doesn't. A single thread can hold several distinct
+// roles (a digest email), so once a row carries its own externalId, threadId
+// must not be used to find "the" row for that thread — that would make every
+// other role from the same digest collide onto the first one's row.
 export async function findExistingJob({ externalId, threadId }) {
   if (!externalId && !threadId) return null;
   // Archived rows count as existing, otherwise a re-import would resurrect
   // something you deliberately filed away as a fresh duplicate.
   const jobs = await listAllJobs();
-  return (
-    (externalId && jobs.find((j) => j.externalId === externalId)) ||
-    (threadId && jobs.find((j) => j.threadId === threadId)) ||
-    null
-  );
+  if (externalId) return jobs.find((j) => j.externalId === externalId) || null;
+  return jobs.find((j) => j.threadId === threadId) || null;
 }
 
 // Given a freshly saved analysis, find the pipeline row it belongs to. Either
