@@ -32,6 +32,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fetchDescription, postingId } from "./fetch-jd.mjs";
 
 const ENDPOINT = process.env.FIT_ENDPOINT || "https://fit.bernardoraposo.com/api/admin/ingest";
 
@@ -57,9 +58,11 @@ function readSecret() {
   return null;
 }
 
-const file = process.argv[2];
+const args = process.argv.slice(2);
+const noFetch = args.includes("--no-fetch");
+const file = args.find((a) => !a.startsWith("--"));
 if (!file) {
-  console.error("Usage: node scripts/ingest-opportunities.mjs <opportunities.json>");
+  console.error("Usage: node scripts/ingest-opportunities.mjs <opportunities.json> [--no-fetch]");
   process.exit(2);
 }
 if (!fs.existsSync(file)) {
@@ -92,6 +95,28 @@ if (!Array.isArray(opportunities)) {
 if (!opportunities.length) {
   console.log("Nothing to send.");
   process.exit(0);
+}
+
+// Fill in the real job description before sending. What the scan collects is
+// whatever WebFetch returned, and WebFetch summarises, so without this step the
+// pipeline holds a paraphrase and every fit analysis is scored against it
+// rather than against the posting.
+if (!noFetch) {
+  const needing = opportunities.filter((o) => postingId(o.sourceUrl) && (o.jobDescription || "").length < 1500);
+  if (needing.length) {
+    console.log("Fetching " + needing.length + " job description" + (needing.length === 1 ? "" : "s") + "...");
+    for (const o of needing) {
+      const was = (o.jobDescription || "").length;
+      const { text, status } = await fetchDescription(postingId(o.sourceUrl));
+      if (text && text.length > was) {
+        o.jobDescription = text;
+        console.log("  " + was + " -> " + text.length + " chars  " + (o.role || "") + (o.company ? " at " + o.company : ""));
+      } else {
+        console.log("  kept " + was + " chars (" + (text ? "fetched shorter" : "fetch " + status) + ")  " + (o.role || ""));
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+  }
 }
 
 const res = await fetch(ENDPOINT, {

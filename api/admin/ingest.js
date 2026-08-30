@@ -81,8 +81,14 @@ export default async function handler(req, res) {
           tier: existing.tier,
           scoreBreakdown: existing.scoreBreakdown,
           rationale: existing.rationale,
-          // Don't overwrite a description already captured with an empty one.
-          jobDescription: opp.jobDescription || existing.jobDescription,
+          // Keep whichever description says more. An empty one must not wipe
+          // what is held, and a re-scan that only managed a summary must not
+          // replace the full posting text a previous run fetched, or anything
+          // pasted in by hand.
+          jobDescription:
+            (opp.jobDescription || "").length > (existing.jobDescription || "").length
+              ? opp.jobDescription
+              : existing.jobDescription,
         });
         updated++;
       } else {
