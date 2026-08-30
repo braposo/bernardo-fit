@@ -394,18 +394,58 @@ export async function deleteJob(id) {
 }
 
 // Used by the inbox import so re-running it doesn't create duplicates.
-// Matches on externalId when the caller supplies one; only falls back to the
-// Gmail thread id when it doesn't. A single thread can hold several distinct
-// roles (a digest email), so once a row carries its own externalId, threadId
-// must not be used to find "the" row for that thread — that would make every
-// other role from the same digest collide onto the first one's row.
-export async function findExistingJob({ externalId, threadId }) {
-  if (!externalId && !threadId) return null;
+//
+// The scan hands us an externalId it composed itself, which is exactly the
+// thing that drifts: the same LinkedIn posting arrived as
+// `formula--engineering-manager-ai-agentic` one day and
+// `formula--engineering-manager-ai-agentic-systems` the next, because the role
+// title was read off the fetched page one time and off the digest listing the
+// other. An exact externalId match saw two different jobs and opened a second
+// row on top of one already applied to. So the id the caller invents is the
+// first thing we try, not the only one.
+//
+// After it: the posting id out of the LinkedIn URL, which is the identity the
+// job board itself assigns and so cannot drift; then company and role with
+// punctuation flattened, which folds "AI & Agentic Systems" onto
+// "AI/Agentic Systems". Both are exact matches on a normalised value rather
+// than fuzzy ones, so nothing here merges two roles that genuinely read
+// differently.
+const normalise = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+// Board URLs carry per-email tracking junk, so compare the posting id in them
+// rather than the URL itself.
+export function postingId(url) {
+  const m = /\/jobs\/view\/(\d+)/.exec(String(url || ""));
+  return m ? m[1] : "";
+}
+
+export async function findExistingJob({ externalId, threadId, sourceUrl, company, role }) {
   // Archived rows count as existing, otherwise a re-import would resurrect
-  // something you deliberately filed away as a fresh duplicate.
+  // something deliberately filed away as if it were fresh.
   const jobs = await listAllJobs();
-  if (externalId) return jobs.find((j) => j.externalId === externalId) || null;
-  return jobs.find((j) => j.threadId === threadId) || null;
+
+  if (externalId) {
+    const hit = jobs.find((j) => j.externalId === externalId);
+    if (hit) return hit;
+  }
+
+  const pid = postingId(sourceUrl);
+  if (pid) {
+    const hit = jobs.find((j) => postingId(j.sourceUrl) === pid);
+    if (hit) return hit;
+  }
+
+  const c = normalise(company), r = normalise(role);
+  if (c && r) {
+    const hit = jobs.find((j) => normalise(j.company) === c && normalise(j.role) === r);
+    if (hit) return hit;
+  }
+
+  // Last, and only when the caller had no id of its own. One thread can hold
+  // several distinct roles, so matching on a thread once an externalId exists
+  // would collapse every other role in that digest onto the first one's row.
+  if (!externalId && threadId) return jobs.find((j) => j.threadId === threadId) || null;
+  return null;
 }
 
 // Given a freshly saved analysis, find the pipeline row it belongs to. Either

@@ -1,5 +1,5 @@
 import { requireAdmin } from "../_admin.js";
-import { saveJob, findExistingJob, updateJob } from "../_store.js";
+import { saveJob, findExistingJob, updateJob, postingId } from "../_store.js";
 
 // POST /api/admin/ingest  { opportunities: [ { ... } ] }
 //
@@ -8,11 +8,12 @@ import { saveJob, findExistingJob, updateJob } from "../_store.js";
 // server still holds no mail credentials of its own; it only accepts what an
 // authenticated caller hands it.
 //
-// Upsert semantics match "import from inbox": matched on externalId then Gmail
-// threadId, and anything the user owns on an existing row (stage, notes, the
-// linked analysis, archived state, and any score from a previous analysis) is
-// left alone. New rows arrive unscored, because scoring is a product of running
-// the analysis rather than of the scan.
+// Upsert semantics match "import from inbox": matched on externalId, then the
+// board posting id, then company and role, then the Gmail thread. Anything the
+// user owns on an existing row (stage, notes, the linked analysis, archived
+// state, and any score from a previous analysis) is left alone. New rows arrive
+// unscored, because scoring is a product of running the analysis rather than of
+// the scan.
 const ALLOWED = [
   "externalId", "company", "role", "source", "sourceType", "sourceUrl",
   "threadId", "location", "locationMode", "salary", "jobDescription",
@@ -45,6 +46,10 @@ export default async function handler(req, res) {
   try {
     let added = 0, updated = 0, skipped = 0;
     const addedRows = [];
+    // Rows that matched on something other than the externalId sent. The scan
+    // thought each of these was new, so surfacing them is how id drift stays
+    // visible rather than turning back into duplicate rows.
+    const mergedRows = [];
 
     for (const raw of list) {
       if (!raw || typeof raw !== "object") { skipped++; continue; }
@@ -54,6 +59,16 @@ export default async function handler(req, res) {
 
       const existing = await findExistingJob(opp);
       if (existing) {
+        if (opp.externalId && existing.externalId !== opp.externalId) {
+          const pid = postingId(opp.sourceUrl);
+          mergedRows.push({
+            id: existing.id,
+            company: existing.company,
+            role: existing.role,
+            sentAs: opp.externalId,
+            matchedOn: pid && postingId(existing.sourceUrl) === pid ? "posting id" : "company and role",
+          });
+        }
         await updateJob(existing.id, {
           ...opp,
           stage: existing.stage,
@@ -77,7 +92,7 @@ export default async function handler(req, res) {
       }
     }
 
-    res.status(200).json({ added, updated, skipped, addedRows });
+    res.status(200).json({ added, updated, skipped, addedRows, mergedRows });
   } catch (err) {
     res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
   }

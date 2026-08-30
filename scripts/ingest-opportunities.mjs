@@ -113,3 +113,12 @@ console.log(
 for (const r of body.addedRows || []) {
   console.log("  new: " + r.role + (r.company ? " at " + r.company : ""));
 }
+// Sent as new, folded into a row that already existed. Worth reading: it means
+// the externalId composed for this role does not match the one composed for it
+// last time, which is how duplicates used to get in.
+for (const r of body.mergedRows || []) {
+  console.log(
+    "  already known (" + r.matchedOn + "): " + r.role + (r.company ? " at " + r.company : "") +
+      "  sent as " + r.sentAs
+  );
+}
