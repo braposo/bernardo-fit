@@ -378,9 +378,49 @@ export async function updateJob(id, patch) {
   return saveJob(merged);
 }
 
+// Reports whose row was deleted on purpose. The analysis itself is kept, so
+// any link already shared keeps resolving, but the pipeline must not offer to
+// re-adopt it: without this, deleting a duplicate row orphans its report and
+// the next adopt builds the row again, unarchived and back at stage new. Four
+// rows deleted one morning were back the same evening that way.
+const DISMISSED = "jobs:dismissed-reports";
+
+async function dismissReport(reportId) {
+  if (!reportId) return;
+  if (hasKV) {
+    const store = await kv();
+    await store.sadd(DISMISSED, reportId);
+  } else {
+    const set = memGet(DISMISSED) || [];
+    if (!set.includes(reportId)) memSet(DISMISSED, set.concat(reportId), 0);
+  }
+}
+
+async function dismissedReports() {
+  if (hasKV) {
+    const store = await kv();
+    return new Set((await store.smembers(DISMISSED)) || []);
+  }
+  return new Set(memGet(DISMISSED) || []);
+}
+
+// Exported so a row deleted by mistake can be brought back: undismissing the
+// report makes adopt offer it again.
+export async function undismissReport(reportId) {
+  if (!reportId) return false;
+  if (hasKV) {
+    const store = await kv();
+    await store.srem(DISMISSED, reportId);
+  } else {
+    memSet(DISMISSED, (memGet(DISMISSED) || []).filter((r) => r !== reportId), 0);
+  }
+  return true;
+}
+
 export async function deleteJob(id) {
   const existing = await getJob(id);
   if (!existing) return false;
+  await dismissReport(existing.fitReportId);
   if (hasKV) {
     const store = await kv();
     await store.del(`job:${id}`);
@@ -467,8 +507,9 @@ export async function findJobForReport(reportId, jd) {
 export async function findUnlinkedReportIds() {
   const jobs = await listAllJobs();
   const linked = new Set(jobs.map((j) => j.fitReportId).filter(Boolean));
+  const dismissed = await dismissedReports();
   const { reports } = await listReports({ offset: 0, limit: 100 });
-  return reports.filter((r) => !linked.has(r.id)).map((r) => r.id);
+  return reports.filter((r) => !linked.has(r.id) && !dismissed.has(r.id)).map((r) => r.id);
 }
 
 // --- Analytics ---
