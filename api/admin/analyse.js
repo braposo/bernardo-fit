@@ -40,7 +40,7 @@ async function analyseJob(job, model) {
     return { id: job.id, reportId: cached.id, cached: true };
   }
 
-  const { report, internal } = await runAnalysis(jd, { instructions, model: wanted });
+  const { report, internal } = await runAnalysis(jd, { instructions, model: wanted, ref: job.id });
   report.job_description = jd;
   report.created_at = new Date().toISOString();
   report.model = wanted;

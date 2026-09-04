@@ -1,6 +1,7 @@
 import { PROFILE_CONTEXT } from "./_profile.js";
 import { resolveModel, refusalError } from "./_models.js";
 import { SLOP_TOP, ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
+import { recordUsage } from "./_usage.js";
 
 export const DEFAULT_LIMIT = 120;
 export const MIN_LIMIT = 20;
@@ -139,7 +140,7 @@ export function finish(raw, budget) {
   };
 }
 
-export async function runAnswer({ question, limit, report, jobDescription, previous, instructions, model }) {
+export async function runAnswer({ question, limit, report, jobDescription, previous, instructions, model, ref }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
 
@@ -149,6 +150,7 @@ export async function runAnswer({ question, limit, report, jobDescription, previ
   const budget = clampLimit(limit);
   const system = buildAnswerPrompt({ question: q, limit: budget, report, jobDescription, previous, instructions });
 
+  const started = Date.now();
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -170,6 +172,7 @@ export async function runAnswer({ question, limit, report, jobDescription, previ
   }
 
   const data = await response.json();
+  await recordUsage({ kind: "answer", ref, model: resolveModel(model), usage: data.usage, ms: Date.now() - started });
   const refused = refusalError(data);
   if (refused) throw refused;
   if (data.stop_reason === "max_tokens") {

@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     // open to anyone with the URL, so it must not follow a default chosen for
     // the quality of my own letters. Visitors get the cheaper model; the admin
     // picks per generation.
-      ({ report, internal } = await runAnalysis(jd, { model: PUBLIC_MODEL }));
+      ({ report, internal } = await runAnalysis(jd, { model: PUBLIC_MODEL, ref: "public" }));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message, detail: err.detail });
       return;

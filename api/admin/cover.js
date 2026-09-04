@@ -53,6 +53,7 @@ export default async function handler(req, res) {
       fitUrl: `${origin}/?r=${encodeURIComponent(job.fitReportId)}`,
       instructions: (job.instructions || "").trim(),
       model: resolveModel(model),
+      ref: id,
     });
 
     // Keep every draft, newest first, so a rewrite that comes out worse can

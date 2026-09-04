@@ -50,7 +50,7 @@ export default async function handler(req, res) {
 
     let report, internal;
     try {
-      ({ report, internal } = await runAnalysis(jd, { instructions, model: resolveModel(model) }));
+      ({ report, internal } = await runAnalysis(jd, { instructions, model: resolveModel(model), ref: id }));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message, detail: err.detail });
       return;

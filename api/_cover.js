@@ -1,6 +1,7 @@
 import { PROFILE_CONTEXT } from "./_profile.js";
 import { resolveModel, refusalError } from "./_models.js";
 import { SLOP_TOP, ANTI_SLOP, PROSE_RULES, instructionsBlock } from "./_writing.js";
+import { recordUsage } from "./_usage.js";
 
 // Cover letter generation.
 //
@@ -150,7 +151,7 @@ Rules for the text field: plain prose only. No HTML tags, no markdown, no links,
 If you know the company name, address the salutation to the team by name, for example "Dear Sanity team,". Otherwise keep "Dear Hiring Team,".${fitUrl ? "" : ""}`;
 }
 
-export async function runCoverLetter({ report, fitUrl, instructions, model }) {
+export async function runCoverLetter({ report, fitUrl, instructions, model, ref }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
 
@@ -164,6 +165,7 @@ export async function runCoverLetter({ report, fitUrl, instructions, model }) {
         ? ""
         : "\n\nYour previous response could not be parsed as JSON. Return ONLY the JSON object, starting with { and ending with }. No prose before or after it, no markdown fence. Do not put a double quote character anywhere inside a text value.");
 
+    const started = Date.now();
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -185,6 +187,10 @@ export async function runCoverLetter({ report, fitUrl, instructions, model }) {
     }
 
     const data = await response.json();
+    // Recorded per attempt: a parse failure that triggers the retry still
+    // spent tokens on this attempt, and a refusal spends them before it is
+    // caught below.
+    await recordUsage({ kind: "cover", ref, model: resolveModel(model), usage: data.usage, ms: Date.now() - started });
     // A refusal is not a parse problem, so retrying the same prompt will not
     // help. Surface it instead of burning the second attempt on it.
     const refused = refusalError(data);

@@ -57,6 +57,7 @@ export default async function handler(req, res) {
       previous,
       instructions: (job.instructions || "").trim(),
       model: resolveModel(model),
+      ref: id,
     });
 
     const next = questions.map((q) =>

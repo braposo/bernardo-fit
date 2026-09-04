@@ -4,13 +4,19 @@
 
 import { resolveModel, refusalError } from "./_models.js";
 import { buildSystemPrompt } from "./_profile.js";
+import { recordUsage } from "./_usage.js";
 
-export async function runAnalysis(jobDescription, { instructions, model } = {}) {
+// ref is whatever the caller already has to key this call to — a job id, a
+// report id, or "public" for the unauthenticated path, which has neither yet
+// when the call is made. It is only for later drill-down; the daily rollup
+// does not need it.
+export async function runAnalysis(jobDescription, { instructions, model, ref } = {}) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw Object.assign(new Error("Server is missing ANTHROPIC_API_KEY."), { status: 500 });
   }
 
+  const started = Date.now();
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -41,6 +47,9 @@ export async function runAnalysis(jobDescription, { instructions, model } = {}) 
   }
 
   const data = await response.json();
+  // Recorded before the refusal check: a refusal still spends tokens, and the
+  // point of tracking usage is to see that, not just the calls that succeed.
+  await recordUsage({ kind: "analyse", ref, model: resolveModel(model), usage: data.usage, ms: Date.now() - started });
   const refused = refusalError(data);
   if (refused) throw refused;
   if (data.stop_reason === "max_tokens") {

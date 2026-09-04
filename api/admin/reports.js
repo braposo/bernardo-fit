@@ -1,16 +1,29 @@
 import { requireAdmin } from "../_admin.js";
 import { listReports, deleteReport, listJobs, listReportVersions } from "../_store.js";
+import { recentRollups } from "../_usage.js";
 
 // GET    /api/admin/reports?offset=&limit=   -> { reports, total }
 // GET    /api/admin/reports?export=1         -> everything, as one document
+// GET    /api/admin/reports?usage=1          -> the last 30 days of token spend
 //
-// The export lives here rather than in its own file because Vercel counts
-// every route as a serverless function and the plan allows twelve. Adding a
-// thirteenth built fine and then failed to deploy. This endpoint was already
-// unreachable from the admin page, so it had room.
+// The export and usage views live here rather than in their own files because
+// Vercel counts every route as a serverless function and the plan allows
+// twelve. A thirteenth built fine and then failed to deploy. This endpoint
+// was already unreachable from the admin page, so it had room.
 // DELETE /api/admin/reports?id=abc123        -> { ok: true }
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
+
+  if (req.method === "GET" && req.query && req.query.usage === "1") {
+    try {
+      const days = await recentRollups(30);
+      res.setHeader("Cache-Control", "no-store");
+      res.status(200).json({ days });
+    } catch (err) {
+      res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
+    }
+    return;
+  }
 
   if (req.method === "GET" && req.query && req.query.export === "1") {
     // The whole pipeline lives in one Redis instance with no other copy. This
