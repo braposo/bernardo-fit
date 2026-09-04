@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 const LETTER = {
   salutation: "Dear Sanity team,",
@@ -22,9 +23,9 @@ globalThis.fetch = async () => ({
   json: async () => ({ content: [{ type: "text", text: JSON.stringify(LETTER) }], stop_reason: "end_turn" }),
 });
 
-const store = await import(base + "_store.js");
-const { runCoverLetter, COVER_MAX_WORDS } = await import(base + "_cover.js");
-const { makeViewToken, verifyViewToken } = await import(base + "_admin.js");
+const store = await import(lib + "store.js");
+const { runCoverLetter, COVER_MAX_WORDS } = await import(lib + "cover.js");
+const { makeViewToken, verifyViewToken } = await import(lib + "admin.js");
 const coverHandler = (await import(base + "admin/cover.js")).default;
 const letterHandler = (await import(base + "letter.js")).default;
 

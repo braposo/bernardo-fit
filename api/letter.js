@@ -1,5 +1,5 @@
-import { verifyViewToken } from "./_admin.js";
-import { getJob } from "./_store.js";
+import { verifyViewToken } from "../lib/admin.js";
+import { getJob } from "../lib/store.js";
 
 // GET /api/letter?j=<jobId>&t=<token>
 //

@@ -9,9 +9,10 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 process.env.ADMIN_SECRET = "test-secret-value";
-const usage = await import(base + "_usage.js");
+const usage = await import(lib + "usage.js");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => {

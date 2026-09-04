@@ -1,11 +1,11 @@
-import { requireAdmin } from "../_admin.js";
+import { requireAdmin } from "../../lib/admin.js";
 import {
   getJob,
   getReport,
   updateJob,
   listReportVersions,
   activateReportVersion,
-} from "../_store.js";
+} from "../../lib/store.js";
 
 // GET  /api/admin/versions?id=<jobId>          list both kinds for one row
 // POST /api/admin/versions { id, kind, vid }   make one of them live

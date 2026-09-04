@@ -12,10 +12,11 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 process.env.ADMIN_SECRET = "test-secret-value";
 const { htmlToText, postingId } = await import("file:///" + root + "scripts/fetch-jd.mjs");
-const store = await import(base + "_store.js");
+const store = await import(lib + "store.js");
 const ingest = (await import(base + "admin/ingest.js")).default;
 
 let pass = 0, fail = 0;

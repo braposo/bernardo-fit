@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 // The model returns the private block inline; everything downstream must strip it.
 const MODEL_OUTPUT = {
@@ -24,8 +25,8 @@ globalThis.fetch = async () => ({
   json: async () => ({ content: [{ type: "text", text: JSON.stringify(MODEL_OUTPUT) }], stop_reason: "end_turn" }),
 });
 
-const store = await import(base + "_store.js");
-const { splitInternal, stripInternal } = await import(base + "_analyze.js");
+const store = await import(lib + "store.js");
+const { splitInternal, stripInternal } = await import(lib + "analyze.js");
 const analyzeHandler = (await import(base + "analyze.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
 const adminAnalyse = (await import(base + "admin/analyse.js")).default;

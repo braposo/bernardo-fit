@@ -1,13 +1,13 @@
-import { requireAdmin } from "../_admin.js";
-import { resolveModel, DEFAULT_MODEL } from "../_models.js";
-import { runAnalysis } from "../_analyze.js";
+import { requireAdmin } from "../../lib/admin.js";
+import { resolveModel, DEFAULT_MODEL } from "../../lib/models.js";
+import { runAnalysis } from "../../lib/analyze.js";
 import {
   listJobs,
   getJob,
   updateJob,
   saveReport,
   findReportByHash,
-} from "../_store.js";
+} from "../../lib/store.js";
 
 // POST /api/admin/analyse  { id }        analyse one pipeline row
 // POST /api/admin/analyse  { all: true } analyse every row that has a job

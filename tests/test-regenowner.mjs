@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 let sentPrompts = [];
 globalThis.fetch = async (_url, opts) => {
@@ -23,7 +24,7 @@ globalThis.fetch = async (_url, opts) => {
   };
 };
 
-const store = await import(base + "_store.js");
+const store = await import(lib + "store.js");
 const regen = (await import(base + "admin/regenerate.js")).default;
 
 let pass = 0, fail = 0;

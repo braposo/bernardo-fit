@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
-const { buildCoverPrompt } = await import(base + "_cover.js");
+const { buildCoverPrompt } = await import(lib + "cover.js");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => {

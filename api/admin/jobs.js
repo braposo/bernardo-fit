@@ -1,4 +1,4 @@
-import { requireAdmin } from "../_admin.js";
+import { requireAdmin } from "../../lib/admin.js";
 import {
   listJobs,
   getJob,
@@ -12,7 +12,7 @@ import {
   getStats,
   jdChange,
   JOB_STAGES,
-} from "../_store.js";
+} from "../../lib/store.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }

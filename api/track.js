@@ -1,4 +1,4 @@
-import { trackEvent } from "./_store.js";
+import { trackEvent } from "../lib/store.js";
 
 // POST /api/track  { id, event }
 //

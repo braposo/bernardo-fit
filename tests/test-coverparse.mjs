@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 // Every way the model can hand back something awkward, and the guarantee that
 // none of them produce "Could not parse the cover letter".
@@ -18,7 +19,7 @@ globalThis.fetch = async () => {
   return { ok: true, json: async () => ({ content: [{ type: "text", text: body }], stop_reason: "end_turn" }) };
 };
 
-const { runCoverLetter } = await import(base + "_cover.js");
+const { runCoverLetter } = await import(lib + "cover.js");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e) : "")); } };

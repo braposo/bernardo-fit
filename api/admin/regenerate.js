@@ -1,7 +1,7 @@
-import { requireAdmin } from "../_admin.js";
-import { resolveModel } from "../_models.js";
-import { runAnalysis } from "../_analyze.js";
-import { getReport, overwriteReport, addReportVersion, listJobs, updateJob } from "../_store.js";
+import { requireAdmin } from "../../lib/admin.js";
+import { resolveModel } from "../../lib/models.js";
+import { runAnalysis } from "../../lib/analyze.js";
+import { getReport, overwriteReport, addReportVersion, listJobs, updateJob } from "../../lib/store.js";
 
 // POST /api/admin/regenerate  { id }
 // Re-runs the analysis for an existing report's stored job description and

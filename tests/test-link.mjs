@@ -3,13 +3,14 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 // Covers the new unified behaviour: a website analysis creating or linking a
 // pipeline row, and adopting analyses that predate it.
 process.env.ADMIN_SECRET = "test-secret-value";
 process.env.ANTHROPIC_API_KEY = "sk-fake-for-test";
 
-const store = await import(base + "_store.js");
+const store = await import(lib + "store.js");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
 
 let pass = 0, fail = 0;

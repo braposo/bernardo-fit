@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 import fs from "node:fs";
 
@@ -15,8 +16,8 @@ globalThis.fetch = async (_u, opts) => {
   return { ok: true, json: async () => ({ content: [{ type: "text", text: reply }], stop_reason: "end_turn" }) };
 };
 
-const store = await import(base + "_store.js");
-const ans = await import(base + "_answer.js");
+const store = await import(lib + "store.js");
+const ans = await import(lib + "answer.js");
 const answer = (await import(base + "admin/answer.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
 

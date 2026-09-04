@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 // Capture every system prompt sent, so we can assert what the model actually saw.
 let sentPrompts = [];
@@ -27,9 +28,9 @@ globalThis.fetch = async (_url, opts) => {
   };
 };
 
-const store = await import(base + "_store.js");
-const { buildSystemPrompt } = await import(base + "_profile.js");
-const { buildCoverPrompt } = await import(base + "_cover.js");
+const store = await import(lib + "store.js");
+const { buildSystemPrompt } = await import(lib + "profile.js");
+const { buildCoverPrompt } = await import(lib + "cover.js");
 const analyseHandler = (await import(base + "admin/analyse.js")).default;
 const coverHandler = (await import(base + "admin/cover.js")).default;
 const regenHandler = (await import(base + "admin/regenerate.js")).default;

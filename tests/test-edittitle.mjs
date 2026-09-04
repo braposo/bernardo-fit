@@ -5,11 +5,12 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 import fs from "node:fs";
 globalThis.fetch = async () => ({ ok: true, json: async () => ({ content: [{ type: "text", text: "{}" }], stop_reason: "end_turn" }) });
 
-const store = await import(base + "_store.js");
+const store = await import(lib + "store.js");
 const jobs = (await import(base + "admin/jobs.js")).default;
 
 let pass = 0, fail = 0;

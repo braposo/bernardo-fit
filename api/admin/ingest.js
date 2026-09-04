@@ -1,5 +1,5 @@
-import { requireAdmin } from "../_admin.js";
-import { saveJob, findExistingJob, updateJob, postingId } from "../_store.js";
+import { requireAdmin } from "../../lib/admin.js";
+import { saveJob, findExistingJob, updateJob, postingId } from "../../lib/store.js";
 
 // POST /api/admin/ingest  { opportunities: [ { ... } ] }
 //

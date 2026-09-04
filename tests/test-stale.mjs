@@ -15,9 +15,10 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 process.env.ADMIN_SECRET = "test-secret-value";
-const store = await import(base + "_store.js");
+const store = await import(lib + "store.js");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
 
 let pass = 0, fail = 0;
@@ -97,7 +98,7 @@ console.log("\n--- regenerating reads the row, not the frozen copy ---");
 // Without this the obvious fix is a trap: a fresh-looking analysis built on the
 // text that was already wrong, and nothing on screen to say so.
 const seen = [];
-const analyze = await import(base + "_analyze.js");
+const analyze = await import(lib + "analyze.js");
 const realRun = analyze.runAnalysis;
 check("runAnalysis is what regenerate calls", typeof realRun === "function");
 

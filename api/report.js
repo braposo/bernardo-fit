@@ -1,5 +1,5 @@
-import { getReport } from "./_store.js";
-import { stripInternal } from "./_analyze.js";
+import { getReport } from "../lib/store.js";
+import { stripInternal } from "../lib/analyze.js";
 
 // GET /api/report?id=abc123  -> { report }
 export default async function handler(req, res) {

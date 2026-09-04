@@ -5,11 +5,11 @@ import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
 
-const B = "file:///" + root + "api/";
-const { SLOP_TOP, ANTI_SLOP } = await import(B + "_writing.js");
-const { buildSystemPrompt } = await import(B + "_profile.js");
-const { buildCoverPrompt } = await import(B + "_cover.js");
-const { buildAnswerPrompt } = await import(B + "_answer.js");
+const B = "file:///" + root + "lib/";
+const { SLOP_TOP, ANTI_SLOP } = await import(B + "writing.js");
+const { buildSystemPrompt } = await import(B + "profile.js");
+const { buildCoverPrompt } = await import(B + "cover.js");
+const { buildAnswerPrompt } = await import(B + "answer.js");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => {

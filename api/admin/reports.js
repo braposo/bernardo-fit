@@ -1,6 +1,6 @@
-import { requireAdmin } from "../_admin.js";
-import { listReports, deleteReport, listJobs, listReportVersions } from "../_store.js";
-import { recentRollups } from "../_usage.js";
+import { requireAdmin } from "../../lib/admin.js";
+import { listReports, deleteReport, listJobs, listReportVersions } from "../../lib/store.js";
+import { recentRollups } from "../../lib/usage.js";
 
 // GET    /api/admin/reports?offset=&limit=   -> { reports, total }
 // GET    /api/admin/reports?export=1         -> everything, as one document

@@ -1,7 +1,7 @@
-import { requireAdmin, makeViewToken } from "../_admin.js";
-import { resolveModel } from "../_models.js";
-import { runCoverLetter } from "../_cover.js";
-import { getJob, updateJob, getReport } from "../_store.js";
+import { requireAdmin, makeViewToken } from "../../lib/admin.js";
+import { resolveModel } from "../../lib/models.js";
+import { runCoverLetter } from "../../lib/cover.js";
+import { getJob, updateJob, getReport } from "../../lib/store.js";
 
 // POST /api/admin/cover  { id }
 //

@@ -1,7 +1,7 @@
-import { requireAdmin } from "../_admin.js";
-import { resolveModel } from "../_models.js";
-import { runAnswer } from "../_answer.js";
-import { getJob, updateJob, getReport } from "../_store.js";
+import { requireAdmin } from "../../lib/admin.js";
+import { resolveModel } from "../../lib/models.js";
+import { runAnswer } from "../../lib/answer.js";
+import { getJob, updateJob, getReport } from "../../lib/store.js";
 
 // POST /api/admin/answer  { id, questionId }
 //

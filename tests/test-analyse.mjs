@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 let apiCalls = 0;
 globalThis.fetch = async () => {
@@ -19,7 +20,7 @@ globalThis.fetch = async () => {
   };
 };
 
-const store = await import(base + "_store.js");
+const store = await import(lib + "store.js");
 const analyseHandler = (await import(base + "admin/analyse.js")).default;
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
 

@@ -29,7 +29,7 @@ const VIEW = "https://www.linkedin.com/jobs/view/";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36";
 
-// Same shape as the matcher in api/_store.js, kept separate so this script
+// Same shape as the matcher in lib/store.js, kept separate so this script
 // stays runnable without pulling the KV client in behind it.
 export function postingId(url) {
   const m = /\/jobs\/view\/(\d+)/.exec(String(url || ""));

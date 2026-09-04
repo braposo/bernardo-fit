@@ -6,13 +6,14 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 globalThis.fetch = async () => ({
   ok: true,
   json: async () => ({ content: [{ type: "text", text: JSON.stringify({ job_title: "T", company: "C", pitch: "p", categories: [], differentiators: [], closing: "c" }) }], stop_reason: "end_turn" }),
 });
 
-const store = await import(base + "_store.js");
+const store = await import(lib + "store.js");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
 const analyseHandler = (await import(base + "admin/analyse.js")).default;

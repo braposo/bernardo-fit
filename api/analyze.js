@@ -1,5 +1,5 @@
-import { runAnalysis } from "./_analyze.js";
-import { PUBLIC_MODEL } from "./_models.js";
+import { runAnalysis } from "../lib/analyze.js";
+import { PUBLIC_MODEL } from "../lib/models.js";
 import {
   saveReport,
   findReportByHash,
@@ -7,7 +7,7 @@ import {
   findJobForReport,
   saveJob,
   updateJob,
-} from "./_store.js";
+} from "../lib/store.js";
 
 // Every analysis run from the site lands in the pipeline, so the admin board is
 // the single place where opportunities live. If a row already holds this job

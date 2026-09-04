@@ -6,13 +6,14 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const base = "file:///" + root + "api/";
+const lib = "file:///" + root + "lib/";
 
 import fs from "node:fs";
 
 globalThis.fetch = async () => ({ ok: true, json: async () => ({ content: [{ type: "text", text: "{}" }], stop_reason: "end_turn" }) });
 
-const { buildSystemPrompt, PROFILE_CONTEXT } = await import(base + "_profile.js");
-const { buildCoverPrompt } = await import(base + "_cover.js");
+const { buildSystemPrompt, PROFILE_CONTEXT } = await import(lib + "profile.js");
+const { buildCoverPrompt } = await import(lib + "cover.js");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e).slice(0, 200) : "")); } };
