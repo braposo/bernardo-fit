@@ -29,6 +29,34 @@ export function hashJD(jd) {
   return createHash("sha256").update(normalised).digest("hex").slice(0, 24);
 }
 
+// Has a row's job description moved on from the one its analysis was built on?
+//
+// A plain hash comparison says yes far too often. Re-fetching the same posting
+// a day later shifts it by a few characters of boilerplate, and four rows
+// differed by twenty-six characters each — nothing a re-analysis would score
+// differently. A flag that lights up for those gets ignored, and then it is not
+// a flag. So this asks whether the change is worth acting on: a tenth of the
+// text, or four hundred characters, whichever comes first.
+//
+// It reads both directions. A description can shrink as well as grow, and a row
+// that lost its posting and kept a summary is just as wrong.
+const MIN_DELTA = 400;
+const MIN_RATIO = 0.1;
+
+export function jdChange(rowJd, analysedJd) {
+  const now = String(rowJd || "");
+  const was = String(analysedJd || "");
+  const change = { was: was.length, now: now.length, stale: false };
+  if (!now || !was) return change;
+  if (hashJD(now) === hashJD(was)) return change;
+  // Measured against what was analysed, which is what the row displays as a
+  // percentage. If the two used different denominators the page could show
+  // "+10%" on a row the rule had decided was fine.
+  const delta = Math.abs(now.length - was.length);
+  change.stale = delta >= MIN_DELTA || delta / was.length >= MIN_RATIO;
+  return change;
+}
+
 const hasKV =
   !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
 

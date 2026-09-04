@@ -10,6 +10,7 @@ import {
   countArchivedJobs,
   getReport,
   getStats,
+  jdChange,
   JOB_STAGES,
 } from "../_store.js";
 
@@ -30,8 +31,25 @@ export default async function handler(req, res) {
       // Attach view/interaction counts for any job with a linked fit report.
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
       const stats = ids.length ? await getStats(ids) : {};
+      // Whether the row's description has moved on since it was analysed.
+      // Read from the report rather than stamped on the row when the analysis
+      // runs: the report holds the exact text it was built from, so the answer
+      // cannot drift out of step with reality however the row was edited.
+      const analysed = {};
+      await Promise.all(
+        [...new Set(ids)].map(async (rid) => {
+          const r = await getReport(rid);
+          if (r) analysed[rid] = r.job_description || "";
+        })
+      );
       res.status(200).json({
-        jobs: jobs.map((j) => ({ ...j, stats: j.fitReportId ? stats[j.fitReportId] || null : null })),
+        jobs: jobs.map((j) => ({
+          ...j,
+          stats: j.fitReportId ? stats[j.fitReportId] || null : null,
+          jd: j.fitReportId && analysed[j.fitReportId] !== undefined
+            ? jdChange(j.jobDescription, analysed[j.fitReportId])
+            : null,
+        })),
         stages: JOB_STAGES,
         unlinked: (await findUnlinkedReportIds()).length,
         archivedCount: await countArchivedJobs(),

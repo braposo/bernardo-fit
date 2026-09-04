@@ -39,15 +39,24 @@ export default async function handler(req, res) {
     const owner = asked || owners.find((j) => (j.instructions || "").trim()) || owners[0] || null;
     const instructions = owner ? (owner.instructions || "").trim() : "";
 
+    // Analyse what the row holds now, not the copy frozen into the report when
+    // it was first written. The two drift apart whenever a description is
+    // improved after the fact, and re-running against the frozen copy produces
+    // a result that looks new and is built on the old text — the worst kind of
+    // wrong, because nothing about it appears stale. This is also what clears
+    // the flag on the row: the report ends up holding the description it was
+    // actually built from.
+    const jd = (owner && (owner.jobDescription || "").trim()) || existing.job_description;
+
     let report, internal;
     try {
-      ({ report, internal } = await runAnalysis(existing.job_description, { instructions, model: resolveModel(model) }));
+      ({ report, internal } = await runAnalysis(jd, { instructions, model: resolveModel(model) }));
     } catch (err) {
       res.status(err.status || 500).json({ error: err.message, detail: err.detail });
       return;
     }
 
-    report.job_description = existing.job_description;
+    report.job_description = jd;
     report.created_at = existing.created_at;
     report.regenerated_at = new Date().toISOString();
     report.model = resolveModel(model);

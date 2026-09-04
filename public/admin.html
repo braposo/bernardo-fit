@@ -177,6 +177,20 @@
   }
   .archnote { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--sub); letter-spacing: 0.04em; }
   .rationale { margin-top: 12px; font-size: 14px; line-height: 1.65; color: var(--ink); max-width: 62ch; }
+  /* The analysis was built on a different job description than the row now
+     holds. Warn-coloured rather than red: nothing is broken, the score is
+     just answering an older question. */
+  .stalejd {
+    margin-top: 12px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; color: var(--warn);
+  }
+  .stalejd b { font-weight: 600; }
+  .stalejd .stalewhy { color: var(--sub); }
+  .row-item.isstale { box-shadow: inset 2px 0 0 var(--warn); }
+  .staledot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--warn); vertical-align: middle; margin-left: 6px;
+  }
 
   .row-item { border-top: 1px solid var(--hair); padding: 22px 0; }
   .row-item:last-child { border-bottom: 1px solid var(--hair); }
@@ -526,6 +540,25 @@
     return '<div class="stats">' + bits.join("") + "</div>";
   }
 
+  // Says what changed and by how much, so the flag can be judged rather than
+  // just obeyed. A row whose description grew tenfold is a different case from
+  // one that lost its posting and kept a summary, and both show up here.
+  function staleHtml(j) {
+    if (!j.jd || !j.jd.stale) return "";
+    var grew = j.jd.now > j.jd.was;
+    return '<div class="stalejd">' +
+      "<span><b>Analysis is out of date</b></span>" +
+      '<span class="stalewhy">scored on ' + fmtChars(j.jd.was) + ", description is now " +
+        fmtChars(j.jd.now) + " (" + (grew ? "+" : "") +
+        Math.round(((j.jd.now - j.jd.was) / Math.max(1, j.jd.was)) * 100) + "%)</span>" +
+      '<button class="ghost" data-act="regen">Regenerate now</button>' +
+    "</div>";
+  }
+
+  function fmtChars(n) {
+    return Number(n || 0).toLocaleString() + " characters";
+  }
+
   function tierClass(t) {
     return "tier-" + String(t || "").toLowerCase().replace(/[^a-z]/g, "");
   }
@@ -555,7 +588,7 @@
     }
 
     return (
-      '<div class="row-item" data-id="' + esc(j.id) + '">' +
+      '<div class="row-item' + (j.jd && j.jd.stale ? " isstale" : "") + '" data-id="' + esc(j.id) + '">' +
         '<div class="row-head">' +
           "<div>" +
             '<div class="row-title" data-act="titleview">' + esc(j.role || "Untitled role") +
@@ -585,8 +618,11 @@
           : '') +
         owed +
         (j.rationale ? '<div class="rationale">' + esc(j.rationale) + "</div>" : "") +
+        staleHtml(j) +
         '<details class="jdbox"' + (j.jobDescription ? "" : "") + ">" +
-          "<summary>" + (j.jobDescription ? "Job description" : "Add a job description to enable analysis") + "</summary>" +
+          "<summary>" + (j.jobDescription ? "Job description" : "Add a job description to enable analysis") +
+            (j.jd && j.jd.stale ? '<span class="staledot" title="Changed since the analysis was generated"></span>' : "") +
+          "</summary>" +
           '<textarea class="jd" data-act="jd" placeholder="Paste the job description here…">' + esc(j.jobDescription || "") + "</textarea>" +
         "</details>" +
         statsHtml(j) +

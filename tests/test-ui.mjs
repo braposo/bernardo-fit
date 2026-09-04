@@ -39,7 +39,7 @@ function grab(name) {
   return null;
 }
 
-const NEEDED = ["esc", "fmtDate", "fmtDateTime", "tierClass", "statsHtml", "versionsHtml", "versionRow", "questionsHtml", "countWords", "jobHtml"];
+const NEEDED = ["esc", "fmtDate", "fmtDateTime", "tierClass", "statsHtml", "versionsHtml", "versionRow", "questionsHtml", "countWords", "jobHtml", "staleHtml", "fmtChars"];
 const missing = NEEDED.filter((n) => !grab(n));
 
 console.log("\n--- the render functions are all still there ---");
@@ -52,7 +52,7 @@ const sandbox = [
   'function modelLabel(id){ for (var i=0;i<MODELS.length;i++) if (MODELS[i].id===id) return MODELS[i].label; return ""; }',
   'var location = { origin: "https://fit.bernardoraposo.com" };',
   NEEDED.map(grab).join("\n"),
-  "return { jobHtml: jobHtml, questionsHtml: questionsHtml, countWords: countWords };",
+  "return { jobHtml: jobHtml, questionsHtml: questionsHtml, countWords: countWords, fmtChars: fmtChars };",
 ].join("\n");
 
 let R;
@@ -107,6 +107,30 @@ check("empty is zero", R.countWords("") === 0 && R.countWords(null) === 0);
 const long = new Array(130).fill("word").join(" ");
 check("flags an answer over its limit", /qa-count over/.test(row({ questions: [{ id: "q1", q: "Q", limit: 120, a: long }] })));
 check("does not flag one under it", !/qa-count over/.test(row({ questions: [{ id: "q1", q: "Q", limit: 120, a: "short answer" }] })));
+
+console.log("\n--- a row says so when its analysis is out of date ---");
+// The score answers a question about a description the row no longer holds.
+// Nothing looks wrong on such a row, which is the reason it needs saying.
+const fresh = row({ fitReportId: "rep1", jd: { stale: false, was: 5000, now: 5000 } });
+const stale = row({ fitReportId: "rep1", jd: { stale: true, was: 1362, now: 6180 } });
+const shrunk = row({ fitReportId: "rep1", jd: { stale: true, was: 8894, now: 812 } });
+const unanalysed = row({ jd: null });
+
+check("a stale row is flagged", /Analysis is out of date/.test(stale));
+check("a fresh one is not", !/Analysis is out of date/.test(fresh));
+check("a row with no analysis is not", !/Analysis is out of date/.test(unanalysed));
+check("it offers a way to fix it there and then", /stalejd[\s\S]*?data-act="regen"/.test(stale));
+check("it says what it scored on", /1,362 characters/.test(stale), stale.match(/stalejd[\s\S]{0,200}/));
+check("and what the row holds now", /6,180 characters/.test(stale));
+check("growth reads as a plus", /\(\+354%\)/.test(stale), stale.match(/\([-+]\d+%\)/));
+// A description that shrank is just as wrong, and reads differently.
+check("shrinkage reads as a minus", /\(-91%\)/.test(shrunk), shrunk.match(/\([-+]\d+%\)/));
+check("the row itself is marked", /class="row-item isstale"/.test(stale));
+check("a fresh row is not marked", !/isstale/.test(fresh));
+check("the collapsed description carries a dot", /staledot/.test(stale));
+check("a fresh one carries none", !/staledot/.test(fresh));
+check("thousands are grouped", R.fmtChars(15600) === "15,600 characters", R.fmtChars(15600));
+check("nothing is still counted", R.fmtChars(0) === "0 characters" && R.fmtChars(null) === "0 characters");
 
 console.log("\n--- an archived row swaps its actions rather than losing them ---");
 const arch = acts(row({ archived: true, fitReportId: "rep1" }));
