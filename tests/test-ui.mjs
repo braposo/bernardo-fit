@@ -119,15 +119,21 @@ const unanalysed = row({ jd: null });
 check("a stale row is flagged", /Analysis is out of date/.test(stale));
 check("a fresh one is not", !/Analysis is out of date/.test(fresh));
 check("a row with no analysis is not", !/Analysis is out of date/.test(unanalysed));
-check("it offers a way to fix it there and then", /stalejd[\s\S]*?data-act="regen"/.test(stale));
 check("it says what it scored on", /1,362 characters/.test(stale), stale.match(/stalejd[\s\S]{0,200}/));
-check("and what the row holds now", /6,180 characters/.test(stale));
+check("and what the row holds now", /now 6,180/.test(stale));
 check("growth reads as a plus", /\(\+354%\)/.test(stale), stale.match(/\([-+]\d+%\)/));
 // A description that shrank is just as wrong, and reads differently.
 check("shrinkage reads as a minus", /\(-91%\)/.test(shrunk), shrunk.match(/\([-+]\d+%\)/));
-check("the row itself is marked", /class="row-item isstale"/.test(stale));
-check("a fresh row is not marked", !/isstale/.test(fresh));
-check("the collapsed description carries a dot", /staledot/.test(stale));
+check("it says what to do about it", /Regenerate to rescore/.test(stale));
+
+// It is a warning, not a widget. On a narrow screen a flex row with its own
+// button broke into three ragged pieces, and the row already has Regenerate.
+const banner = stale.match(/<div class="stalejd">([\s\S]*?)<\/div>/)[1];
+check("the warning is one run of text", !/<(button|span|div)/.test(banner), banner);
+check("with nothing but emphasis in it", banner.replace(/<\/?b>/g, "").indexOf("<") === -1, banner);
+check("it does not add a second regenerate button", (stale.match(/data-act="regen"/g) || []).length === 1);
+check("no rule down the side of the row", !/isstale/.test(stale) && !style.includes("isstale"));
+check("the collapsed description still carries a dot", /staledot/.test(stale));
 check("a fresh one carries none", !/staledot/.test(fresh));
 check("thousands are grouped", R.fmtChars(15600) === "15,600 characters", R.fmtChars(15600));
 check("nothing is still counted", R.fmtChars(0) === "0 characters" && R.fmtChars(null) === "0 characters");
