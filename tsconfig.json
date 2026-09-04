@@ -1,0 +1,15 @@
+{
+  "//": "This project is plain ESM JavaScript everywhere except the Trigger.dev files, which are the only TypeScript in the repo. Nothing runs tsc: Trigger's own CLI bundles these with esbuild, and Vercel builds api/*.js untouched. This config exists so an editor can type-check and complete inside trigger.config.ts and the tasks.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": true
+  },
+  "include": ["trigger.config.ts", "src/**/*.ts"]
+}

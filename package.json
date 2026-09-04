@@ -5,9 +5,13 @@
   "type": "module",
   "private": true,
   "dependencies": {
+    "@trigger.dev/sdk": "4.5.16",
     "@vercel/kv": "^2.0.0"
   },
   "scripts": {
     "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "4.5.16"
   }
 }

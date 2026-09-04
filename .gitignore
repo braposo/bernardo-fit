@@ -11,3 +11,5 @@ npm-debug.log*
 
 # Local ledger for scripts/live-check.mjs
 scripts/.live-check-ledger.json
+
+.trigger
