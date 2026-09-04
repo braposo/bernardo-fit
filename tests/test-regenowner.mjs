@@ -11,7 +11,10 @@ const lib = "file:///" + root + "lib/";
 
 let sentPrompts = [];
 globalThis.fetch = async (_url, opts) => {
-  sentPrompts.push(JSON.parse(opts.body).system);
+  // system is now an array of blocks (the stable, cacheable one first, then
+  // the volatile one), not a single string — flatten it back to text so every
+  // existing .includes() assertion below still reads the whole prompt.
+  sentPrompts.push(JSON.parse(opts.body).system.map((b) => b.text).join("\n\n"));
   return {
     ok: true,
     json: async () => ({

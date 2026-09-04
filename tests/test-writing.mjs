@@ -29,13 +29,16 @@ check("prose rules cover contractions", /contractions/i.test(PROSE_RULES));
 check("prose rules cover number restraint", /sparing with numbers/i.test(PROSE_RULES));
 check("prose rules cover sentence length", /sentences short/i.test(PROSE_RULES));
 
-const fit = buildSystemPrompt();
+// Both builders now return { stable, volatile } rather than one string;
+// flatten so every check below still reads the whole prompt.
+const flat = (p) => p.stable + "\n\n" + (p.volatile || "");
+const fit = flat(buildSystemPrompt());
 const report = {
   job_title: "Head of Engineering", company: "Sanity",
   job_description: "We run squads. Next.js and TypeScript. Colin is the hiring manager.",
   pitch: "p", categories: [{ name: "Technical fit", note: "n" }], differentiators: [], closing: "c",
 };
-const cover = buildCoverPrompt({ report, fitUrl: "https://fit.bernardoraposo.com/?r=abc" });
+const cover = flat(buildCoverPrompt({ report, fitUrl: "https://fit.bernardoraposo.com/?r=abc" }));
 
 console.log("\n--- both prompts inherit the same rules ---");
 PATTERNS.forEach((p) => check("fit prompt has: " + p, fit.includes(p)));

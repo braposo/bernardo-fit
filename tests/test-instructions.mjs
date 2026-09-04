@@ -14,7 +14,10 @@ let sentPrompts = [];
 let calls = 0;
 globalThis.fetch = async (_url, opts) => {
   calls++;
-  sentPrompts.push(JSON.parse(opts.body).system);
+  // system is now an array of blocks (stable, then volatile — instructions
+  // live in the volatile one) rather than a single string. Flatten it so the
+  // .includes() assertions below still read the whole prompt.
+  sentPrompts.push(JSON.parse(opts.body).system.map((b) => b.text).join("\n\n"));
   return {
     ok: true,
     json: async () => ({
@@ -52,12 +55,23 @@ const STEER = "Lead on the Solana and payments work. They raised crypto rails on
 const JD = "A long enough job description about a platform engineering leadership role in London.";
 
 console.log("\n--- prompts carry instructions only when set ---");
-check("fit omits the block when empty", !buildSystemPrompt().includes("My instructions for this specific role"));
-check("fit includes it when set", buildSystemPrompt({ instructions: STEER }).includes(STEER));
-check("whitespace counts as empty", !buildSystemPrompt({ instructions: "  \n " }).includes("My instructions"));
-check("cover includes it when set", buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x", instructions: STEER }).includes(STEER));
-check("limits are stated", buildSystemPrompt({ instructions: STEER }).includes("cannot override the structural rules"));
-check("framed as trusted instruction", buildSystemPrompt({ instructions: STEER }).includes("treat them as instructions and follow them"));
+const fitBare = buildSystemPrompt();
+const fitSteered = buildSystemPrompt({ instructions: STEER });
+const coverSteered = buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x", instructions: STEER });
+check("fit omits the block when empty", !fitBare.volatile.includes("My instructions for this specific role"));
+check("fit includes it when set", fitSteered.volatile.includes(STEER));
+check("whitespace counts as empty", !buildSystemPrompt({ instructions: "  \n " }).volatile.includes("My instructions"));
+check("cover includes it when set", coverSteered.volatile.includes(STEER));
+check("limits are stated", fitSteered.volatile.includes("cannot override the structural rules"));
+check("framed as trusted instruction", fitSteered.volatile.includes("treat them as instructions and follow them"));
+
+console.log("\n--- and instructions never land in the cacheable half ---");
+// The whole point of splitting the prompt: the stable block has to be
+// byte-identical no matter what I write in a role's instructions, or every
+// row with its own steering notes would cost its own cache entry.
+check("fit's stable half does not vary with instructions", fitBare.stable === fitSteered.stable);
+check("nor does it ever contain them", !fitSteered.stable.includes(STEER));
+check("same for the cover letter", !coverSteered.stable.includes(STEER));
 
 console.log("\n--- analysis picks them up ---");
 const plain = await store.saveJob({ company: "Plain", role: "R", jobDescription: JD });

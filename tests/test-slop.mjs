@@ -17,10 +17,13 @@ const check = (n, c, e) => {
   else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e).slice(0, 200) : "")); }
 };
 
+// Each builder now returns { stable, volatile } rather than one string.
+// Flattened here once, since every check below reads the whole prompt.
+const flat = (p) => p.stable + "\n\n" + (p.volatile || "");
 const prompts = {
-  analysis: buildSystemPrompt(),
-  cover: buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" }),
-  answer: buildAnswerPrompt({ question: "Why us?", limit: 100 }),
+  analysis: flat(buildSystemPrompt()),
+  cover: flat(buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" })),
+  answer: flat(buildAnswerPrompt({ question: "Why us?", limit: 100 })),
 };
 
 console.log("\n--- the full rule set matches the skill ---");

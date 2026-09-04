@@ -28,8 +28,12 @@ check("keeps retrieval over generation", P.includes("retrieval over generation")
 check("keeps guardrails not gatekeepers", P.includes("Guardrails rather than gatekeepers"));
 check("still zero em-dashes", !P.includes("\u2014"));
 
+// Both builders now return { stable, volatile } rather than one string;
+// flatten so every check below still reads the whole prompt.
+const flat = (p) => p.stable + "\n\n" + (p.volatile || "");
+
 console.log("\n--- the analysis weaves it in, no dedicated slot ---");
-const sys = buildSystemPrompt();
+const sys = flat(buildSystemPrompt());
 check("no ai_view field in the output shape", !sys.includes("ai_view"));
 check("output shape is unchanged otherwise", sys.includes('"differentiators"') && sys.includes('"closing"'));
 check("has the forward-looking section", sys.includes("## Bring a forward-looking view on AI"));
@@ -42,7 +46,7 @@ check("bans knowing their strategy", sys.includes("Never claim to know their AI 
 check("buys no extra words", sys.includes("None of this buys extra words"));
 
 console.log("\n--- the letter lands on it as vision ---");
-const cov = buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" });
+const cov = flat(buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" }));
 check("has the AI section", cov.includes("## Land the letter on AI"));
 check("framed as forward-looking", cov.includes("forward-looking thought about AI in their business"));
 check("voice is a manager rethinking team shape", cov.includes("keeps rethinking how engineering teams should work alongside AI"));
@@ -64,7 +68,7 @@ check("no 'Where AI fits' label", !html.includes("Where AI fits"));
 check("existing sections intact", html.includes("Where I land") && html.includes("What sets me apart"));
 
 console.log("\n--- per-role instructions still layer on top ---");
-const steered = buildSystemPrompt({ instructions: "Lean on the agent architecture work." });
+const steered = flat(buildSystemPrompt({ instructions: "Lean on the agent architecture work." }));
 check("both present", steered.includes("## Bring a forward-looking view on AI") && steered.includes("Lean on the agent architecture work."));
 
 console.log("\n=========================");

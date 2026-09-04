@@ -55,9 +55,12 @@ check("anti-slop skill", entry.includes("anti-slop writing rules"));
 check("why skills are the unit", entry.includes("Skills turned out to be the useful unit"));
 
 console.log("\n--- it reaches everything that writes ---");
-check("the analysis sees it", buildSystemPrompt().includes("**Fit** (fit.bernardoraposo.com)"));
-check("the letter sees it", buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" }).includes("fit.bernardoraposo.com"));
-check("form answers see it", buildAnswerPrompt({ question: "What have you shipped?", limit: 100 }).includes("fit.bernardoraposo.com"));
+// Each builder now returns { stable, volatile } rather than one string, so
+// flatten before searching — none of these checks care which half it's in.
+const flat = (p) => p.stable + "\n\n" + (p.volatile || "");
+check("the analysis sees it", flat(buildSystemPrompt()).includes("**Fit** (fit.bernardoraposo.com)"));
+check("the letter sees it", flat(buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" })).includes("fit.bernardoraposo.com"));
+check("form answers see it", flat(buildAnswerPrompt({ question: "What have you shipped?", limit: 100 })).includes("fit.bernardoraposo.com"));
 
 console.log("\n--- the AI section no longer rests only on SingleStore ---");
 check("cites the project", P.includes("Fit is the working proof of it"));

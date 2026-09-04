@@ -14,8 +14,11 @@ const { buildCoverPrompt } = await import(lib + "cover.js");
 let pass = 0, fail = 0;
 const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e).slice(0, 160) : "")); } };
 
-const sys = buildSystemPrompt();
-const cov = buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" });
+// Both builders now return { stable, volatile } rather than one string;
+// flatten so every check below still reads the whole prompt.
+const flat = (p) => p.stable + "\n\n" + (p.volatile || "");
+const sys = flat(buildSystemPrompt());
+const cov = flat(buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" }));
 
 console.log("\n--- the profile no longer caps me with counts ---");
 const capping = [

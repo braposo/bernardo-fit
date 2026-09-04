@@ -12,7 +12,10 @@ import fs from "node:fs";
 let prompts = [];
 let reply = "A perfectly ordinary answer of a few words.";
 globalThis.fetch = async (_u, opts) => {
-  prompts.push(JSON.parse(opts.body).system);
+  // system is now an array of blocks (stable, then volatile) rather than one
+  // string. Flatten it so the .includes() assertions below still read the
+  // whole prompt regardless of which block a given line lives in.
+  prompts.push(JSON.parse(opts.body).system.map((b) => b.text).join("\n\n"));
   return { ok: true, json: async () => ({ content: [{ type: "text", text: reply }], stop_reason: "end_turn" }) };
 };
 
@@ -46,8 +49,14 @@ check("stored limit is clamped", clamped.questions[0].limit === 500);
 check("every question gets an id", !!clamped.questions[0].id);
 
 console.log("\n--- the prompt ---");
-const p = ans.buildAnswerPrompt({ question: "Why us?", limit: 90, jobDescription: "A platform role" });
-check("budget is hoisted to the top", p.indexOf("90 words MAXIMUM") < p.indexOf("## Writing rules"));
+const built = ans.buildAnswerPrompt({ question: "Why us?", limit: 90, jobDescription: "A platform role" });
+const p = built.stable + "\n\n" + built.volatile;
+// The stable half has to be identical across two different questions with two
+// different limits, so the concrete number cannot live there. It sits with
+// the question it belongs to instead, at the end where the model reads it
+// right before writing — later than the writing rules, not before them.
+check("budget sits with the question, not hoisted to the top", built.stable.indexOf("90 words MAXIMUM") === -1);
+check("and appears in the volatile block, just before the question text", built.volatile.indexOf("90 words MAXIMUM") < built.volatile.indexOf('"Why us?"'));
 check("shares the anti-slop rules", p.includes("Never count my own experience"));
 check("splits factual from prose", p.includes("Two kinds of question, two kinds of answer"));
 check("guards invented facts", p.includes("Never invent a fact"));

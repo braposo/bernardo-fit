@@ -14,7 +14,11 @@ const check = (n, c, e) => {
   else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e).slice(0, 200) : "")); }
 };
 
-const p = buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" });
+// buildCoverPrompt now returns { stable, volatile }; every section this file
+// checks lives in the stable half (the how-to-write rules), but flattening
+// both keeps this test honest about which half without having to know.
+const built = buildCoverPrompt({ report: { job_description: "x" }, fitUrl: "https://x" });
+const p = built.stable + "\n\n" + built.volatile;
 
 console.log("\n--- the shape leads with them ---");
 check("lead opens on their goal", p.includes("Lead: what they are setting out to do"));
