@@ -9,9 +9,14 @@
     "@vercel/kv": "^2.0.0"
   },
   "scripts": {
-    "test": "node tests/run.mjs"
+    "test": "node tests/run.mjs",
+    "trigger:dev": "trigger dev --skip-update-check",
+    "trigger:check": "trigger deploy --dry-run --skip-update-check",
+    "trigger:deploy": "trigger deploy --skip-update-check",
+    "trigger:health": "trigger report health --env prod --period 24h"
   },
   "devDependencies": {
-    "@trigger.dev/build": "4.5.16"
+    "@trigger.dev/build": "4.5.16",
+    "trigger.dev": "4.5.16"
   }
 }

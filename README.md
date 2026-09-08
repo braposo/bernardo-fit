@@ -40,6 +40,21 @@ Flow: paste JD → `/api/analyze` runs it as *you*, in first person → result i
 
 Without a KV store the app still runs, but saved links won't persist across requests (in-memory is dev-only).
 
+## Trigger.dev
+
+Trigger.dev tasks live in `src/trigger` and are configured by `trigger.config.ts`. The SDK, build package and CLI are pinned to the same version so local and cloud builds cannot drift.
+
+```bash
+npm run trigger:dev       # register tasks in the development environment and watch for changes
+npm run trigger:check     # build the complete task bundle without deploying it
+npm run trigger:health    # read the production health report
+npm run trigger:deploy    # deploy and promote a production task version
+```
+
+The CLI login is stored outside the repository. Run `npm exec -- trigger.dev login` if a machine is not authenticated.
+
+Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development key in `.env.local`; the Trigger.dev Vercel integration injects the correct key into Vercel for deployed environments. Any secret read by task code must also exist in the matching Trigger.dev environment. Vercel variables marked Secret are not copied into Trigger.dev automatically, so add those in Trigger.dev explicitly when a task begins using them.
+
 ## Deploy to Netlify
 
 Works the same way — move `api/*` to `netlify/functions/*`, and swap `api/_store.js` for [Netlify Blobs](https://docs.netlify.com/blobs/overview/) (implement `saveReport`/`getReport`). The frontend needs no changes beyond the function paths.
