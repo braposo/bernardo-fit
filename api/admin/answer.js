@@ -1,7 +1,7 @@
 import { requireAdmin } from "../../lib/admin.js";
 import { resolveModel } from "../../lib/models.js";
 import { runAnswer } from "../../lib/answer.js";
-import { getJob, updateJob, getReport } from "../../lib/store.js";
+import { getJob, mutateJob, getReport } from "../../lib/store.js";
 
 // POST /api/admin/answer  { id, questionId }
 //
@@ -60,12 +60,23 @@ export default async function handler(req, res) {
       ref: id,
     });
 
-    const next = questions.map((q) =>
-      q.id === questionId
+    await mutateJob(id, (current) => {
+      const latest = (current.questions || []).find((q) => q.id === questionId);
+      if (!latest) {
+        const err = new Error("The question was removed while the answer was being drafted.");
+        err.status = 409;
+        throw err;
+      }
+      // Do not attach an answer to wording that changed while generation ran.
+      if (latest.q !== target.q || latest.limit !== target.limit) {
+        const err = new Error("The question changed while the answer was being drafted. Try again.");
+        err.status = 409;
+        throw err;
+      }
+      return { questions: current.questions.map((q) => q.id === questionId
         ? { ...q, a: out.answer, refused: out.refused, reason: out.reason, answeredAt: out.answeredAt }
-        : q
-    );
-    await updateJob(id, { questions: next });
+        : q) };
+    });
 
     res.status(200).json({
       ok: true,

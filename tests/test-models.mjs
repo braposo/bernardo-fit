@@ -35,10 +35,11 @@ const M = await import(lib + "models.js");
 const store = await import(lib + "store.js");
 const { runAnalysis } = await import(lib + "analyze.js");
 const { runCoverLetter } = await import(lib + "cover.js");
+const { executeCoverWork } = await import(lib + "cover-work.js");
+const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
 const { runAnswer } = await import(lib + "answer.js");
 const analyse = (await import(base + "admin/analyse.js")).default;
 const regen = (await import(base + "admin/regenerate.js")).default;
-const cover = (await import(base + "admin/cover.js")).default;
 const answer = (await import(base + "admin/answer.js")).default;
 
 let pass = 0, fail = 0;
@@ -129,17 +130,15 @@ check("regenerate: used opus", sent[0] === OPUS, sent);
 check("regenerate: stamped", (await store.getReport((await store.getJob(job.id)).fitReportId)).model === OPUS);
 
 reset();
-res = mockRes();
-await cover({ method: "POST", headers: auth, body: { id: job.id, model: OPUS } }, res);
-check("cover: 200", res.statusCode === 200, res.body);
+const coverJob = await store.getJob(job.id);
+const coverReport = await store.getReport(coverJob.fitReportId);
+const coverPrint = coverFingerprint(coverJob, coverReport, OPUS);
+await store.updateJob(job.id, { coverRun: { requestId: "modelreq1", fingerprint: coverPrint, status: "queued" } });
+const coverOut = await executeCoverWork({ jobId: job.id, requestId: "modelreq1", fingerprint: coverPrint, model: OPUS, origin: "https://fit.bernardoraposo.com" });
+check("cover: completed", coverOut.outcome === "completed", coverOut);
 check("cover: used opus", sent[0] === OPUS, sent);
 check("cover: recorded on the row", (await store.getJob(job.id)).coverLetterModel === OPUS);
-check("cover: reported back", res.body.model === OPUS);
-
-reset();
-res = mockRes();
-await cover({ method: "POST", headers: auth, body: { id: job.id, tokenOnly: true } }, res);
-check("tokenOnly writes nothing", sent.length === 0, sent);
+check("cover: reported back", coverOut.words > 0);
 check("and leaves the recorded model alone", (await store.getJob(job.id)).coverLetterModel === OPUS);
 
 await store.updateJob(job.id, { questions: [{ id: "q1", q: "Why us?", limit: 100 }] });
@@ -166,7 +165,7 @@ check("guards a bad stored value", html.includes('if (!MODELS.some('));
 check("sent with analysis and letter", (html.match(/id: id, model: model/g) || []).length === 2);
 check("sent with regenerate", html.includes("jobId: id, model: model"));
 check("sent with answers", html.includes("questionId: qid, model: model"));
-check("tokenOnly carries none", /tokenOnly: true \}/.test(html));
+check("letter token minting carries no model", html.includes('action: "letter-token", id: id'));
 check("shows which model wrote the letter", html.includes('meta.push("letter: " + modelLabel('));
 
 console.log("\n=========================");

@@ -1,5 +1,5 @@
 import { requireAdmin } from "../../lib/admin.js";
-import { saveJob, findExistingJob, updateJob, postingId } from "../../lib/store.js";
+import { saveJob, findExistingJob, mutateJob, postingId } from "../../lib/store.js";
 
 // POST /api/admin/ingest  { opportunities: [ { ... } ] }
 //
@@ -69,27 +69,29 @@ export default async function handler(req, res) {
             matchedOn: pid && postingId(existing.sourceUrl) === pid ? "posting id" : "company and role",
           });
         }
-        await updateJob(existing.id, {
+        await mutateJob(existing.id, (current) => ({
           ...opp,
-          stage: existing.stage,
-          notes: existing.notes || opp.notes || "",
-          fitReportId: existing.fitReportId,
-          archived: existing.archived,
-          archivedAt: existing.archivedAt,
-          createdAt: existing.createdAt,
-          score: existing.score,
-          tier: existing.tier,
-          scoreBreakdown: existing.scoreBreakdown,
-          rationale: existing.rationale,
+          // These fields belong to the user or another workflow. Read them
+          // inside the atomic mutation so an inbox refresh cannot roll them back.
+          stage: current.stage,
+          notes: current.notes || opp.notes || "",
+          fitReportId: current.fitReportId,
+          archived: current.archived,
+          archivedAt: current.archivedAt,
+          createdAt: current.createdAt,
+          score: current.score,
+          tier: current.tier,
+          scoreBreakdown: current.scoreBreakdown,
+          rationale: current.rationale,
           // Keep whichever description says more. An empty one must not wipe
           // what is held, and a re-scan that only managed a summary must not
           // replace the full posting text a previous run fetched, or anything
           // pasted in by hand.
           jobDescription:
-            (opp.jobDescription || "").length > (existing.jobDescription || "").length
+            (opp.jobDescription || "").length > (current.jobDescription || "").length
               ? opp.jobDescription
-              : existing.jobDescription,
-        });
+              : current.jobDescription,
+        }));
         updated++;
       } else {
         const row = await saveJob({ ...opp, stage: "new" });

@@ -1,4 +1,5 @@
-import { runAnalysis } from "../lib/analyze.js";
+import { runAnalysis, analysisContext } from "../lib/analyze.js";
+import { publicReport } from "../lib/report.js";
 import { PUBLIC_MODEL } from "../lib/models.js";
 import {
   saveReport,
@@ -68,17 +69,17 @@ export default async function handler(req, res) {
 
   try {
     const { jobDescription } = req.body || {};
-    if (!jobDescription || jobDescription.trim().length < 20) {
+    if (typeof jobDescription !== "string" || jobDescription.trim().length < 20) {
       res.status(400).json({ error: "Please paste a fuller job description." });
       return;
     }
     const jd = jobDescription.trim();
 
     // 1) Dedup — same JD returns the same permalink, free.
-    const existing = await findReportByHash(jd);
+    const existing = await findReportByHash(jd, { model: PUBLIC_MODEL, generation: analysisContext() });
     if (existing) {
       await linkToPipeline(existing.id, existing.report, jd, null);
-      res.status(200).json({ id: existing.id, report: existing.report, cached: true });
+      res.status(200).json({ id: existing.id, report: publicReport(existing.report), cached: true });
       return;
     }
 
@@ -114,7 +115,7 @@ export default async function handler(req, res) {
 
     const id = await saveReport(report, internal);
     await linkToPipeline(id, report, jd, internal);
-    res.status(200).json({ id, report, cached: false });
+    res.status(200).json({ id, report: publicReport(report), cached: false });
   } catch (err) {
     res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
   }

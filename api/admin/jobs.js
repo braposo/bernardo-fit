@@ -1,4 +1,4 @@
-import { requireAdmin } from "../../lib/admin.js";
+import { requireAdmin, makeViewToken } from "../../lib/admin.js";
 import {
   listJobs,
   getJob,
@@ -7,12 +7,15 @@ import {
   deleteJob,
   findExistingJob,
   findUnlinkedReportIds,
-  countArchivedJobs,
   getReport,
   getStats,
-  jdChange,
   JOB_STAGES,
+  getReportSources,
+  hashJD,
+  editQuestion,
 } from "../../lib/store.js";
+import { jobSummary, jobDetail, matchesSearch } from "../../lib/job-view.js";
+import { MODELS } from "../../lib/models.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
@@ -23,36 +26,47 @@ const ARCHIVE_ON_STAGE = ["expired", "not_a_fit", "rejected"];
 
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
+  res.setHeader("Cache-Control", "private, no-store");
 
   try {
     if (req.method === "GET") {
+      if (req.query?.id) {
+        const job = await getJob(req.query.id);
+        if (!job) return res.status(404).json({ error: "Job not found" });
+        const sources = await getReportSources([job.fitReportId]);
+        const source = sources[job.fitReportId];
+        return res.status(200).json({ job: { ...jobDetail(job),
+          jd: source ? { was: source.length, now: job.jobDescription.length, stale: hashJD(job.jobDescription) !== source.hash } : null,
+        } });
+      }
       const onlyArchived = req.query && req.query.archived === "1";
-      const jobs = await listJobs({ onlyArchived });
+      const all = await listJobs({ includeArchived: true });
+      const jobs = all.filter(j => !!j.archived === !!onlyArchived);
+      if (req.query?.q !== undefined) {
+        return res.status(200).json({ matchingIds: jobs.filter(j => matchesSearch(j, String(req.query.q).slice(0, 500))).map(j => j.id) });
+      }
       // Attach view/interaction counts for any job with a linked fit report.
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
-      const stats = ids.length ? await getStats(ids) : {};
+      const [stats, analysed, unlinked] = await Promise.all([
+        getStats(ids), getReportSources(ids), findUnlinkedReportIds(all),
+      ]);
       // Whether the row's description has moved on since it was analysed.
       // Read from the report rather than stamped on the row when the analysis
       // runs: the report holds the exact text it was built from, so the answer
       // cannot drift out of step with reality however the row was edited.
-      const analysed = {};
-      await Promise.all(
-        [...new Set(ids)].map(async (rid) => {
-          const r = await getReport(rid);
-          if (r) analysed[rid] = r.job_description || "";
-        })
-      );
       res.status(200).json({
         jobs: jobs.map((j) => ({
-          ...j,
+          ...jobSummary(j),
           stats: j.fitReportId ? stats[j.fitReportId] || null : null,
           jd: j.fitReportId && analysed[j.fitReportId] !== undefined
-            ? jdChange(j.jobDescription, analysed[j.fitReportId])
+            ? { was: analysed[j.fitReportId].length, now: j.jobDescription.length, stale: hashJD(j.jobDescription) !== analysed[j.fitReportId].hash }
             : null,
         })),
         stages: JOB_STAGES,
-        unlinked: (await findUnlinkedReportIds()).length,
-        archivedCount: await countArchivedJobs(),
+        unlinked: unlinked.length,
+        archivedCount: all.filter(j => j.archived).length,
+        models: MODELS.map(({ id, label }) => ({ id, label })),
+        archiveOnStage: ARCHIVE_ON_STAGE,
         viewingArchived: onlyArchived,
       });
       return;
@@ -60,6 +74,12 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const body = req.body || {};
+
+      if (body.action === "letter-token") {
+        const job = body.id ? await getJob(body.id) : null;
+        if (!job || !job.coverLetter) return res.status(404).json({ error: "No cover letter for this role yet." });
+        return res.status(200).json({ token: makeViewToken(job.id) });
+      }
 
       // Pull analyses that predate the auto-linking into the pipeline.
       if (body.action === "adopt") {
@@ -89,7 +109,7 @@ export default async function handler(req, res) {
         return;
       }
       const job = await saveJob(body);
-      res.status(200).json({ job });
+      res.status(200).json({ job: jobDetail(job) });
       return;
     }
 
@@ -99,7 +119,14 @@ export default async function handler(req, res) {
         res.status(400).json({ error: "Missing id" });
         return;
       }
-      const patch = req.body || {};
+      const body = req.body || {};
+      const EDITABLE = ["company", "role", "notes", "instructions", "jobDescription", "stage", "archived",
+        "fitReportId", "location", "locationMode", "salary", "replyOwed", "userViewed", "closed", "sourceUrl"];
+      const patch = Object.fromEntries(EDITABLE.filter(k => body[k] !== undefined).map(k => [k, body[k]]));
+      if (body.questions !== undefined) {
+        if (!Number.isInteger(body.revision)) return res.status(409).json({ error: "Edit one question at a time, or reload before replacing the question list." });
+        patch.questions = body.questions;
+      }
       if (patch.stage && !JOB_STAGES.includes(patch.stage)) {
         res.status(400).json({ error: "Unknown stage" });
         return;
@@ -114,12 +141,16 @@ export default async function handler(req, res) {
       // Archiving stamps the time; restoring clears it.
       if (patch.archived === true) patch.archivedAt = new Date().toISOString();
       if (patch.archived === false) patch.archivedAt = "";
-      const job = await updateJob(id, patch);
+      const job = body.question ? await editQuestion(id, body.question)
+        : await updateJob(id, patch, { expectedRevision: body.questions !== undefined ? body.revision : undefined });
       if (!job) {
         res.status(404).json({ error: "Job not found" });
         return;
       }
-      res.status(200).json({ job });
+      res.status(200).json({ job: { ...jobSummary(job),
+        ...Object.fromEntries(Object.keys(patch).map(k => [k, job[k]])),
+        ...(body.question ? { questions: job.questions } : {}),
+      } });
       return;
     }
 
@@ -141,13 +172,13 @@ export default async function handler(req, res) {
         res.status(409).json({ error: "Archive this row before deleting it." });
         return;
       }
-      await deleteJob(id);
+      await deleteJob(id, { requireArchived: true });
       res.status(200).json({ ok: true });
       return;
     }
 
     res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
-    res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
+    res.status(err.status || 500).json({ error: err.status ? err.message : "Unexpected error", detail: String(err).slice(0, 300) });
   }
 }

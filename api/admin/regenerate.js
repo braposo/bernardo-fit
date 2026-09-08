@@ -1,7 +1,7 @@
 import { requireAdmin } from "../../lib/admin.js";
 import { resolveModel } from "../../lib/models.js";
 import { runAnalysis } from "../../lib/analyze.js";
-import { getReport, overwriteReport, addReportVersion, listJobs, updateJob } from "../../lib/store.js";
+import { getReport, addReportVersion, listJobs, updateJob } from "../../lib/store.js";
 
 // POST /api/admin/regenerate  { id }
 // Re-runs the analysis for an existing report's stored job description and
@@ -61,9 +61,8 @@ export default async function handler(req, res) {
     report.regenerated_at = new Date().toISOString();
     report.model = resolveModel(model);
 
-    await overwriteReport(id, report);
-    // Keep the previous analysis rather than losing it, so a regeneration
-    // that comes out worse can be undone.
+    // Publishing and versioning are one atomic store operation. The previous
+    // analysis remains available, so a worse regeneration can be undone.
     await addReportVersion(id, report, internal);
 
     // Regenerating rescores, so push the new numbers onto whichever row owns

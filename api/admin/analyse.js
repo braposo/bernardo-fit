@@ -1,6 +1,6 @@
 import { requireAdmin } from "../../lib/admin.js";
 import { resolveModel, DEFAULT_MODEL } from "../../lib/models.js";
-import { runAnalysis } from "../../lib/analyze.js";
+import { runAnalysis, analysisContext } from "../../lib/analyze.js";
 import {
   listJobs,
   getJob,
@@ -28,7 +28,7 @@ async function analyseJob(job, model) {
   const wanted = resolveModel(model);
   // A cached report came from whichever model wrote it. Asking for a different
   // one has to mean a fresh run, or the comparison is meaningless.
-  const reusable = instructions ? null : await findReportByHash(jd);
+  const reusable = await findReportByHash(jd, { model: wanted, generation: analysisContext(instructions) });
   // findReportByHash returns { id, report }, so the model lives one level
   // down. Reports written before models were selectable carry no model field;
   // they came from the default, so treat them as such rather than re-running.

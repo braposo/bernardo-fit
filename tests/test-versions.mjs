@@ -30,7 +30,8 @@ globalThis.fetch = async (_u, opts) => {
 const store = await import(lib + "store.js");
 const analyse = (await import(base + "admin/analyse.js")).default;
 const regen = (await import(base + "admin/regenerate.js")).default;
-const cover = (await import(base + "admin/cover.js")).default;
+const { executeCoverWork } = await import(lib + "cover-work.js");
+const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
 const versions = (await import(base + "admin/versions.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
 
@@ -48,6 +49,13 @@ function mockRes() {
 }
 const auth = { "x-admin-secret": "test-secret-value", host: "fit.bernardoraposo.com" };
 const call = async (h, req) => { const r = mockRes(); await h(req, r); return r; };
+async function generateCover(jobId, model = "claude-opus-5", requestId) {
+  const current = await store.getJob(jobId);
+  const report = await store.getReport(current.fitReportId);
+  const fingerprint = coverFingerprint(current, report, model);
+  await store.updateJob(jobId, { coverRun: { requestId, fingerprint, status: "queued" } });
+  return executeCoverWork({ jobId, requestId, fingerprint, model, origin: "https://fit.bernardoraposo.com" });
+}
 
 console.log("\n--- a first analysis creates version one ---");
 const job = await store.saveJob({ company: "Acme", role: "R", jobDescription: "A long enough job description for a leadership role." });
@@ -89,9 +97,9 @@ check("and still no scoring", !("internal" in res.body.report));
 
 console.log("\n--- cover letters keep their drafts ---");
 variant = 3;
-await call(cover, { method: "POST", headers: auth, body: { id: job.id } });
+await generateCover(job.id, "claude-opus-5", "version03");
 variant = 4;
-await call(cover, { method: "POST", headers: auth, body: { id: job.id, model: "claude-sonnet-5" } });
+await generateCover(job.id, "claude-sonnet-5", "version04");
 res = await call(versions, { method: "GET", headers: auth, query: { id: job.id } });
 check("two letter versions", res.body.letter.length === 2, res.body.letter);
 check("newest is live", res.body.letter[0].active === true);
@@ -125,7 +133,7 @@ await call(analyse, { method: "POST", headers: auth, body: { id: many.id, model:
 const mrid = (await store.getJob(many.id)).fitReportId;
 for (let i = 0; i < 14; i++) await call(regen, { method: "POST", headers: auth, body: { id: mrid, jobId: many.id } });
 check("fit capped at 10", (await store.listReportVersions(mrid)).length === 10, (await store.listReportVersions(mrid)).length);
-for (let i = 0; i < 12; i++) await call(cover, { method: "POST", headers: auth, body: { id: many.id } });
+for (let i = 0; i < 12; i++) await generateCover(many.id, "claude-opus-5", "manycover" + i);
 check("letters capped at 10", (await store.getJob(many.id)).coverLetterVersions.length === 10);
 
 console.log("\n--- the page ---");

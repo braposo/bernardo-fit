@@ -18,15 +18,28 @@ const LETTER = {
     { html: '<script>alert(1)</script>Injected markup should not survive.' },
   ],
 };
-globalThis.fetch = async () => ({
-  ok: true,
-  json: async () => ({ content: [{ type: "text", text: JSON.stringify(LETTER) }], stop_reason: "end_turn" }),
-});
+let responseGate = null;
+let markFetchStarted = null;
+let modelCalls = 0;
+globalThis.fetch = async () => {
+  modelCalls++;
+  if (responseGate) {
+    if (markFetchStarted) markFetchStarted();
+    await responseGate;
+  }
+  return {
+    ok: true,
+    json: async () => ({ content: [{ type: "text", text: JSON.stringify(LETTER) }], stop_reason: "end_turn" }),
+  };
+};
 
 const store = await import(lib + "store.js");
 const { runCoverLetter, COVER_MAX_WORDS } = await import(lib + "cover.js");
+const { executeCoverWork } = await import(lib + "cover-work.js");
+const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
 const { makeViewToken, verifyViewToken } = await import(lib + "admin.js");
 const coverHandler = (await import(base + "admin/cover.js")).default;
+const jobsHandler = (await import(base + "admin/jobs.js")).default;
 const letterHandler = (await import(base + "letter.js")).default;
 
 let pass = 0, fail = 0;
@@ -40,6 +53,13 @@ function mockRes() {
 }
 const auth = { "x-admin-secret": "test-secret-value" };
 const hdrs = { ...auth, host: "fit.bernardoraposo.com" };
+async function generate(jobId, model = "claude-opus-5", requestId = "request01") {
+  const job = await store.getJob(jobId);
+  const report = await store.getReport(job.fitReportId);
+  const fingerprint = coverFingerprint(job, report, model);
+  await store.updateJob(jobId, { coverRun: { requestId, fingerprint, status: "queued" } });
+  return executeCoverWork({ jobId, requestId, fingerprint, model, origin: "https://fit.bernardoraposo.com" });
+}
 
 console.log("\n--- generation and sanitising ---");
 const out = await runCoverLetter({ report: { job_title: "X" }, fitUrl: "https://fit.bernardoraposo.com/?r=abc" });
@@ -67,40 +87,68 @@ let res = mockRes();
 await coverHandler({ method: "POST", headers: {}, body: { id: "x" } }, res);
 check("no secret -> 401", res.statusCode === 401);
 res = mockRes();
-await coverHandler({ method: "GET", headers: auth, body: {} }, res);
-check("GET -> 405", res.statusCode === 405);
+await coverHandler({ method: "PUT", headers: auth, body: {} }, res);
+check("PUT -> 405", res.statusCode === 405);
 res = mockRes();
 await coverHandler({ method: "POST", headers: auth, body: {} }, res);
 check("no id -> 400", res.statusCode === 400);
 res = mockRes();
-await coverHandler({ method: "POST", headers: auth, body: { id: "nope" } }, res);
+await coverHandler({ method: "POST", headers: auth, body: { id: "nope", requestId: "request01" } }, res);
 check("unknown job -> 404", res.statusCode === 404);
 
 const noFit = await store.saveJob({ company: "NoFit", role: "R" });
 res = mockRes();
-await coverHandler({ method: "POST", headers: hdrs, body: { id: noFit.id } }, res);
+await coverHandler({ method: "POST", headers: hdrs, body: { id: noFit.id, requestId: "request02" } }, res);
 check("refuses without an analysis", res.statusCode === 409, res.statusCode);
 check("says why", /fit analysis first/i.test(res.body.error), res.body.error);
 
 const rid = await store.saveReport({ job_title: "Head of Eng", company: "Sanity", job_description: "jd", created_at: new Date().toISOString() });
 const job = await store.saveJob({ company: "Sanity", role: "Head of Eng", fitReportId: rid });
-res = mockRes();
-await coverHandler({ method: "POST", headers: hdrs, body: { id: job.id } }, res);
-check("generates", res.statusCode === 200, res.body);
-check("returns a token", !!res.body.token);
-check("returns a word count", typeof res.body.words === "number");
+const generated = await generate(job.id);
+check("generates", generated.outcome === "completed", generated);
+check("returns a word count", typeof generated.words === "number");
 const saved = await store.getJob(job.id);
 check("saves onto the row", Array.isArray(saved.coverLetter) && saved.coverLetter.length > 0);
 check("stamps the time", !!saved.coverLetterAt);
+const callsAfterSave = modelCalls;
+const recoveredGeneration = await generate(job.id, "claude-opus-5", "request01");
+check("a task retry recovers the stored result", recoveredGeneration.outcome === "completed", recoveredGeneration);
+check("a task retry does not call the model again", modelCalls === callsAfterSave, modelCalls);
 
-console.log("\n--- tokenOnly reopen ---");
+console.log("\n--- a late draft cannot replace newer inputs ---");
+const beforeLate = await store.getJob(job.id);
+const lateReport = await store.getReport(beforeLate.fitReportId);
+const lateFingerprint = coverFingerprint(beforeLate, lateReport, "claude-opus-5");
+await store.updateJob(job.id, { coverRun: { requestId: "request03", fingerprint: lateFingerprint, status: "queued" } });
+let releaseResponse;
+responseGate = new Promise((resolve) => { releaseResponse = resolve; });
+const fetchStarted = new Promise((resolve) => { markFetchStarted = resolve; });
+const late = executeCoverWork({
+  jobId: job.id, requestId: "request03", fingerprint: lateFingerprint,
+  model: "claude-opus-5", origin: "https://fit.bernardoraposo.com",
+});
+await fetchStarted;
+await store.updateJob(job.id, {
+  instructions: "Use the new direction.",
+  coverRun: { requestId: "request04", fingerprint: "newer", status: "queued" },
+});
+releaseResponse();
+const lateResult = await late;
+responseGate = null;
+markFetchStarted = null;
+const afterLate = await store.getJob(job.id);
+check("late work is superseded", lateResult.outcome === "superseded", lateResult);
+check("the existing live letter remains", afterLate.coverLetterAt === saved.coverLetterAt, afterLate.coverLetterAt);
+check("the late draft is retained but inactive", afterLate.coverLetterVersions.some((v) => v.vid === "request03" && !v.active));
+
+console.log("\n--- token minting moved to the jobs endpoint ---");
 res = mockRes();
-await coverHandler({ method: "POST", headers: hdrs, body: { id: job.id, tokenOnly: true } }, res);
+await jobsHandler({ method: "POST", headers: hdrs, body: { action: "letter-token", id: job.id } }, res);
 check("mints a token without rewriting", res.statusCode === 200 && !!res.body.token);
 check("does not return words (no rewrite)", res.body.words === undefined);
 res = mockRes();
-await coverHandler({ method: "POST", headers: hdrs, body: { id: noFit.id, tokenOnly: true } }, res);
-check("tokenOnly 409s when there's no analysis", res.statusCode === 409, res.statusCode);
+await jobsHandler({ method: "POST", headers: hdrs, body: { action: "letter-token", id: noFit.id } }, res);
+check("missing letter is a 404", res.statusCode === 404, res.statusCode);
 
 console.log("\n--- GET /api/letter ---");
 const good = makeViewToken(job.id);

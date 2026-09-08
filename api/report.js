@@ -1,5 +1,5 @@
 import { getReport } from "../lib/store.js";
-import { stripInternal } from "../lib/analyze.js";
+import { publicReport } from "../lib/report.js";
 
 // GET /api/report?id=abc123  -> { report }
 export default async function handler(req, res) {
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     }
     // Never let the private triage block reach a visitor, even if an older
     // saved report still carries one inline.
-    res.status(200).json({ report: stripInternal(report) });
+    res.status(200).json({ report: publicReport(report) });
   } catch (err) {
     res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
   }

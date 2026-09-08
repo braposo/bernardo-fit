@@ -34,8 +34,9 @@ globalThis.fetch = async (_url, opts) => {
 const store = await import(lib + "store.js");
 const { buildSystemPrompt } = await import(lib + "profile.js");
 const { buildCoverPrompt } = await import(lib + "cover.js");
+const { executeCoverWork } = await import(lib + "cover-work.js");
+const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
 const analyseHandler = (await import(base + "admin/analyse.js")).default;
-const coverHandler = (await import(base + "admin/cover.js")).default;
 const regenHandler = (await import(base + "admin/regenerate.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
 
@@ -104,13 +105,19 @@ check("and cost nothing", calls === 0, calls);
 
 console.log("\n--- cover letter picks them up ---");
 reset();
-res = mockRes();
-await coverHandler({ method: "POST", headers: auth, body: { id: steered.id } }, res);
-check("letter generated", res.statusCode === 200, res.body);
+let coverJob = await store.getJob(steered.id);
+let coverReport = await store.getReport(coverJob.fitReportId);
+let fingerprint = coverFingerprint(coverJob, coverReport, "claude-opus-5");
+await store.updateJob(steered.id, { coverRun: { requestId: "steered01", fingerprint, status: "queued" } });
+let coverOut = await executeCoverWork({ jobId: steered.id, requestId: "steered01", fingerprint, model: "claude-opus-5", origin: "https://fit.bernardoraposo.com" });
+check("letter generated", coverOut.outcome === "completed", coverOut);
 check("cover prompt carried them", sentPrompts.some((p) => p.includes(STEER)));
 reset();
-res = mockRes();
-await coverHandler({ method: "POST", headers: auth, body: { id: plain.id } }, res);
+coverJob = await store.getJob(plain.id);
+coverReport = await store.getReport(coverJob.fitReportId);
+fingerprint = coverFingerprint(coverJob, coverReport, "claude-opus-5");
+await store.updateJob(plain.id, { coverRun: { requestId: "plainreq1", fingerprint, status: "queued" } });
+await executeCoverWork({ jobId: plain.id, requestId: "plainreq1", fingerprint, model: "claude-opus-5", origin: "https://fit.bernardoraposo.com" });
 check("unsteered letter has no block", !sentPrompts[0].includes("My instructions for this specific role"));
 
 console.log("\n--- regenerate picks them up ---");

@@ -66,7 +66,7 @@ await analyzeHandler({ method: "POST", headers: ip(), socket: {}, body: { jobDes
 check("returns 200", res.statusCode === 200, res.body && res.body.error);
 const rid = res.body.id;
 check("response body carries no internal", !("internal" in res.body.report));
-check("no score field leaked", !JSON.stringify(res.body).includes("91"));
+check("no score field leaked", !["score", "tier", "scoreBreakdown", "rationale"].some((key) => key in res.body.report));
 const saved = await store.getReport(rid);
 check("saved report has no internal", !("internal" in saved));
 

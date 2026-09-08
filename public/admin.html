@@ -309,9 +309,15 @@
   var ARCHIVE_ON_STAGE = ["expired", "not_a_fit", "rejected"];
   var stageFilter = null;
   var searchQuery = "";
+  var searchMatches = null;
+  var searchRequested = "";
+  var searchTimer = null;
+  var searchSequence = 0;
   var unlinked = 0;
   var archivedCount = 0;
   var showArchived = false;
+  var runWatches = {};
+  var attachedCoverWatches = {};
 
   var reports = [];
   var total = 0;
@@ -349,7 +355,8 @@
 
   // ---------- Work that outlives the connection ----------
 
-  // Analysis, regeneration and the cover letter each make a model call that can
+  // Analysis, regeneration and application answers still use the older
+  // request-bound path until their Trigger tasks land. Each can
   // run for minutes. The browser sometimes gives up on the connection well
   // before the server gives up on the work, which showed up as "Network error"
   // on a job that had in fact completed. So when the connection drops, go and
@@ -378,11 +385,8 @@
   }
 
   function jobRow(id) {
-    return api("/api/admin/jobs" + (showArchived ? "?archived=1" : ""), { method: "GET" }).then(function (out) {
-      if (!out.ok) return null;
-      var list = out.d.jobs || [];
-      for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
-      return null;
+    return api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
+      return out.ok ? out.d.job : null;
     });
   }
 
@@ -405,9 +409,8 @@
     });
   }
 
-  // The letter is stored on the row, so its timestamp says whether the run we
-  // lost the connection to finished. Opening it needs a token, and tokenOnly
-  // mints one without rewriting the letter.
+  // Answer generation has not moved to Trigger yet, so recover a dropped HTTP
+  // response by checking the one question that changed.
   function answerLanded(id, qid) {
     return jobRow(id).then(function (j) {
       if (!j) return null;
@@ -417,19 +420,53 @@
     });
   }
 
-  function coverLanded(id, since) {
-    return jobRow(id).then(function (j) {
-      if (!j || !j.coverLetter || !newerThan(j.coverLetterAt, since)) return null;
-      var words = j.coverLetter.reduce(function (n, p) {
-        return n + String(p.text || "").trim().split(/\s+/).filter(Boolean).length;
-      }, 0);
-      return api("/api/admin/cover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: id, tokenOnly: true }),
-      }).then(function (t) {
-        return t.ok ? { ok: true, status: 200, d: { words: words, token: t.d.token } } : null;
-      });
+  function watchRun(runId, onProgress) {
+    if (runWatches[runId]) return runWatches[runId];
+    runWatches[runId] = new Promise(function (resolve) {
+      var attempts = 0;
+      (function check() {
+        api("/api/admin/cover?run=" + encodeURIComponent(runId), { method: "GET" }).then(function (out) {
+          if (out.ok && onProgress) onProgress(out.d);
+          if (out.ok && out.d.terminal) {
+            delete runWatches[runId];
+            resolve(out);
+            return;
+          }
+          attempts++;
+          if (attempts >= 240) {
+            delete runWatches[runId];
+            resolve({ ok: false, status: 408, d: { error: "The run is still unresolved. Reload to check it again." } });
+            return;
+          }
+          setTimeout(check, 2500);
+        });
+      })();
+    });
+    return runWatches[runId];
+  }
+
+  function watchCover(id, runId, status, openWhenDone) {
+    status.textContent = "Queued…";
+    status.className = "row-status";
+    return watchRun(runId, function (run) {
+      status.textContent = run.phase === "writing" ? "Writing…" : run.phase === "loading" ? "Starting…" : "Queued…";
+    }).then(function (out) {
+      if (!out.ok || out.d.status !== "COMPLETED") {
+        status.textContent = out.d.error || "Cover generation failed.";
+        status.className = "row-status err";
+        loadJobs(false);
+        return;
+      }
+      if (!out.d.result || out.d.result.outcome !== "completed") {
+        status.textContent = "A newer request replaced this draft.";
+        status.className = "row-status";
+        loadJobs(false);
+        return;
+      }
+      status.textContent = (out.d.result.words || 0) + " words";
+      status.className = "row-status ok";
+      loadJobs(false);
+      if (openWhenDone) openLetter(id);
     });
   }
 
@@ -471,7 +508,7 @@
   // Loaded when the box is opened rather than with the list, since most rows
   // have one version of each and nobody looks at them.
   function versionsHtml(j) {
-    var n = (j.coverLetterVersions || []).length;
+    var n = j.letterVersionCount != null ? j.letterVersionCount : (j.coverLetterVersions || []).length;
     var label = j.fitReportId || n ? "Versions" : "";
     if (!label) return "";
     return '<details class="jdbox verbox" data-act="verbox">' +
@@ -560,6 +597,11 @@
   }
 
   function jobHtml(j) {
+    var detailed = Object.prototype.hasOwnProperty.call(j, "jobDescription");
+    var hasDescription = detailed ? !!j.jobDescription : !!j.hasDescription;
+    var hasLetter = detailed ? !!j.coverLetter : !!j.hasCoverLetter;
+    var coverActive = !!(j.coverRun && j.coverRun.runId &&
+      (j.coverRun.status === "dispatching" || j.coverRun.status === "queued"));
     var fitLink = j.fitReportId ? location.origin + "/?r=" + encodeURIComponent(j.fitReportId) : "";
     var mailLink = j.threadId ? "https://mail.google.com/mail/u/0/#all/" + encodeURIComponent(j.threadId) : "";
     var meta = [];
@@ -582,6 +624,22 @@
     } else if (j.replyOwed) {
       owed = '<div class="owed">Reply owed</div>';
     }
+
+    var detailHtml = detailed
+      ? '<details class="jdbox">' +
+          "<summary>" + (j.jobDescription ? "Job description" : "Add a job description to enable analysis") +
+            (j.jd && j.jd.stale ? '<span class="staledot" title="Changed since the analysis was generated"></span>' : "") +
+          "</summary>" +
+          '<textarea class="jd" data-act="jd" placeholder="Paste the job description here…">' + esc(j.jobDescription || "") + "</textarea>" +
+        "</details>" +
+        '<details class="jdbox insbox"' + (j.instructions ? " open" : "") + ">" +
+          "<summary>" + (j.instructions ? "Instructions for generation" : "Add instructions for generation") + "</summary>" +
+          '<textarea class="jd ins" data-act="instructions" placeholder="Steer the analysis and the letter for this role. What to emphasise, context from a call, an angle to take.">' + esc(j.instructions || "") + "</textarea>" +
+        "</details>" + versionsHtml(j) + questionsHtml(j) +
+        '<textarea class="notes" data-act="notes" placeholder="Notes…">' + esc(j.notes || "") + "</textarea>"
+      : '<div class="row-actions"><button class="ghost" data-act="detail">Open details' +
+          ((j.questionCount || j.hasNotes || j.hasInstructions) ? " · " + [j.questionCount ? j.questionCount + " question" + (j.questionCount === 1 ? "" : "s") : "", j.hasNotes ? "notes" : "", j.hasInstructions ? "instructions" : ""].filter(Boolean).join(" · ") : "") +
+        "</button></div>";
 
     return (
       '<div class="row-item" data-id="' + esc(j.id) + '">' +
@@ -615,27 +673,16 @@
         owed +
         (j.rationale ? '<div class="rationale">' + esc(j.rationale) + "</div>" : "") +
         staleHtml(j) +
-        '<details class="jdbox"' + (j.jobDescription ? "" : "") + ">" +
-          "<summary>" + (j.jobDescription ? "Job description" : "Add a job description to enable analysis") +
-            (j.jd && j.jd.stale ? '<span class="staledot" title="Changed since the analysis was generated"></span>' : "") +
-          "</summary>" +
-          '<textarea class="jd" data-act="jd" placeholder="Paste the job description here…">' + esc(j.jobDescription || "") + "</textarea>" +
-        "</details>" +
         statsHtml(j) +
-        '<details class="jdbox insbox"' + (j.instructions ? " open" : "") + ">" +
-          "<summary>" + (j.instructions ? "Instructions for generation" : "Add instructions for generation") + "</summary>" +
-          '<textarea class="jd ins" data-act="instructions" placeholder="Steer the analysis and the letter for this role. What to emphasise, context from a call, an angle to take.">' + esc(j.instructions || "") + "</textarea>" +
-        "</details>" +
-        versionsHtml(j) +
-        questionsHtml(j) +
-        '<textarea class="notes" data-act="notes" placeholder="Notes…">' + esc(j.notes || "") + "</textarea>" +
+        detailHtml +
         '<div class="row-actions">' +
           (fitLink
             ? '<a class="ghost" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page</a>' +
               '<button class="ghost" data-act="copyfit" data-link="' + esc(fitLink) + '">Copy fit link</button>' +
               '<button class="ghost" data-act="regen">Regenerate</button>' +
-              '<button class="ghost" data-act="cover">' + (j.coverLetter ? 'Cover letter' : 'Write cover letter') + '</button>'
-            : '<button class="ghost" data-act="runfit"' + (j.jobDescription ? "" : " disabled") + ">Generate fit analysis</button>") +
+              '<button class="ghost" data-act="cover"' + (coverActive ? " disabled" : "") + '>' +
+                (coverActive ? "Writing…" : hasLetter ? "Cover letter" : "Write cover letter") + '</button>'
+            : '<button class="ghost" data-act="runfit"' + (hasDescription ? "" : " disabled") + ">Generate fit analysis</button>") +
           (j.sourceUrl ? '<a class="ghost" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting</a>' : "") +
           (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
           (j.archived
@@ -681,14 +728,39 @@
     return searchTerms(q).every(function (term) { return hay.indexOf(term) !== -1; });
   }
 
-  // Applied by toggling row visibility rather than re-rendering, so the input
-  // keeps focus and the caret stays put while typing.
+  // The list response deliberately omits descriptions and notes. Search those
+  // fields on the server and return IDs only, keeping the normal response small.
   function applySearch() {
+    var q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      searchMatches = null;
+      searchRequested = "";
+      searchSequence++;
+      if (searchTimer) clearTimeout(searchTimer);
+    } else if (searchRequested !== q) {
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        var requested = q;
+        var sequence = ++searchSequence;
+        searchRequested = requested;
+        var prefix = showArchived ? "?archived=1&" : "?";
+        api("/api/admin/jobs" + prefix + "q=" + encodeURIComponent(requested), { method: "GET" }).then(function (out) {
+          if (sequence !== searchSequence || requested !== searchQuery.trim().toLowerCase()) return;
+          if (unauthorised(out) || !out.ok) return;
+          searchMatches = new Set(out.d.matchingIds || []);
+          paintSearch();
+        });
+      }, 180);
+    }
+    paintSearch();
+  }
+
+  function paintSearch() {
     var q = searchQuery.trim().toLowerCase();
     var visible = 0;
     Array.prototype.forEach.call(document.querySelectorAll(".row-item"), function (el) {
       var j = jobs.find(function (x) { return x.id === el.getAttribute("data-id"); });
-      var hit = !j || matchesSearch(j, q);
+      var hit = !q || searchMatches === null || !j || searchMatches.has(j.id);
       el.style.display = hit ? "" : "none";
       if (hit) visible++;
     });
@@ -701,16 +773,16 @@
     }
 
     var none = document.getElementById("nomatches");
-    if (none) none.style.display = q && visible === 0 ? "" : "none";
+    if (none) none.style.display = q && searchMatches !== null && visible === 0 ? "" : "none";
   }
 
   // Opens an already-written letter in a new tab, fetching a fresh
   // short-lived token first so the secret never travels in a URL.
   function openLetter(id) {
-    api("/api/admin/cover", {
+    api("/api/admin/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: id, tokenOnly: true }),
+      body: JSON.stringify({ action: "letter-token", id: id }),
     }).then(function (out) {
       if (unauthorised(out)) return;
       if (!out.ok) { alert(out.d.error || "Could not open the letter."); return; }
@@ -844,6 +916,15 @@
       var status = rowEl.querySelector(".row-status");
       var job = jobs.find(function (j) { return j.id === id; });
 
+      if (job.coverRun && job.coverRun.runId &&
+          (job.coverRun.status === "dispatching" || job.coverRun.status === "queued") &&
+          !attachedCoverWatches[job.coverRun.runId]) {
+        attachedCoverWatches[job.coverRun.runId] = true;
+        watchCover(id, job.coverRun.runId, status, false).then(function () {
+          delete attachedCoverWatches[job.coverRun.runId];
+        });
+      }
+
       function patch(body, onDone) {
         api("/api/admin/jobs?id=" + encodeURIComponent(id), {
           method: "PATCH",
@@ -857,6 +938,23 @@
           if (onDone) onDone(out.d.job);
         });
       }
+
+      var detailBtn = rowEl.querySelector('[data-act="detail"]');
+      if (detailBtn) detailBtn.addEventListener("click", function () {
+        detailBtn.disabled = true;
+        detailBtn.textContent = "Loading…";
+        api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) {
+            detailBtn.disabled = false;
+            detailBtn.textContent = out.d.error || "Could not load details.";
+            return;
+          }
+          var i = jobs.findIndex(function (j) { return j.id === id; });
+          if (i !== -1) jobs[i] = Object.assign({}, jobs[i], out.d.job);
+          renderJobs();
+        });
+      });
 
       var sel = rowEl.querySelector('[data-act="stage"]');
       sel.addEventListener("change", function () {
@@ -874,26 +972,9 @@
       });
 
       // ---- application questions ----
-      // The whole set is sent on every edit. It is a handful of short strings,
-      // and it keeps add, edit and remove as one code path instead of three.
-      function currentQuestions() {
-        return [].map.call(rowEl.querySelectorAll(".qa"), function (el) {
-          var was = (job.questions || []).filter(function (q) { return q.id === el.getAttribute("data-qid"); })[0] || {};
-          return {
-            id: el.getAttribute("data-qid"),
-            q: el.querySelector('[data-act="qtext"]').value,
-            limit: parseInt(el.querySelector('[data-act="qlimit"]').value, 10) || 120,
-            a: was.a || "",
-            refused: !!was.refused,
-            reason: was.reason || "",
-            answeredAt: was.answeredAt || "",
-          };
-        });
-      }
-
-      function saveQuestions(next, done) {
+      function saveQuestion(edit, done) {
         status.textContent = "Saving…"; status.className = "row-status";
-        patch({ questions: next }, function () {
+        patch({ question: edit }, function () {
           status.textContent = ""; 
           if (done) done();
         });
@@ -902,9 +983,7 @@
       var qadd = rowEl.querySelector('[data-act="qadd"]');
       if (qadd) {
         qadd.addEventListener("click", function () {
-          var next = currentQuestions();
-          next.push({ id: Math.random().toString(36).slice(2, 10), q: "", limit: 120, a: "", refused: false, reason: "", answeredAt: "" });
-          saveQuestions(next, function () { loadJobs(false); });
+          saveQuestion({ id: Math.random().toString(36).slice(2, 10), q: "", limit: 120 }, renderJobs);
         });
       }
 
@@ -914,14 +993,21 @@
         var lim = qEl.querySelector('[data-act="qlimit"]');
 
         // Saved on blur, like the other free-text fields on the row.
-        function persist() { saveQuestions(currentQuestions()); }
+        function currentEdit() {
+          return { id: qid, q: text.value, limit: parseInt(lim.value, 10) || 120 };
+        }
+        function persist() { saveQuestion(currentEdit()); }
         if (text) text.addEventListener("blur", persist);
         if (lim) lim.addEventListener("change", persist);
 
         var del = qEl.querySelector('[data-act="qdel"]');
         if (del) del.addEventListener("click", function () {
           if (text.value.trim() && !confirm("Remove this question and its answer?")) return;
-          saveQuestions(currentQuestions().filter(function (q) { return q.id !== qid; }), function () { loadJobs(false); });
+          saveQuestion({ id: qid, remove: true }, function () {
+            var qElIndex = (job.questions || []).findIndex(function (q) { return q.id === qid; });
+            if (qElIndex !== -1) job.questions.splice(qElIndex, 1);
+            renderJobs();
+          });
         });
 
         var copy = qEl.querySelector('[data-act="qcopy"]');
@@ -941,7 +1027,7 @@
           draft.disabled = true;
           status.textContent = "Drafting…"; status.className = "row-status";
           // Persist the question text first, so the server answers what is on screen.
-          patch({ questions: currentQuestions() }, function () {
+          patch({ question: currentEdit() }, function () {
             api("/api/admin/answer", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -954,7 +1040,15 @@
               if (!out.ok) { status.textContent = out.d.error || "Could not draft it."; status.className = "row-status err"; return; }
               status.textContent = out.d.refused ? "Needs you" : out.d.words + " words";
               status.className = "row-status " + (out.d.refused || out.d.over ? "err" : "ok");
-              loadJobs(false);
+              var i = jobs.findIndex(function (j) { return j.id === id; });
+              if (i !== -1) {
+                jobs[i].questions = (jobs[i].questions || []).map(function (q) {
+                  return q.id === qid ? Object.assign({}, q, {
+                    a: out.d.answer, refused: out.d.refused, reason: out.d.reason, answeredAt: new Date().toISOString()
+                  }) : q;
+                });
+              }
+              renderJobs();
             });
           });
         });
@@ -1085,7 +1179,7 @@
       }
 
       var notes = rowEl.querySelector('[data-act="notes"]');
-      notes.addEventListener("blur", function () {
+      if (notes) notes.addEventListener("blur", function () {
         if (job && notes.value === (job.notes || "")) return;
         status.textContent = "Saving…"; status.className = "row-status";
         patch({ notes: notes.value }, function () {
@@ -1107,7 +1201,7 @@
       // Job description is editable, so an alert-only row can be given one and
       // then analysed without leaving the page.
       var jd = rowEl.querySelector('[data-act="jd"]');
-      jd.addEventListener("blur", function () {
+      if (jd) jd.addEventListener("blur", function () {
         if (job && jd.value === (job.jobDescription || "")) return;
         status.textContent = "Saving…"; status.className = "row-status";
         patch({ jobDescription: jd.value }, function () {
@@ -1120,16 +1214,16 @@
       var runFit = rowEl.querySelector('[data-act="runfit"]');
       if (runFit) {
         runFit.addEventListener("click", function () {
-          var text = (jd.value || "").trim();
-          if (text.length < 20) {
+          var text = jd ? (jd.value || "").trim() : "";
+          if (jd && text.length < 20) {
             status.textContent = "Add a fuller job description first."; status.className = "row-status err";
             return;
           }
           runFit.disabled = true;
           status.textContent = "Running analysis…"; status.className = "row-status";
-          // Save the description first so the row and the analysis agree, then
-          // analyse through the admin endpoint, which skips the visitor rate limit.
-          patch({ jobDescription: text }, function () {
+          // If details are open, save the text first. Compact rows already have
+          // their description stored and can start without downloading it.
+          function analyse() {
             var hadReport = job.fitReportId || "";
             api("/api/admin/analyse", {
               method: "POST",
@@ -1147,37 +1241,46 @@
               }
               loadJobs(false);
             });
-          });
+          }
+          if (jd) patch({ jobDescription: text }, analyse);
+          else analyse();
         });
       }
 
       var coverBtn = rowEl.querySelector('[data-act="cover"]');
       if (coverBtn) {
         coverBtn.addEventListener("click", function () {
-          var had = !!job.coverLetter;
+          var had = !!(job.coverLetter || job.hasCoverLetter);
           if (had && !confirm("Rewrite the cover letter for this role?")) {
             // Already have one and not rewriting: just open it.
             openLetter(id);
             return;
           }
           coverBtn.disabled = true;
-          status.textContent = "Writing…"; status.className = "row-status";
-          var startedAt = Date.now();
-          api("/api/admin/cover", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: id, model: model }),
-          }).then(function (out) {
-            return recoverable(out, status, function () { return coverLanded(id, startedAt); });
-          }).then(function (out) {
-            coverBtn.disabled = false;
-            if (unauthorised(out)) return;
-            if (!out.ok) { status.textContent = out.d.error || "Could not write it."; status.className = "row-status err"; return; }
-            status.textContent = out.d.words + " words"; status.className = "row-status ok";
-            window.open("/letter?j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token) + "&print=1", "_blank", "noopener");
-            var i = jobs.findIndex(function (x) { return x.id === id; });
-            if (i !== -1) jobs[i].coverLetter = true;
-          });
+          status.textContent = "Dispatching…"; status.className = "row-status";
+          var requestId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()).replace(/-/g, "");
+          function dispatch(attempt) {
+            api("/api/admin/cover", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: id, model: model, requestId: requestId }),
+            }).then(function (out) {
+              if (out.status === 0 && attempt === 0) {
+                status.textContent = "Connection dropped. Recovering dispatch…";
+                setTimeout(function () { dispatch(1); }, 1000);
+                return;
+              }
+              if (unauthorised(out)) return;
+              if (!out.ok) {
+                coverBtn.disabled = false;
+                status.textContent = out.d.error || "Could not start it.";
+                status.className = "row-status err";
+                return;
+              }
+              watchCover(id, out.d.runId, status, true);
+            });
+          }
+          dispatch(0);
         });
       }
 
@@ -1247,6 +1350,9 @@
       sessionStorage.setItem(SECRET_KEY, secret);
       jobs = out.d.jobs || [];
       if (out.d.stages && out.d.stages.length) stages = out.d.stages;
+      if (out.d.models && out.d.models.length) MODELS = out.d.models;
+      if (out.d.archiveOnStage) ARCHIVE_ON_STAGE = out.d.archiveOnStage;
+      if (!MODELS.some(function (m) { return m.id === model; })) model = MODELS[0].id;
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;
       renderJobs();

@@ -1,87 +1,90 @@
-import { requireAdmin, makeViewToken } from "../../lib/admin.js";
+import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
+import { requireAdmin } from "../../lib/admin.js";
+import { coverFingerprint } from "../../lib/generation-fingerprint.js";
+import { getJob, getReport, mutateJob } from "../../lib/store.js";
 import { resolveModel } from "../../lib/models.js";
-import { runCoverLetter } from "../../lib/cover.js";
-import { getJob, updateJob, getReport } from "../../lib/store.js";
+import { getReceiptForRequest, getRunReceipt, saveRunReceipt } from "../../lib/run-receipts.js";
+import { COVER_TASK_ID, TERMINAL_RUN_STATUSES } from "../../lib/task-policy.js";
 
-// POST /api/admin/cover  { id }
-//
-// Generates a cover letter for a pipeline row from its fit analysis, saves it
-// on the row, and returns a short-lived token so the admin page can open the
-// printable letter in a new tab without carrying the admin secret across.
+function validRequestId(value) {
+  const id = String(value || "");
+  return /^[a-zA-Z0-9_-]{8,100}$/.test(id) ? id : "";
+}
+
+function publicOrigin() {
+  if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
+  return "https://fit.bernardoraposo.com";
+}
+
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-
-  const { id, tokenOnly, model } = req.body || {};
-  if (!id) {
-    res.status(400).json({ error: "Missing id" });
-    return;
-  }
+  res.setHeader("Cache-Control", "private, no-store");
 
   try {
-    const job = await getJob(id);
-    if (!job) {
-      res.status(404).json({ error: "Job not found" });
-      return;
-    }
-    if (!job.fitReportId) {
-      res.status(409).json({ error: "Generate the fit analysis first; the letter is written from it." });
-      return;
-    }
-    // Reopening an existing letter just needs a fresh token, not a rewrite.
-    if (tokenOnly) {
-      if (!job.coverLetter) {
-        res.status(404).json({ error: "No cover letter for this role yet." });
-        return;
+    if (req.method === "GET") {
+      const receipt = await getRunReceipt(String(req.query?.run || ""));
+      if (!receipt || receipt.kind !== "cover") return res.status(404).json({ error: "Run not found" });
+      const run = await runs.retrieve(receipt.runId);
+      const terminal = TERMINAL_RUN_STATUSES.has(run.status);
+      if (terminal && run.status !== "COMPLETED") {
+        await mutateJob(receipt.jobId, (current) => current.coverRun?.runId === receipt.runId &&
+          current.coverRun.status !== "failed"
+          ? { coverRun: { ...current.coverRun, status: "failed", finishedAt: new Date().toISOString() } }
+          : undefined);
       }
-      res.status(200).json({ ok: true, token: makeViewToken(id) });
-      return;
+      return res.status(200).json({
+        runId: run.id,
+        jobId: receipt.jobId,
+        requestId: receipt.requestId,
+        status: run.status,
+        terminal,
+        phase: run.metadata?.phase || (run.status === "COMPLETED" ? "completed" : "queued"),
+        ...(run.status === "COMPLETED" && run.output ? { result: {
+          outcome: run.output.outcome,
+          words: run.output.words || 0,
+          salutation: run.output.salutation || "",
+        } } : {}),
+        ...(terminal && run.status !== "COMPLETED" ? { error: run.error?.message || "Cover generation failed." } : {}),
+      });
     }
 
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    const { id, model } = req.body || {};
+    const requestId = validRequestId(req.body?.requestId);
+    if (!id || !requestId) return res.status(400).json({ error: "Missing id or valid requestId" });
+
+    const recovered = await getReceiptForRequest("cover", id, requestId);
+    if (recovered) return res.status(202).json({ runId: recovered.runId, requestId, recovered: true });
+
+    const job = await getJob(id);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    if (!job.fitReportId) return res.status(409).json({ error: "Generate the fit analysis first; the letter is written from it." });
     const report = await getReport(job.fitReportId);
-    if (!report) {
-      res.status(409).json({ error: "The linked fit analysis is missing. Regenerate it first." });
-      return;
+    if (!report) return res.status(409).json({ error: "The linked fit analysis is missing. Regenerate it first." });
+
+    const chosenModel = resolveModel(model);
+    const fingerprint = coverFingerprint(job, report, chosenModel);
+    await mutateJob(id, () => ({ coverRun: {
+      requestId, runId: "", fingerprint, status: "dispatching", startedAt: new Date().toISOString(), finishedAt: "",
+    } }));
+
+    try {
+      const key = await idempotencyKeys.create(`cover:${id}:${requestId}`, { scope: "global" });
+      const handle = await tasks.trigger(COVER_TASK_ID, {
+        jobId: id, requestId, fingerprint, model: chosenModel, origin: publicOrigin(),
+      }, { idempotencyKey: key, idempotencyKeyTTL: "30d", tags: [`job:${id}`, `request:${requestId}`] });
+      await saveRunReceipt({ kind: "cover", requestId, runId: handle.id, jobId: id, fingerprint });
+      await mutateJob(id, (current) => current.coverRun?.requestId === requestId
+        ? { coverRun: { ...current.coverRun, runId: handle.id,
+            status: ["completed", "superseded"].includes(current.coverRun.status) ? current.coverRun.status : "queued" } }
+        : undefined);
+      return res.status(202).json({ runId: handle.id, requestId, recovered: false });
+    } catch (error) {
+      await mutateJob(id, (current) => current.coverRun?.requestId === requestId
+        ? { coverRun: { ...current.coverRun, status: "dispatch_failed", finishedAt: new Date().toISOString() } }
+        : undefined);
+      throw error;
     }
-
-    const origin = "https://" + (req.headers["x-forwarded-host"] || req.headers.host || "fit.bernardoraposo.com");
-    const letter = await runCoverLetter({
-      report,
-      fitUrl: `${origin}/?r=${encodeURIComponent(job.fitReportId)}`,
-      instructions: (job.instructions || "").trim(),
-      model: resolveModel(model),
-      ref: id,
-    });
-
-    // Keep every draft, newest first, so a rewrite that comes out worse can
-    // be swapped back. coverLetter stays whichever one is live.
-    const version = {
-      vid: Math.random().toString(36).slice(2, 10),
-      at: letter.generatedAt,
-      model: resolveModel(model),
-      words: letter.words,
-      salutation: letter.salutation,
-      paragraphs: letter.paragraphs,
-      active: true,
-    };
-    const kept = (job.coverLetterVersions || []).map((v) => ({ ...v, active: false }));
-    await updateJob(id, {
-      coverLetter: letter.paragraphs,
-      coverLetterAt: letter.generatedAt,
-      coverLetterModel: resolveModel(model),
-      coverLetterVersions: [version, ...kept].slice(0, 10),
-    });
-
-    res.status(200).json({
-      ok: true,
-      words: letter.words,
-      model: resolveModel(model),
-      salutation: letter.salutation,
-      token: makeViewToken(id),
-    });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message || "Unexpected error", detail: err.detail });
   }

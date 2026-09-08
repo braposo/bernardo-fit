@@ -3,6 +3,7 @@ import {
   getJob,
   getReport,
   updateJob,
+  mutateJob,
   listReportVersions,
   activateReportVersion,
 } from "../../lib/store.js";
@@ -105,11 +106,21 @@ export default async function handler(req, res) {
         res.status(404).json({ error: "Version not found" });
         return;
       }
-      await updateJob(id, {
-        coverLetter: chosen.paragraphs,
-        coverLetterAt: chosen.at,
-        coverLetterModel: chosen.model,
-        coverLetterVersions: versions.map((v) => ({ ...v, active: v.vid === vid })),
+      await mutateJob(id, (current) => {
+        const latestChosen = (current.coverLetterVersions || []).find((v) => v.vid === vid);
+        if (!latestChosen) {
+          const err = new Error("That cover-letter version no longer exists.");
+          err.status = 404;
+          throw err;
+        }
+        return {
+          coverLetter: latestChosen.paragraphs,
+          coverLetterAt: latestChosen.at,
+          coverLetterModel: latestChosen.model,
+          coverLetterSalutation: latestChosen.salutation || "",
+          coverLetterWords: latestChosen.words || 0,
+          coverLetterVersions: current.coverLetterVersions.map((v) => ({ ...v, active: v.vid === vid })),
+        };
       });
       res.status(200).json({ ok: true, kind, vid });
       return;
@@ -117,6 +128,6 @@ export default async function handler(req, res) {
 
     res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
-    res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
+    res.status(err.status || 500).json({ error: err.status ? err.message : "Unexpected error", detail: String(err).slice(0, 300) });
   }
 }

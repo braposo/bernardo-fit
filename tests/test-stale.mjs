@@ -7,9 +7,9 @@
 // the report rather than what the row holds, so the obvious fix produced a
 // fresh-looking analysis still built on the old text.
 //
-// The threshold matters as much as the comparison. Re-fetching the same posting
-// a day later shifts it by a few characters, and four rows differed by
-// twenty-six each. A flag that lights up for those is one you learn to ignore.
+// Any normalized content change matters. Character-count thresholds hid edits
+// that happened to preserve length and could leave a current-looking score
+// attached to different requirements.
 
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -32,15 +32,14 @@ const text = (n, seed) => (seed || "x").repeat(Math.ceil(n / (seed || "x").lengt
 console.log("\n--- identical text is never stale ---");
 check("same string", !jdChange("abc".repeat(300), "abc".repeat(300)).stale);
 check("whitespace and case do not count", !jdChange("The  ROLE\n\n", "the role").stale);
-check("an empty side is not a change", !jdChange("", "abc").stale && !jdChange("abc", "").stale);
+check("an empty side is a change", jdChange("", "abc").stale && jdChange("abc", "").stale);
 check("both empty", !jdChange("", "").stale);
 
-console.log("\n--- trivial drift is not worth flagging ---");
-// The real ones: re-fetching the same posting shifted these by 26 characters.
-check("Aveni, 5,335 -> 5,361", !jdChange(text(5361), text(5335)).stale);
-check("Primer, 5,560 -> 5,587", !jdChange(text(5587), text(5560)).stale);
-check("Formula., 2,461 -> 2,484", !jdChange(text(2484), text(2461)).stale);
-check("La Fosse, 2,708 -> 2,734", !jdChange(text(2734), text(2708)).stale);
+console.log("\n--- small content drift is still stale ---");
+check("Aveni, 5,335 -> 5,361", jdChange(text(5361), text(5335)).stale);
+check("Primer, 5,560 -> 5,587", jdChange(text(5587), text(5560)).stale);
+check("Formula., 2,461 -> 2,484", jdChange(text(2484), text(2461)).stale);
+check("La Fosse, 2,708 -> 2,734", jdChange(text(2734), text(2708)).stale);
 
 console.log("\n--- a real change is ---");
 check("Perk, 1,362 -> 6,180", jdChange(text(6180), text(1362)).stale);
@@ -52,12 +51,11 @@ check("M&S, 5,930 -> 6,679", jdChange(text(6679), text(5930)).stale);
 check("Griffin, 8,894 -> 812 (shrank)", jdChange(text(812), text(8894)).stale);
 check("Flutter, 1,703 -> 365 (shrank)", jdChange(text(365), text(1703)).stale);
 
-console.log("\n--- the two thresholds ---");
-// Either a tenth of the text, or four hundred characters, whichever trips first.
+console.log("\n--- there is no size threshold ---");
 check("a tenth of a short description counts", jdChange(text(1100), text(1000)).stale);
-check("under a tenth of a short one does not", !jdChange(text(1050), text(1000)).stale);
+check("under a tenth of a short one counts", jdChange(text(1050), text(1000)).stale);
 check("400 characters counts however long the text", jdChange(text(20400), text(20000)).stale);
-check("399 does not", !jdChange(text(20399), text(20000)).stale);
+check("399 does too", jdChange(text(20399), text(20000)).stale);
 
 console.log("\n--- what the flag reports ---");
 const c = jdChange(text(6180), text(1362));
