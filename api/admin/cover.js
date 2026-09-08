@@ -4,7 +4,7 @@ import { coverFingerprint } from "../../lib/generation-fingerprint.js";
 import { getJob, getReport, mutateJob } from "../../lib/store.js";
 import { resolveModel } from "../../lib/models.js";
 import { getReceiptForRequest, getRunReceipt, saveRunReceipt } from "../../lib/run-receipts.js";
-import { COVER_TASK_ID, TERMINAL_RUN_STATUSES } from "../../lib/task-policy.js";
+import { COVER_TASK_ID, TERMINAL_RUN_STATUSES, coverDispatchEnabled } from "../../lib/task-policy.js";
 
 function validRequestId(value) {
   const id = String(value || "");
@@ -55,6 +55,7 @@ export default async function handler(req, res) {
 
     const recovered = await getReceiptForRequest("cover", id, requestId);
     if (recovered) return res.status(202).json({ runId: recovered.runId, requestId, recovered: true });
+    if (!coverDispatchEnabled()) return res.status(503).json({ error: "Cover generation is temporarily paused." });
 
     const job = await getJob(id);
     if (!job) return res.status(404).json({ error: "Job not found" });

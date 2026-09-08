@@ -1,5 +1,6 @@
 import { verifyViewToken } from "../lib/admin.js";
 import { getJob } from "../lib/store.js";
+import { getActiveCoverArtifact } from "../lib/cover-artifacts.js";
 
 // GET /api/letter?j=<jobId>&t=<token>
 //
@@ -24,15 +25,18 @@ export default async function handler(req, res) {
 
   try {
     const job = await getJob(j);
-    if (!job || !job.coverLetter) {
+    const letter = await getActiveCoverArtifact(job);
+    if (!job || !letter) {
       res.status(404).json({ error: "No cover letter for this role yet." });
       return;
     }
     res.status(200).json({
       company: job.company || "",
       role: job.role || "",
-      paragraphs: job.coverLetter,
-      generatedAt: job.coverLetterAt || "",
+      paragraphs: letter.paragraphs,
+      generatedAt: letter.at || "",
+      salutation: letter.salutation || "",
+      words: letter.words || 0,
     });
   } catch (err) {
     res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 200) });

@@ -7,6 +7,7 @@ import {
   listReportVersions,
   activateReportVersion,
 } from "../../lib/store.js";
+import { getCoverArtifact, listCoverVersions, migrateLegacyCoverArtifacts } from "../../lib/cover-artifacts.js";
 
 // GET  /api/admin/versions?id=<jobId>          list both kinds for one row
 // POST /api/admin/versions { id, kind, vid }   make one of them live
@@ -20,7 +21,8 @@ import {
 function meta(v, kind) {
   return kind === "fit"
     ? { vid: v.vid, at: v.createdAt, model: v.model || "", active: !!v.active, score: v.internal ? v.internal.score : null }
-    : { vid: v.vid, at: v.at, model: v.model || "", active: !!v.active, words: v.words || 0 };
+    : { vid: v.vid, at: v.at, model: v.model || "", active: !!v.active,
+        words: v.words || 0, salutation: v.salutation || "" };
 }
 
 export default async function handler(req, res) {
@@ -56,7 +58,7 @@ export default async function handler(req, res) {
       }
       res.status(200).json({
         fit: fit.map((v) => meta(v, "fit")),
-        letter: (job.coverLetterVersions || []).map((v) => meta(v, "letter")),
+        letter: (await listCoverVersions(job)).map((v) => meta(v, "letter")),
       });
       return;
     }
@@ -100,26 +102,24 @@ export default async function handler(req, res) {
         return;
       }
 
-      const versions = job.coverLetterVersions || [];
-      const chosen = versions.find((v) => v.vid === vid);
+      await migrateLegacyCoverArtifacts(job);
+      const available = await listCoverVersions(job);
+      const chosen = await getCoverArtifact(job.id, vid);
       if (!chosen) {
         res.status(404).json({ error: "Version not found" });
         return;
       }
       await mutateJob(id, (current) => {
-        const latestChosen = (current.coverLetterVersions || []).find((v) => v.vid === vid);
-        if (!latestChosen) {
-          const err = new Error("That cover-letter version no longer exists.");
-          err.status = 404;
-          throw err;
-        }
         return {
-          coverLetter: latestChosen.paragraphs,
-          coverLetterAt: latestChosen.at,
-          coverLetterModel: latestChosen.model,
-          coverLetterSalutation: latestChosen.salutation || "",
-          coverLetterWords: latestChosen.words || 0,
-          coverLetterVersions: current.coverLetterVersions.map((v) => ({ ...v, active: v.vid === vid })),
+          coverLetterId: chosen.vid,
+          coverLetter: null,
+          coverLetterAt: chosen.at,
+          coverLetterModel: chosen.model,
+          coverLetterSalutation: chosen.salutation || "",
+          coverLetterWords: chosen.words || 0,
+          coverLetterVersionCount: Math.max(Number(current.coverLetterVersionCount) || 0, available.length),
+          coverLetterVersions: [],
+          coverRun: null,
         };
       });
       res.status(200).json({ ok: true, kind, vid });

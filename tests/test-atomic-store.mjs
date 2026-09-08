@@ -7,6 +7,7 @@ process.env.ADMIN_SECRET = "test-secret-value";
 
 const store = await import("file:///" + root + "lib/store.js");
 const receipts = await import("file:///" + root + "lib/run-receipts.js");
+const covers = await import("file:///" + root + "lib/cover-artifacts.js");
 const jobsHandler = (await import("file:///" + root + "api/admin/jobs.js")).default;
 
 let pass = 0, fail = 0;
@@ -106,6 +107,14 @@ const receipt = await receipts.saveRunReceipt({
 check("request identity recovers the run", (await receipts.getReceiptForRequest("cover", guarded.id, "receipt01")).runId === "run_01");
 check("run identity recovers the owner", (await receipts.getRunReceipt("run_01")).jobId === guarded.id);
 check("receipt has no job or prompt body", !("payload" in receipt) && !("output" in receipt));
+
+console.log("\n--- concurrent cover metadata writes merge ---");
+await Promise.all([
+  covers.saveCoverArtifact(guarded.id, { vid: "draft_a", at: "2026-09-09T00:00:00Z", paragraphs: [{ html: "A" }] }),
+  covers.saveCoverArtifact(guarded.id, { vid: "draft_b", at: "2026-09-09T00:00:01Z", paragraphs: [{ html: "B" }] }),
+]);
+const coverVersions = await covers.listCoverVersions(await store.getJob(guarded.id));
+check("neither concurrent draft is dropped", coverVersions.some((v) => v.vid === "draft_a") && coverVersions.some((v) => v.vid === "draft_b"), coverVersions);
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

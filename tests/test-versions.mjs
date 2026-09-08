@@ -31,6 +31,7 @@ const store = await import(lib + "store.js");
 const analyse = (await import(base + "admin/analyse.js")).default;
 const regen = (await import(base + "admin/regenerate.js")).default;
 const { executeCoverWork } = await import(lib + "cover-work.js");
+const { getActiveCoverArtifact, listCoverVersions } = await import(lib + "cover-artifacts.js");
 const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
 const versions = (await import(base + "admin/versions.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
@@ -109,14 +110,35 @@ const firstLetter = res.body.letter[1].vid;
 res = await call(versions, { method: "POST", headers: auth, body: { id: job.id, kind: "letter", vid: firstLetter } });
 check("letter switch accepted", res.statusCode === 200, res.body);
 const after = await store.getJob(job.id);
-check("live letter is the older draft", after.coverLetter[0].html.indexOf("Draft number 3") !== -1, after.coverLetter[0]);
+const activeLetter = await getActiveCoverArtifact(after);
+check("live letter is the older draft", activeLetter.paragraphs[0].html.indexOf("Draft number 3") !== -1, activeLetter.paragraphs[0]);
 check("live model followed it", after.coverLetterModel === "claude-opus-5");
-check("only one letter is live", after.coverLetterVersions.filter((v) => v.active).length === 1);
+check("only one letter is live", (await listCoverVersions(after)).filter((v) => v.active).length === 1);
+check("letter bodies are absent from the job", after.coverLetter === null && after.coverLetterVersions.length === 0);
 
 console.log("\n--- listings stay small ---");
 res = await call(versions, { method: "GET", headers: auth, query: { id: job.id } });
 check("no report bodies in the listing", !JSON.stringify(res.body).includes("differentiators"));
 check("no letter bodies in the listing", !JSON.stringify(res.body).includes("Draft number"));
+
+console.log("\n--- legacy embedded letters migrate when selected ---");
+const legacyParagraphs = [{ html: "Legacy active draft" }];
+const legacy = await store.saveJob({
+  company: "Legacy", role: "R", coverLetter: legacyParagraphs,
+  coverLetterAt: "2026-01-02T00:00:00.000Z", coverLetterModel: "claude-opus-5",
+  coverLetterVersions: [
+    { vid: "legacy02", at: "2026-01-02T00:00:00.000Z", model: "claude-opus-5", words: 3, salutation: "Dear team,", paragraphs: legacyParagraphs, active: true },
+    { vid: "legacy01", at: "2026-01-01T00:00:00.000Z", model: "claude-sonnet-5", words: 3, salutation: "Hello team,", paragraphs: [{ html: "Legacy older draft" }], active: false },
+  ],
+});
+res = await call(versions, { method: "GET", headers: auth, query: { id: legacy.id } });
+check("legacy metadata stays readable", res.body.letter.length === 2 && res.body.letter[0].active);
+res = await call(versions, { method: "POST", headers: auth, body: { id: legacy.id, kind: "letter", vid: "legacy01" } });
+check("legacy selection migrates successfully", res.statusCode === 200, res.body);
+const migratedLegacy = await store.getJob(legacy.id);
+check("legacy bodies leave the job", migratedLegacy.coverLetter === null && migratedLegacy.coverLetterVersions.length === 0);
+check("migrated active body is readable", (await getActiveCoverArtifact(migratedLegacy)).paragraphs[0].html === "Legacy older draft");
+check("migrated version count remains", migratedLegacy.coverLetterVersionCount === 2, migratedLegacy.coverLetterVersionCount);
 
 console.log("\n--- errors ---");
 check("unknown version", (await call(versions, { method: "POST", headers: auth, body: { id: job.id, kind: "fit", vid: "nope" } })).statusCode === 404);
@@ -134,7 +156,7 @@ const mrid = (await store.getJob(many.id)).fitReportId;
 for (let i = 0; i < 14; i++) await call(regen, { method: "POST", headers: auth, body: { id: mrid, jobId: many.id } });
 check("fit capped at 10", (await store.listReportVersions(mrid)).length === 10, (await store.listReportVersions(mrid)).length);
 for (let i = 0; i < 12; i++) await generateCover(many.id, "claude-opus-5", "manycover" + i);
-check("letters capped at 10", (await store.getJob(many.id)).coverLetterVersions.length === 10);
+check("letters capped at 10", (await listCoverVersions(await store.getJob(many.id))).length === 10);
 
 console.log("\n--- the page ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");

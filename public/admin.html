@@ -279,7 +279,8 @@
   </div>
   <main id="app"></main>
 
-<script>
+<script type="module">
+import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.js";
 (function () {
   "use strict";
 
@@ -316,8 +317,8 @@
   var unlinked = 0;
   var archivedCount = 0;
   var showArchived = false;
-  var runWatches = {};
   var attachedCoverWatches = {};
+  var coverDispatchEnabled = true;
 
   var reports = [];
   var total = 0;
@@ -420,53 +421,23 @@
     });
   }
 
-  function watchRun(runId, onProgress) {
-    if (runWatches[runId]) return runWatches[runId];
-    runWatches[runId] = new Promise(function (resolve) {
-      var attempts = 0;
-      (function check() {
-        api("/api/admin/cover?run=" + encodeURIComponent(runId), { method: "GET" }).then(function (out) {
-          if (out.ok && onProgress) onProgress(out.d);
-          if (out.ok && out.d.terminal) {
-            delete runWatches[runId];
-            resolve(out);
-            return;
-          }
-          attempts++;
-          if (attempts >= 240) {
-            delete runWatches[runId];
-            resolve({ ok: false, status: 408, d: { error: "The run is still unresolved. Reload to check it again." } });
-            return;
-          }
-          setTimeout(check, 2500);
-        });
-      })();
-    });
-    return runWatches[runId];
-  }
+  var watchRun = createRunWatcher({
+    request: function (runId) {
+      return api("/api/admin/cover?run=" + encodeURIComponent(runId), { method: "GET" });
+    }
+  });
 
   function watchCover(id, runId, status, openWhenDone) {
     status.textContent = "Queued…";
     status.className = "row-status";
     return watchRun(runId, function (run) {
-      status.textContent = run.phase === "writing" ? "Writing…" : run.phase === "loading" ? "Starting…" : "Queued…";
+      status.textContent = coverPhaseText(run);
     }).then(function (out) {
-      if (!out.ok || out.d.status !== "COMPLETED") {
-        status.textContent = out.d.error || "Cover generation failed.";
-        status.className = "row-status err";
-        loadJobs(false);
-        return;
-      }
-      if (!out.d.result || out.d.result.outcome !== "completed") {
-        status.textContent = "A newer request replaced this draft.";
-        status.className = "row-status";
-        loadJobs(false);
-        return;
-      }
-      status.textContent = (out.d.result.words || 0) + " words";
-      status.className = "row-status ok";
+      var done = coverCompletion(out);
+      status.textContent = done.text;
+      status.className = "row-status" + (done.tone ? " " + done.tone : "");
       loadJobs(false);
-      if (openWhenDone) openLetter(id);
+      if (done.open && openWhenDone) openLetter(id);
     });
   }
 
@@ -599,7 +570,7 @@
   function jobHtml(j) {
     var detailed = Object.prototype.hasOwnProperty.call(j, "jobDescription");
     var hasDescription = detailed ? !!j.jobDescription : !!j.hasDescription;
-    var hasLetter = detailed ? !!j.coverLetter : !!j.hasCoverLetter;
+    var hasLetter = !!j.hasCoverLetter;
     var coverActive = !!(j.coverRun && j.coverRun.runId &&
       (j.coverRun.status === "dispatching" || j.coverRun.status === "queued"));
     var fitLink = j.fitReportId ? location.origin + "/?r=" + encodeURIComponent(j.fitReportId) : "";
@@ -680,8 +651,9 @@
             ? '<a class="ghost" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page</a>' +
               '<button class="ghost" data-act="copyfit" data-link="' + esc(fitLink) + '">Copy fit link</button>' +
               '<button class="ghost" data-act="regen">Regenerate</button>' +
-              '<button class="ghost" data-act="cover"' + (coverActive ? " disabled" : "") + '>' +
-                (coverActive ? "Writing…" : hasLetter ? "Cover letter" : "Write cover letter") + '</button>'
+              '<button class="ghost" data-act="cover"' + (coverActive || !coverDispatchEnabled ? " disabled" : "") +
+                (!coverDispatchEnabled ? ' title="Cover generation is paused"' : "") + '>' +
+                (!coverDispatchEnabled ? "Cover paused" : coverActive ? "Writing…" : hasLetter ? "Cover letter" : "Write cover letter") + '</button>'
             : '<button class="ghost" data-act="runfit"' + (hasDescription ? "" : " disabled") + ">Generate fit analysis</button>") +
           (j.sourceUrl ? '<a class="ghost" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting</a>' : "") +
           (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
@@ -1352,6 +1324,7 @@
       if (out.d.stages && out.d.stages.length) stages = out.d.stages;
       if (out.d.models && out.d.models.length) MODELS = out.d.models;
       if (out.d.archiveOnStage) ARCHIVE_ON_STAGE = out.d.archiveOnStage;
+      coverDispatchEnabled = !out.d.features || out.d.features.coverDispatchEnabled !== false;
       if (!MODELS.some(function (m) { return m.id === model; })) model = MODELS[0].id;
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;

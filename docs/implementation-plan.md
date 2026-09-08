@@ -1,6 +1,6 @@
 # Implementation plan: a simpler Trigger architecture
 
-Status: approved direction; Release A and the Trigger-backed cover pilot portion of Release B were implemented and validated on 9 September 2026. Moving cover bodies out of job records remains.
+Status: approved direction; Releases A and B were implemented and validated on 9 September 2026. Release C is next.
 
 ## 1. Direction
 

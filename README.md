@@ -5,28 +5,16 @@ A small tool you can host on your own site. Someone pastes a job description, an
 ## How it works
 
 ```
-public/index.html       ← the whole frontend (no build step)
-public/admin.html       ← admin: job pipeline + saved analyses
-api/analyze.js          ← runs the analysis (your API key stays server-side), saves it, returns an id
-api/report.js           ← loads a saved analysis by id (powers the permalink)
-api/track.js            ← public, aggregate-only view/interaction counters
-api/_analyze.js         ← the actual Anthropic call + JSON parsing, shared by analyze and admin regenerate
-api/_profile.js         ← your full profile + the first-person system prompt
-api/_store.js           ← storage: reports, opportunities, analytics (Vercel KV by default)
-api/_admin.js           ← shared-secret auth for the admin endpoints
-api/_inbox-scan.js      ← captured Gmail scan, the source for "Import from inbox"
-api/_jd-fetched.js      ← job descriptions captured from public LinkedIn postings
-api/admin/reports.js    ← list / delete saved analyses
-api/admin/regenerate.js ← re-run the analysis for a saved job description, in place
-api/admin/jobs.js       ← the job pipeline: list, create, import, update stage, archive
-api/admin/analyse.js    ← run a fit analysis for one row
-api/admin/cover.js      ← write a cover letter from a row's fit analysis
-api/letter.js           ← serves a letter to the printable page, token-gated
-api/_cover.js           ← cover letter prompt + sanitising
-api/_writing.js         ← anti-slop writing rules, shared by every prompt
-public/letter.html      ← the printable A4 letter, print-to-PDF
-api/admin/ingest.js     ← write end for a scheduled inbox review
-scripts/ingest-opportunities.mjs ← posts a batch of opportunities; reads the secret itself
+public/index.html          ← public fit page
+public/admin.html          ← admin pipeline; imports small run helpers from admin-run.js
+public/letter.html         ← printable A4 letter
+api/*.js                   ← public analysis, report, letter and aggregate analytics endpoints
+api/admin/*.js             ← authenticated job, version and task-dispatch endpoints
+lib/store.js               ← atomic report and opportunity storage
+lib/cover-artifacts.js     ← cover bodies and version metadata outside job records
+lib/cover-work.js          ← idempotent cover generation and conditional attachment
+src/trigger/cover.ts       ← durable cover worker with retries and concurrency policy
+scripts/ingest-opportunities.mjs ← posts a validated opportunity batch
 ```
 
 Flow: paste JD → `/api/analyze` runs it as *you*, in first person → result is stored under a short id → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the same read forever.
@@ -55,9 +43,11 @@ The CLI login is stored outside the repository. Run `npm exec -- trigger.dev log
 
 Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development key in `.env.local`; the Trigger.dev Vercel integration injects the correct key into Vercel for deployed environments. Any secret read by task code must also exist in the matching Trigger.dev environment. Vercel variables marked Secret are not copied into Trigger.dev automatically, so add those in Trigger.dev explicitly when a task begins using them.
 
+Set `COVER_DISPATCH_DISABLED=1` in Vercel to stop new cover runs immediately. Accepted runs can still be watched and recovered, and removing the variable re-enables dispatch.
+
 ## Deploy to Netlify
 
-Works the same way — move `api/*` to `netlify/functions/*`, and swap `api/_store.js` for [Netlify Blobs](https://docs.netlify.com/blobs/overview/) (implement `saveReport`/`getReport`). The frontend needs no changes beyond the function paths.
+Porting requires moving `api/*` to functions, replacing `lib/store.js`, and providing an equivalent durable worker runtime. The frontend needs no changes beyond the function paths.
 
 ## Embedding on your existing site
 
@@ -77,7 +67,7 @@ Analyses saved before this behaviour existed show up as a prompt at the top of t
 
 **Nothing is ever deleted.** Rows are archived instead: an archived row leaves the pipeline but keeps its record, its notes and its fit page, so a link already sent to a recruiter carries on resolving. "Archived (N)" in the toolbar switches to that list, where each row can be restored. `DELETE /api/admin/jobs` returns 405 and points at `PATCH { archived: true }`. Re-importing the inbox scan won't resurrect something you archived, and bulk analysis skips archived rows.
 
-Opportunities also come from `api/_inbox-scan.js`, a captured snapshot of a Gmail scan, with the job descriptions in `api/_jd-fetched.js` pulled from the public LinkedIn view of each posting. Both are snapshots taken by hand, not live integrations: the server holds no mail credentials and never scrapes LinkedIn at runtime, since a scheduled function hitting them from a datacentre IP would be blocked quickly and would breach LinkedIn's terms. Refreshing either means re-running the fetch and replacing the file.
+Opportunities can also be posted as a validated batch through `scripts/ingest-opportunities.mjs`. Gmail access and posting capture stay outside the server; it receives only the resulting opportunity data and holds no mail credentials.
 
 "Import from inbox" is an upsert keyed on `externalId` then Gmail thread id, so re-running it refreshes the scan-derived metadata while leaving your stage, notes and linked analysis untouched.
 
@@ -97,11 +87,11 @@ The server still holds no mail credentials. The scan runs agent-side and only th
 
 ## Cover letters
 
-Any row with a fit analysis gets a **Write cover letter** button. The letter is generated from that analysis plus the profile, in the voice of a real letter used as a worked example, and saved on the row. It opens straight into a printable A4 page with the print dialog already up, so exporting a PDF is one click and a save.
+Any row with a fit analysis gets a **Write cover letter** button. The API admits a small ID-only request and Trigger.dev performs the durable generation with bounded retries and concurrency. Letter bodies and version history live under separate artifact keys; the job retains only the active artifact pointer, summary and current run pointer. Existing embedded letters remain readable and migrate when rewritten or selected. Completion opens a printable A4 page with the print dialog already up, so exporting a PDF is one click and a save.
 
 There is no server-side PDF renderer. The template carries correct `@page { size: A4; margin: 0 }` print CSS, so the browser produces a proper vector PDF with selectable text and real fonts. Headless Chromium on Vercel would add ~50MB of bundle, multi-second cold starts and a Chromium version to keep pinned, in exchange for saving one keystroke. Client-side libraries were worse again: html2canvas rasterises the page, which would throw away the typography the design exists for.
 
-The letter inherits the same anti-slop rules as the fit analysis, from `api/_writing.js`. Those rules used to exist twice, condensed differently in each prompt, which meant the weaker copy was quietly winning in the cover letter; the cover prompt was missing faux-insight setups, colon reveals, fake-strong verbs, synonym cycling, negative listing and dramatic fragmentation. One module now feeds both.
+The letter inherits the same anti-slop rules as the fit analysis from `lib/writing.js`. One module feeds every writing path.
 
 On top of that the cover prompt carries a specificity test: could this paragraph be pasted unchanged into a letter to another company? If yes it is filler. It is told to name the company, borrow the vocabulary of the posting, address the hiring manager by name when the posting names one, and treat flattery as the opposite of specificity. The job description is passed in separately from the analysis so it can be mined for those details, and is explicitly marked as data rather than instructions.
 
@@ -115,11 +105,11 @@ The letter page is reached with a short-lived signed token rather than the admin
 
 ## Editing what it says about you
 
-Everything the tool knows lives in `api/_profile.js`. Update `PROFILE_CONTEXT` there and every future analysis reflects it. The voice (first person, honest, direct) is set in `buildSystemPrompt()`.
+Everything the tool knows lives in `lib/profile.js`. Update `PROFILE_CONTEXT` there and every future generation reflects it.
 
 ## Model
 
-Uses `claude-sonnet-5` (released June 2026 — strong and cheap, with introductory pricing through Aug 31, 2026). Change the `model` field in `api/analyze.js` if you want a different one.
+Admin generation uses `claude-opus-5` by default with `claude-sonnet-5` available as the cheaper fallback. Public analysis is pinned to Sonnet. Model policy lives in `lib/models.js`.
 
 ## Cost & abuse protection
 

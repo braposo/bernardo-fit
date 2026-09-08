@@ -16,6 +16,8 @@ import {
 } from "../../lib/store.js";
 import { jobSummary, jobDetail, matchesSearch } from "../../lib/job-view.js";
 import { MODELS } from "../../lib/models.js";
+import { deleteCoverArtifacts, getActiveCoverArtifact } from "../../lib/cover-artifacts.js";
+import { coverDispatchEnabled } from "../../lib/task-policy.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
@@ -67,6 +69,7 @@ export default async function handler(req, res) {
         archivedCount: all.filter(j => j.archived).length,
         models: MODELS.map(({ id, label }) => ({ id, label })),
         archiveOnStage: ARCHIVE_ON_STAGE,
+        features: { coverDispatchEnabled: coverDispatchEnabled() },
         viewingArchived: onlyArchived,
       });
       return;
@@ -77,7 +80,7 @@ export default async function handler(req, res) {
 
       if (body.action === "letter-token") {
         const job = body.id ? await getJob(body.id) : null;
-        if (!job || !job.coverLetter) return res.status(404).json({ error: "No cover letter for this role yet." });
+        if (!job || !(await getActiveCoverArtifact(job))) return res.status(404).json({ error: "No cover letter for this role yet." });
         return res.status(200).json({ token: makeViewToken(job.id) });
       }
 
@@ -172,6 +175,7 @@ export default async function handler(req, res) {
         res.status(409).json({ error: "Archive this row before deleting it." });
         return;
       }
+      await deleteCoverArtifacts(id);
       await deleteJob(id, { requireArchived: true });
       res.status(200).json({ ok: true });
       return;

@@ -19,7 +19,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").re
 
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
 const style = html.match(/<style>([\s\S]*?)<\/style>/)[1];
-const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+const script = html.match(/<script(?:\s+type="module")?>([\s\S]*?)<\/script>/)[1];
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => {
@@ -51,6 +51,7 @@ const sandbox = [
   'var MODELS = [{ id: "claude-opus-5", label: "Opus" }, { id: "claude-sonnet-5", label: "Sonnet" }];',
   'function modelLabel(id){ for (var i=0;i<MODELS.length;i++) if (MODELS[i].id===id) return MODELS[i].label; return ""; }',
   'var location = { origin: "https://fit.bernardoraposo.com" };',
+  'var coverDispatchEnabled = true;',
   NEEDED.map(grab).join("\n"),
   "return { jobHtml: jobHtml, questionsHtml: questionsHtml, countWords: countWords, fmtChars: fmtChars };",
 ].join("\n");
