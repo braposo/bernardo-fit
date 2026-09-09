@@ -1,6 +1,6 @@
 # Implementation plan: a simpler Trigger architecture
 
-Status: approved direction; Releases A through D are live and validated as of 9 September 2026. Release E is implemented and locally validated, pending production deployment.
+Status: Releases A through E are live and validated as of 9 September 2026. The planned Trigger.dev migration is complete.
 
 ## 1. Direction
 
@@ -174,7 +174,7 @@ Keep model/prompt behaviour unchanged for this pilot except explicit safety/vali
 
 ### Release E — public asynchronous analysis
 
-**Implemented 9 September 2026; production deployment pending.** The public route now reuses completed reports before admission, atomically shares concurrent duplicates, enforces the reviewed size/hour/day defaults, stores one input reference and dispatches a pinned Sonnet worker at concurrency two. Its HMAC-scoped receipt projects only truthful phase, terminal state and report ID; the browser resumes pending work after reload and loads the existing public report endpoint on completion. Dispatch and terminal failures release the active claim for deliberate retry. Local boundary, privacy and recovery tests use no provider calls.
+**Completed 9 September 2026.** Deployed in Trigger.dev production version `20260909.9` and website commit `8ca2b25`. The public route now reuses completed reports before admission, atomically shares concurrent duplicates, enforces the reviewed size/hour/day defaults, stores one input reference and dispatches a pinned Sonnet worker at concurrency two. Its HMAC-scoped receipt projects only truthful phase, terminal state and report ID; the browser resumes pending work after reload and loads the existing public report endpoint on completion. Dispatch and terminal failures release the active claim for deliberate retry. Local boundary, privacy and recovery tests use no provider calls. Production validation confirmed the new client, 20,000-character ceiling and rejection of a foreign run/token pair without starting paid work.
 
 **Implement**
 
