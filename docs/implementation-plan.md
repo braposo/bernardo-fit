@@ -1,6 +1,6 @@
 # Implementation plan: a simpler Trigger architecture
 
-Status: approved direction; Releases A, B and C are live. Release D is implemented locally and passes the full behavioural suite; Trigger and Vercel deployment validation is pending.
+Status: approved direction; Releases A through D are live and validated as of 9 September 2026. Release E is next.
 
 ## 1. Direction
 
