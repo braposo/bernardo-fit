@@ -27,7 +27,9 @@ globalThis.fetch = async () => ({
 
 const store = await import(lib + "store.js");
 const { splitInternal, stripInternal } = await import(lib + "analyze.js");
-const analyzeHandler = (await import(base + "analyze.js")).default;
+const { saveTaskInput } = await import(lib + "task-results.js");
+const { publicAnalysisFingerprint } = await import(lib + "public-analysis.js");
+const { executePublicAnalysisWork } = await import(lib + "public-analysis-work.js");
 const reportHandler = (await import(base + "report.js")).default;
 const { analyseHandler: adminAnalyse, regenerateHandler: regenerate, ingestHandler } = await import("./release-d-harness.mjs");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
@@ -60,13 +62,16 @@ check("stripInternal tolerates junk", stripInternal(null) === null);
 
 console.log("\n--- public analyse never persists or returns a score ---");
 let res = mockRes();
-await analyzeHandler({ method: "POST", headers: ip(), socket: {}, body: { jobDescription: "A long enough job description about a remote platform leadership role." } }, res);
-check("returns 200", res.statusCode === 200, res.body && res.body.error);
-const rid = res.body.id;
-check("response body carries no internal", !("internal" in res.body.report));
-check("no score field leaked", !["score", "tier", "scoreBreakdown", "rationale"].some((key) => key in res.body.report));
+const publicJd = "A long enough job description about a remote platform leadership role.";
+const publicRequestId = "publicscoringrequest01";
+await saveTaskInput("public-analysis", publicRequestId, publicJd);
+const publicOutput = await executePublicAnalysisWork({ requestId: publicRequestId, inputId: publicRequestId,
+  fingerprint: publicAnalysisFingerprint(publicJd) });
+check("worker completes", publicOutput.outcome === "completed", publicOutput);
+const rid = publicOutput.reportId;
 const saved = await store.getReport(rid);
 check("saved report has no internal", !("internal" in saved));
+check("no score field persisted", !["score", "tier", "scoreBreakdown", "rationale"].some((key) => key in saved));
 
 console.log("\n--- the score landed on the pipeline row instead ---");
 let row = (await store.listJobs()).find((j) => j.fitReportId === rid);

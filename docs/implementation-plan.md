@@ -1,6 +1,6 @@
 # Implementation plan: a simpler Trigger architecture
 
-Status: approved direction; Releases A through D are live and validated as of 9 September 2026. Release E is next.
+Status: approved direction; Releases A through D are live and validated as of 9 September 2026. Release E is implemented and locally validated, pending production deployment.
 
 ## 1. Direction
 
@@ -173,6 +173,8 @@ Keep model/prompt behaviour unchanged for this pilot except explicit safety/vali
 - Expected Vercel count drops to 9 after the remaining generator routes are removed.
 
 ### Release E — public asynchronous analysis
+
+**Implemented 9 September 2026; production deployment pending.** The public route now reuses completed reports before admission, atomically shares concurrent duplicates, enforces the reviewed size/hour/day defaults, stores one input reference and dispatches a pinned Sonnet worker at concurrency two. Its HMAC-scoped receipt projects only truthful phase, terminal state and report ID; the browser resumes pending work after reload and loads the existing public report endpoint on completion. Dispatch and terminal failures release the active claim for deliberate retry. Local boundary, privacy and recovery tests use no provider calls.
 
 **Implement**
 

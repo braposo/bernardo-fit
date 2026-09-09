@@ -7,6 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="icon" href="/favicon.svg" sizes="any" />
 <meta name="description" content="Paste a role and I'll tell you, honestly, where I'd fit." />
+<meta name="referrer" content="no-referrer" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -203,7 +204,8 @@
   "use strict";
 
   var app = document.getElementById("app");
-  var state = { view: "input", jd: "", report: null, id: null, error: null, cached: false };
+  var state = { view: "input", jd: "", report: null, id: null, error: null, cached: false, phase: "queued" };
+  var watchNonce = 0;
   var DEMO = new URLSearchParams(location.search).get("demo") === "1";
 
   function esc(s) {
@@ -251,7 +253,7 @@
           (state.error ? '<div class="error">' + esc(state.error) + '</div>' : '') +
           '<div class="row">' +
             '<button class="primary" id="go">See where I fit</button>' +
-            '<span class="hint">' + (DEMO ? 'Demo mode — no API call' : 'Takes about ten seconds') + '</span>' +
+            '<span class="hint">' + (DEMO ? 'Demo mode — no API call' : 'Runs safely in the background') + '</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -266,7 +268,8 @@
   }
 
   function renderLoading() {
-    app.innerHTML = MASTHEAD + '<div class="frame"><div class="loading">Reading the role, thinking it through<span class="pen"></span></div></div>';
+    var labels = { queued: "Your analysis is queued", analysing: "Reading the role, thinking it through", saving: "Saving your report" };
+    app.innerHTML = MASTHEAD + '<div class="frame"><div class="loading">' + esc(labels[state.phase] || labels.queued) + '<span class="pen"></span></div></div>';
   }
 
   function renderReport(r, id) {
@@ -371,6 +374,52 @@
     closing: "If this is the kind of platform thinking you're after, I'd love to talk it through."
   };
 
+  function requestId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, "");
+    return String(Date.now()) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  }
+
+  function responseJson(res) {
+    return res.json().catch(function () { return {}; }).then(function (d) { return { ok: res.ok, status: res.status, d: d }; });
+  }
+
+  function finishReport(id, cached) {
+    fetch("/api/report?id=" + encodeURIComponent(id))
+      .then(responseJson)
+      .then(function (out) {
+        if (!out.ok) throw new Error("Your report was saved but could not be loaded. Refresh to try again.");
+        state.report = out.d.report; state.id = id; state.cached = !!cached; state.view = "report";
+        history.replaceState({}, "", location.pathname + "?r=" + encodeURIComponent(id));
+        render();
+      })
+      .catch(function (err) {
+        state.view = "input"; state.error = err.message || "Something went wrong. Try again."; render();
+      });
+  }
+
+  function watchAnalysis(id, token, failures) {
+    var nonce = watchNonce;
+    fetch("/api/analyze?request=" + encodeURIComponent(id) + "&token=" + encodeURIComponent(token))
+      .then(responseJson)
+      .then(function (out) {
+        if (nonce !== watchNonce) return;
+        if (!out.ok) throw new Error(out.d.error || "Could not check the analysis.");
+        var data = out.d || {};
+        if (data.reportId) return finishReport(data.reportId, data.cached);
+        if (data.terminal) {
+          history.replaceState({}, "", location.pathname);
+          state.view = "input"; state.error = data.error || "The analysis did not finish. Please try again."; return render();
+        }
+        state.phase = data.phase || "queued"; renderLoading();
+        setTimeout(function () { watchAnalysis(id, token, 0); }, 2500);
+      })
+      .catch(function (err) {
+        if (nonce !== watchNonce) return;
+        if ((failures || 0) < 3) return setTimeout(function () { watchAnalysis(id, token, (failures || 0) + 1); }, 2500);
+        state.view = "input"; state.error = err.message || "Connection lost. Refresh to resume the analysis."; render();
+      });
+  }
+
   function runAnalyze() {
     var jd = (state.jd || "").trim();
     if (jd.length < 20) { state.error = "Paste a bit more of the role so I can give you a real read."; return render(); }
@@ -387,17 +436,27 @@
       return;
     }
 
-    fetch("/api/analyze", {
+    var id = requestId();
+    function admit(attempt) { return fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobDescription: jd }),
-    })
-      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
+      body: JSON.stringify({ jobDescription: jd, requestId: id }),
+    }).catch(function (err) {
+      if (!attempt) return admit(1);
+      throw err;
+    }); }
+    admit(0)
+      .then(responseJson)
       .then(function (out) {
         if (!out.ok) throw new Error(out.d && out.d.error ? out.d.error : "Something went wrong.");
-        state.report = out.d.report; state.id = out.d.id; state.cached = !!out.d.cached; state.view = "report";
-        history.pushState({}, "", location.pathname + "?r=" + encodeURIComponent(out.d.id));
-        render();
+        if (out.status === 200 && out.d.report) {
+          state.report = out.d.report; state.id = out.d.id; state.cached = true; state.view = "report";
+          history.pushState({}, "", location.pathname + "?r=" + encodeURIComponent(out.d.id)); return render();
+        }
+        if (!out.d.requestId || !out.d.token) throw new Error("The analysis could not start.");
+        state.phase = "queued";
+        history.pushState({}, "", location.pathname + "?p=" + encodeURIComponent(out.d.requestId) + "&t=" + encodeURIComponent(out.d.token));
+        watchNonce++; watchAnalysis(out.d.requestId, out.d.token, 0);
       })
       .catch(function (err) {
         state.view = "input"; state.error = err.message || "Something went wrong. Try again."; render();
@@ -420,12 +479,18 @@
 
   var params = new URLSearchParams(location.search);
   var rid = params.get("r");
+  var pendingId = params.get("p"); var pendingToken = params.get("t");
   if (rid) loadFromPermalink(rid);
+  else if (pendingId && pendingToken) {
+    state.view = "loading"; state.phase = "queued"; render(); watchNonce++; watchAnalysis(pendingId, pendingToken, 0);
+  }
   else renderInput();
 
   window.addEventListener("popstate", function () {
-    var p = new URLSearchParams(location.search).get("r");
+    watchNonce++;
+    var next = new URLSearchParams(location.search); var p = next.get("r");
     if (p) loadFromPermalink(p);
+    else if (next.get("p") && next.get("t")) { state.view = "loading"; state.phase = "queued"; render(); watchAnalysis(next.get("p"), next.get("t"), 0); }
     else { state.view = "input"; renderInput(); }
   });
 })();

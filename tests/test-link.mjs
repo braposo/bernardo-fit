@@ -38,20 +38,24 @@ globalThis.fetch = async () => ({
   ok: true,
   json: async () => ({ content: [{ type: "text", text: JSON.stringify(FAKE) }], stop_reason: "end_turn" }),
 });
-const analyzeHandler = (await import(base + "analyze.js")).default;
+const { saveTaskInput } = await import(lib + "task-results.js");
+const { publicAnalysisFingerprint } = await import(lib + "public-analysis.js");
+const { executePublicAnalysisWork } = await import(lib + "public-analysis-work.js");
 
 const JD_A = "We are hiring a Head of Platform Engineering to lead three teams building developer tooling at scale.";
 const JD_B = "Completely different role: a Marketing Manager for our consumer brand, based in Leeds, reporting to the CMO.";
 
-function req(jd) {
-  return { method: "POST", headers: { "x-forwarded-for": "1.2.3." + Math.floor(Math.random() * 250) }, body: { jobDescription: jd }, socket: {} };
+let sequence = 0;
+async function analyze(jd) {
+  const requestId = `publictestrequest${++sequence}`;
+  await saveTaskInput("public-analysis", requestId, jd);
+  return executePublicAnalysisWork({ requestId, inputId: requestId, fingerprint: publicAnalysisFingerprint(jd) });
 }
 
 console.log("\n--- website analysis creates a pipeline row ---");
-let res = mockRes();
-await analyzeHandler(req(JD_A), res);
-check("analyze 200", res.statusCode === 200, res.body && res.body.error);
-const reportId = res.body.id;
+let output = await analyze(JD_A);
+check("analysis completes", output.outcome === "completed", output);
+const reportId = output.reportId;
 let jobs = await store.listJobs();
 check("one job created", jobs.length === 1, jobs.length);
 check("job carries company from the report", jobs[0].company === "Northwind", jobs[0].company);
@@ -61,27 +65,24 @@ check("job marked as website-sourced", jobs[0].sourceType === "website", jobs[0]
 check("job holds the job description", jobs[0].jobDescription === JD_A);
 
 console.log("\n--- re-analysing the same JD does not duplicate ---");
-res = mockRes();
-await analyzeHandler(req(JD_A), res);
-check("second run is cached", res.body.cached === true);
+output = await analyze(JD_A);
+check("second run is cached", output.cached === true);
 jobs = await store.listJobs();
 check("still one job", jobs.length === 1, jobs.length);
 
 console.log("\n--- a different JD adds a second row ---");
-res = mockRes();
-await analyzeHandler(req(JD_B), res);
+output = await analyze(JD_B);
 jobs = await store.listJobs();
 check("two jobs now", jobs.length === 2, jobs.length);
 
 console.log("\n--- an existing pipeline row gets linked, not duplicated ---");
 const JD_C = "Principal Engineer wanted to own our design system and component library across three brands, remote UK.";
 const seeded = await store.saveJob({ company: "Preexisting", role: "Principal Engineer", jobDescription: JD_C, stage: "reviewing", notes: "from the inbox" });
-res = mockRes();
-await analyzeHandler(req(JD_C), res);
+output = await analyze(JD_C);
 jobs = await store.listJobs();
 check("no new row created", jobs.length === 3, jobs.length);
 const linked = await store.getJob(seeded.id);
-check("existing row linked to the analysis", linked.fitReportId === res.body.id, linked.fitReportId);
+check("existing row linked to the analysis", linked.fitReportId === output.reportId, linked.fitReportId);
 check("existing row keeps its company", linked.company === "Preexisting");
 check("existing row keeps its stage", linked.stage === "reviewing", linked.stage);
 check("existing row keeps its notes", linked.notes === "from the inbox");
@@ -91,7 +92,7 @@ const orphan = await store.saveReport({
   job_title: "Orphan Role", company: "Oldco", job_description: "An analysis saved before the pipeline existed, long enough to be valid.",
   created_at: new Date().toISOString(),
 });
-res = mockRes();
+let res = mockRes();
 await jobsHandler({ method: "GET", headers: auth, query: {} }, res);
 check("GET reports 1 unlinked", res.body.unlinked === 1, res.body.unlinked);
 
@@ -116,10 +117,8 @@ await jobsHandler({ method: "PATCH", headers: auth, query: { id: alertOnly.id },
 check("PATCH sets jobDescription", res.statusCode === 200 && res.body.job.jobDescription.length > 20);
 
 console.log("\n--- a failing pipeline write must not break the analysis ---");
-const realList = store.listJobs;
-res = mockRes();
-await analyzeHandler(req("Yet another distinct role description for the failure-path test, long enough to pass."), res);
-check("analysis still returns 200", res.statusCode === 200);
+output = await analyze("Yet another distinct role description for the failure-path test, long enough to pass.");
+check("analysis still completes", output.outcome === "completed");
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

@@ -13,11 +13,11 @@ api/admin/*.js             ← authenticated job, version and task-dispatch endp
 lib/store.js               ← atomic report and opportunity storage
 lib/cover-artifacts.js     ← cover bodies and version metadata outside job records
 lib/cover-work.js          ← idempotent cover generation and conditional attachment
-src/trigger/cover.ts       ← durable cover worker with retries and concurrency policy
+src/trigger/*.ts           ← durable workers with bounded retries and concurrency
 scripts/ingest-opportunities.mjs ← posts a validated opportunity batch
 ```
 
-Flow: paste JD → `/api/analyze` runs it as *you*, in first person → result is stored under a short id → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the same read forever.
+Flow: paste JD → `/api/analyze` admits one small background request → Trigger writes the first-person analysis → the page follows its public-scoped status receipt → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the same read forever. Reloading while it runs resumes the same request.
 
 ## Deploy to Vercel (recommended)
 
@@ -30,7 +30,7 @@ Without a KV store the app still runs, but saved links won't persist across requ
 
 ## Trigger.dev
 
-Trigger.dev tasks live in `src/trigger` and are configured by `trigger.config.ts`. Durable workers now own fit analysis and regeneration, cover letters, application answers, company research, screen briefs, ingest, adoption, and the analyse-all orchestration. The SDK, build package and CLI are pinned to the same version so local and cloud builds cannot drift.
+Trigger.dev tasks live in `src/trigger` and are configured by `trigger.config.ts`. Durable workers own public and admin fit analysis, regeneration, cover letters, application answers, company research, screen briefs, ingest, adoption, and the analyse-all orchestration. The SDK, build package and CLI are pinned to the same version so local and cloud builds cannot drift.
 
 ```bash
 npm run trigger:dev       # register tasks in the development environment and watch for changes
@@ -44,6 +44,8 @@ The CLI login is stored outside the repository. Run `npm exec -- trigger.dev log
 Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development key in `.env.local`; the Trigger.dev Vercel integration injects the correct key into Vercel for deployed environments. Any secret read by task code must also exist in the matching Trigger.dev environment. Vercel variables marked Secret are not copied into Trigger.dev automatically, so add those in Trigger.dev explicitly when a task begins using them.
 
 Set `COVER_DISPATCH_DISABLED=1` in Vercel to stop new cover runs immediately. Accepted runs can still be watched and recovered, and removing the variable re-enables dispatch.
+
+Set `PUBLIC_ANALYSIS_DISABLED=1` in Vercel to stop new public analysis admissions while cached reports remain available. Public status links use an HMAC scoped to one opaque request ID. `PUBLIC_RUN_SECRET` can provide a separate signing key; otherwise `ADMIN_SECRET` is used.
 
 ## Deploy to Netlify
 
@@ -113,11 +115,12 @@ Admin generation uses `claude-opus-5` by default with `claude-sonnet-5` availabl
 
 ## Cost & abuse protection
 
-Two things keep the endpoint from running up your bill:
+The public endpoint applies these controls before a worker can make a model call:
 
 - **Deduplication.** Before calling the API, the server hashes the (normalised) job description and checks whether it's been analysed before. If it has, it returns the existing report and permalink instantly — no API call, no extra cost. Trivial differences like spacing and capitalisation still dedupe to the same result.
-- **Rate limiting.** New analyses are capped per IP (default **10 per hour**). Cached/deduped hits don't count against the limit. When someone exceeds it they get a friendly "try again in ~N minutes" message. Tune the numbers in `api/analyze.js` (the `checkAndCountRate(ip, limit, windowSeconds)` call).
+- **Atomic admission.** Concurrent copies of one posting share one request and consume one reservation. New unique analyses default to **10 per hour per IP** and **60 per UTC day** across the site. The worker queue runs at concurrency **2** with at most three bounded attempts.
+- **Size and shutdown controls.** Public postings default to **20,000 characters**. `PUBLIC_ANALYSIS_MAX_CHARS`, `PUBLIC_ANALYSIS_IP_HOURLY_LIMIT`, and `PUBLIC_ANALYSIS_DAILY_LIMIT` tune the admission budget; `PUBLIC_ANALYSIS_DISABLED=1` pauses it immediately.
 
-Both share the same store as the reports, so with Vercel KV they work across serverless invocations out of the box.
+Claims, counters, input references and public receipts share the report KV store, so the limits and reload recovery work across serverless invocations. Receipts and Trigger payloads carry IDs and fingerprints only; the posting is stored once and private scoring stays on the admin pipeline row.
 
 <!-- deployed via GitHub integration -->
