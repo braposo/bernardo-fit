@@ -1,6 +1,6 @@
 # Implementation plan: a simpler Trigger architecture
 
-Status: approved direction; Releases A and B were implemented and validated on 9 September 2026. Release C is next.
+Status: approved direction; Releases A, B and C were implemented and validated on 9 September 2026. Release D is next.
 
 ## 1. Direction
 
@@ -125,6 +125,8 @@ Choose one status path. A compact same-origin status endpoint projecting Trigger
 Keep model/prompt behaviour unchanged for this pilot except explicit safety/validation fixes; evaluate prompt changes separately.
 
 ### Release C — company research and screen brief
+
+**Completed 9 September 2026.** Deployed with separate research and brief workers plus a prepare-screen parent. The production check exercised fresh research followed by brief writing, validated source references and private response headers, confirmed salary fields were not invented, and removed its temporary job and artifacts. The live response also supplied an object-shaped unknown list; its normalizer was corrected and covered before final deployment.
 
 **Implement**
 

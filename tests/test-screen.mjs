@@ -34,13 +34,15 @@ const input=companyResearchInput({company:"Acme",role:"EM",sourceUrl:"https://ww
 check("research receives company identity",input.company==="Acme"&&input.domain==="acme.test");
 check("research excludes personal and posting text",!("notes" in input)&&!("jobDescription" in input),input);
 check("job-board host is not treated as the company domain",companyResearchInput({company:"Acme",role:"EM",sourceUrl:"https://linkedin.com/jobs/view/1"}).domain==="");
-const norm=normaliseResearch({summary:[{text:"ok",url:"https://acme.test/a"},{text:"bad",url:"javascript:alert(1)"}],sources:[{title:"A",url:"https://acme.test/a"}]},[],input);
+const norm=normaliseResearch({summary:[{text:"ok",url:"https://acme.test/a"},{text:"bad",url:"javascript:alert(1)"}],unknowns:[{text:"CEO unknown"}],sources:[{title:"A",url:"https://acme.test/a"}]},[],input);
 check("valid source gets a stable id",norm.summary[0].src===1&&norm.sources[0].id===1,norm);
 check("invalid URL becomes unsupported",norm.summary[1].src===null&&norm.sources.length===1,norm);
+check("structured research unknowns stay readable",norm.unknowns[0]==="CEO unknown",norm.unknowns);
 const bin=briefInputs({role:"EM",company:"Acme",jobDescription:"JD",notes:"verbatim",questions:[],salary:"£100k"}, {pitch:"p",categories:[],differentiators:[]}, norm);
 check("salary categories remain separate",bin.personalFacts.advertisedSalary==="£100k"&&bin.personalFacts.personallyExpectedSalary===""&&bin.personalFacts.previouslyDiscussedSalary==="");
-const bn=normaliseBrief({why:[{text:"supported",src:1},{text:"bogus",src:99}],unknowns:[]},bin);
+const bn=normaliseBrief({why:[{text:"supported",src:1},{text:"bogus",src:99}],unknowns:[{text:"Start date unknown"}]},bin);
 check("unknown source references are downgraded",bn.why[0].src===1&&bn.why[1].src===null,bn.why);
+check("structured brief unknowns stay readable",bn.unknowns[0]==="Start date unknown",bn.unknowns);
 
 console.log("\n--- independent workers and immutable pointers ---");
 const rid=await store.saveReport({job_title:"EM",company:"Acme",job_description:"JD",pitch:"p",categories:[],differentiators:[],created_at:new Date().toISOString()});
