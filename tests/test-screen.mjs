@@ -33,6 +33,7 @@ console.log("\n--- bounded inputs and source validation ---");
 const input=companyResearchInput({company:"Acme",role:"EM",sourceUrl:"https://www.acme.test/jobs/1",notes:"private",jobDescription:"secret"});
 check("research receives company identity",input.company==="Acme"&&input.domain==="acme.test");
 check("research excludes personal and posting text",!("notes" in input)&&!("jobDescription" in input),input);
+check("job-board host is not treated as the company domain",companyResearchInput({company:"Acme",role:"EM",sourceUrl:"https://linkedin.com/jobs/view/1"}).domain==="");
 const norm=normaliseResearch({summary:[{text:"ok",url:"https://acme.test/a"},{text:"bad",url:"javascript:alert(1)"}],sources:[{title:"A",url:"https://acme.test/a"}]},[],input);
 check("valid source gets a stable id",norm.summary[0].src===1&&norm.sources[0].id===1,norm);
 check("invalid URL becomes unsupported",norm.summary[1].src===null&&norm.sources.length===1,norm);
