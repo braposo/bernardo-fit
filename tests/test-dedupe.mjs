@@ -19,7 +19,7 @@ const lib = "file:///" + root + "lib/";
 
 process.env.ADMIN_SECRET = "test-secret-value";
 const store = await import(lib + "store.js");
-const ingest = (await import(base + "admin/ingest.js")).default;
+const { ingestHandler: ingest } = await import("./release-d-harness.mjs");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => {

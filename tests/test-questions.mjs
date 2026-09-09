@@ -21,7 +21,7 @@ globalThis.fetch = async (_u, opts) => {
 
 const store = await import(lib + "store.js");
 const ans = await import(lib + "answer.js");
-const answer = (await import(base + "admin/answer.js")).default;
+const { answerHandler: answer } = await import("./release-d-harness.mjs");
 const reportHandler = (await import(base + "report.js")).default;
 
 let pass = 0, fail = 0;
@@ -154,7 +154,7 @@ check("has a questions box", html.includes("qabox"));
 check("answer is escaped", html.includes("esc(q.a)"));
 check("question text is escaped", html.includes("esc(q.q"));
 check("has a copy button", html.includes("qcopy"));
-check("uses the dropped-connection recovery", html.includes("answerLanded(id, qid)"));
+check("uses the durable run watcher", html.includes('watchWork(id, out.d.runId, status, "answer"'));
 check("shows the count against the limit", html.includes("qa-count"));
 check("add button present", html.includes("qadd"));
 check("remove button present", html.includes("qdel"));

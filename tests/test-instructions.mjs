@@ -36,8 +36,7 @@ const { buildSystemPrompt } = await import(lib + "profile.js");
 const { buildCoverPrompt } = await import(lib + "cover.js");
 const { executeCoverWork } = await import(lib + "cover-work.js");
 const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
-const analyseHandler = (await import(base + "admin/analyse.js")).default;
-const regenHandler = (await import(base + "admin/regenerate.js")).default;
+const { analyseHandler, regenerateHandler: regenHandler } = await import("./release-d-harness.mjs");
 const reportHandler = (await import(base + "report.js")).default;
 
 let pass = 0, fail = 0;

@@ -7,7 +7,6 @@ import {
   deleteJob,
   findExistingJob,
   findUnlinkedReportIds,
-  getReport,
   getStats,
   JOB_STAGES,
   getReportSources,
@@ -18,7 +17,9 @@ import { jobSummary, jobDetail, matchesSearch } from "../../lib/job-view.js";
 import { MODELS } from "../../lib/models.js";
 import { deleteCoverArtifacts, getActiveCoverArtifact } from "../../lib/cover-artifacts.js";
 import { deleteScreenArtifacts, getActiveBrief, getActiveResearch } from "../../lib/screen-artifacts.js";
+import { deleteTaskResults } from "../../lib/task-results.js";
 import { coverDispatchEnabled, screenDispatchEnabled } from "../../lib/task-policy.js";
+import { getActiveRuns } from "../../lib/run-receipts.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
@@ -50,8 +51,9 @@ export default async function handler(req, res) {
       }
       // Attach view/interaction counts for any job with a linked fit report.
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
-      const [stats, analysed, unlinked] = await Promise.all([
+      const [stats, analysed, unlinked, activeRuns] = await Promise.all([
         getStats(ids), getReportSources(ids), findUnlinkedReportIds(all),
+        getActiveRuns(["analyse-all", "adopt"]),
       ]);
       // Whether the row's description has moved on since it was analysed.
       // Read from the report rather than stamped on the row when the analysis
@@ -72,6 +74,7 @@ export default async function handler(req, res) {
         archiveOnStage: ARCHIVE_ON_STAGE,
         features: { coverDispatchEnabled: coverDispatchEnabled(), screenDispatchEnabled: screenDispatchEnabled() },
         viewingArchived: onlyArchived,
+        activeRuns,
       });
       return;
     }
@@ -90,29 +93,6 @@ export default async function handler(req, res) {
         const artifact = body.kind === "research" ? await getActiveResearch(job) : await getActiveBrief(job);
         if (!job || !artifact) return res.status(404).json({ error: `No ${body.kind === "research" ? "research" : "screen brief"} for this role yet.` });
         return res.status(200).json({ token: makeViewToken(job.id) });
-      }
-
-      // Pull analyses that predate the auto-linking into the pipeline.
-      if (body.action === "adopt") {
-        const ids = await findUnlinkedReportIds();
-        let added = 0;
-        for (const rid of ids) {
-          const r = await getReport(rid);
-          if (!r) continue;
-          await saveJob({
-            company: r.company || "",
-            role: r.job_title || "Untitled role",
-            source: "Analysed on the website",
-            sourceType: "website",
-            jobDescription: r.job_description || "",
-            fitReportId: rid,
-            stage: "new",
-            receivedAt: r.created_at || new Date().toISOString(),
-          });
-          added++;
-        }
-        res.status(200).json({ added });
-        return;
       }
 
       if (!body.company && !body.role) {
@@ -187,6 +167,7 @@ export default async function handler(req, res) {
       }
       await deleteCoverArtifacts(id);
       await deleteScreenArtifacts(id);
+      await deleteTaskResults(id);
       await deleteJob(id, { requireArchived: true });
       res.status(200).json({ ok: true });
       return;

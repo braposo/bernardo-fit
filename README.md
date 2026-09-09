@@ -30,7 +30,7 @@ Without a KV store the app still runs, but saved links won't persist across requ
 
 ## Trigger.dev
 
-Trigger.dev tasks live in `src/trigger` and are configured by `trigger.config.ts`. The SDK, build package and CLI are pinned to the same version so local and cloud builds cannot drift.
+Trigger.dev tasks live in `src/trigger` and are configured by `trigger.config.ts`. Durable workers now own fit analysis and regeneration, cover letters, application answers, company research, screen briefs, ingest, adoption, and the analyse-all orchestration. The SDK, build package and CLI are pinned to the same version so local and cloud builds cannot drift.
 
 ```bash
 npm run trigger:dev       # register tasks in the development environment and watch for changes
@@ -63,15 +63,15 @@ Everything lives in a single pipeline. Each row is an opportunity moving through
 
 **The pipeline and the analyses are the same list.** Any analysis run on the public site creates a pipeline row automatically, taking the company and role from the analysis itself. If a row already holds that job description, the analysis links to it rather than creating a duplicate. Going the other way, any row with a job description has a "Generate fit analysis" button, and rows without one can have a description pasted straight into them. Once a row is linked you get "View fit page", "Copy fit link" and "Regenerate", plus view, link-copy and CV-download counts for that page.
 
-Analyses saved before this behaviour existed show up as a prompt at the top of the page offering to pull them in.
+Analyses saved before this behaviour existed show up as a prompt at the top of the page offering to pull them in. Adoption runs as a background task and survives a browser reload.
 
-**Nothing is ever deleted.** Rows are archived instead: an archived row leaves the pipeline but keeps its record, its notes and its fit page, so a link already sent to a recruiter carries on resolving. "Archived (N)" in the toolbar switches to that list, where each row can be restored. `DELETE /api/admin/jobs` returns 405 and points at `PATCH { archived: true }`. Re-importing the inbox scan won't resurrect something you archived, and bulk analysis skips archived rows.
+Rows are archived first: an archived row leaves the pipeline but keeps its record, its notes and its fit page, so a link already sent to a recruiter carries on resolving. "Archived (N)" in the toolbar switches to that list, where each row can be restored or permanently removed. Permanent removal leaves the public fit report intact and prevents adoption from recreating the row. Re-importing the inbox scan won't resurrect something you archived, and bulk analysis skips archived rows.
 
-Opportunities can also be posted as a validated batch through `scripts/ingest-opportunities.mjs`. Gmail access and posting capture stay outside the server; it receives only the resulting opportunity data and holds no mail credentials.
+Opportunities can also be posted as a validated batch through `scripts/ingest-opportunities.mjs`. The route authenticates and validates the upload, stores the batch once, and returns a Trigger run ID; the CLI waits on that run and prints the final counts. Gmail access and posting capture stay outside the server, which holds no mail credentials.
 
-"Import from inbox" is an upsert keyed on `externalId` then Gmail thread id, so re-running it refreshes the scan-derived metadata while leaving your stage, notes and linked analysis untouched.
+"Import from inbox" is an upsert matched by external ID, board posting ID, normalised company and role, then Gmail thread where safe. Each batch loads the pipeline once and updates its temporary match set as it adds rows. Re-running it refreshes scan-derived metadata while leaving stage, notes, linked analysis, archive state and private scoring untouched.
 
-Analyses are generated one row at a time, from the row itself. That goes through `POST /api/admin/analyse` rather than the public endpoint, which is rate limited to 10 per hour per IP to protect the bill from visitors — a pointless limit for a caller already holding the admin secret. Deduplication still applies, so a description analysed before costs nothing.
+Admin analysis, regeneration and application answers all enter through the shared authenticated run dispatcher at `POST /api/admin/cover`. Vercel sends IDs, an input fingerprint and allowed options; Trigger loads the durable source data, runs the model work, and conditionally attaches the result. The board can analyse one row or use **Analyse all**. Deduplication still applies, so a matching description and model can reuse an existing report without another model call.
 
 ## Scoring is private
 
@@ -81,7 +81,7 @@ These are a model-generated read against the profile, for triage. They are not e
 
 ## Recurring inbox review
 
-A scheduled task scans Gmail weekly, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. Same upsert rules as before: matched on `externalId` then Gmail thread id, and your stage, notes, score, linked analysis and archived state all survive. New rows arrive unscored, because scoring belongs to the analysis step.
+A scheduled task scans Gmail weekly, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. The endpoint returns HTTP 202 and the CLI follows the background run to completion. Stage, notes, score, linked analysis and archived state all survive. New rows arrive unscored, because scoring belongs to the analysis step.
 
 The server still holds no mail credentials. The scan runs agent-side and only the resulting JSON is posted. `scripts/ingest-opportunities.mjs` reads `ADMIN_SECRET` from `.env.local` itself and never prints or forwards it, so whatever assembles the JSON never handles the credential. Populate it once with `vercel env pull`.
 

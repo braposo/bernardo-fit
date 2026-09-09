@@ -28,7 +28,7 @@ globalThis.fetch = async (_url, opts) => {
 };
 
 const store = await import(lib + "store.js");
-const regen = (await import(base + "admin/regenerate.js")).default;
+const { regenerateHandler: regen } = await import("./release-d-harness.mjs");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e).slice(0, 160) : "")); } };

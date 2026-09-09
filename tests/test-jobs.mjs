@@ -126,7 +126,7 @@ check("PATCH unknown id -> 404", res.statusCode === 404);
 // The import action is gone; the daily inbox ingest does the same upsert, so
 // the invariant it protected is tested against the endpoint that still runs.
 console.log("\n--- ingest is an upsert that respects what I own ---");
-const ingest = (await import(base + "admin/ingest.js")).default;
+const { ingestHandler: ingest } = await import("./release-d-harness.mjs");
 const opp = { externalId: "ing-1", company: "CINC Systems", role: "Director of Engineering", source: "direct email" };
 res = mockRes();
 await ingest({ method: "POST", headers: auth, body: { opportunities: [opp] } }, res);

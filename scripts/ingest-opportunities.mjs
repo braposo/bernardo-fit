@@ -32,6 +32,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { fetchDescription, postingId } from "./fetch-jd.mjs";
 
 const ENDPOINT = process.env.FIT_ENDPOINT || "https://fit.bernardoraposo.com/api/admin/ingest";
@@ -122,7 +123,7 @@ if (!noFetch) {
 const res = await fetch(ENDPOINT, {
   method: "POST",
   headers: { "Content-Type": "application/json", "x-admin-secret": secret },
-  body: JSON.stringify({ opportunities }),
+  body: JSON.stringify({ opportunities, requestId: randomUUID() }),
 });
 
 const body = await res.json().catch(() => ({}));
@@ -132,16 +133,43 @@ if (!res.ok) {
   process.exit(1);
 }
 
-console.log(
-  `Sent ${opportunities.length}. Added ${body.added}, refreshed ${body.updated}, skipped ${body.skipped}.`
-);
-for (const r of body.addedRows || []) {
+if (!body.runId) {
+  console.error("Ingest was accepted without a run id.");
+  process.exit(1);
+}
+console.log(`Sent ${opportunities.length}. Waiting for background ingest ${body.runId}...`);
+const statusUrl = new URL(ENDPOINT.replace(/\/ingest\/?$/, "/cover"));
+statusUrl.searchParams.set("run", body.runId);
+let completed;
+for (let attempt = 0; attempt < 900; attempt++) {
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  const statusResponse = await fetch(statusUrl, { headers: { "x-admin-secret": secret } });
+  const status = await statusResponse.json().catch(() => ({}));
+  if (!statusResponse.ok) {
+    console.error("Could not read ingest status (" + statusResponse.status + "): " + (status.error || "unknown error"));
+    process.exit(1);
+  }
+  if (status.terminal) {
+    if (status.status !== "COMPLETED") {
+      console.error("Ingest failed: " + (status.error || status.status));
+      process.exit(1);
+    }
+    completed = status.result || {};
+    break;
+  }
+}
+if (!completed) {
+  console.error("Ingest is still running after 30 minutes. Run id: " + body.runId);
+  process.exit(1);
+}
+console.log(`Added ${completed.added}, refreshed ${completed.updated}, skipped ${completed.skipped}.`);
+for (const r of completed.addedRows || []) {
   console.log("  new: " + r.role + (r.company ? " at " + r.company : ""));
 }
 // Sent as new, folded into a row that already existed. Worth reading: it means
 // the externalId composed for this role does not match the one composed for it
 // last time, which is how duplicates used to get in.
-for (const r of body.mergedRows || []) {
+for (const r of completed.mergedRows || []) {
   console.log(
     "  already known (" + r.matchedOn + "): " + r.role + (r.company ? " at " + r.company : "") +
       "  sent as " + r.sentAs

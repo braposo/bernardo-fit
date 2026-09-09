@@ -21,7 +21,7 @@ globalThis.fetch = async () => {
 };
 
 const store = await import(lib + "store.js");
-const analyseHandler = (await import(base + "admin/analyse.js")).default;
+const { analyseHandler } = await import("./release-d-harness.mjs");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
 
 let pass = 0, fail = 0;

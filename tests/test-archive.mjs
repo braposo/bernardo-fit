@@ -16,7 +16,7 @@ globalThis.fetch = async () => ({
 const store = await import(lib + "store.js");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
-const analyseHandler = (await import(base + "admin/analyse.js")).default;
+const { analyseHandler, ingestHandler: ingest } = await import("./release-d-harness.mjs");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e) : "")); } };
@@ -84,7 +84,6 @@ check("stage and links intact", (await store.getJob(a.id)).fitReportId === repor
 
 // Archiving is a decision, and the daily ingest must not undo it.
 console.log("\n--- a re-ingest does not resurrect an archived row ---");
-const ingest = (await import(base + "admin/ingest.js")).default;
 const opp = { externalId: "arch-ing-1", company: "Seeded", role: "R", source: "direct email" };
 res = mockRes();
 await ingest({ method: "POST", headers: auth, body: { opportunities: [opp] } }, res);

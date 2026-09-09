@@ -12,6 +12,7 @@ process.env.ANTHROPIC_API_KEY = "sk-fake-for-test";
 
 const store = await import(lib + "store.js");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
+const { executeAdoptReports } = await import(lib + "adopt-work.js");
 
 let pass = 0, fail = 0;
 function check(n, c, e) {
@@ -94,8 +95,7 @@ res = mockRes();
 await jobsHandler({ method: "GET", headers: auth, query: {} }, res);
 check("GET reports 1 unlinked", res.body.unlinked === 1, res.body.unlinked);
 
-res = mockRes();
-await jobsHandler({ method: "POST", headers: auth, query: {}, body: { action: "adopt" } }, res);
+res = { body: await executeAdoptReports() };
 check("adopt adds it", res.body.added === 1, res.body);
 jobs = await store.listJobs();
 check("four jobs now", jobs.length === 4, jobs.length);
@@ -106,8 +106,7 @@ check("adopted row took the title", adopted.role === "Orphan Role");
 res = mockRes();
 await jobsHandler({ method: "GET", headers: auth, query: {} }, res);
 check("nothing unlinked afterwards", res.body.unlinked === 0, res.body.unlinked);
-res = mockRes();
-await jobsHandler({ method: "POST", headers: auth, query: {}, body: { action: "adopt" } }, res);
+res = { body: await executeAdoptReports() };
 check("adopt again is a no-op", res.body.added === 0, res.body);
 
 console.log("\n--- job description is editable via PATCH ---");

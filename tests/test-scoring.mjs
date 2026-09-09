@@ -29,10 +29,8 @@ const store = await import(lib + "store.js");
 const { splitInternal, stripInternal } = await import(lib + "analyze.js");
 const analyzeHandler = (await import(base + "analyze.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
-const adminAnalyse = (await import(base + "admin/analyse.js")).default;
-const regenerate = (await import(base + "admin/regenerate.js")).default;
+const { analyseHandler: adminAnalyse, regenerateHandler: regenerate, ingestHandler } = await import("./release-d-harness.mjs");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
-const ingestHandler = (await import(base + "admin/ingest.js")).default;
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e) : "")); } };

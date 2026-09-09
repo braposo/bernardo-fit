@@ -2,12 +2,12 @@ import { requireAdmin } from "../../lib/admin.js";
 import {
   getJob,
   getReport,
-  updateJob,
   mutateJob,
   listReportVersions,
   activateReportVersion,
 } from "../../lib/store.js";
 import { getCoverArtifact, listCoverVersions, migrateLegacyCoverArtifacts } from "../../lib/cover-artifacts.js";
+import { applyAnalysisToOwners } from "../../lib/analysis-completion.js";
 
 // GET  /api/admin/versions?id=<jobId>          list both kinds for one row
 // POST /api/admin/versions { id, kind, vid }   make one of them live
@@ -90,14 +90,7 @@ export default async function handler(req, res) {
         // have none, and the row keeps what it had rather than being blanked.
         const versions = await listReportVersions(job.fitReportId);
         const chosen = versions.find((v) => v.vid === vid);
-        if (chosen && chosen.internal) {
-          await updateJob(id, {
-            score: chosen.internal.score,
-            tier: chosen.internal.tier,
-            scoreBreakdown: chosen.internal.breakdown,
-            rationale: chosen.internal.reasoning,
-          });
-        }
+        await applyAnalysisToOwners(job.fitReportId, chosen?.internal || null);
         res.status(200).json({ ok: true, kind, vid });
         return;
       }

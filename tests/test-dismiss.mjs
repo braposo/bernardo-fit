@@ -16,6 +16,7 @@ const lib = "file:///" + root + "lib/";
 process.env.ADMIN_SECRET = "test-secret-value";
 const store = await import(lib + "store.js");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
+const { executeAdoptReports } = await import(lib + "adopt-work.js");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => {
@@ -31,9 +32,7 @@ function mockRes() {
 }
 const auth = { "x-admin-secret": "test-secret-value" };
 const adopt = async () => {
-  const res = mockRes();
-  await jobsHandler({ method: "POST", headers: auth, body: { action: "adopt" } }, res);
-  return res.body;
+  return executeAdoptReports();
 };
 const del = async (id) => {
   const res = mockRes();

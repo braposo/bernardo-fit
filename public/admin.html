@@ -318,6 +318,7 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
   var archivedCount = 0;
   var showArchived = false;
   var attachedCoverWatches = {};
+  var activeRuns = {};
   var coverDispatchEnabled = true;
   var screenDispatchEnabled = true;
 
@@ -357,69 +358,8 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
 
   // ---------- Work that outlives the connection ----------
 
-  // Analysis, regeneration and application answers still use the older
-  // request-bound path until their Trigger tasks land. Each can
-  // run for minutes. The browser sometimes gives up on the connection well
-  // before the server gives up on the work, which showed up as "Network error"
-  // on a job that had in fact completed. So when the connection drops, go and
-  // look for the result instead of reporting a failure that did not happen.
-  function pollFor(check) {
-    var tries = 30, every = 6000; // roughly three minutes
-    return new Promise(function (resolve) {
-      (function attempt(n) {
-        if (n >= tries) { resolve(null); return; }
-        setTimeout(function () {
-          check().then(
-            function (out) { if (out) resolve(out); else attempt(n + 1); },
-            function () { attempt(n + 1); }
-          );
-        }, every);
-      })(0);
-    });
-  }
-
-  // status 0 means the fetch itself was rejected, not that the server answered.
-  function recoverable(out, status, check) {
-    if (out.status !== 0) return Promise.resolve(out);
-    status.textContent = "Connection dropped. Still checking…";
-    status.className = "row-status";
-    return pollFor(check).then(function (found) { return found || out; });
-  }
-
-  function jobRow(id) {
-    return api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
-      return out.ok ? out.d.job : null;
-    });
-  }
-
-  // Timestamps come back from the server, so allow a second of clock skew.
-  function newerThan(iso, since) {
-    return !!iso && new Date(iso).getTime() >= since - 1000;
-  }
-
-  function analysisLanded(id, hadReport) {
-    return jobRow(id).then(function (j) {
-      if (!j || !j.fitReportId || j.fitReportId === hadReport) return null;
-      return { ok: true, status: 200, d: { reportId: j.fitReportId } };
-    });
-  }
-
-  function regenLanded(reportId, since) {
-    return api("/api/report?id=" + encodeURIComponent(reportId), { method: "GET" }).then(function (out) {
-      if (!out.ok || !out.d.report) return null;
-      return newerThan(out.d.report.regenerated_at, since) ? { ok: true, status: 200, d: {} } : null;
-    });
-  }
-
-  // Answer generation has not moved to Trigger yet, so recover a dropped HTTP
-  // response by checking the one question that changed.
-  function answerLanded(id, qid) {
-    return jobRow(id).then(function (j) {
-      if (!j) return null;
-      var q = (j.questions || []).filter(function (x) { return x.id === qid; })[0];
-      if (!q || !q.answeredAt) return null;
-      return { ok: true, status: 200, d: { answer: q.a, refused: q.refused, reason: q.reason, words: countWords(q.a), limit: q.limit, over: countWords(q.a) > q.limit } };
-    });
+  function newRequestId() {
+    return (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()).replace(/-/g, "");
   }
 
   var watchRun = createRunWatcher({
@@ -443,12 +383,15 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
   }
 
   function watchWork(id, runId, status, kind, openWhenDone) {
-    status.textContent = "Queued…"; status.className = "row-status";
+    status.textContent = "Queued…";
+    if (status.classList.contains("row-status")) status.className = "row-status";
     return watchRun(runId, function (run) { status.textContent = coverPhaseText(run); }).then(function (out) {
       var done = workCompletion(out);
-      status.textContent = done.text; status.className = "row-status" + (done.tone ? " " + done.tone : "");
-      loadJobs(false);
+      status.textContent = done.text;
+      if (status.classList.contains("row-status")) status.className = "row-status" + (done.tone ? " " + done.tone : "");
+      if (kind !== "answer") loadJobs(false);
       if (done.open && openWhenDone) openArtifact(id, kind === "research" ? "research" : "brief");
+      return out;
     });
   }
 
@@ -807,6 +750,7 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
     shown.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
 
     var filtering = stageFilter;
+    var pendingAnalysis = jobs.filter(function (j) { return !j.fitReportId && j.hasDescription; }).length;
 
     var html = '<div class="frame">' +
       '<div class="toolbar">' +
@@ -822,6 +766,9 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
                 return '<option value="' + m.id + '"' + (model === m.id ? " selected" : "") + ">" + m.label + "</option>";
               }).join("") +
             "</select></span>" +
+          (!showArchived && pendingAnalysis
+            ? '<button class="ghost" id="analyseall">' + (activeRuns["analyse-all"] ? "Analysing…" : "Analyse all (" + pendingAnalysis + ")") + '</button>'
+            : '') +
 
           (archivedCount || showArchived
             ? '<button class="ghost" id="togglearchived">' +
@@ -861,19 +808,44 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
     if (adoptBtn) {
       adoptBtn.addEventListener("click", function () {
         adoptBtn.disabled = true; adoptBtn.textContent = "Adding…";
-        api("/api/admin/jobs", {
+        api("/api/admin/cover", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "adopt" }),
+          body: JSON.stringify({ kind: "adopt", requestId: newRequestId() }),
         }).then(function (out) {
           if (unauthorised(out)) return;
           if (!out.ok) { alert(out.d.error || "Failed."); adoptBtn.disabled = false; return; }
-          loadJobs(false);
+          activeRuns.adopt = { runId: out.d.runId };
+          watchWork("batch", out.d.runId, adoptBtn, "adopt", false).then(function () { activeRuns.adopt = null; });
         });
       });
     }
 
+    var analyseAllBtn = document.getElementById("analyseall");
+    if (analyseAllBtn) {
+      analyseAllBtn.disabled = !!activeRuns["analyse-all"];
+      analyseAllBtn.addEventListener("click", function () {
+        analyseAllBtn.disabled = true; analyseAllBtn.textContent = "Dispatching…";
+        api("/api/admin/cover", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind: "analyse-all", model: model, requestId: newRequestId() }),
+        }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { analyseAllBtn.disabled = false; analyseAllBtn.textContent = out.d.error || "Could not start."; return; }
+          activeRuns["analyse-all"] = { runId: out.d.runId };
+          watchWork("batch", out.d.runId, analyseAllBtn, "analyse-all", false).then(function () { activeRuns["analyse-all"] = null; });
+        });
+      });
+    }
 
+    ["analyse-all", "adopt"].forEach(function (kind) {
+      var active = activeRuns[kind];
+      var target = kind === "analyse-all" ? analyseAllBtn : adoptBtn;
+      if (!active || !active.runId || !target || attachedCoverWatches[active.runId]) return;
+      attachedCoverWatches[active.runId] = true;
+      target.disabled = true;
+      watchWork("batch", active.runId, target, kind, false).then(function () { activeRuns[kind] = null; });
+    });
 
     var searchEl = document.getElementById("search");
     if (searchEl) {
@@ -934,6 +906,22 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
           delete attachedCoverWatches[job.prepareRun.runId];
         });
       }
+      if (job.analysisRun && job.analysisRun.runId &&
+          (job.analysisRun.status === "dispatching" || job.analysisRun.status === "queued") &&
+          !attachedCoverWatches[job.analysisRun.runId]) {
+        attachedCoverWatches[job.analysisRun.runId] = true;
+        watchWork(id, job.analysisRun.runId, status, "analyse", false).then(function () {
+          delete attachedCoverWatches[job.analysisRun.runId];
+        });
+      }
+      (job.answerRuns || []).forEach(function (answerRun) {
+        if (attachedCoverWatches[answerRun.run.runId]) return;
+        attachedCoverWatches[answerRun.run.runId] = true;
+        watchWork(id, answerRun.run.runId, status, "answer", false).then(function () {
+          delete attachedCoverWatches[answerRun.run.runId];
+          loadJobs(false);
+        });
+      });
 
       function patch(body, onDone) {
         api("/api/admin/jobs?id=" + encodeURIComponent(id), {
@@ -1001,6 +989,21 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
         var qid = qEl.getAttribute("data-qid");
         var text = qEl.querySelector('[data-act="qtext"]');
         var lim = qEl.querySelector('[data-act="qlimit"]');
+        var savedQuestion = (job.questions || []).filter(function (q) { return q.id === qid; })[0];
+        if (savedQuestion && savedQuestion.run && savedQuestion.run.runId &&
+            (savedQuestion.run.status === "dispatching" || savedQuestion.run.status === "queued") &&
+            !attachedCoverWatches[savedQuestion.run.runId]) {
+          attachedCoverWatches[savedQuestion.run.runId] = true;
+          watchWork(id, savedQuestion.run.runId, status, "answer", false).then(function () {
+            delete attachedCoverWatches[savedQuestion.run.runId];
+            api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
+              if (!out.ok) return;
+              var index = jobs.findIndex(function (j) { return j.id === id; });
+              if (index !== -1) jobs[index] = Object.assign({}, jobs[index], out.d.job);
+              renderJobs();
+            });
+          });
+        }
 
         // Saved on blur, like the other free-text fields on the row.
         function currentEdit() {
@@ -1038,27 +1041,24 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
           status.textContent = "Drafting…"; status.className = "row-status";
           // Persist the question text first, so the server answers what is on screen.
           patch({ question: currentEdit() }, function () {
-            api("/api/admin/answer", {
+            var requestId = newRequestId();
+            api("/api/admin/cover", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: id, questionId: qid, model: model }),
+              body: JSON.stringify({ id: id, kind: "answer", questionId: qid, model: model, requestId: requestId }),
             }).then(function (out) {
-              return recoverable(out, status, function () { return answerLanded(id, qid); });
+              if (unauthorised(out)) return;
+              if (!out.ok) { draft.disabled = false; status.textContent = out.d.error || "Could not draft it."; status.className = "row-status err"; return null; }
+              return watchWork(id, out.d.runId, status, "answer", false);
             }).then(function (out) {
               draft.disabled = false;
-              if (unauthorised(out)) return;
-              if (!out.ok) { status.textContent = out.d.error || "Could not draft it."; status.className = "row-status err"; return; }
-              status.textContent = out.d.refused ? "Needs you" : out.d.words + " words";
-              status.className = "row-status " + (out.d.refused || out.d.over ? "err" : "ok");
-              var i = jobs.findIndex(function (j) { return j.id === id; });
-              if (i !== -1) {
-                jobs[i].questions = (jobs[i].questions || []).map(function (q) {
-                  return q.id === qid ? Object.assign({}, q, {
-                    a: out.d.answer, refused: out.d.refused, reason: out.d.reason, answeredAt: new Date().toISOString()
-                  }) : q;
-                });
-              }
-              renderJobs();
+              if (!out || !out.ok || out.d.status !== "COMPLETED" || out.d.result?.outcome !== "completed") return;
+              api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (detail) {
+                if (!detail.ok) return;
+                var i = jobs.findIndex(function (j) { return j.id === id; });
+                if (i !== -1) jobs[i] = Object.assign({}, jobs[i], detail.d.job);
+                renderJobs();
+              });
             });
           });
         });
@@ -1234,22 +1234,20 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
           // If details are open, save the text first. Compact rows already have
           // their description stored and can start without downloading it.
           function analyse() {
-            var hadReport = job.fitReportId || "";
-            api("/api/admin/analyse", {
+            var requestId = newRequestId();
+            api("/api/admin/cover", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: id, model: model }),
+              body: JSON.stringify({ id: id, kind: "analyse", model: model, requestId: requestId }),
             }).then(function (out) {
-              return recoverable(out, status, function () { return analysisLanded(id, hadReport); });
-            }).then(function (out) {
-              runFit.disabled = false;
               if (unauthorised(out)) return;
               if (!out.ok) {
+                runFit.disabled = false;
                 status.textContent = out.d.error || "Analysis failed.";
                 status.className = "row-status err";
                 return;
               }
-              loadJobs(false);
+              watchWork(id, out.d.runId, status, "analyse", false).then(function () { runFit.disabled = false; });
             });
           }
           if (jd) patch({ jobDescription: text }, analyse);
@@ -1326,20 +1324,15 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
         regen.addEventListener("click", function () {
           regen.disabled = true;
           status.textContent = "Regenerating…"; status.className = "row-status";
-          var regenStartedAt = Date.now();
-          var regenReportId = job.fitReportId;
-          api("/api/admin/regenerate", {
+          var requestId = newRequestId();
+          api("/api/admin/cover", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: job.fitReportId, jobId: id, model: model }),
+            body: JSON.stringify({ id: id, reportId: job.fitReportId, kind: "regenerate", model: model, requestId: requestId }),
           }).then(function (out) {
-            return recoverable(out, status, function () { return regenLanded(regenReportId, regenStartedAt); });
-          }).then(function (out) {
-            regen.disabled = false;
             if (unauthorised(out)) return;
-            if (!out.ok) { status.textContent = out.d.error || "Regenerate failed."; status.className = "row-status err"; return; }
-            status.textContent = "Regenerated"; status.className = "row-status ok";
-            setTimeout(function () { status.textContent = ""; }, 1800);
+            if (!out.ok) { regen.disabled = false; status.textContent = out.d.error || "Regenerate failed."; status.className = "row-status err"; return; }
+            watchWork(id, out.d.runId, status, "regenerate", false).then(function () { regen.disabled = false; });
           });
         });
       }
@@ -1394,6 +1387,7 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
       if (!MODELS.some(function (m) { return m.id === model; })) model = MODELS[0].id;
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;
+      activeRuns = out.d.activeRuns || {};
       renderJobs();
     });
   }

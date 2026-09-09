@@ -103,10 +103,10 @@ check("runAnalysis is what regenerate calls", typeof realRun === "function");
 // Rather than stub the model, assert the endpoint hands over the row's text by
 // reading the source: the call site is the whole fix.
 const fs = await import("node:fs");
-const src = fs.readFileSync(root + "api/admin/regenerate.js", "utf8");
-check("it builds the jd from the owning row", /const jd = \(owner && \(owner\.jobDescription \|\| ""\)\.trim\(\)\) \|\| existing\.job_description;/.test(src));
+const src = fs.readFileSync(root + "lib/analysis-work.js", "utf8");
+check("it builds the jd from the owning row", /const jd = String\(job\?\.jobDescription \|\| existing\.job_description \|\| ""\)\.trim\(\);/.test(src));
 check("it analyses that, not the report copy", /runAnalysis\(jd,/.test(src));
-check("and writes it back so the flag clears", /report\.job_description = jd;/.test(src));
+check("and writes it back so the flag clears", /generated\.report\.job_description = jd;/.test(src));
 check("the old behaviour is gone", !/runAnalysis\(existing\.job_description/.test(src));
 
 console.log("\n--- clearing the flag ---");

@@ -38,9 +38,7 @@ const { runCoverLetter } = await import(lib + "cover.js");
 const { executeCoverWork } = await import(lib + "cover-work.js");
 const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
 const { runAnswer } = await import(lib + "answer.js");
-const analyse = (await import(base + "admin/analyse.js")).default;
-const regen = (await import(base + "admin/regenerate.js")).default;
-const answer = (await import(base + "admin/answer.js")).default;
+const { analyseHandler: analyse, regenerateHandler: regen, answerHandler: answer } = await import("./release-d-harness.mjs");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => {
@@ -162,8 +160,8 @@ check("picker present", html.includes('id="modelsel"'));
 check("persisted", html.includes('localStorage.setItem(MODEL_KEY, model)'));
 check("page defaults to opus", html.includes('localStorage.getItem(MODEL_KEY) || "claude-opus-5"'));
 check("guards a bad stored value", html.includes('if (!MODELS.some('));
-check("sent with analysis and letter", (html.match(/id: id, model: model/g) || []).length === 2);
-check("sent with regenerate", html.includes("jobId: id, model: model"));
+check("sent with analysis and letter", html.includes('kind: "analyse", model: model') && html.includes("id: id, model: model, requestId: requestId"));
+check("sent with regenerate", html.includes('kind: "regenerate", model: model'));
 check("sent with answers", html.includes("questionId: qid, model: model"));
 check("letter token minting carries no model", html.includes('action: "letter-token", id: id'));
 check("shows which model wrote the letter", html.includes('meta.push("letter: " + modelLabel('));

@@ -1,107 +1,34 @@
+import { idempotencyKeys, tasks } from "@trigger.dev/sdk";
 import { requireAdmin } from "../../lib/admin.js";
-import { saveJob, findExistingJob, mutateJob, postingId } from "../../lib/store.js";
+import { cleanOpportunity } from "../../lib/ingest-work.js";
+import { digest } from "../../lib/generation-fingerprint.js";
+import { getReceiptForRequest, saveRunReceipt } from "../../lib/run-receipts.js";
+import { saveTaskInput } from "../../lib/task-results.js";
+import { INGEST_TASK_ID } from "../../lib/task-policy.js";
 
-// POST /api/admin/ingest  { opportunities: [ { ... } ] }
-//
-// The write end of a recurring inbox review. A scheduled job scans Gmail,
-// extracts anything that looks like a real opportunity, and posts it here. The
-// server still holds no mail credentials of its own; it only accepts what an
-// authenticated caller hands it.
-//
-// Upsert semantics match "import from inbox": matched on externalId, then the
-// board posting id, then company and role, then the Gmail thread. Anything the
-// user owns on an existing row (stage, notes, the linked analysis, archived
-// state, and any score from a previous analysis) is left alone. New rows arrive
-// unscored, because scoring is a product of running the analysis rather than of
-// the scan.
-const ALLOWED = [
-  "externalId", "company", "role", "source", "sourceType", "sourceUrl",
-  "threadId", "location", "locationMode", "salary", "jobDescription",
-  "receivedAt", "notes", "replyOwed", "recruiter", "closed",
-];
-
-function clean(raw) {
-  const out = {};
-  for (const k of ALLOWED) if (raw[k] !== undefined) out[k] = raw[k];
-  return out;
-}
+const validRequestId = (value) => /^[a-zA-Z0-9_-]{8,100}$/.test(String(value || "")) ? String(value) : "";
 
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-
-  const list = (req.body && req.body.opportunities) || [];
-  if (!Array.isArray(list)) {
-    res.status(400).json({ error: "Expected an opportunities array." });
-    return;
-  }
-  if (list.length > 200) {
-    res.status(400).json({ error: "Too many at once; send 200 or fewer." });
-    return;
-  }
-
+  res.setHeader("Cache-Control", "private, no-store");
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const list = req.body?.opportunities;
+  const requestId = validRequestId(req.body?.requestId);
+  if (!Array.isArray(list)) return res.status(400).json({ error: "Expected an opportunities array." });
+  if (!requestId) return res.status(400).json({ error: "Expected a valid requestId." });
+  if (list.length > 200) return res.status(400).json({ error: "Too many at once; send 200 or fewer." });
   try {
-    let added = 0, updated = 0, skipped = 0;
-    const addedRows = [];
-    // Rows that matched on something other than the externalId sent. The scan
-    // thought each of these was new, so surfacing them is how id drift stays
-    // visible rather than turning back into duplicate rows.
-    const mergedRows = [];
-
-    for (const raw of list) {
-      if (!raw || typeof raw !== "object") { skipped++; continue; }
-      const opp = clean(raw);
-      if (!opp.company && !opp.role) { skipped++; continue; }
-      if (!opp.externalId && !opp.threadId) { skipped++; continue; }
-
-      const existing = await findExistingJob(opp);
-      if (existing) {
-        if (opp.externalId && existing.externalId !== opp.externalId) {
-          const pid = postingId(opp.sourceUrl);
-          mergedRows.push({
-            id: existing.id,
-            company: existing.company,
-            role: existing.role,
-            sentAs: opp.externalId,
-            matchedOn: pid && postingId(existing.sourceUrl) === pid ? "posting id" : "company and role",
-          });
-        }
-        await mutateJob(existing.id, (current) => ({
-          ...opp,
-          // These fields belong to the user or another workflow. Read them
-          // inside the atomic mutation so an inbox refresh cannot roll them back.
-          stage: current.stage,
-          notes: current.notes || opp.notes || "",
-          fitReportId: current.fitReportId,
-          archived: current.archived,
-          archivedAt: current.archivedAt,
-          createdAt: current.createdAt,
-          score: current.score,
-          tier: current.tier,
-          scoreBreakdown: current.scoreBreakdown,
-          rationale: current.rationale,
-          // Keep whichever description says more. An empty one must not wipe
-          // what is held, and a re-scan that only managed a summary must not
-          // replace the full posting text a previous run fetched, or anything
-          // pasted in by hand.
-          jobDescription:
-            (opp.jobDescription || "").length > (current.jobDescription || "").length
-              ? opp.jobDescription
-              : current.jobDescription,
-        }));
-        updated++;
-      } else {
-        const row = await saveJob({ ...opp, stage: "new" });
-        added++;
-        addedRows.push({ id: row.id, company: row.company, role: row.role });
-      }
-    }
-
-    res.status(200).json({ added, updated, skipped, addedRows, mergedRows });
-  } catch (err) {
-    res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
+    const cleaned = list.map((row) => row && typeof row === "object" ? cleanOpportunity(row) : row);
+    const recovered = await getReceiptForRequest("ingest", "batch", requestId);
+    if (recovered) return res.status(202).json({ runId: recovered.runId, requestId, kind: "ingest", recovered: true });
+    await saveTaskInput("ingest", requestId, cleaned);
+    const key = await idempotencyKeys.create(`ingest:batch:${requestId}`, { scope: "global" });
+    const handle = await tasks.trigger(INGEST_TASK_ID, { requestId }, {
+      idempotencyKey: key, idempotencyKeyTTL: "30d", tags: ["batch:ingest", `request:${requestId}`],
+    });
+    await saveRunReceipt({ kind: "ingest", requestId, runId: handle.id, jobId: "batch", fingerprint: digest(cleaned) });
+    return res.status(202).json({ runId: handle.id, requestId, kind: "ingest", recovered: false });
+  } catch (error) {
+    return res.status(error.status || 500).json({ error: error.message || "Unexpected error", detail: String(error).slice(0, 300) });
   }
 }

@@ -1,5 +1,9 @@
 export function coverPhaseText(run) {
   if (run?.phase === "researching") return "Researching…";
+  if (run?.phase === "analysing") return "Analysing…";
+  if (run?.phase === "answering") return "Drafting…";
+  if (run?.phase === "ingesting") return "Importing…";
+  if (run?.phase === "adopting") return "Adding…";
   if (run?.phase === "writing") return "Writing…";
   if (run?.phase === "loading") return "Starting…";
   return "Queued…";
@@ -11,6 +15,12 @@ export function workCompletion(out) {
   }
   if (out.d?.result?.outcome !== "completed") return { text: "A newer request replaced this work.", tone: "", open: false };
   if (out.d.kind === "research") return { text: (out.d.result.sources || 0) + " sources", tone: "ok", open: true };
+  if (out.d.kind === "analyse" || out.d.kind === "regenerate") return { text: "Analysis ready", tone: "ok", open: false };
+  if (out.d.kind === "answer") return { text: out.d.result.refused ? "Needs you" : (out.d.result.words || 0) + " words",
+    tone: out.d.result.refused || out.d.result.over ? "err" : "ok", open: false };
+  if (out.d.kind === "analyse-all") return { text: out.d.result.analysed + " analysed, " + out.d.result.failed + " failed",
+    tone: out.d.result.failed ? "err" : "ok", open: false };
+  if (out.d.kind === "adopt") return { text: out.d.result.added + " added", tone: "ok", open: false };
   return { text: "Screen brief ready", tone: "ok", open: true };
 }
 

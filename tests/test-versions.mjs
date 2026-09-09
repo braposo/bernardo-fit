@@ -28,8 +28,7 @@ globalThis.fetch = async (_u, opts) => {
 };
 
 const store = await import(lib + "store.js");
-const analyse = (await import(base + "admin/analyse.js")).default;
-const regen = (await import(base + "admin/regenerate.js")).default;
+const { analyseHandler: analyse, regenerateHandler: regen } = await import("./release-d-harness.mjs");
 const { executeCoverWork } = await import(lib + "cover-work.js");
 const { getActiveCoverArtifact, listCoverVersions } = await import(lib + "cover-artifacts.js");
 const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
