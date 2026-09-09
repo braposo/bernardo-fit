@@ -52,6 +52,7 @@ const sandbox = [
   'function modelLabel(id){ for (var i=0;i<MODELS.length;i++) if (MODELS[i].id===id) return MODELS[i].label; return ""; }',
   'var location = { origin: "https://fit.bernardoraposo.com" };',
   'var coverDispatchEnabled = true;',
+  'var screenDispatchEnabled = true;',
   NEEDED.map(grab).join("\n"),
   "return { jobHtml: jobHtml, questionsHtml: questionsHtml, countWords: countWords, fmtChars: fmtChars };",
 ].join("\n");
@@ -78,10 +79,12 @@ for (const a of ["titleview", "titleform", "edittitle", "erole", "ecompany", "jd
 
 console.log("\n--- an analysed row gains the generation controls ---");
 const analysed = acts(row({ fitReportId: "rep1" }));
-for (const a of ["regen", "cover", "verbox"]) check("analysed row has " + a, analysed.includes(a), analysed);
+for (const a of ["regen", "cover", "screen", "verbox"]) check("analysed row has " + a, analysed.includes(a), analysed);
 // A row with nothing generated has nothing to version, so the box is absent
 // by design rather than missing.
 check("a bare row has no versions box", !bare.includes("verbox"));
+const prepared = acts(row({ fitReportId: "rep1", hasResearch: true, researchId: "r1", hasBrief: true, briefId: "b1" }));
+for (const a of ["screen", "briefrewrite", "researchopen", "researchrefresh"]) check("prepared row has " + a, prepared.includes(a), prepared);
 
 console.log("\n--- a question always offers a way to answer it ---");
 // The bug that prompted this file: the label changes once answered, so assert
@@ -147,7 +150,7 @@ check("a live row offers archive instead", acts(row({ fitReportId: "rep1" })).in
 
 console.log("\n--- every rendered control is wired to something ---");
 // A control that renders but has no listener looks exactly like a missing one.
-const rendered = new Set([].concat(bare, analysed, arch, acts(unanswered), acts(answered)));
+const rendered = new Set([].concat(bare, analysed, prepared, arch, acts(unanswered), acts(answered)));
 const NOT_CLICKABLE = new Set(["titleview", "titleform", "erole", "ecompany", "qtext", "qlimit"]);
 for (const a of [...rendered].sort()) {
   if (NOT_CLICKABLE.has(a)) continue;

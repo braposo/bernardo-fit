@@ -67,15 +67,16 @@ export default async function handler(req, res) {
 
     // Regenerating rescores, so push the new numbers onto whichever row owns
     // this report. Scores never travel with the report itself.
-    if (internal) {
-      for (const row of owners) {
-        await updateJob(row.id, {
+    for (const row of owners) {
+      await updateJob(row.id, {
+          briefFingerprint: "",
+          ...(internal ? {
           score: internal.score,
           tier: internal.tier,
           scoreBreakdown: internal.breakdown,
           rationale: internal.reasoning,
-        });
-      }
+          } : {}),
+      });
     }
 
     res.status(200).json({ id, report, rescored: !!internal, model: resolveModel(model) });

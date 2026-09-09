@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow">
+<title>Screen brief</title>
+<style>
+:root{--ink:#26241f;--sub:#6b675c;--paper:#fff;--bg:#efede8;--accent:#18589a;--line:#d8d4cb;--warn:#9b4228}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}
+main{max-width:900px;margin:24px auto;padding:34px 44px 70px;background:var(--paper);box-shadow:0 4px 30px #0001}
+header{border-bottom:1px solid var(--line);padding-bottom:22px}.kicker,.meta{font:12px/1.4 ui-monospace,monospace;color:var(--sub);text-transform:uppercase;letter-spacing:.08em}
+h1{font-size:34px;line-height:1.1;margin:8px 0}h2{font-size:20px;margin:32px 0 10px}p{white-space:pre-wrap}
+ul{padding-left:22px}li{margin:7px 0}.src{font:11px ui-monospace,monospace;color:var(--accent);margin-left:5px}
+a{color:var(--accent)}details{border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin-top:26px}summary{cursor:pointer;font-weight:700}
+.toolbar{display:flex;gap:8px;float:right}button{border:1px solid var(--line);background:#fff;padding:8px 12px;border-radius:6px;cursor:pointer}
+.private{background:#faf8f4}.unknown{color:var(--warn)}.present .private,.present .sources,.present .unknowns{display:none}.present main{font-size:19px;max-width:1050px}.present h1{font-size:43px}
+@media(max-width:700px){main{margin:0;padding:24px 20px;box-shadow:none}.toolbar{float:none;margin-bottom:18px}}
+@media print{body{background:#fff}.toolbar{display:none}main{box-shadow:none;margin:0;max-width:none}}
+</style>
+</head>
+<body><main id="page"><div class="toolbar"><button id="present">Presentation mode</button><button onclick="window.print()">Print</button></div><header id="head"><div class="kicker">Private screen preparation</div><h1>Loading…</h1></header><div id="body"></div></main>
+<script>
+(function(){
+var p=new URLSearchParams(location.search),j=p.get("j"),t=p.get("t"),kind=p.get("kind")==="research"?"research":"brief";
+var body=document.getElementById("body"),head=document.getElementById("head");
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function href(s){try{var u=new URL(s);return /^https?:$/.test(u.protocol)?u.href:""}catch(e){return""}}
+function sourceTag(src,required){return src?'<span class="src">['+esc(src)+"]</span>":required?'<span class="src">[unverified]</span>':""}
+function list(title,items,cls,required){if(!items||!items.length)return"";return'<section class="'+(cls||"")+'">'+(title?'<h2>'+esc(title)+'</h2>':"")+'<ul>'+items.map(function(x){return"<li>"+esc(x.text||x)+sourceTag(x.src,required)+"</li>"}).join("")+"</ul></section>"}
+function sources(items){if(!items||!items.length)return"";return'<details class="sources"><summary>Sources ('+items.length+')</summary><ol>'+items.map(function(s){var u=href(s.url);return"<li>"+(u?'<a rel="noopener noreferrer" target="_blank" href="'+esc(u)+'">':"")+esc(s.title||s.url)+(u?"</a>":"")+(s.publishedAt?" · "+esc(s.publishedAt):"")+"</li>"}).join("")+"</ol></details>"}
+function renderResearch(a){body.innerHTML=list("Company in brief",a.summary,"",true)+list("Signals",a.signals,"",true)+list("Risks",a.risks,"",true)+list("Role context",a.roleContext,"",true)+list("Unknowns",a.unknowns,"unknowns")+sources(a.sources)}
+function fact(label,value){return value?'<li><b>'+esc(label)+":</b> "+esc(value)+"</li>":""}
+function renderBrief(a){var pa=a.personalAnswers||{};body.innerHTML=(a.contact?'<section><h2>Who I am talking to</h2><p>'+esc(a.contact)+"</p></section>":"")+
+'<section><h2>60-second opening</h2><p>'+esc(a.opening)+"</p></section>"+list("Why this, why now",a.why)+
+(a.conversation&&a.conversation.notes?'<section><h2>What has been said</h2><p>'+esc(a.conversation.notes)+"</p></section>":"")+list("Conversation context",a.conversation&&a.conversation.points)+
+list("What they may ask",a.likelyQuestions)+(a.gapResponses&&a.gapResponses.length?'<details class="private"><summary>Gap responses</summary>'+list("",a.gapResponses)+"</details>":"")+list("Green flags",a.greenFlags)+list("Red flags",a.redFlags)+list("Questions to ask",a.questionsToAsk)+
+list("Company reference",a.companyReference,"",true)+list("Role reference",a.roleReference,"",true)+
+'<details class="private"><summary>Private answers</summary><ul>'+fact("Advertised salary",pa.advertisedSalary)+fact("Previously discussed",pa.previouslyDiscussedSalary)+fact("My expectation",pa.personallyExpectedSalary)+fact("Availability",pa.availability)+fact("Location",pa.location)+fact("Working pattern",pa.locationMode)+fact("Notice period",pa.noticePeriod)+fact("Start date",pa.startDate)+fact("Work status",pa.sponsorship)+"</ul></details>"+
+list("Unknowns",a.unknowns,"unknowns")+sources(a.sources)}
+document.getElementById("present").onclick=function(){document.body.classList.toggle("present");this.textContent=document.body.classList.contains("present")?"Exit presentation":"Presentation mode"};
+if(!j||!t){body.textContent="Open this from the dashboard.";return}
+fetch("/api/letter?kind="+kind+"&j="+encodeURIComponent(j)+"&t="+encodeURIComponent(t),{referrerPolicy:"no-referrer"})
+.then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(o){if(!o.ok)throw new Error(o.d.error||"Could not load artifact");
+var a=o.d.artifact;head.innerHTML='<div class="kicker">'+esc(kind==="research"?"Company research":"Private screen preparation")+'</div><h1>'+esc(o.d.role||"Screen")+" · "+esc(o.d.company)+'</h1><div class="meta">'+esc(a.at||"")+(a.partial?" · partial research":"")+"</div>";
+document.title=(kind==="research"?"Research":"Screen brief")+" · "+o.d.company;(kind==="research"?renderResearch:renderBrief)(a)})
+.catch(function(e){body.innerHTML='<p class="unknown">'+esc(e.message)+"</p>"});
+})();
+</script></body></html>

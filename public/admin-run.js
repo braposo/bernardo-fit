@@ -1,7 +1,17 @@
 export function coverPhaseText(run) {
+  if (run?.phase === "researching") return "Researching…";
   if (run?.phase === "writing") return "Writing…";
   if (run?.phase === "loading") return "Starting…";
   return "Queued…";
+}
+
+export function workCompletion(out) {
+  if (!out?.ok || out.d?.status !== "COMPLETED") {
+    return { text: out?.d?.error || "Background work failed.", tone: "err", open: false };
+  }
+  if (out.d?.result?.outcome !== "completed") return { text: "A newer request replaced this work.", tone: "", open: false };
+  if (out.d.kind === "research") return { text: (out.d.result.sources || 0) + " sources", tone: "ok", open: true };
+  return { text: "Screen brief ready", tone: "ok", open: true };
 }
 
 export function coverCompletion(out) {

@@ -36,7 +36,7 @@ async function analyseJob(job, model) {
   const cached = reusable && wroteBy === wanted ? reusable : null;
   if (cached) {
     // Reusing a report means no fresh scoring; leave whatever the row already has.
-    await updateJob(job.id, { fitReportId: cached.id });
+    await updateJob(job.id, { fitReportId: cached.id, briefFingerprint: "" });
     return { id: job.id, reportId: cached.id, cached: true };
   }
 
@@ -47,6 +47,7 @@ async function analyseJob(job, model) {
   const reportId = await saveReport(report, internal);
   await updateJob(job.id, {
     fitReportId: reportId,
+    briefFingerprint: "",
     // Scoring is a product of the analysis and lives only on the row.
     ...(internal
       ? { score: internal.score, tier: internal.tier, scoreBreakdown: internal.breakdown, rationale: internal.reasoning }

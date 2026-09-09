@@ -280,7 +280,7 @@
   <main id="app"></main>
 
 <script type="module">
-import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.js";
+import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 (function () {
   "use strict";
 
@@ -319,6 +319,7 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
   var showArchived = false;
   var attachedCoverWatches = {};
   var coverDispatchEnabled = true;
+  var screenDispatchEnabled = true;
 
   var reports = [];
   var total = 0;
@@ -438,6 +439,16 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
       status.className = "row-status" + (done.tone ? " " + done.tone : "");
       loadJobs(false);
       if (done.open && openWhenDone) openLetter(id);
+    });
+  }
+
+  function watchWork(id, runId, status, kind, openWhenDone) {
+    status.textContent = "Queued…"; status.className = "row-status";
+    return watchRun(runId, function (run) { status.textContent = coverPhaseText(run); }).then(function (out) {
+      var done = workCompletion(out);
+      status.textContent = done.text; status.className = "row-status" + (done.tone ? " " + done.tone : "");
+      loadJobs(false);
+      if (done.open && openWhenDone) openArtifact(id, kind === "research" ? "research" : "brief");
     });
   }
 
@@ -573,6 +584,8 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
     var hasLetter = !!j.hasCoverLetter;
     var coverActive = !!(j.coverRun && j.coverRun.runId &&
       (j.coverRun.status === "dispatching" || j.coverRun.status === "queued"));
+    var screenActive = !!(j.prepareRun && j.prepareRun.runId &&
+      (j.prepareRun.status === "dispatching" || j.prepareRun.status === "queued"));
     var fitLink = j.fitReportId ? location.origin + "/?r=" + encodeURIComponent(j.fitReportId) : "";
     var mailLink = j.threadId ? "https://mail.google.com/mail/u/0/#all/" + encodeURIComponent(j.threadId) : "";
     var meta = [];
@@ -582,6 +595,8 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
     if (j.userViewed) meta.push("you viewed this");
     if (j.closed) meta.push("posting closed");
     if (j.coverLetterModel) meta.push("letter: " + modelLabel(j.coverLetterModel));
+    if (j.researchId) meta.push("research: " + j.researchSourceCount + " sources" + (j.researchStale ? " · stale" : ""));
+    if (j.briefId) meta.push("screen brief" + (j.briefStale ? " · stale" : ""));
 
     var opts = stages.map(function (s) {
       return '<option value="' + s + '"' + (j.stage === s ? " selected" : "") + ">" + s.replace(/_/g, " ") + "</option>";
@@ -654,6 +669,10 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
               '<button class="ghost" data-act="cover"' + (coverActive || !coverDispatchEnabled ? " disabled" : "") +
                 (!coverDispatchEnabled ? ' title="Cover generation is paused"' : "") + '>' +
                 (!coverDispatchEnabled ? "Cover paused" : coverActive ? "Writing…" : hasLetter ? "Cover letter" : "Write cover letter") + '</button>'
+              + '<button class="ghost" data-act="screen"' + (screenActive || !screenDispatchEnabled ? " disabled" : "") + '>' +
+                (!screenDispatchEnabled ? "Screen prep paused" : screenActive ? "Preparing…" : j.hasBrief && !j.briefStale ? "Open brief" : "Prepare screen") + '</button>' +
+              (j.hasBrief ? '<button class="ghost" data-act="briefrewrite">Rewrite brief</button>' : "") +
+              (j.hasResearch ? '<button class="ghost" data-act="researchopen">Inspect research</button><button class="ghost" data-act="researchrefresh">Refresh research</button>' : "")
             : '<button class="ghost" data-act="runfit"' + (hasDescription ? "" : " disabled") + ">Generate fit analysis</button>") +
           (j.sourceUrl ? '<a class="ghost" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting</a>' : "") +
           (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
@@ -759,6 +778,17 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
       if (unauthorised(out)) return;
       if (!out.ok) { alert(out.d.error || "Could not open the letter."); return; }
       window.open("/letter?j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token) + "&print=1", "_blank", "noopener");
+    });
+  }
+
+  function openArtifact(id, kind) {
+    api("/api/admin/jobs", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "artifact-token", kind: kind, id: id }),
+    }).then(function (out) {
+      if (unauthorised(out)) return;
+      if (!out.ok) { alert(out.d.error || "Could not open this artifact."); return; }
+      window.open("/brief?kind=" + encodeURIComponent(kind) + "&j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token), "_blank", "noopener");
     });
   }
 
@@ -894,6 +924,14 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
         attachedCoverWatches[job.coverRun.runId] = true;
         watchCover(id, job.coverRun.runId, status, false).then(function () {
           delete attachedCoverWatches[job.coverRun.runId];
+        });
+      }
+      if (job.prepareRun && job.prepareRun.runId &&
+          (job.prepareRun.status === "dispatching" || job.prepareRun.status === "queued") &&
+          !attachedCoverWatches[job.prepareRun.runId]) {
+        attachedCoverWatches[job.prepareRun.runId] = true;
+        watchWork(id, job.prepareRun.runId, status, "prepare-screen", false).then(function () {
+          delete attachedCoverWatches[job.prepareRun.runId];
         });
       }
 
@@ -1256,6 +1294,33 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
         });
       }
 
+      function dispatchScreen(kind, forceResearch, openKind) {
+        status.textContent = "Dispatching…"; status.className = "row-status";
+        var requestId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()).replace(/-/g, "");
+        api("/api/admin/cover", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: id, kind: kind, model: model, requestId: requestId, forceResearch: !!forceResearch }),
+        }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { status.textContent = out.d.error || "Could not start it."; status.className = "row-status err"; return; }
+          watchWork(id, out.d.runId, status, kind, true);
+        });
+      }
+      var screenBtn = rowEl.querySelector('[data-act="screen"]');
+      if (screenBtn) screenBtn.addEventListener("click", function () {
+        if (job.hasBrief && !job.briefStale) openArtifact(id, "brief");
+        else { screenBtn.disabled = true; dispatchScreen("prepare-screen", false, "brief"); }
+      });
+      var rewriteBrief = rowEl.querySelector('[data-act="briefrewrite"]');
+      if (rewriteBrief) rewriteBrief.addEventListener("click", function () {
+        rewriteBrief.disabled = true;
+        dispatchScreen(job.researchStale ? "prepare-screen" : "brief", false, "brief");
+      });
+      var researchOpen = rowEl.querySelector('[data-act="researchopen"]');
+      if (researchOpen) researchOpen.addEventListener("click", function () { openArtifact(id, "research"); });
+      var researchRefresh = rowEl.querySelector('[data-act="researchrefresh"]');
+      if (researchRefresh) researchRefresh.addEventListener("click", function () { researchRefresh.disabled = true; dispatchScreen("research", true, "research"); });
+
       var regen = rowEl.querySelector('[data-act="regen"]');
       if (regen) {
         regen.addEventListener("click", function () {
@@ -1325,6 +1390,7 @@ import { coverCompletion, coverPhaseText, createRunWatcher } from "./admin-run.j
       if (out.d.models && out.d.models.length) MODELS = out.d.models;
       if (out.d.archiveOnStage) ARCHIVE_ON_STAGE = out.d.archiveOnStage;
       coverDispatchEnabled = !out.d.features || out.d.features.coverDispatchEnabled !== false;
+      screenDispatchEnabled = !out.d.features || out.d.features.screenDispatchEnabled !== false;
       if (!MODELS.some(function (m) { return m.id === model; })) model = MODELS[0].id;
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;
