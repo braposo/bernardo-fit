@@ -27,7 +27,7 @@ const auth = { "x-admin-secret": "test-secret-value", host: "fit.bernardoraposo.
 
 console.log("\n--- the stage exists ---");
 check("expired is a stage", store.JOB_STAGES.includes("expired"));
-check("the old stages are untouched", ["new","reviewing","applied","interviewing","offer","rejected","not_a_fit"].every((s) => store.JOB_STAGES.includes(s)));
+check("the other stages remain available", ["new","reviewing","applied","interviewing","offer","rejected","not_interested"].every((s) => store.JOB_STAGES.includes(s)));
 check("it is terminal, at the end", store.JOB_STAGES[store.JOB_STAGES.length - 1] === "expired");
 check("kept apart from rejected", store.JOB_STAGES.indexOf("expired") !== store.JOB_STAGES.indexOf("rejected"));
 

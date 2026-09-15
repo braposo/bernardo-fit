@@ -82,7 +82,7 @@ console.log("\n--- and nothing the user owns was touched ---");
 const now = await store.listJobs({ includeArchived: true });
 const by = (id) => now.find((j) => j.id === id);
 check("an applied role stays applied", by(applied.id).stage === "applied", by(applied.id).stage);
-check("a role filed as not_a_fit stays filed", by(filed.id).stage === "not_a_fit", by(filed.id).stage);
+check("a role filed as not_a_fit becomes not_interested", by(filed.id).stage === "not_interested", by(filed.id).stage);
 check("and stays archived rather than resurfacing", by(filed.id).archived === true);
 check("the second applied role stays applied", by(lafosse.id).stage === "applied");
 

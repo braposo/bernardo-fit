@@ -47,7 +47,7 @@ check("no render function went missing", !missing.length, missing);
 if (missing.length) { console.log("\npassed " + pass + ", failed " + fail); process.exit(1); }
 
 const sandbox = [
-  'var stages = ["new","reviewing","applied","interviewing","offer","rejected","not_a_fit","expired"];',
+  script.match(/var stages = \[[^;]+;/)[0],
   'var MODELS = [{ id: "claude-opus-5", label: "Opus" }, { id: "claude-sonnet-5", label: "Sonnet" }];',
   'function modelLabel(id){ for (var i=0;i<MODELS.length;i++) if (MODELS[i].id===id) return MODELS[i].label; return ""; }',
   'var location = { origin: "https://fit.bernardoraposo.com" };',

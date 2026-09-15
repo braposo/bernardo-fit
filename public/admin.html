@@ -289,7 +289,7 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
   var secret = sessionStorage.getItem(SECRET_KEY) || "";
 
   var jobs = [];
-  var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_a_fit", "expired"];
+  var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_interested", "expired"];
   // These archive the row on the server, so they only ever describe archived
   // jobs. Filtering by them in the pipeline view would always come back empty.
   // Which model writes the next analysis, letter or answer. Kept in
@@ -307,7 +307,7 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
     return "";
   }
 
-  var ARCHIVE_ON_STAGE = ["expired", "not_a_fit", "rejected"];
+  var ARCHIVE_ON_STAGE = ["expired", "rejected", "not_interested"];
   var stageFilter = null;
   var searchQuery = "";
   var searchMatches = null;

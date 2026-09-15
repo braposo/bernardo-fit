@@ -25,8 +25,8 @@ function mockRes() {
 const auth = { "x-admin-secret": "test-secret-value", host: "fit.bernardoraposo.com" };
 const patch = async (id, body) => { const r = mockRes(); await jobs({ method: "PATCH", headers: auth, query: { id }, body }, r); return r; };
 
-console.log("\n--- expired and not_a_fit archive the row ---");
-for (const stage of ["expired", "not_a_fit", "rejected"]) {
+console.log("\n--- terminal stages archive the row ---");
+for (const stage of ["expired", "not_a_fit", "rejected", "not_interested"]) {
   const j = await store.saveJob({ company: "C", role: stage });
   check(stage + ": starts live", !j.archived);
   const r = await patch(j.id, { stage });
@@ -34,7 +34,9 @@ for (const stage of ["expired", "not_a_fit", "rejected"]) {
   const after = await store.getJob(j.id);
   check(stage + ": archived", after.archived === true);
   check(stage + ": stamped", !!after.archivedAt);
-  check(stage + ": stage kept", after.stage === stage);
+  check(stage + ": canonical stage kept", after.stage === (stage === "not_a_fit" ? "not_interested" : stage));
+  check(stage + ": hidden from pipeline", !(await store.listJobs()).some(row => row.id === j.id));
+  check(stage + ": visible in archive", (await store.listJobs({ onlyArchived: true })).some(row => row.id === j.id));
 }
 
 console.log("\n--- other stages do not ---");
@@ -46,6 +48,13 @@ for (const stage of ["reviewing", "applied", "interviewing", "offer"]) {
 }
 
 console.log("\n--- restoring one is still possible ---");
+const legacy = await store.saveJob({ company: "Legacy", role: "R", stage: "not_a_fit", archived: true, archivedAt: "2026-01-01T00:00:00.000Z", notes: "Keep these notes" });
+check("legacy writes use the consolidated stage", legacy.stage === "not_interested");
+check("legacy archive timestamp is preserved", legacy.archivedAt === "2026-01-01T00:00:00.000Z");
+await patch(legacy.id, { archived: false });
+const legacyRestored = await store.getJob(legacy.id);
+check("consolidated jobs can be restored", !legacyRestored.archived && legacyRestored.stage === "not_interested");
+check("restoring retains notes", legacyRestored.notes === "Keep these notes");
 const r1 = await store.saveJob({ company: "C", role: "R" });
 await patch(r1.id, { stage: "expired" });
 check("archived first", (await store.getJob(r1.id)).archived === true);
@@ -68,7 +77,8 @@ check("expired rows are in the archive", archived.some((j) => j.stage === "expir
 
 console.log("\n--- the page scopes the chips, not the dropdown ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
-check("constant defined", html.includes('var ARCHIVE_ON_STAGE = ["expired", "not_a_fit", "rejected"];'));
+check("constant defined", html.includes('var ARCHIVE_ON_STAGE = ["expired", "rejected", "not_interested"];'));
+check("only the consolidated status is offered", !html.includes('"not_a_fit"') && html.includes('"not_interested"'));
 check("chips filtered", /data-stage[\s\S]{0,400}stages\.filter\(function \(s\) \{ return showArchived/.test(html));
 check("dropdown NOT filtered, so you can still set them", /var opts = stages\.map\(function/.test(html));
 check("a stranded filter is cleared", html.includes("if (!showArchived && ARCHIVE_ON_STAGE.indexOf(stageFilter) !== -1) stageFilter = null;"));

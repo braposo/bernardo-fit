@@ -66,7 +66,8 @@ check("locationMode kept", rich.locationMode === "London");
 check("findExistingJob by externalId", (await store.findExistingJob({ externalId: "ext-1" }))?.company === "Rich");
 check("score null when absent", (await store.saveJob({ company: "Plain", role: "P" })).score === null);
 check("stages include rejected", store.JOB_STAGES.includes("rejected"));
-check("stages include not_a_fit", store.JOB_STAGES.includes("not_a_fit"));
+check("stages include not_interested", store.JOB_STAGES.includes("not_interested"));
+check("stages omit the legacy option", !store.JOB_STAGES.includes("not_a_fit"));
 
 console.log("\n--- store: analytics ---");
 check("reject unknown event", (await store.trackEvent("r1", "hack")) === false);
@@ -112,7 +113,7 @@ await jobsHandler({ method: "PATCH", headers: auth, query: { id: a.id }, body: {
 check("PATCH applies stage", res.statusCode === 200 && res.body.job.stage === "offer");
 res = mockRes();
 await jobsHandler({ method: "PATCH", headers: auth, query: { id: a.id }, body: { stage: "not_a_fit" } }, res);
-check("PATCH accepts not_a_fit", res.statusCode === 200 && res.body.job.stage === "not_a_fit");
+check("PATCH converts legacy not_a_fit", res.statusCode === 200 && res.body.job.stage === "not_interested");
 res = mockRes();
 await jobsHandler({ method: "PATCH", headers: auth, query: { id: a.id }, body: { stage: "bogus" } }, res);
 check("PATCH rejects bad stage", res.statusCode === 400);

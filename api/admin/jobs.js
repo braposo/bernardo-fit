@@ -9,6 +9,7 @@ import {
   findUnlinkedReportIds,
   getStats,
   JOB_STAGES,
+  normaliseJobStage,
   getReportSources,
   hashJD,
   editQuestion,
@@ -26,7 +27,7 @@ import { getActiveRuns } from "../../lib/run-receipts.js";
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...)
 // DELETE /api/admin/jobs?id=abc       -> remove
 // Stages that take a row out of the pipeline by themselves.
-const ARCHIVE_ON_STAGE = ["expired", "not_a_fit", "rejected"];
+const ARCHIVE_ON_STAGE = ["expired", "rejected", "not_interested"];
 
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
@@ -120,11 +121,12 @@ export default async function handler(req, res) {
         if (!Number.isInteger(body.revision)) return res.status(409).json({ error: "Edit one question at a time, or reload before replacing the question list." });
         patch.questions = body.questions;
       }
+      if (patch.stage !== undefined) patch.stage = normaliseJobStage(patch.stage);
       if (patch.stage && !JOB_STAGES.includes(patch.stage)) {
         res.status(400).json({ error: "Unknown stage" });
         return;
       }
-      // Both of these mean the role is done with, so it leaves the pipeline on
+      // These stages mean the role is done with, so it leaves the pipeline on
       // the same click rather than needing a second one. Done here rather than
       // in the page so it holds however the row is updated. An explicit archived
       // flag in the same patch still wins, so restoring one stays possible.
