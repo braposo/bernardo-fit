@@ -48,7 +48,7 @@ if (missing.length) { console.log("\npassed " + pass + ", failed " + fail); proc
 
 const sandbox = [
   script.match(/var stages = \[[^;]+;/)[0],
-  'var MODELS = [{ id: "claude-opus-5", label: "Opus" }, { id: "claude-sonnet-5", label: "Sonnet" }];',
+  script.match(/var MODELS = \[[^;]+;/)[0],
   'function modelLabel(id){ for (var i=0;i<MODELS.length;i++) if (MODELS[i].id===id) return MODELS[i].label; return ""; }',
   'var location = { origin: "https://fit.bernardoraposo.com" };',
   'var coverDispatchEnabled = true;',

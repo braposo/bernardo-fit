@@ -124,3 +124,9 @@ The public endpoint applies these controls before a worker can make a model call
 Claims, counters, input references and public receipts share the report KV store, so the limits and reload recovery work across serverless invocations. Receipts and Trigger payloads carry IDs and fingerprints only; the posting is stored once and private scoring stays on the admin pipeline row.
 
 <!-- deployed via GitHub integration -->
+
+## Model selection
+
+Admin writing defaults to Sol (`gpt-5.6-sol`), with Astra (`gpt-6-astra`), Opus and Sonnet available in the existing picker. Saved selections are preserved. Alternatives are manual; errors never silently switch providers. Public analysis stays on Sonnet.
+
+Set `OPENAI_API_KEY` in both Vercel and Trigger.dev for each environment you use, then deploy both the web app and workers. Keep `ANTHROPIC_API_KEY` for Claude. Keys stay on the server. OpenAI calls use the Responses API with `store: false`; usage separates cached input and includes reasoning in output tokens. Per-call OpenAI cost estimates use published standard rates checked on 17 September 2026.

@@ -64,7 +64,7 @@ async function generate(jobId, model = "claude-opus-5", requestId = "request01")
 }
 
 console.log("\n--- generation and sanitising ---");
-const out = await runCoverLetter({ report: { job_title: "X" }, fitUrl: "https://fit.bernardoraposo.com/?r=abc" });
+const out = await runCoverLetter({ model: "claude-opus-5", report: { job_title: "X" }, fitUrl: "https://fit.bernardoraposo.com/?r=abc" });
 check("keeps the salutation", out.salutation === "Dear Sanity team,");
 check("keeps the lead flag", out.paragraphs[0].lead === true);
 check("keeps span.em", out.paragraphs[0].html.includes('<span class="em">'));
