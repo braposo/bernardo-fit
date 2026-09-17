@@ -3,7 +3,7 @@ import { requireAdmin } from "../../lib/admin.js";
 import { analysisFingerprint, answerFingerprint, briefFingerprint, coverFingerprint, digest, researchFingerprint } from "../../lib/generation-fingerprint.js";
 import { getJob, getReport, mutateJob } from "../../lib/store.js";
 import { getActiveResearch } from "../../lib/screen-artifacts.js";
-import { resolveModel, PUBLIC_MODEL } from "../../lib/models.js";
+import { resolveModel } from "../../lib/models.js";
 import { researchIsReusable } from "../../lib/screen-work.js";
 import { clearActiveRun, getReceiptForRequest, getRunReceipt, saveActiveRun, saveRunReceipt } from "../../lib/run-receipts.js";
 import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, ANALYSE_ALL_TASK_ID, ANSWER_TASK_ID, BRIEF_TASK_ID,
@@ -33,7 +33,7 @@ async function buildContext(kind, job, body, model) {
     throw Object.assign(new Error("Generate the fit analysis first; this work is built from it."), { status: 409 });
   }
   if (kind === "cover") return { fingerprint: coverFingerprint(job, report, model), payload: { model, origin: origin() } };
-  if (kind === "research") return { fingerprint: researchFingerprint(job), payload: { model: PUBLIC_MODEL } };
+  if (kind === "research") return { fingerprint: researchFingerprint(job), payload: { model } };
   if (kind === "analyse") {
     if (String(job.jobDescription || "").trim().length < 20) {
       throw Object.assign(new Error("Add a fuller job description first."), { status: 409 });
@@ -138,7 +138,7 @@ export default async function handler(req, res) {
       ? { fingerprint: digest({ kind, requestId, model }), payload: { model } }
       : await buildContext(kind, job, body, model);
     const startedAt = new Date().toISOString();
-    const pendingRun = { requestId, runId: "", fingerprint: built.fingerprint,
+    const pendingRun = { requestId, runId: "", model, fingerprint: built.fingerprint,
       status: "dispatching", startedAt, finishedAt: "" };
     await writeRun(ownerId, spec, body, pendingRun);
     try {
