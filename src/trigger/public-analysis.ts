@@ -12,7 +12,7 @@ export const publicAnalysisTask = task({
   maxDuration: PUBLIC_ANALYSIS_TASK_POLICY.maxDuration,
   retry: PUBLIC_ANALYSIS_TASK_POLICY.retry,
   queue: { concurrencyLimit: PUBLIC_ANALYSIS_TASK_POLICY.concurrencyLimit },
-  run: async (payload: PublicAnalysisPayload, { ctx }) => withGenerationContext({ runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
+  run: async (payload: PublicAnalysisPayload, { ctx }) => withGenerationContext({ reportId: payload.requestId, runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
     if (!hasKV) throw new AbortTaskRunError("KV is required by persistent workers.");
     metadata.set("phase", "analysing").set("requestId", payload.requestId);
     try {

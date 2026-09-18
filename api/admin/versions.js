@@ -9,6 +9,7 @@ import {
 import { getCoverArtifact, listCoverVersions, migrateLegacyCoverArtifacts } from "../../lib/cover-artifacts.js";
 import { applyAnalysisToOwners } from "../../lib/analysis-completion.js";
 import { getScreenArtifact, listScreenArtifacts } from "../../lib/screen-artifacts.js";
+import { appendAudit, auditEvent } from "../../lib/job-audit.js";
 
 // GET  /api/admin/versions?id=<jobId>          list both kinds for one row
 // POST /api/admin/versions { id, kind, vid }   make one of them live
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
           artifact = await getScreenArtifact(kind, job.id, vid);
         } else return res.status(400).json({ error: "Unknown version kind" });
         if (!artifact) return res.status(404).json({ error: "Version not found" });
+        await appendAudit("job", id, auditEvent("document.previewed", `${{fit: "Fit analysis", letter: "Cover letter", research: "Company research", brief: "Interview brief"}[kind]} version previewed`, vid || "Live version", { actor: "admin" }));
         const fields = kind === "fit" ? ["job_title", "company", "pitch", "categories", "differentiators", "closing"]
           : kind === "letter" ? ["salutation", "paragraphs"]
           : kind === "research" ? ["summary", "signals", "risks", "roleContext", "unknowns", "sources"]

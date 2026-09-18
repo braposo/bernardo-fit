@@ -27,7 +27,7 @@ try {
     id: 'job' + i, company: i ? 'Example company ' + i : 'Example content infrastructure company with a long name',
     role: 'Engineering Manager, Developer Experience and Platform', stage: i === 1 ? 'new' : 'interviewing',
     jobDescription: 'A sufficiently detailed synthetic description for engineering leadership.', notes: '', instructions: '',
-    location: 'London', salary: '', createdAt: '2026-09-15T10:00:00Z', sourceUrl: 'https://example.com/jobs/'+i, hasDescription: true, score: 80 - i,
+    location: 'London', salary: '', createdAt: '2026-09-15T10:00:00Z', sourceUrl: 'https://example.com/jobs/'+i, hasDescription: true, score: 80 - i, scoreBreakdown: {location:100,aiDx:75,leadership:80},
     fitReportId: i === 1 ? '' : 'fit' + i, hasCoverLetter: i !== 1, hasBrief: i !== 1,
     hasResearch: i !== 1, researchStale: true, briefStale: true,
     questions: i ? [] : [{ id: 'q1', q: 'Why this role?', limit: 120, a: 'A synthetic saved answer.' }],
@@ -52,6 +52,11 @@ try {
       }
       if (request.method() === 'POST') return reply({ token: 'synthetic-token' });
       if (url.searchParams.has('q')) return reply({ matchingIds: jobs.filter(j => (j.company + j.role).toLowerCase().includes(url.searchParams.get('q').toLowerCase())).map(j => j.id) });
+      if (url.searchParams.get('activity') === '1') return reply({
+        events: url.searchParams.get('offset') === '0' ? [{id:'e2',title:'Status changed',detail:'new → reviewing <script>unsafe()</script>',at:'2026-09-18T11:00:00Z'}] : [{id:'e1',title:'Added to pipeline',at:'2026-09-15T10:00:00Z'}],
+        hasMore: url.searchParams.get('offset') === '0', snapshot: 1789732800000,
+        stats: {view:12,copy_link:2,cv_download:3}, usage:{days:[{calls:1,pricedCalls:1,input:100,output:50,estimatedCostMicros:1000}],breakdown:[{kind:'analysis',model:'gpt-5.6-sol',effort:'high',calls:1,output:50,estimatedCostMicros:1000}]}
+      });
       if (url.searchParams.has('id')) return reply({ job: jobs.find(j => j.id === url.searchParams.get('id')) });
       return reply({ jobs, stages: ['new', 'reviewing', 'interviewing', 'expired'], archiveOnStage: ['expired'], archivedCount: 0 });
     }
@@ -92,7 +97,32 @@ try {
   await page.locator('[data-act="stage"]').selectOption('reviewing');
   await page.waitForFunction(() => document.querySelector('.role-stage .pipeline-stage')?.textContent === 'Reviewing');
   check('icon status control saves the stage', jobs[0].stage === 'reviewing');
+  check('three accessible shadcn rating gauges', await page.getByRole('meter').count() === 3 && await page.locator('.score-gauge[data-slot="card"]').count() === 3);
+  check('gauge uses the stored score on a 100 point scale', await page.getByRole('meter', {name:'Location',exact:true}).getAttribute('aria-valuenow') === '100');
+  check('Overview has no analytics or activity shortcut', await page.locator('#panel-overview .stats, #panel-overview [data-section-link="activity"]').count() === 0);
   await audit('Overview');
+  if(process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path:process.env.ADMIN_UX_SCREENSHOTS+'/admin-gauges.png'});
+  await page.locator('[data-section="activity"]').click();
+  await page.locator('.job-usage table').waitFor();
+  check('Activity order is analytics, audit, inline usage', (await page.locator('[data-job-activity] h2').allTextContents()).join('|') === 'Analytics summary|Audit log|AI activity & usage');
+  check('audit shows exact timestamps and escaped details', await page.locator('.audit-log time').getAttribute('datetime') === '2026-09-18T11:00:00Z' && (await page.locator('.audit-log').textContent()).includes('<script>unsafe()</script>') && await page.locator('.audit-log script').count() === 0);
+  await page.locator('[data-activity-more]').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.audit-log li').length===2);
+  check('older actions append below the latest', (await page.locator('.audit-log li strong').allTextContents()).join('|') === 'Status changed|Added to pipeline');
+  check('job usage is inline shadcn table without a dialog', await page.locator('.job-usage [data-slot="table"]').count() === 1 && await page.locator('[role="dialog"]').count() === 0);
+  await audit('Activity');
+  if(process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path:process.env.ADMIN_UX_SCREENSHOTS+'/admin-activity.png',fullPage:true});
+  for(const width of [390,360]) {
+    await page.setViewportSize({width,height:900});
+    check('Activity contains wide usage table at '+width, await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.locator('[data-section="overview"]').click();
+    check('gauges fit at '+width, await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await audit('Mobile gauges '+width);
+    await page.locator('[data-section="activity"]').click();
+    await page.locator('.job-usage').waitFor();
+  }
+  await page.setViewportSize({width:1280,height:900});
+  await page.locator('[data-section="overview"]').click();
   await page.locator('#usagebtn').click();
   await page.locator('[data-slot="table"]').waitFor();
   check('usage uses shadcn Table inside Dialog', await page.locator('[role="dialog"] [data-slot="table"]').count() === 1);

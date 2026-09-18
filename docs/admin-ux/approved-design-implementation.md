@@ -34,3 +34,34 @@ The generation dialog places an optional shadcn Textarea beneath the model selec
 The reviewed task payload carries the additional instructions through fit, letter, research, brief and combined research/brief generation. Workers check the combined input against current job state without writing instructions back to the job. Version metadata stores the additional text; authenticated history offers an Additional instructions disclosure. Public fit report bodies exclude that metadata. Successful generation still publishes automatically.
 
 Validation includes 55 browser/accessibility checks, 9 focused instruction-lifecycle checks, 7 reviewed-dispatch checks, and the existing screen (26), version (57), rendering (49) and cost (36) tests. Changed Trigger task bundles compile without deployment. Release must deploy the updated Trigger workers alongside the application so they consume the new optional payload field.
+
+
+## Score gauges and job audit trail
+
+Overview now uses three shadcn Card + ChartContainer radial gauges for Location,
+AI / Developer experience, and Leadership. Each uses the stored 0–100 rating
+(with a truthful unassessed state) and shows its 35% / 35% / 30% weighting.
+Analytics and the Activity shortcut have moved out of Overview.
+
+Activity presents analytics first, a newest-first audit log with exact local timestamps,
+then inline AI activity and usage for this job. Older events are paginated; Refresh
+activity loads new events. The global navigation's usage view remains aggregate usage.
+
+Audit streams are private and retained independently from capped document versions
+and expiring run receipts. Job and fit-version events are written atomically with
+state changes. Events cover creation, status, archive/restore/delete, edited fields,
+run transitions, version generation/publication/preview/open, question changes and
+answers, public fit views/link copies/CV download requests, listing opens, admin
+copies, and signed document print requests. No prompts, note bodies, viewer identities,
+or signed tokens are saved in the audit log. Print events record opening the dialog,
+not a confirmed PDF save. Anonymous engagement remains client-reported analytics.
+
+Legacy creation dates are shown as historical evidence; earlier unrecorded actions
+cannot be reconstructed and are clearly disclosed. New per-job AI usage persists
+beyond the global rolling history, including linked public-analysis usage. Historical
+unattributed AI calls are not silently included or attributed to the wrong job.
+Deploy the updated Trigger.dev workers with the app to enable job/report attribution.
+
+Validation: 69 browser checks including gauge semantics, mobile overflow, escaped
+log content, pagination, inline shadcn usage tables and automated WCAG A/AA checks;
+focused audit, atomic-store, versions, jobs, usage, UI and generation-instruction tests.

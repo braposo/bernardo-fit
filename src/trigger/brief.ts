@@ -8,7 +8,7 @@ export type BriefPayload = { jobId: string; requestId: string; fingerprint: stri
 export const screenBriefTask = task({
   id: "screen-brief", maxDuration: SCREEN_TASK_POLICY.maxDuration, retry: SCREEN_TASK_POLICY.retry,
   queue: { concurrencyLimit: SCREEN_TASK_POLICY.concurrencyLimit },
-  run: async (payload: BriefPayload, { ctx }) => withGenerationContext({ runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
+  run: async (payload: BriefPayload, { ctx }) => withGenerationContext({ jobId: payload.jobId, runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
     if (!hasKV) throw new AbortTaskRunError("KV is required by persistent workers.");
     metadata.set("phase", "writing").set("jobId", payload.jobId).set("requestId", payload.requestId);
     try { const out = await executeBriefWork(payload); metadata.set("phase", out.outcome); return out; }

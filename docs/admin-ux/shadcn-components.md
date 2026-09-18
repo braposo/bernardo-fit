@@ -46,3 +46,11 @@ npm run test:admin-ui
 `npm run test:admin-ui` uses synthetic data and intercepted API calls. Its 55 checks cover component usage, draft preservation, read-versus-generate boundaries, focus trapping/return, tabs, destructive cancellation, checkbox behavior, independent scrolling and widths of 1280, 768, 390 and 360 pixels. Axe scans Overview, context, usage, generation/answer reviews, destructive confirmation and mobile Documents for WCAG 2 A/AA and 2.1 AA violations. Automated scans supplement the keyboard and visual checks; they do not establish complete accessibility conformance.
 
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` can select installed Chrome. `ADMIN_UX_SCREENSHOTS` optionally points to an existing screenshot directory. Full Node regression coverage remains authoritative in PR CI.
+
+
+Score ratings use the official shadcn [Chart radial composition](https://ui.shadcn.com/charts/radial)
+with Recharts, accessible meter labels, and shadcn Card. The Card + ChartContainer
+composition follows the [AdminCN dashboard widgets](https://github.com/shadcnstudio/shadcn-nextjs-admincn-admin-template-free/tree/main/src/views/dashboards).
+The free template's current widgets do not ship a three-score gauge block, so this
+adapts the official radial example to the three existing fit dimensions. Activity
+uses the existing shadcn Table and Button primitives for inline usage and pagination.

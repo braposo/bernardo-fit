@@ -18,7 +18,7 @@ export const answerTask = task({
   maxDuration: ANSWER_TASK_POLICY.maxDuration,
   retry: ANSWER_TASK_POLICY.retry,
   queue: { concurrencyLimit: ANSWER_TASK_POLICY.concurrencyLimit },
-  run: async (payload: AnswerPayload, { ctx }) => withGenerationContext({ runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
+  run: async (payload: AnswerPayload, { ctx }) => withGenerationContext({ jobId: payload.jobId, runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
     if (!hasKV) throw new AbortTaskRunError("KV is required by persistent workers.");
     metadata.set("phase", "answering").set("jobId", payload.jobId)
       .set("questionId", payload.questionId).set("requestId", payload.requestId);

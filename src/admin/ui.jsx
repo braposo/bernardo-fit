@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { Card } from '@/components/ui/card';
+import { ScoreGauge } from '@/components/score-gauge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -53,6 +54,7 @@ const options = {
     const classes = (props.className || '').split(/\s+/);
     const has = name => classes.includes(name);
     const children = () => domToReact(node.children, options);
+    if (props['data-score-gauge']) return <ScoreGauge label={props['data-score-gauge']} value={props['data-value']} weight={props['data-weight']} />;
     if (props['data-icon']) {
       const Icon = { file: FileText, external: ExternalLink, settings: SlidersHorizontal, chevron: ChevronDown }[props['data-icon']];
       return Icon ? (has("document-icon") ? <span className="document-icon"><Icon aria-hidden="true" className="ui-icon" /></span> : <Icon aria-hidden="true" className="ui-icon" />) : null;

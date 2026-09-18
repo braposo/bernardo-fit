@@ -18,7 +18,7 @@ export const coverLetterTask = task({
   maxDuration: COVER_TASK_POLICY.maxDuration,
   retry: COVER_TASK_POLICY.retry,
   queue: { concurrencyLimit: COVER_TASK_POLICY.concurrencyLimit },
-  run: async (payload: CoverPayload, { ctx }) => withGenerationContext({ runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
+  run: async (payload: CoverPayload, { ctx }) => withGenerationContext({ jobId: payload.jobId, runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
     if (!hasKV) throw new AbortTaskRunError("KV is required by persistent workers.");
     metadata.set("phase", "loading").set("jobId", payload.jobId).set("requestId", payload.requestId);
     try {

@@ -738,3 +738,31 @@ body {
 .version-instructions summary { color: var(--primary); cursor: pointer; padding: 8px 0; }
 .version-instructions summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .version-instructions p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0; }
+
+/* shadcn dashboard Card + ChartContainer score dimensions. */
+.score-gauges { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:16px 0 24px; }
+.score-gauge { border-color:var(--border); gap:8px; padding:18px 10px; text-align:center; box-shadow:none; }
+.score-gauge h3 { font-size:13px; min-height:34px; margin:0; font-weight:600; }
+.gauge-visual { position:relative; width:126px; max-width:100%; margin:auto; }
+.gauge-chart { width:100%; aspect-ratio:1; }
+.gauge-value { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; font-size:28px; font-weight:600; line-height:1.2; }
+.gauge-value small { font-size:11px; font-weight:400; color:var(--muted-foreground); }
+.score-gauge p { font-size:11px; color:var(--muted-foreground); margin:0; }
+.analytics-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); border:1px solid var(--border); border-radius:var(--radius); margin:12px 0 24px; padding:18px; gap:20px; }
+.analytics-summary strong { display:block; font-size:24px; font-weight:600; }
+.analytics-summary span { color:var(--muted-foreground); font-size:12px; }
+.audit-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.audit-log { list-style:none; padding:0; margin:16px 0; border-top:1px solid var(--border); }
+.audit-log li { display:flex; justify-content:space-between; gap:24px; padding:16px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.audit-log li>div { min-width:0; }
+.audit-log p { margin:4px 0 0; color:var(--muted-foreground); overflow-wrap:anywhere; font-size:12px; }
+.audit-log time { flex-shrink:0; color:var(--muted-foreground); font-size:11px; padding-top:2px; }
+.job-usage { margin:32px 0; }
+@media(max-width:600px) {
+ .score-gauges { gap:6px; }
+ .score-gauge { padding:12px 5px; }
+ .score-gauge h3 { font-size:11px; min-height:40px; }
+ .gauge-value { font-size:23px; }
+ .score-gauge p { font-size:10px; }
+ .audit-log li { flex-direction:column; gap:6px; }
+}

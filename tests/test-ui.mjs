@@ -63,10 +63,10 @@ check("row has no editors or generation toolbar", !/textarea|data-act="cover"|da
 
 console.log("\n--- overview ---");
 const overview = render("overview");
-check("score has a keyboard-accessible explanation", /<details class="score-details">/.test(overview));
+check("score has three rating gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 3);
 check("existing material shortcuts are read actions", actions(overview).includes("briefopen") && actions(overview).includes("letteropen"));
 check("overview has no generation buttons", !/class="generation"/.test(overview));
-check("engagement is visible", /2<\/b> views/.test(overview));
+check("engagement and activity shortcut are absent from Overview", !/class="stats"|data-section-link="activity"/.test(overview));
 
 console.log("\n--- materials ---");
 const materials = render("materials", { briefStale: true, researchStale: true });

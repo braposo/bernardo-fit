@@ -764,6 +764,45 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     return String(s || "").trim().split(/\s+/).filter(Boolean).length;
   }
 
+  function recordJobAction(id, event) {
+    api('/api/admin/jobs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'activity',id:id,event:event})}).catch(function(){});
+  }
+  function jobUsageHtml(data) {
+    var usage = summariseUsage(data || {});
+    return '<section class="job-usage"><h2>AI activity &amp; usage</h2><p class="field-help">For this job, since per-job usage recording began. Earlier calls are not included. Costs are estimates; provider billing remains authoritative.</p>' +
+      '<div class="analytics-summary"><div><strong>$'+usage.estimatedUsd.toFixed(3)+'</strong><span>Estimated USD</span></div><div><strong>'+usage.calls+'</strong><span>AI calls</span></div><div><strong>'+usage.input.toLocaleString()+'</strong><span>Input tokens</span></div><div><strong>'+usage.output.toLocaleString()+'</strong><span>Output tokens</span></div></div>' +
+      '<p class="field-help">'+usage.pricedCalls+' of '+usage.calls+' calls priced · '+usage.cachePercent.toFixed(1)+'% input cached · '+usage.savedCalls+' answers from profile facts</p>' +
+      (usage.groups.length ? '<div class="usage-scroll" role="region" aria-label="AI usage by task and model" tabindex="0"><table><thead><tr><th>Task</th><th>Model</th><th>Effort</th><th>Calls</th><th>Output tokens</th><th>Errors</th><th>Estimated USD</th></tr></thead><tbody>' +
+        usage.groups.map(function(row) { return '<tr><td>'+esc(row.kind)+'</td><td>'+esc(row.source === 'profile' ? 'Profile facts' : modelLabel(row.model) || row.model)+'</td><td>'+esc(row.effort)+'</td><td>'+row.calls+'</td><td>'+row.output.toLocaleString()+'</td><td>'+row.errors+'</td><td>$'+(row.estimatedCostMicros/1e6).toFixed(3)+'</td></tr>'; }).join('') + '</tbody></table></div>' : '<p>No AI usage recorded for this job yet.</p>') + '</section>';
+  }
+
+  function loadJobActivity(target, id, state) {
+    var sequence = target.activitySequence = (target.activitySequence || 0) + 1;
+    state = state || { events: [], snapshot: null };
+    var offset = state.events.length;
+    api('/api/admin/jobs?id='+encodeURIComponent(id)+'&activity=1&offset='+offset+(state.snapshot ? '&snapshot='+state.snapshot : '')).then(function(out) {
+      if (!target.isConnected || target.activitySequence !== sequence || selectedId !== id || unauthorised(out)) return;
+      if (!out.ok) {
+        renderAdmin(target, '<p role="alert">Could not load activity.</p><button class="ghost" data-activity-retry>Retry</button>');
+        target.querySelector('[data-activity-retry]').onclick = function() { loadJobActivity(target,id); }; return;
+      }
+      var data=out.d, stats=data.stats || {};
+      state.events=state.events.concat(data.events || []); state.snapshot=data.snapshot;
+      renderAdmin(target, '<h2>Analytics summary</h2><div class="analytics-summary">'+[[stats.view || 0,'Fit page views'],[stats.copy_link || 0,'Link copies'],[stats.cv_download || 0,'CV downloads']].map(function(item) { return '<div><strong>'+item[0]+'</strong><span>'+item[1]+'</span></div>'; }).join('')+'</div>' +
+        '<section class="job-audit"><div class="audit-heading"><h2>Audit log</h2><button class="ghost" data-activity-refresh>Refresh activity</button></div><p class="field-help">Newest first · timestamps in your local time. Views and downloads are anonymous client-reported events.</p>' +
+        (data.historyNote ? '<p class="field-help">'+esc(data.historyNote)+'</p>' : '') +
+        '<ol class="audit-log">'+state.events.map(function(event) { return '<li><div><strong>'+esc(event.title)+'</strong>'+(event.detail ? '<p>'+esc(event.detail)+'</p>' : '')+'</div><time datetime="'+esc(event.at)+'" title="'+esc(event.at)+'">'+esc(new Date(event.at).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}))+'</time></li>'; }).join('')+'</ol>' +
+        (!state.events.length ? '<p>No recorded actions yet.</p>' : '') + (data.hasMore ? '<button class="ghost" data-activity-more>Load older actions</button>' : '') + '</section>' + jobUsageHtml(data.usage));
+      target.querySelector('[data-activity-refresh]').onclick=function(){loadJobActivity(target,id);};
+      var more=target.querySelector('[data-activity-more]');
+      if(more) more.onclick=function(){more.disabled=true; more.textContent='Loading…'; loadJobActivity(target,id,state);};
+    }).catch(function() {
+      if (!target.isConnected || target.activitySequence !== sequence) return;
+      renderAdmin(target, '<p role="alert">Could not load activity.</p><button class="ghost" data-activity-retry>Retry</button>');
+      target.querySelector('[data-activity-retry]').onclick=function(){loadJobActivity(target,id);};
+    });
+  }
+
   function statsHtml(j) {
     if (!j.fitReportId) return "";
     var s = j.stats;
@@ -875,15 +914,17 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     } else if (workspaceSection === "overview") {
       panel = '<section class="workspace-panel" id="panel-overview" role="tabpanel">' +
         (j.score != null ? '<h2>Why this role</h2>' +
-          '<details class="score-details"><summary>How this score was assessed</summary><p>' +
-          esc(j.scoreBreakdown ? 'Location ' + j.scoreBreakdown.location + ', AI/DX ' + j.scoreBreakdown.aiDx + ', leadership ' + j.scoreBreakdown.leadership + '.' : 'Open the fit page for the full assessment.') + '</p></details>' :
+          '<div class="score-gauges">' + [['location','Location',35],['aiDx','AI / Developer experience',35],['leadership','Leadership',30]].map(function (dimension) {
+            var value = j.scoreBreakdown && j.scoreBreakdown[dimension[0]];
+            return '<div data-score-gauge="'+dimension[1]+'" data-value="'+esc(value == null ? '' : value)+'" data-weight="'+dimension[2]+'"></div>';
+          }).join('') + '</div>'  :
           '<p>No fit analysis has been generated yet.</p>') +
         (j.rationale ? '<p class="rationale">' + esc(j.rationale) + '</p>' : '') + owed + staleHtml(j) +
         '<h2>Ready to use</h2><div class="overview-actions">' + (fitLink?'<button class="ghost" data-act="copyfit" data-link="'+esc(fitLink)+'">Copy fit link</button>':'') +
           (j.hasBrief ? '<button class="primary-link" data-act="briefopen">Open interview brief</button>' : '') +
           (fitLink ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page ↗</a>' : '') +
           (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' : '') + '</div>' +
-        statsHtml(j) + '<p><button class="read-link" data-section-link="activity">View activity →</button></p></section>';
+        '</section>';
     } else if (workspaceSection === "materials") {
       panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><h2>Documents</h2><p class="generation-legend" id="generation-legend">✦ Sparkle actions run AI and may incur costs.</p>' +
         '<div class="material-list" data-act="verbox">' +
@@ -905,9 +946,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         '<div class="overview-actions">' + (safeSourceUrl(j.sourceUrl) ? '<a class="read-link" href="' + esc(safeSourceUrl(j.sourceUrl)) + '" target="_blank" rel="noopener">View posting ↗</a>' : '') +
           (mailLink ? '<a class="read-link" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email ↗</a>' : '') + '</div></section>';
     } else {
-      panel = '<section class="workspace-panel" id="panel-activity" role="tabpanel"><h2>Run activity</h2>' + runStateHtml(j) +
-        '<p class="field-help">Recorded cost is available in AI activity &amp; usage. It is not a guaranteed quote for future work.</p>' +
-        '<button class="ghost" data-act="usage">Open AI activity &amp; usage</button><h2>Engagement</h2>' + statsHtml(j) +
+      panel = '<section class="workspace-panel" id="panel-activity" role="tabpanel"><div data-job-activity="'+esc(j.id)+'" aria-live="polite"><p>Loading activity…</p></div>' +
         '<section class="activity-group"><h2>Record management</h2><div class="record-actions">' +
         (j.archived ? '<button class="ghost" data-act="restore">Restore to pipeline</button><button class="ghost danger" data-act="delete">Delete permanently</button>' : '<button class="ghost" data-act="archive">Archive</button>') +
         '</div></section></section>';
@@ -1318,8 +1357,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var allStages = document.querySelector('[data-all-stages]');
     if (allStages) allStages.addEventListener('click', function () { stageFilter = null; writeNavigation('push'); renderJobs(); });
 
-    var activityUsage = document.querySelector('[data-act="usage"]');
-    if (activityUsage) activityUsage.addEventListener('click', showUsage);
+    var listing = document.querySelector('.listing-link');
+    if (listing) listing.addEventListener('click', function() { recordJobAction(selectedId,'listing_opened'); });
+    var activityTarget = document.querySelector('[data-job-activity]');
+    if (activityTarget) loadJobActivity(activityTarget, selectedId);
 
     var selectedSummary = jobs.find(function (j) { return j.id === selectedId; });
     if (selectedId && !selectedMissing && (!selectedSummary || !Object.prototype.hasOwnProperty.call(selectedSummary, 'jobDescription'))) {
@@ -1543,6 +1584,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         if (copy) copy.addEventListener("click", function () {
           var a = (qEl.querySelector(".qa-answer") || {}).textContent || "";
           navigator.clipboard.writeText(a).then(function () {
+            recordJobAction(id,"answer_copied");
             copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy"; }, 1400);
           });
         });
@@ -1712,6 +1754,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (copyFit) {
         copyFit.addEventListener("click", function () {
           navigator.clipboard.writeText(copyFit.getAttribute("data-link")).then(function () {
+            recordJobAction(id,"fit_link_copied");
             copyFit.textContent = "Copied";
             setTimeout(function () { copyFit.textContent = "Copy fit link"; }, 1600);
           });

@@ -114,6 +114,11 @@
   "use strict";
   var params = new URLSearchParams(location.search);
   var j = params.get("j"), t = params.get("t");
+window.addEventListener("beforeprint", function () {
+  if (!j || !t) return;
+  fetch("/api/track", {method:"POST", headers:{"Content-Type":"application/json"}, keepalive:true,
+    body:JSON.stringify({id:j,token:t,event:"document_print",kind:"cover"})}).catch(function(){});
+});
   var letter = document.getElementById("letter");
 
   function esc(s) {
