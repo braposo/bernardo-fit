@@ -48,7 +48,6 @@ export const prepareScreenTask = task({
     metadata.set("phase", "writing");
     const requestId = childId(payload.requestId, "brief");
     const fingerprint = briefFingerprint(job, report, research);
-
     await mutateJob(payload.jobId, (current) => current.prepareRun?.requestId === payload.requestId
       ? { briefRun: { requestId, runId: "", fingerprint, status: "queued", startedAt: new Date().toISOString(), finishedAt: "" } } : undefined);
     const key = await idempotencyKeys.create(`brief:${payload.jobId}:${requestId}`, { scope: "global" });

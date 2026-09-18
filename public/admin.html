@@ -69,6 +69,11 @@
   .toolbar h1 { font-family: var(--display); font-size: clamp(24px, 3.4vw, 32px); font-weight: 600; margin: 0; letter-spacing: -0.02em; }
   .toolbar .count { font-family: var(--mono); font-size: 12px; color: var(--sub); }
   .toolbar .right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .usage-dialog { width: min(920px, calc(100vw - 48px)); max-height: 80vh; overflow: auto; background: var(--paper); color: var(--ink); border: 1px solid var(--hair); border-radius: 12px; padding: 24px; }
+  .usage-dialog::backdrop { background: rgba(0,0,0,.4); }
+  .usage-dialog table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .usage-dialog th, .usage-dialog td { padding: 10px; text-align: left; border-bottom: 1px solid var(--hair); }
+  .usage-dialog .usage-scroll { overflow-x: auto; }
 
   .searchbox {
     appearance: none; background: transparent; border: 1px solid var(--hair-strong); color: var(--ink);
@@ -281,6 +286,7 @@
 
 <script type="module">
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
+import { summariseUsage } from "./admin-usage.js";
 (function () {
   "use strict";
 
@@ -295,18 +301,43 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
   // Which model writes the next analysis, letter or answer. Kept in
   // localStorage so a reload does not quietly send generations back to the
   // default halfway through a comparison.
-  var MODELS = [
-    { id: "gpt-5.6-sol", label: "Sol" },
-    { id: "gpt-6-astra", label: "Astra" },
+  var MODELS = [{ id: "gpt-5.6-sol", label: "Sol" }, { id: "gpt-6-astra", label: "Astra" },
     { id: "claude-opus-5", label: "Opus" },
     { id: "claude-sonnet-5", label: "Sonnet" }
   ];
   var MODEL_KEY = "fit.model";
   var model = localStorage.getItem(MODEL_KEY) || "gpt-5.6-sol";
+  var economyAnswers = localStorage.getItem("fit.economyAnswers") !== "false";
   if (!MODELS.some(function (m) { return m.id === model; })) model = "gpt-5.6-sol";
   function modelLabel(id) {
     for (var i = 0; i < MODELS.length; i++) if (MODELS[i].id === id) return MODELS[i].label;
     return "";
+  }
+
+  function showUsage() {
+    var dialog = document.createElement("dialog");
+    dialog.className = "usage-dialog";
+    dialog.setAttribute("aria-label", "AI usage over the last 30 days");
+    dialog.innerHTML = '<button class="ghost" style="float:right" data-close>Close</button><h2>AI usage · last 30 days</h2><div data-content aria-live="polite">Loading…</div>';
+    document.body.appendChild(dialog);
+    dialog.querySelector("[data-close]").addEventListener("click", function () { dialog.close(); });
+    dialog.addEventListener("close", function () { dialog.remove(); });
+    dialog.showModal();
+    api("/api/admin/reports?usage=1").then(function (out) {
+      if (!dialog.isConnected) return;
+      var target = dialog.querySelector("[data-content]");
+      if (unauthorised(out)) { dialog.close(); return; }
+      if (!out.ok) { target.textContent = "Could not load usage. Close and try again."; return; }
+      var usage = summariseUsage(out.d);
+      target.innerHTML = '<p><strong>Estimated $' + usage.estimatedUsd.toFixed(2) + ' USD</strong> across ' + usage.pricedCalls + ' priced calls. ' +
+        usage.savedCalls + ' answers used profile facts without a model call.</p>' +
+        '<p>' + usage.input.toLocaleString() + ' input tokens · ' + usage.output.toLocaleString() + ' output tokens · ' + usage.cachePercent.toFixed(1) + '% of input read from cache.</p>' +
+        '<p>Estimates cover calls with recorded prices (' + usage.pricedCalls + ' of ' + usage.calls + '). Earlier calls and missing usage are excluded from cost. Provider billing remains authoritative.</p>' +
+        '<div class="usage-scroll"><table><thead><tr><th>Task</th><th>Model</th><th>Effort</th><th>Calls</th><th>Output tokens</th><th>Errors</th><th>Estimated USD</th></tr></thead><tbody>' +
+        usage.groups.map(function (row) { return '<tr><td>' + esc(row.kind) + '</td><td>' + esc(row.source === "profile" ? "Profile facts" : modelLabel(row.model) || row.model) +
+          '</td><td>' + esc(row.effort) + '</td><td>' + row.calls + '</td><td>' + row.output.toLocaleString() + '</td><td>' + row.errors + '</td><td>$' + (row.estimatedCostMicros / 1e6).toFixed(3) + '</td></tr>'; }).join("") +
+        '</tbody></table></div>' + (!usage.groups.length ? '<p>No detailed usage recorded yet.</p>' : '');
+    });
   }
 
   var ARCHIVE_ON_STAGE = ["expired", "rejected", "not_interested"];
@@ -768,6 +799,9 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
                 return '<option value="' + m.id + '"' + (model === m.id ? " selected" : "") + ">" + m.label + "</option>";
               }).join("") +
             "</select></span>" +
+          '<label class="modelpick" title="Use confirmed profile facts directly and Sonnet with shorter context for routine motivation questions. Other answers use the selected model.">' +
+            '<input type="checkbox" id="economyanswers"' + (economyAnswers ? ' checked' : '') + '>Save on routine answers</label>' +
+          '<button class="ghost" id="usagebtn">Usage</button>' +
           (!showArchived && pendingAnalysis
             ? '<button class="ghost" id="analyseall">' + (activeRuns["analyse-all"] ? "Analysing…" : "Analyse all (" + pendingAnalysis + ")") + '</button>'
             : '') +
@@ -795,7 +829,7 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
     if (!jobs.length) {
       html += showArchived
         ? '<div class="empty">Nothing archived.</div>'
-        : '<div class="empty">No opportunities yet.<small>The weekly inbox review adds them here, and anything analysed on the site shows up too.</small></div>';
+        : '<div class="empty">No opportunities yet.<small>The recurring inbox review adds them here, and anything analysed on the site shows up too.</small></div>';
     } else if (!shown.length) {
       html += '<div class="empty">Nothing matches these filters.</div>';
     } else {
@@ -861,6 +895,12 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
     }
 
     var modelSel = document.getElementById("modelsel");
+    document.getElementById("usagebtn").addEventListener("click", showUsage);
+    var economySel = document.getElementById("economyanswers");
+    if (economySel) economySel.addEventListener("change", function () {
+      economyAnswers = economySel.checked;
+      localStorage.setItem("fit.economyAnswers", String(economyAnswers));
+    });
     if (modelSel) modelSel.addEventListener("change", function () {
       model = modelSel.value;
       localStorage.setItem(MODEL_KEY, model);
@@ -1047,7 +1087,7 @@ import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } fro
             api("/api/admin/cover", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: id, kind: "answer", questionId: qid, model: model, requestId: requestId }),
+              body: JSON.stringify({ id: id, kind: "answer", questionId: qid, model: model, requestId: requestId, economy: economyAnswers }),
             }).then(function (out) {
               if (unauthorised(out)) return;
               if (!out.ok) { draft.disabled = false; status.textContent = out.d.error || "Could not draft it."; status.className = "row-status err"; return null; }

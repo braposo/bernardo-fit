@@ -33,7 +33,7 @@ check("no overclaiming", !/I wrote every line|I built it alone|hand-coded/i.test
 console.log("\n--- the stack ---");
 check("Vercel", entry.includes("Vercel serverless functions"));
 check("Redis", entry.includes("Upstash Redis"));
-check("Anthropic API", entry.includes("Anthropic API"));
+check("OpenAI and Anthropic APIs", entry.includes("OpenAI and Anthropic APIs"));
 check("no framework, and framed as a decision", entry.includes("no framework and no build step") && entry.includes("decision rather than a shortcut"));
 
 console.log("\n--- the engineering, not the CRUD ---");

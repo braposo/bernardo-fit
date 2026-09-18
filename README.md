@@ -1,6 +1,6 @@
 # Where I'd fit — Bernardo's job-fit tool
 
-A small tool you can host on your own site. Someone pastes a job description, and it returns an honest, first-person read on how you fit — plus a **permanent shareable link** that stores that exact analysis.
+A small tool you can host on your own site. Someone pastes a job description, and it returns an honest, first-person read on how you fit — plus a **stable shareable link** to the published analysis.
 
 ## How it works
 
@@ -17,16 +17,17 @@ src/trigger/*.ts           ← durable workers with bounded retries and concurre
 scripts/ingest-opportunities.mjs ← posts a validated opportunity batch
 ```
 
-Flow: paste JD → `/api/analyze` admits one small background request → Trigger writes the first-person analysis → the page follows its public-scoped status receipt → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the same read forever. Reloading while it runs resumes the same request.
+Flow: paste JD → `/api/analyze` admits one small background request → Trigger writes the first-person analysis → the page follows its public-scoped status receipt → the URL becomes `yoursite.com/?r=abc123` → anyone with that link sees the current published version. Reloading while it runs resumes the same request. Admin regeneration keeps earlier versions privately and can publish a new version at the same URL.
 
 ## Deploy to Vercel (recommended)
 
 1. Push this folder to a Git repo and import it in Vercel (or run `vercel`).
-2. In the Vercel dashboard, add a **KV store** (Storage → Create → KV). It auto-injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`. This is what makes the permalinks persist.
-3. Add an environment variable **`ANTHROPIC_API_KEY`** with your key.
-4. Deploy. Done.
+2. Add an Upstash Redis database from the Vercel Marketplace and connect it to the project. This app's current `@vercel/kv` adapter expects `KV_REST_API_URL` and `KV_REST_API_TOKEN`; map the connected database credentials to those names if the integration uses a different prefix.
+3. Add `ADMIN_SECRET`, `ANTHROPIC_API_KEY`, and `OPENAI_API_KEY` to the Vercel environments you use. `PUBLIC_RUN_SECRET` is recommended as a separate signing secret for public status receipts.
+4. Connect the Vercel project to Trigger.dev. Verify that Redis and provider credentials are present in the matching Trigger.dev environments and that `TRIGGER_SECRET_KEY` is present in Vercel. The integration can sync these when environment-variable syncing is enabled; otherwise add them manually.
+5. Deploy the Trigger.dev workers before the website after existing work has drained. `npm run trigger:check` validates the bundle and `npm run trigger:deploy` deploys it.
 
-Without a KV store the app still runs, but saved links won't persist across requests (in-memory is dev-only).
+Persistent Redis storage is required in production. The in-memory fallback is for local development and tests only; the app deliberately refuses to start in production without `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
 
 ## Trigger.dev
 
@@ -41,7 +42,7 @@ npm run trigger:deploy    # deploy and promote a production task version
 
 The CLI login is stored outside the repository. Run `npm exec -- trigger.dev login` if a machine is not authenticated.
 
-Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development key in `.env.local`; the Trigger.dev Vercel integration injects the correct key into Vercel for deployed environments. Any secret read by task code must also exist in the matching Trigger.dev environment. Vercel variables marked Secret are not copied into Trigger.dev automatically, so add those in Trigger.dev explicitly when a task begins using them.
+Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development key in `.env.local`; the Trigger.dev Vercel integration injects the correct key into Vercel for deployed environments. Any secret read by task code must also exist in the matching Trigger.dev environment. The current integration can sync selected Vercel variables into Trigger.dev; verify the per-environment sync settings, or add the variables in Trigger.dev manually.
 
 Set `COVER_DISPATCH_DISABLED=1` in Vercel to stop new cover runs immediately. Accepted runs can still be watched and recovered, and removing the variable re-enables dispatch.
 
@@ -53,7 +54,7 @@ Porting requires moving `api/*` to functions, replacing `lib/store.js`, and prov
 
 ## Embedding on your existing site
 
-The frontend is one self-contained `index.html`. Drop it at a path like `/fit` on your site, point the two `fetch` calls at wherever your functions live, and you're set. It carries no framework and no external JS dependencies (just Google Fonts).
+The frontend is one self-contained `index.html`. Drop it at a path like `/fit` on your site and point its analysis admission, status, report and analytics requests at the corresponding functions. It carries no framework and no external JS dependencies (just Google Fonts).
 
 ## Admin page
 
@@ -75,6 +76,16 @@ Opportunities can also be posted as a validated batch through `scripts/ingest-op
 
 Admin analysis, regeneration and application answers all enter through the shared authenticated run dispatcher at `POST /api/admin/cover`. Vercel sends IDs, an input fingerprint and allowed options; Trigger loads the durable source data, runs the model work, and conditionally attaches the result. The board can analyse one row or use **Analyse all**. Deduplication still applies, so a matching description and model can reuse an existing report without another model call.
 
+**Token cost controls.** The admin's **Save on routine answers** preference is enabled by default and persists in the browser. A small set of exact factual questions uses confirmed profile facts without a model call. Routine motivation questions with an existing fit analysis use Sonnet at medium effort and a compact profile. Ambiguous questions, detailed experience questions and questions with custom role instructions use the selected model and full profile. Turn the preference off for a direct comparison with the full-context path. Other API clients opt in with `economy: true` on answer dispatches.
+
+Full-profile generators share a cached prefix containing the same writing rules and candidate evidence. Answers also cache unchanged job context before the current question and previous answers. Five-minute caching remains the default; `AI_CACHE_TTL=1h` is an optional experiment. Analysis and cover-letter effort default explicitly to high, with `AI_ANALYSE_EFFORT` and `AI_COVER_EFFORT` allowing low/medium/high experiments. Model choice remains available in the admin.
+
+**Usage** opens a private 30-day breakdown by operation, model and effort, including input/output tokens, cache reuse, avoided model calls and estimated USD cost. Existing daily counts remain available; historical calls without pricing are visibly excluded from estimates. New per-request diagnostics expire after 30 days and daily rollups after 90 days. Rates are dated in `lib/usage.js` and need updating when provider pricing changes. Worker records include run ID, task attempt, continuation and letter-generation attempt.
+
+Permanent provider errors, output truncation and exhausted JSON recovery stop automatic regeneration. Letters allow at most two successful provider responses per request, and research allows three provider requests / eight reported searches across continuations and retries, using recorded usage. Accounting is best-effort, so these are safeguards rather than a billing guarantee. Transient provider errors still retry. Equivalent in-flight admin requests share an atomic claim; a new request after completion can still intentionally rewrite. No-op edits and operational question metadata no longer stale screen briefs.
+
+Implementation and validation notes are in [the cost review](docs/cost-optimisation-review.md). Deploy updated workers before the website, after existing work has drained: prompt and fingerprint changes invalidate old generation identities. This does not delete any existing report or artifact.
+
 ## Scoring is private
 
 Generating an analysis also produces a fit score, a tier and a one-line rationale, weighted location 0.35, AI-or-DX surface 0.35 and leadership scope 0.30. **None of it is public.** The model returns it in an `internal` block that `splitInternal()` pulls off before the report is ever saved, so the score lives on the pipeline row behind the admin secret and never travels with the report. `/api/report` strips the block again on the way out as a second line of defence, in case an older saved report still carries one inline. Regenerating an analysis rescores the row that owns it.
@@ -83,7 +94,7 @@ These are a model-generated read against the profile, for triage. They are not e
 
 ## Recurring inbox review
 
-A scheduled task scans Gmail weekly, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. The endpoint returns HTTP 202 and the CLI follows the background run to completion. Stage, notes, score, linked analysis and archived state all survive. New rows arrive unscored, because scoring belongs to the analysis step.
+A recurring agent-side workflow scans Gmail, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. Its schedule lives outside this repository. The endpoint returns HTTP 202 and the CLI follows the background run to completion. Stage, notes, score, linked analysis and archived state all survive. New rows arrive unscored, because scoring belongs to the analysis step.
 
 The server still holds no mail credentials. The scan runs agent-side and only the resulting JSON is posted. `scripts/ingest-opportunities.mjs` reads `ADMIN_SECRET` from `.env.local` itself and never prints or forwards it, so whatever assembles the JSON never handles the credential. Populate it once with `vercel env pull`.
 
@@ -107,11 +118,11 @@ The letter page is reached with a short-lived signed token rather than the admin
 
 ## Editing what it says about you
 
-Everything the tool knows lives in `lib/profile.js`. Update `PROFILE_CONTEXT` there and every future generation reflects it.
+The main source of truth for candidate evidence used in generation is `PROFILE_CONTEXT` in `lib/profile.js`. Update it there and every future analysis, letter and application answer reflects it. Public CV copy, demo content, role-specific instructions and operational configuration remain separate.
 
 ## Model
 
-Admin generation uses `claude-opus-5` by default with `claude-sonnet-5` available as the cheaper fallback. Public analysis is pinned to Sonnet. Model policy lives in `lib/models.js`.
+Admin generation defaults to `gpt-5.6-sol`. The picker also offers `gpt-6-astra`, `claude-opus-5` and `claude-sonnet-5`. Saved picker choices are preserved. Alternatives are selected manually; provider errors do not switch models automatically. Set `OPENAI_API_KEY` in both Vercel and Trigger.dev (Production and any Preview/Development environments you use), then deploy both the web app and workers. Keep `ANTHROPIC_API_KEY` for Claude and public generation. Public analysis is pinned to Sonnet. Model policy lives in `lib/models.js`.
 
 ## Cost & abuse protection
 

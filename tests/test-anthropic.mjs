@@ -58,7 +58,7 @@ console.log("\n--- effort, when given, rides in output_config and nowhere else b
   check("effort lands in output_config", calls[0].output_config && calls[0].output_config.effort === "medium", calls[0]);
   calls.length = 0;
   await complete({ model: "claude-opus-5", system: { stable: "x" }, messages: [{ role: "user", content: "go" }], kind: "test" });
-  check("omitted entirely when not given", !("output_config" in calls[0]), calls[0]);
+  check("default effort is explicit", calls[0].output_config.effort === "high", calls[0]);
 }
 
 console.log("\n--- max_tokens defaults and can be overridden ---");
@@ -178,13 +178,15 @@ console.log("\n--- pause_turn: the continuation cap ---");
   check("still returns whatever it accumulated rather than throwing", Array.isArray(out.blocks) && out.blocks.length === 6, out.blocks.length);
 }
 
-console.log("\n--- max_tokens hit is logged, not thrown ---");
+console.log("\n--- max_tokens stops an automatic regeneration loop ---");
 {
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ content: [{ type: "text", text: "cut off" }], stop_reason: "max_tokens", usage: { input_tokens: 1, output_tokens: 1 } }) });
   const { complete } = await import(lib + "anthropic.js");
-  const out = await complete({ model: "claude-opus-5", system: { stable: "x" }, messages: [{ role: "user", content: "go" }], kind: "test" });
-  check("still returns the partial text rather than throwing", out.text === "cut off");
-  check("stop reason surfaced so the caller can act on it", out.stopReason === "max_tokens");
+  let error;
+  try { await complete({ model: "claude-opus-5", system: { stable: "x" }, messages: [{ role: "user", content: "go" }], kind: "test" }); }
+  catch (caught) { error = caught; }
+  check("does not return incomplete output as a successful draft", error?.code === "OUTPUT_LIMIT");
+  check("task must not repeat the same truncated generation", error?.abort === true);
 }
 
 console.log("\n--- server-tool errors surface in the blocks, they do not throw ---");

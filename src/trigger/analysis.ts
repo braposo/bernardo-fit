@@ -1,3 +1,4 @@
+import { withGenerationContext } from "../../lib/generation-context.js";
 import { AbortTaskRunError, metadata, task } from "@trigger.dev/sdk";
 import { executeAnalysisWork } from "../../lib/analysis-work.js";
 import { hasKV } from "../../lib/kv.js";
@@ -17,7 +18,7 @@ export const analysisTask = task({
   maxDuration: ANALYSIS_TASK_POLICY.maxDuration,
   retry: ANALYSIS_TASK_POLICY.retry,
   queue: { concurrencyLimit: ANALYSIS_TASK_POLICY.concurrencyLimit },
-  run: async (payload: AnalysisPayload) => {
+  run: async (payload: AnalysisPayload, { ctx }) => withGenerationContext({ runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
     if (!hasKV) throw new AbortTaskRunError("KV is required by persistent workers.");
     metadata.set("phase", "analysing").set("requestId", payload.requestId);
     if (payload.jobId) metadata.set("jobId", payload.jobId);
@@ -33,5 +34,5 @@ export const analysisTask = task({
       }
       throw error;
     }
-  },
+  }),
 });

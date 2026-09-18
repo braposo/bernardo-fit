@@ -3,7 +3,7 @@ import {
   listJobs,
   getJob,
   saveJob,
-  updateJob,
+  mutateJob,
   deleteJob,
   findExistingJob,
   findUnlinkedReportIds,
@@ -115,8 +115,6 @@ export default async function handler(req, res) {
       const EDITABLE = ["company", "role", "notes", "instructions", "jobDescription", "stage", "archived",
         "fitReportId", "location", "locationMode", "salary", "replyOwed", "userViewed", "closed", "sourceUrl"];
       const patch = Object.fromEntries(EDITABLE.filter(k => body[k] !== undefined).map(k => [k, body[k]]));
-      if (["company", "role", "sourceUrl"].some((k) => body[k] !== undefined)) patch.researchFingerprint = "";
-      if (["company", "role", "sourceUrl", "notes", "instructions", "jobDescription", "fitReportId", "location", "locationMode", "salary"].some((k) => body[k] !== undefined)) patch.briefFingerprint = "";
       if (body.questions !== undefined) {
         if (!Number.isInteger(body.revision)) return res.status(409).json({ error: "Edit one question at a time, or reload before replacing the question list." });
         patch.questions = body.questions;
@@ -137,7 +135,13 @@ export default async function handler(req, res) {
       if (patch.archived === true) patch.archivedAt = new Date().toISOString();
       if (patch.archived === false) patch.archivedAt = "";
       const job = body.question ? await editQuestion(id, body.question)
-        : await updateJob(id, patch, { expectedRevision: body.questions !== undefined ? body.revision : undefined });
+        : await mutateJob(id, current => {
+          const changed = key => body[key] !== undefined && JSON.stringify(body[key]) !== JSON.stringify(current[key] ?? "");
+          const invalidation = {};
+          if (["company", "role", "sourceUrl"].some(changed)) invalidation.researchFingerprint = "";
+          if (["company", "role", "sourceUrl", "notes", "instructions", "jobDescription", "fitReportId", "location", "locationMode", "salary", "questions"].some(changed)) invalidation.briefFingerprint = "";
+          return { ...patch, ...invalidation };
+        }, { expectedRevision: body.questions !== undefined ? body.revision : undefined });
       if (!job) {
         res.status(404).json({ error: "Job not found" });
         return;

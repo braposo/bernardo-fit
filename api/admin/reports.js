@@ -1,6 +1,6 @@
 import { requireAdmin } from "../../lib/admin.js";
 import { listReports, deleteReport, listJobs, listReportVersions } from "../../lib/store.js";
-import { recentRollups } from "../../lib/usage.js";
+import { recentRollups, recentBreakdowns } from "../../lib/usage.js";
 
 // GET    /api/admin/reports?offset=&limit=   -> { reports, total }
 // GET    /api/admin/reports?export=1         -> everything, as one document
@@ -16,9 +16,9 @@ export default async function handler(req, res) {
 
   if (req.method === "GET" && req.query && req.query.usage === "1") {
     try {
-      const days = await recentRollups(30);
+      const [days, breakdown] = await Promise.all([recentRollups(30), recentBreakdowns(30)]);
       res.setHeader("Cache-Control", "no-store");
-      res.status(200).json({ days });
+      res.status(200).json({ days, breakdown, currency: "USD", estimatesOnly: true });
     } catch (err) {
       res.status(500).json({ error: "Unexpected error", detail: String(err).slice(0, 300) });
     }
