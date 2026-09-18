@@ -2,6 +2,7 @@ process.env.ADMIN_SECRET = "audit-secret";
 import assert from "node:assert/strict";
 import * as store from "../lib/store.js";
 import { getJobAudit, jobMutationEvents } from "../lib/job-audit.js";
+import { getJobHistory } from "../lib/job-history.js";
 import { saveScreenArtifact } from "../lib/screen-artifacts.js";
 import { recordUsage, readJobUsage } from "../lib/usage.js";
 import { withGenerationContext } from "../lib/generation-context.js";
@@ -86,5 +87,33 @@ await test("print events require a signed document token",async()=>{
   let out=res(); await track({method:'POST',body:{id:job.id,event:'document_print',kind:'cover',token:'bad'}},out); assert.equal(out.code,400);
   out=res(); await track({method:'POST',body:{id:job.id,event:'document_print',kind:'cover',token:makeViewToken(job.id)}},out); assert.equal(out.code,204);
   assert.equal((await getJobAudit(await store.getJob(job.id))).events.filter(e=>e.type==='document.print').length,1);
+});
+await test("Activity recovers generation from legacy saved documents without worker audit events", async () => {
+  const at = '2026-09-18T08:00:00Z';
+  await store.saveReportWithId('legacy-generation', { created_at: at, model: 'gpt-5.6-sol', job_description: 'Historical report' });
+  const legacy = await store.saveJob({ company:'Old worker',fitReportId:'legacy-generation',
+    coverLetter:['Saved letter'],coverLetterAt:at,coverLetterModel:'gpt-5.6-sol',
+    coverRun:{requestId:'legacy-request',runId:'legacy-run',status:'completed',finishedAt:at,model:'gpt-5.6-sol'} });
+  assert.equal((await getJobAudit(legacy)).events.filter(e=>e.type==='document.generated' && e.title.includes('Cover letter')).length,0);
+  const out=res(); await handler({method:'GET',headers:{'x-admin-secret':'audit-secret'},query:{id:legacy.id,activity:'1'}},out);
+  assert.equal(out.code,200);
+  const generated=out.body.events.filter(e=>e.type==='document.generated');
+  assert.equal(generated.length,2);
+  assert.equal(Date.parse(generated.find(e=>e.title.includes('Cover letter')).at),Date.parse(at));
+  assert.ok(out.body.events.some(e=>e.type==='generation.completed'));
+  assert.ok(!out.body.events.some(e=>e.type==='document.published' && e.title.includes('Cover letter')), 'do not invent a historical publication event');
+});
+await test("version evidence does not duplicate recorded generation or break pagination",async()=>{
+  const current=await store.getJob(job.id);
+  const complete=await getJobHistory(current,{limit:100});
+  assert.equal(complete.events.filter(e=>e.id==='research-research-one').length,1);
+  const snapshot=complete.snapshot;
+  const pages=[];
+  for(let offset=0;offset<complete.events.length;offset+=3) pages.push(...(await getJobHistory(current,{offset,limit:3,snapshot})).events);
+  assert.deepEqual(pages.map(e=>e.id),complete.events.map(e=>e.id));
+});
+await test("missing historical timestamps do not become fake generation dates",async()=>{
+  const history=await getJobHistory({id:'unknown-time',createdAt:'2020-01-01T00:00:00Z',coverLetter:['Saved legacy letter']});
+  assert.equal(history.events.filter(e=>e.type==='document.generated').length,0);
 });
 console.log(`passed ${passed}, failed ${failed}`); process.exitCode=failed?1:0;

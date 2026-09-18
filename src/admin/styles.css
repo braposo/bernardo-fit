@@ -753,10 +753,11 @@ body {
 .analytics-summary span { color:var(--muted-foreground); font-size:12px; }
 .audit-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .audit-log { list-style:none; padding:0; margin:16px 0; border-top:1px solid var(--border); }
-.audit-log li { display:flex; justify-content:space-between; gap:24px; padding:16px 0; border-bottom:1px solid var(--border); font-size:13px; }
-.audit-log li>div { min-width:0; }
+.audit-log li { display:flex; align-items:baseline; gap:14px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.audit-log strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
 .audit-log p { margin:4px 0 0; color:var(--muted-foreground); overflow-wrap:anywhere; font-size:12px; }
-.audit-log time { flex-shrink:0; color:var(--muted-foreground); font-size:11px; padding-top:2px; }
+.engagement-summary { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.audit-log time { white-space:nowrap; flex-shrink:0; color:var(--muted-foreground); font-size:11px; padding-top:2px; }
 .job-usage { margin:32px 0; }
 @media(max-width:600px) {
  .score-gauges { gap:6px; }
@@ -764,5 +765,7 @@ body {
  .score-gauge h3 { font-size:11px; min-height:40px; }
  .gauge-value { font-size:23px; }
  .score-gauge p { font-size:10px; }
- .audit-log li { flex-direction:column; gap:6px; }
+ .audit-log li { gap:8px; font-size:12px; }
+ .audit-log time { font-size:10px; }
+ .engagement-summary { gap:8px; padding:12px; }
 }

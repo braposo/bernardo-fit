@@ -65,3 +65,22 @@ Deploy the updated Trigger.dev workers with the app to enable job/report attribu
 Validation: 69 browser checks including gauge semantics, mobile overflow, escaped
 log content, pagination, inline shadcn usage tables and automated WCAG A/AA checks;
 focused audit, atomic-store, versions, jobs, usage, UI and generation-instruction tests.
+
+
+### Generation history compatibility and compact Activity rows
+
+Activity also reads retained fit/letter/research/brief versions and saved terminal
+run/answer timestamps. This recovers generation evidence written by independently
+deployed older workers, with duplicates suppressed against recorded audit events.
+Unknown generation dates and historical publication dates are never inferred.
+Recovery is limited to retained source records; deleted historical versions cannot
+be reconstructed. New worker audit events remain the durable historical record.
+
+Analytics always uses three columns, including mobile. Audit rows are one line:
+local date and time first, then the action name. Long names truncate visually while
+keeping the complete text accessible; supporting details remain in the row title.
+Inline AI usage follows the log as before.
+
+Validation: 73 browser checks, 14 audit tests, 10 generation lifecycle tests
+(including all four document types through the Activity endpoint), 57 version tests
+and 49 UI contract tests. The final screenshot was visually reviewed.

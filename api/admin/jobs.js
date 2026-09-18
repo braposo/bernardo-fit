@@ -21,7 +21,8 @@ import { deleteScreenArtifacts, getActiveBrief, getActiveResearch } from "../../
 import { deleteTaskResults } from "../../lib/task-results.js";
 import { coverDispatchEnabled, screenDispatchEnabled } from "../../lib/task-policy.js";
 import { getActiveRuns } from "../../lib/run-receipts.js";
-import { getJobAudit, appendAudit, auditEvent } from "../../lib/job-audit.js";
+import { appendAudit, auditEvent } from "../../lib/job-audit.js";
+import { getJobHistory } from "../../lib/job-history.js";
 import { readJobUsage } from "../../lib/usage.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
@@ -45,7 +46,7 @@ export default async function handler(req, res) {
           const snapshot = Math.min(Date.now(), Number(req.query.snapshot) || Date.now());
           if (!Number.isSafeInteger(offset) || offset > 100000 || !Number.isFinite(snapshot) || snapshot < 0) return res.status(400).json({ error: "Invalid activity page" });
           const reportIds = [...new Set([...(job.auditReportIds || []), job.fitReportId].filter(Boolean))];
-          const [audit, usage, stats] = await Promise.all([getJobAudit(job, { offset, snapshot }), readJobUsage(job.id, reportIds), getStats(reportIds)]);
+          const [audit, usage, stats] = await Promise.all([getJobHistory(job, { offset, snapshot }), readJobUsage(job.id, reportIds), getStats(reportIds)]);
           const totals = Object.values(stats).reduce((sum, row) => ({ view: sum.view + row.view, copy_link: sum.copy_link + row.copy_link, cv_download: sum.cv_download + row.cv_download }), { view: 0, copy_link: 0, cv_download: 0 });
           return res.status(200).json({ ...audit, usage, stats: totals });
         }

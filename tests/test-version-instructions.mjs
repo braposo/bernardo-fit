@@ -93,6 +93,15 @@ await test('authenticated version listing exposes instructions for each document
   assert.equal(res.code,200);
   for(const kind of ['fit','letter','research','brief']) assert.ok(res.body[kind][0].versionInstructions);
 });
+await test('Activity records completed generation for all four document types',async()=>{
+  const { default: jobsHandler } = await import('../api/admin/jobs.js');
+  const res={status(code){this.code=code;return this},json(body){this.body=body;return this},setHeader(){}};
+  await jobsHandler({method:'GET',headers:{'x-admin-secret':'instructions-test'},query:{id:job.id,activity:'1'}},res);
+  assert.equal(res.code,200);
+  const titles=res.body.events.filter(e=>e.type==='document.generated').map(e=>e.title);
+  for(const title of ['Fit analysis generated','Cover letter version saved','Company research version saved','Interview brief version saved']) assert.ok(titles.includes(title),title);
+  assert.ok(res.body.events.every(e=>Number.isFinite(Date.parse(e.at))));
+});
 await test('generic instruction changes supersede queued work rather than overwriting newer intent',async()=>{
   const review=await reviewed('cover');
   await store.updateJob(job.id,{coverRun:{requestId:'instructions-stale',fingerprint:review.workFingerprint,status:'queued'},instructions:'A changed generic instruction'});

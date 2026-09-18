@@ -105,15 +105,18 @@ try {
   await page.locator('[data-section="activity"]').click();
   await page.locator('.job-usage table').waitFor();
   check('Activity order is analytics, audit, inline usage', (await page.locator('[data-job-activity] h2').allTextContents()).join('|') === 'Analytics summary|Audit log|AI activity & usage');
-  check('audit shows exact timestamps and escaped details', await page.locator('.audit-log time').getAttribute('datetime') === '2026-09-18T11:00:00Z' && (await page.locator('.audit-log').textContent()).includes('<script>unsafe()</script>') && await page.locator('.audit-log script').count() === 0);
+  check('audit shows exact timestamps and escaped details', await page.locator('.audit-log time').getAttribute('datetime') === '2026-09-18T11:00:00Z' && (await page.locator('.audit-log strong').getAttribute('title')).includes('<script>unsafe()</script>') && await page.locator('.audit-log script').count() === 0);
   await page.locator('[data-activity-more]').click();
   await page.waitForFunction(()=>document.querySelectorAll('.audit-log li').length===2);
   check('older actions append below the latest', (await page.locator('.audit-log li strong').allTextContents()).join('|') === 'Status changed|Added to pipeline');
   check('job usage is inline shadcn table without a dialog', await page.locator('.job-usage [data-slot="table"]').count() === 1 && await page.locator('[role="dialog"]').count() === 0);
+  check('audit rows are timestamp-first single lines', await page.locator('.audit-log li').evaluateAll(rows => rows.every(row => row.firstElementChild.tagName === 'TIME' && row.children.length === 2 && getComputedStyle(row.lastElementChild).whiteSpace === 'nowrap')));
+  check('analytics summary has three columns', await page.locator('.engagement-summary').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length === 3));
   await audit('Activity');
   if(process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path:process.env.ADMIN_UX_SCREENSHOTS+'/admin-activity.png',fullPage:true});
   for(const width of [390,360]) {
     await page.setViewportSize({width,height:900});
+    check('analytics stays three columns at '+width, await page.locator('.engagement-summary').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length === 3));
     check('Activity contains wide usage table at '+width, await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.locator('[data-section="overview"]').click();
     check('gauges fit at '+width, await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

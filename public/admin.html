@@ -788,10 +788,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       }
       var data=out.d, stats=data.stats || {};
       state.events=state.events.concat(data.events || []); state.snapshot=data.snapshot;
-      renderAdmin(target, '<h2>Analytics summary</h2><div class="analytics-summary">'+[[stats.view || 0,'Fit page views'],[stats.copy_link || 0,'Link copies'],[stats.cv_download || 0,'CV downloads']].map(function(item) { return '<div><strong>'+item[0]+'</strong><span>'+item[1]+'</span></div>'; }).join('')+'</div>' +
+      renderAdmin(target, '<h2>Analytics summary</h2><div class="analytics-summary engagement-summary">'+[[stats.view || 0,'Fit page views'],[stats.copy_link || 0,'Link copies'],[stats.cv_download || 0,'CV downloads']].map(function(item) { return '<div><strong>'+item[0]+'</strong><span>'+item[1]+'</span></div>'; }).join('')+'</div>' +
         '<section class="job-audit"><div class="audit-heading"><h2>Audit log</h2><button class="ghost" data-activity-refresh>Refresh activity</button></div><p class="field-help">Newest first · timestamps in your local time. Views and downloads are anonymous client-reported events.</p>' +
         (data.historyNote ? '<p class="field-help">'+esc(data.historyNote)+'</p>' : '') +
-        '<ol class="audit-log">'+state.events.map(function(event) { return '<li><div><strong>'+esc(event.title)+'</strong>'+(event.detail ? '<p>'+esc(event.detail)+'</p>' : '')+'</div><time datetime="'+esc(event.at)+'" title="'+esc(event.at)+'">'+esc(new Date(event.at).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}))+'</time></li>'; }).join('')+'</ol>' +
+        '<ol class="audit-log">'+state.events.map(function(event) { return '<li><time datetime="'+esc(event.at)+'" title="'+esc(event.at)+'">'+esc(new Date(event.at).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}))+'</time><strong title="'+esc(event.title+(event.detail ? ' — '+event.detail : ''))+'">'+esc(event.title)+'</strong></li>'; }).join('')+'</ol>' +
         (!state.events.length ? '<p>No recorded actions yet.</p>' : '') + (data.hasMore ? '<button class="ghost" data-activity-more>Load older actions</button>' : '') + '</section>' + jobUsageHtml(data.usage));
       target.querySelector('[data-activity-refresh]').onclick=function(){loadJobActivity(target,id);};
       var more=target.querySelector('[data-activity-more]');
