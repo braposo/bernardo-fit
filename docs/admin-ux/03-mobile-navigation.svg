@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc"><title id="title">Mobile list, role and materials screens</title><desc id="desc">Three mobile wireframes show filtered pipeline, selected role overview, and vertically stacked material actions. Returning restores filters and list position.</desc><rect x="0" y="0" width="1200" height="900" rx="0" fill="#f0eee8" stroke="#f0eee8"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc"><title id="title">Mobile list, role and materials screens</title><desc id="desc">Three mobile wireframes show a pipeline with sticky search and one stage dropdown, selected role overview, and vertically stacked material actions. Returning restores filters and list position.</desc><rect x="0" y="0" width="1200" height="900" rx="0" fill="#f0eee8" stroke="#f0eee8"/>
 <text x="30" y="40" font-family="Arial, sans-serif" font-size="26" fill="#211f1a" font-weight="700">03 / Mobile: list → role → return</text>
 <text x="30" y="69" font-family="Arial, sans-serif" font-size="16" fill="#666258" font-weight="400">Each frame represents one screen at approximately 390 px. Do not squeeze the desktop columns onto a phone.</text>
 <rect x="30" y="100" width="330" height="610" rx="18" fill="#faf8f4" stroke="#d8d3c8"/>
@@ -7,27 +7,11 @@
 <text x="50" y="139" font-family="Arial, sans-serif" font-size="23" fill="#211f1a" font-weight="700">Pipeline</text>
 <rect x="50" y="157" width="290" height="40" rx="8" fill="#fffefa" stroke="#d8d3c8"/>
 <text x="62" y="182" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Search roles…</text>
-<rect x="50" y="211" width="86" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="62" y="236" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">All 12</text>
-<rect x="144" y="211" width="90" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="156" y="236" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">New 3</text>
-<rect x="50" y="256" width="125" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="62" y="281" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">Reviewing 4</text>
-<rect x="184" y="256" width="110" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="196" y="281" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">Applied 2</text>
-<rect x="50" y="301" width="146" height="38" rx="7" fill="#155a99" stroke="#d8d3c8"/>
-<text x="62" y="326" font-family="Arial, sans-serif" font-size="14" fill="#fff" font-weight="600">Interviewing 2</text>
-<rect x="204" y="301" width="90" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="216" y="326" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">Offer 1</text>
-<text x="50" y="379" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">2 matching roles</text>
-<rect x="45" y="395" width="300" height="110" rx="8" fill="#eaf1f8" stroke="#155a99"/>
-<text x="60" y="426" font-family="Arial, sans-serif" font-size="20" fill="#155a99" font-weight="700">Sanity</text>
-<text x="60" y="454" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Engineering Manager</text>
-<text x="60" y="483" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Interviewing · Fit 70</text>
-<rect x="45" y="520" width="300" height="99" rx="8" fill="#faf8f4" stroke="#d8d3c8"/>
-<text x="60" y="550" font-family="Arial, sans-serif" font-size="18" fill="#211f1a" font-weight="700">Example company</text>
-<text x="60" y="578" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Engineering Lead</text>
-<text x="60" y="603" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Interviewing · Fit 65</text>
+<rect x="50" y="205" width="290" height="44" rx="7" fill="#fffefa" stroke="#d8d3c8"/><text x="62" y="233" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Filter: Interviewing (5) ▾</text><rect x="45" y="265" width="300" height="73" rx="7" fill="#eaf1f8" stroke="#155a99"/><text x="57" y="291" font-family="Arial, sans-serif" font-size="16" fill="#155a99" font-weight="700">Sanity</text><text x="281" y="291" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 70</text><text x="57" y="314" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Manager</text>
+<rect x="45" y="343" width="300" height="73" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="369" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company A</text><text x="281" y="369" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 65</text><text x="57" y="392" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Lead</text>
+<rect x="45" y="421" width="300" height="73" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="447" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company B</text><text x="281" y="447" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 63</text><text x="57" y="470" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Head of Engineering</text>
+<rect x="45" y="499" width="300" height="73" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="525" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company C</text><text x="281" y="525" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 61</text><text x="57" y="548" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Manager</text>
+<rect x="45" y="577" width="300" height="73" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="603" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company D</text><text x="281" y="603" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 59</text><text x="57" y="626" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Platform Lead</text>
 <text x="455" y="138" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">← Back to pipeline</text>
 <text x="455" y="184" font-family="Arial, sans-serif" font-size="17" fill="#155a99" font-weight="700">Sanity</text>
 <text x="455" y="215" font-family="Arial, sans-serif" font-size="23" fill="#211f1a" font-weight="400">Engineering Manager</text>
@@ -66,8 +50,8 @@
 <rect x="35" y="749" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
 <text x="44" y="769" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">1</text>
 <text x="75" y="768" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">List</text>
-<text x="75" y="795" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Stage and search stay in place.</text>
-<text x="75" y="820" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Select a role by its stable ID.</text>
+<text x="75" y="795" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Sticky search + one stage dropdown.</text>
+<text x="75" y="820" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Two-line rows; no repeated stage.</text>
 <rect x="435" y="749" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
 <text x="444" y="769" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">2</text>
 <text x="475" y="768" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Role workspace</text>

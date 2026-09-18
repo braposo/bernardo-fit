@@ -18,13 +18,13 @@ The user approved the pipeline + workspace direction and explicitly replaced the
 - Keep the warm paper palette and existing typography, improving hierarchy, spacing and readability.
 - Desktop: compact pipeline list on the left, selected role workspace on the right.
 - Small screens: list and workspace become separate views with a clear Back to pipeline control.
-- Stage filters navigate the pipeline; the stage dropdown changes the selected role's status. Keep these controls visually and semantically distinct.
+- A compact Filter by stage dropdown navigates the pipeline; the separate Stage dropdown in the workspace changes the selected role's status. Keep these controls distinctly labelled and scoped.
 - Four workspace sections: Overview, Materials, Role & context, Activity.
 - Opening an existing output must never start generation. This includes outdated outputs.
 - Chargeable generation has its own warm amber button treatment and sparkle icon, with explicit verbs such as Generate analysis, Rewrite letter, Rewrite brief and Refresh research.
 - Do not append Paid AI to buttons or repeat it as a badge beside each action.
 - Explain the convention with a short visible legend near generation controls: “Sparkle actions run AI and may incur costs.” Retain cost information in the generation review.
-- Amber is reserved for generation controls. Use neutral text, icons and descriptive notices for stale data; use a separate accessible treatment for errors. Do not reuse the amber generation treatment for stage chips or navigation.
+- Amber is reserved for generation controls. Use neutral text, icons and descriptive notices for stale data; use a separate accessible treatment for errors. Do not reuse the amber generation treatment for stage filters or navigation.
 - Keep a review step before generation. It must state the work being requested and any additional research; opening this review is free of generation side effects.
 - Keep Archive separate from the active pipeline. Preserve existing stage-driven archiving rules.
 
@@ -71,7 +71,10 @@ Important baseline facts:
 
 ### Filters, counts and search
 
-- Put stage filters above the compact role list, including All and a count for each relevant stage.
+- Replace wrapping stage chips with one Filter by stage dropdown above the compact role list. Include All stages and every relevant stage with its count in the options; show the selected stage and its count in the closed control.
+- Use two compact control rows in the narrow pipeline: full-width search, then the single stage dropdown. Place them side by side only where both remain legible. Do not add a separate Filters button unless additional filter types actually exist.
+- Keep search and the stage dropdown sticky within the list pane while entries scroll. On mobile keep the compact controls visible during list scrolling without covering focused entries; preserve the existing scroll-restoration contract.
+- Remove the separate matching-roles count line; the dropdown already shows that count. Do not replace the chip rows with another tall filter panel.
 - Use API-provided stages. Active and archived views follow their own allowed stage sets.
 - Search combines with the selected stage. Preserve existing searchable fields and server-supported search behaviour.
 - Counts describe matches within the current active/archive collection and search, before applying the selected stage. All is the total for that same collection and search. Compute counts through the appropriate data contract; do not claim full counts from a partial loaded page.
@@ -90,7 +93,7 @@ Important baseline facts:
 
 ### Compact role row
 
-Show company, role, stage and fit score when present. Include only actionable indicators such as reply owed, active generation or missing analysis. Keep long rationales, engagement metrics, editors and generation toolbars out of the list. Use a labelled selection control and visible selected/focus states.
+Use a compact two-line baseline: company and fit score on the first line, role on the second. Omit repeated stage labels when a specific stage is selected; show stage in All stages or mixed-stage views. Allow additional height for long titles and genuine attention indicators, preserving readable type and touch targets. Include only actionable indicators such as reply owed, active generation or missing analysis. Keep long rationales, engagement metrics, editors and generation toolbars out of the list. Use a labelled selection control and visible selected/focus states.
 
 ## 5. Workspace information architecture
 
@@ -209,7 +212,7 @@ Use the smallest relevant checks per change. Existing tests are standalone Node 
 
 | Behaviour | Required acceptance | Candidate existing coverage |
 | --- | --- | --- |
-| Stage/search navigation | Counts are consistent; filtering does not mutate; search and stage combine; selection and scroll survive role switches and Back | `test-search.mjs`, `test-counts.mjs`, `test-ui.mjs`; add focused URL-state tests |
+| Stage/search navigation | One stage dropdown replaces chip rows; selected count is not repeated; controls stay visible during list scroll; row stage labels appear only for mixed-stage views; filtering does not mutate; counts/search/history remain correct | `test-search.mjs`, `test-counts.mjs`, `test-ui.mjs`; add focused URL-state tests |
 | Opening materials | Open letter/brief/research/fit and version previews produce zero generation dispatches, even when stale | `test-ui.mjs`, `test-stale.mjs`, `test-link.mjs`; add mocked dispatch assertions |
 | Paid generation | Review opens without dispatch; Cancel dispatches nothing; submit dispatches once with reviewed scope | `test-admin-run.mjs`, `test-screen.mjs`; add contract cases |
 | Scope changed during review | Stale research/input changes and newly eligible bulk jobs cannot silently expand the operation | `test-screen.mjs`, relevant release/task tests; add explicit race cases |

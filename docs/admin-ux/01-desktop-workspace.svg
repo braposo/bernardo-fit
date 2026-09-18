@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc"><title id="title">Desktop pipeline and selected-role workspace</title><desc id="desc">Stage filters and search on the left, selected Sanity role and overview on the right. Numbered annotations explain navigation persistence and opening behaviour.</desc><rect x="0" y="0" width="1200" height="900" rx="0" fill="#f0eee8" stroke="#f0eee8"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc"><title id="title">Desktop pipeline and selected-role workspace</title><desc id="desc">Sticky search and a compact stage filter dropdown on the left, selected Sanity role and overview on the right. Numbered annotations explain navigation persistence and opening behaviour.</desc><rect x="0" y="0" width="1200" height="900" rx="0" fill="#f0eee8" stroke="#f0eee8"/>
 <text x="30" y="40" font-family="Arial, sans-serif" font-size="26" fill="#211f1a" font-weight="700">01 / Desktop: pipeline + role workspace</text>
-<text x="30" y="69" font-family="Arial, sans-serif" font-size="16" fill="#666258" font-weight="400">Illustrative fixture data. Filters select what you see; the stage dropdown changes the selected role.</text>
+<text x="30" y="69" font-family="Arial, sans-serif" font-size="16" fill="#666258" font-weight="400">Illustrative fixture data. The left filter selects visible roles; the workspace Stage control edits a role.</text>
 <rect x="30" y="95" width="1140" height="595" rx="8" fill="#faf8f4" stroke="#d8d3c8"/>
 <text x="50" y="130" font-family="Arial, sans-serif" font-size="20" fill="#211f1a" font-weight="700">bernardo.fit / admin</text>
 <text x="710" y="130" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Pipeline</text>
@@ -11,27 +11,11 @@
 <text x="50" y="185" font-family="Arial, sans-serif" font-size="22" fill="#211f1a" font-weight="700">Pipeline</text>
 <rect x="50" y="202" width="298" height="38" rx="8" fill="#fffefa" stroke="#d8d3c8"/>
 <text x="62" y="228" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Search roles…</text>
-<rect x="50" y="255" width="85" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="62" y="280" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">All 12</text>
-<rect x="143" y="255" width="92" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="155" y="280" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">New 3</text>
-<rect x="243" y="255" width="104" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="255" y="280" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">Reviewing 4</text>
-<rect x="50" y="303" width="102" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="62" y="328" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">Applied 2</text>
-<rect x="160" y="303" width="132" height="38" rx="7" fill="#155a99" stroke="#d8d3c8"/>
-<text x="172" y="328" font-family="Arial, sans-serif" font-size="14" fill="#fff" font-weight="600">Interviewing 2</text>
-<rect x="50" y="351" width="90" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
-<text x="62" y="376" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">Offer 1</text>
-<text x="50" y="413" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">2 matching roles</text>
-<rect x="45" y="430" width="310" height="100" rx="8" fill="#eaf1f8" stroke="#155a99"/>
-<text x="60" y="456" font-family="Arial, sans-serif" font-size="18" fill="#155a99" font-weight="700">Sanity</text>
-<text x="60" y="482" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Engineering Manager</text>
-<text x="60" y="510" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Interviewing · Fit 70</text>
-<rect x="45" y="541" width="310" height="93" rx="8" fill="#faf8f4" stroke="#d8d3c8"/>
-<text x="60" y="568" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Example company</text>
-<text x="60" y="593" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Engineering Lead</text>
-<text x="60" y="618" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Interviewing · Fit 65</text>
+<rect x="50" y="248" width="298" height="44" rx="7" fill="#fffefa" stroke="#d8d3c8"/><text x="62" y="276" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Filter: Interviewing (5) ▾</text><rect x="45" y="307" width="310" height="67" rx="7" fill="#eaf1f8" stroke="#155a99"/><text x="57" y="333" font-family="Arial, sans-serif" font-size="16" fill="#155a99" font-weight="700">Sanity</text><text x="291" y="333" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 70</text><text x="57" y="356" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Manager</text>
+<rect x="45" y="379" width="310" height="67" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="405" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company A</text><text x="291" y="405" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 65</text><text x="57" y="428" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Lead</text>
+<rect x="45" y="451" width="310" height="67" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="477" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company B</text><text x="291" y="477" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 63</text><text x="57" y="500" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Head of Engineering</text>
+<rect x="45" y="523" width="310" height="67" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="549" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company C</text><text x="291" y="549" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 61</text><text x="57" y="572" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Manager</text>
+<rect x="45" y="595" width="310" height="67" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="621" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company D</text><text x="291" y="621" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 59</text><text x="57" y="644" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Platform Lead</text>
 <text x="395" y="185" font-family="Arial, sans-serif" font-size="13" fill="#155a99" font-weight="700">SANITY</text>
 <text x="395" y="218" font-family="Arial, sans-serif" font-size="24" fill="#211f1a" font-weight="700">Engineering Manager (Content Agent)</text>
 <text x="395" y="248" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">London · Hybrid, 1–3 days · Up to £160,000 + equity</text>
@@ -56,9 +40,9 @@
 <text x="395" y="653" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">View activity →</text>
 <rect x="35" y="722" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
 <text x="44" y="742" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">1</text>
-<text x="75" y="741" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Persistent navigation</text>
-<text x="75" y="768" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Keep filters and list scroll when opening another role.</text>
-<text x="75" y="793" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Counts use the current collection and search.</text>
+<text x="75" y="741" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Compact, persistent navigation</text>
+<text x="75" y="768" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Keep search and stage visible while the list scrolls.</text>
+<text x="75" y="793" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Count in the dropdown; no repeated stage on each row.</text>
 <rect x="630" y="722" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
 <text x="639" y="742" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">2</text>
 <text x="670" y="741" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Predictable role workspace</text>

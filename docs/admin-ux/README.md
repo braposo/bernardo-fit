@@ -1,6 +1,6 @@
 # Admin UX visual implementation guide
 
-Use alongside [the implementation plan](../admin-ux-implementation-plan.md). These annotated wireframes specify layout hierarchy and interaction intent, not completed functionality or pixel-perfect screenshots. Counts, the second company, and review state are illustrative fixtures. Real stages, freshness, scope, costs and output availability come from the application.
+Use alongside [the implementation plan](../admin-ux-implementation-plan.md). These annotated wireframes specify layout hierarchy and interaction intent, not completed functionality or pixel-perfect screenshots. Counts, example companies, and review state are illustrative fixtures. Real stages, freshness, scope, costs and output availability come from the application.
 
 The SVG sources are editable, self-contained and readable on GitHub. Companion PNGs show the same guides for image viewers. Do not implement screenshot text as hard-coded application data. The latest user decision is represented here: **amber sparkle generation buttons, without repeated Paid AI labels**.
 
@@ -8,9 +8,11 @@ The SVG sources are editable, self-contained and readable on GitHub. Companion P
 
 ![Desktop pipeline with stage filters and selected role overview](01-desktop-workspace.svg)
 
-- Left: search, wrapping stage filters with counts, compact results. Right: one selected role and its four sections.
-- Stage chips change the list filter. The labelled Stage dropdown edits the role. The two must never share a mutation handler.
-- Filter counts match the current collection and search before applying the stage filter. The fixture totals are coherent: 3 New + 4 Reviewing + 2 Applied + 2 Interviewing + 1 Offer = 12.
+- Left: full-width search followed by one compact stage dropdown, then dense role entries. Right: one selected role and its four sections. These two control rows replace the wrapping chip grid.
+- The Filter by stage dropdown changes the list filter; its visible value includes the selected stage and count. The separately labelled Stage dropdown in the workspace edits the role. The two must never share a mutation handler.
+- Filter counts match the current collection and search before applying the stage filter. The illustrative dropdown options are All stages (15), New (3), Reviewing (4), Applied (2), Interviewing (5) and Offer (1). All five visible entries match Interviewing.
+- Keep the search/filter block sticky while entries scroll underneath it. Remove the separate matching-roles count line. No additional Filters button is needed for the current feature set.
+- Use company and fit score on line one, role on line two. Omit repeated Interviewing labels in this filtered view; restore stage metadata in All stages. Allow wrapping for long titles.
 - Keep Overview focused on evaluating the opportunity and opening existing work. Generation belongs in Materials, not a competing toolbar below every pipeline row.
 - Fit score must retain an accessible route to its explanation; hover alone is insufficient.
 - When a stage change removes the current role from the list, keep its workspace with an explanatory notice and a return action. Do not switch to another role unexpectedly.
@@ -35,7 +37,7 @@ The SVG sources are editable, self-contained and readable on GitHub. Companion P
 ![Three mobile states showing pipeline, role overview and stacked material actions](03-mobile-navigation.svg)
 
 - The three frames are separate screens, not three columns on a device.
-- Back to pipeline restores stage, search and scroll. Browser Back must work too.
+- Back to pipeline restores stage, search and scroll. Browser Back must work too. Keep the same two compact control rows and sticky behaviour on mobile; do not restore wrapping stage chips.
 - Collapse to one pane when the two desktop columns cannot fit comfortably. Start evaluating a breakpoint around 900 px; decide from actual content fit, not device names.
 - Wrap the four section controls, or use an equally discoverable accessible pattern. Keep their names consistent across widths.
 - Stack output actions before labels become cramped. Avoid horizontal action scrolling and hover-dependent controls.
@@ -84,11 +86,13 @@ These are implementation starting points; preserve existing font assets and adju
 | Role heading | 24–28 px, existing Schibsted Grotesk |
 | Body and inputs | 15–16 px, existing IBM Plex Sans; readable line height around 1.5 |
 | Secondary metadata | 13–14 px; reserve mono for compact identifiers or technical metadata |
+| Pipeline entries | Two-line baseline, approximately 10–12 px vertical padding; allow growth for long titles, mixed-stage metadata and attention indicators |
+| Search/filter block | Two control rows with an 8 px gap; at least 44 px mobile targets; sticky within the list scroll region |
 | Output rows | Approximately 16–20 px vertical padding, subtle horizontal dividers |
 | Controls | Modest 6–8 px corner radius; at least 44 px mobile touch targets |
 | Focus | Visible 2 px outline with offset, checked against adjacent colours |
 
-Avoid turning every sentence into a card. Use whitespace, headings and dividers for structure. Use one strong blue opening shortcut on Overview; the other read actions can be links. A filled blue stage chip means selected filter, not generation.
+Avoid turning every sentence into a card. Use whitespace, headings and dividers for structure. Use one strong blue opening shortcut on Overview; the other read actions can be links. The closed stage filter uses a neutral dropdown treatment and includes its count; reserve blue selection emphasis for the selected role and active navigation.
 
 ## 7. Colour and icon reference
 
@@ -109,7 +113,9 @@ Use a consistent sparkle icon asset in production. The SVG glyph is schematic, n
 
 ## 8. Visual verification checklist
 
-- At 1280 px, the selected role has sufficient reading width and the stage filters remain discoverable.
+- At 1280 px, the selected role has sufficient reading width and search plus one stage dropdown consume only two control rows. No separate matching-count line or extra Filters button is present.
+- During long-list scrolling, search and stage remain visible and keyboard-focused entries are not covered. Compare the number of visible entries against the prior chip layout at the same viewport.
+- In a specific-stage view, rows omit duplicate stage labels; switching to All stages restores them.
 - At 768 px and 360–390 px, the interface becomes one pane without clipped labels or horizontal action overflow.
 - Long company names, missing salaries and multiline role titles do not displace stage controls or truncate essential meaning.
 - A user can identify opening, editing and generation actions without colour, using verbs and the sparkle convention.
