@@ -98,7 +98,7 @@ await test("Astra cover letter, Sol answers and brief use their existing parsers
   const letter = await runCoverLetter({ model: "gpt-6-astra", report: { job_description: "Engineer" }, fitUrl: "https://example.com" });
   assert.ok(letter.paragraphs.length); assert.equal(calls[0].body.model, "gpt-6-astra");
   mock("I led the platform team."); const answer = await runAnswer({ question: "Describe your leadership?" });
-  assert.equal(calls[0].body.model, "gpt-5.6-sol"); assert.equal(answer.answer, "I led the platform team.");
+  assert.equal(answer.model, "gpt-5.6-sol"); assert.equal(answer.answer, "I led the platform team.");
   mock(JSON.stringify({ opening: "Hello", questionsToAsk: [{ text: "What matters?" }] }));
   const brief = await runBrief({ job: { company: "Sanity", role: "Engineer" }, report: {}, research: { sources: [] } });
   assert.equal(brief.model, "gpt-5.6-sol"); assert.equal(brief.opening, "Hello");

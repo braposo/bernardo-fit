@@ -1,3 +1,4 @@
+import { withGenerationContext } from "../../lib/generation-context.js";
 import { AbortTaskRunError, metadata, task } from "@trigger.dev/sdk";
 import { executeAnswerWork } from "../../lib/answer-work.js";
 import { hasKV } from "../../lib/kv.js";
@@ -9,6 +10,7 @@ export type AnswerPayload = {
   requestId: string;
   fingerprint: string;
   model: string;
+  economy?: boolean;
 };
 
 export const answerTask = task({
@@ -16,7 +18,7 @@ export const answerTask = task({
   maxDuration: ANSWER_TASK_POLICY.maxDuration,
   retry: ANSWER_TASK_POLICY.retry,
   queue: { concurrencyLimit: ANSWER_TASK_POLICY.concurrencyLimit },
-  run: async (payload: AnswerPayload) => {
+  run: async (payload: AnswerPayload, { ctx }) => withGenerationContext({ runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
     if (!hasKV) throw new AbortTaskRunError("KV is required by persistent workers.");
     metadata.set("phase", "answering").set("jobId", payload.jobId)
       .set("questionId", payload.questionId).set("requestId", payload.requestId);
@@ -32,5 +34,5 @@ export const answerTask = task({
       }
       throw error;
     }
-  },
+  }),
 });
