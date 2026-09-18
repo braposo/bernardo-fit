@@ -52,14 +52,20 @@ Production work should use existing shadcn components, verify keyboard focus and
 
 ## Document lifecycle revision
 
-Each existing document card displays its live version number, model and relative creation time. Open live opens that exact version. Versions opens a compact version picker with each saved version's model, creation time, preview action and Publish live action. Private documents remain private: live means the selected current version, not public visibility.
+Each existing document card displays its live version number, model and relative creation time. Open live opens that exact version. Versions expands an inline collapsible list at the bottom of its card with each saved version's model, creation time, preview action and Publish live action. Private documents remain private: live means the selected current version, not public visibility.
 
 Generate new version opens a model selector and optional instructions. A new result is a draft; the live version stays in place until explicitly published. Empty cards have a prominent Generate document action leading to the same flow. Model labels mirror the application's current configured choices; the mockup makes no external AI calls and charges nothing. Production should preserve existing generation cost confirmation and load actual model availability, document content, version IDs and dates from the backend.
 
 The interactive mockup supports generating fixture drafts with different models, previewing saved versions, selecting an older live version and publishing a first version. Changes last only for the current page session.
 
-- [Version picker](05-document-versions.png)
+- [Expanded version history](05-document-versions.png)
 - [Model selection and generation](06-generate-version.png)
 - [Missing documents](07-missing-documents.png)
 
-Implement these compositions with shadcn Card, Badge, Button, Dialog, Select, Label, Textarea and Tooltip. Keep the primary actions visible rather than placing the version workflow in an overflow menu. On mobile, use one document card per row for readable metadata and comfortable controls.
+Implement these compositions with shadcn Card, Badge, Button, Dialog, Select, Label, Textarea, Collapsible and Tooltip. Keep the primary actions visible rather than placing the version workflow in an overflow menu. On mobile, use one document card per row for readable metadata and comfortable controls.
+
+### Inline version history
+
+Open live and Generate new version share the main action row. Versions is a full-width collapsible section beneath it, with a version count and disclosure chevron. Its expanded list shows each version's model, relative creation time, live status, Preview and Publish live actions. Each card expands independently. Preview and model selection continue to use dialogs; returning from preview, generation or publishing opens the relevant inline history. The mockup uses native details/summary for keyboard-accessible disclosure; implementation should use shadcn Collapsible.
+
+Targeted checks cover keyboard expand/collapse, the absence of a version-list popup, preview, publication, and preservation of the live version while generating a draft.
