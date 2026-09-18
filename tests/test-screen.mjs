@@ -43,6 +43,13 @@ check("salary categories remain separate",bin.personalFacts.advertisedSalary==="
 const bn=normaliseBrief({why:[{text:"supported",src:1},{text:"bogus",src:99}],unknowns:[{text:"Start date unknown"}]},bin);
 check("unknown source references are downgraded",bn.why[0].src===1&&bn.why[1].src===null,bn.why);
 check("structured brief unknowns stay readable",bn.unknowns[0]==="Start date unknown",bn.unknowns);
+const structuredCopy=normaliseBrief({
+  contact:[{text:"Alex Smith"},{content:"Talent Partner"}],
+  opening:[{text:"I lead teams that connect product and engineering."},{value:"Sanity is a strong match for that work."}],
+},bin);
+check("structured contact copy stays readable",structuredCopy.contact==="Alex Smith\nTalent Partner",structuredCopy.contact);
+check("structured opening copy stays readable",structuredCopy.opening==="I lead teams that connect product and engineering.\nSanity is a strong match for that work.",structuredCopy.opening);
+check("structured scalar copy never leaks object coercion",!structuredCopy.contact.includes("[object Object]")&&!structuredCopy.opening.includes("[object Object]"));
 
 console.log("\n--- independent workers and immutable pointers ---");
 const rid=await store.saveReport({job_title:"EM",company:"Acme",job_description:"JD",pitch:"p",categories:[],differentiators:[],created_at:new Date().toISOString()});
