@@ -26,7 +26,7 @@ else {
       ['role', 390, 1180, '04-mobile-documents.png'],
     ]) {
       await page.setViewportSize({ width, height });
-      await page.goto(origin + '/?capture&view=' + view);
+      await page.goto(origin + '/?capture&view=' + view + (view === 'role' ? '&panel=documents' : ''));
       await page.evaluate(() => document.fonts.ready);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No overflow: ${view} ${width}`);
       await page.screenshot({ path: fileURLToPath(new URL(name, import.meta.url)), fullPage: true });
@@ -49,7 +49,18 @@ else {
     await page.locator('#filter').selectOption('Interviewing');
     assert.equal(await page.locator('.job-card').count(), 1);
     await page.locator('[data-job="sanity"]').first().click();
+    assert.equal(await page.locator('.document-card').count(), 0);
+    assert.deepEqual(await page.locator('[role="tab"]').allTextContents(), ['Overview', 'Documents', 'Role details', 'Activity']);
+    await page.locator('[data-panel="overview"]').focus();
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.locator('[data-panel="documents"]').getAttribute('aria-selected'), 'true');
     assert.equal(await page.locator('.document-card').count(), 4);
+    await page.locator('[data-panel="details"]').click();
+    assert.equal(await page.locator('.document-card').count(), 0);
+    assert.equal(await page.locator('#role-content h2').textContent(), 'Role details');
+    await page.locator('[data-panel="activity"]').click();
+    assert.equal(await page.locator('#role-content h2').textContent(), 'Activity');
+    await page.locator('[data-panel="documents"]').click();
     await page.locator('[data-open-version="Cover letter"]').click();
     assert.ok(await page.locator('.version-dialog').isVisible());
     await page.keyboard.press('Escape');

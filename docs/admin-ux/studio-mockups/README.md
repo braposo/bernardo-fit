@@ -15,7 +15,7 @@ Run `node docs/admin-ux/studio-mockups/preview.mjs --serve` and open http://127.
 
 Use an email-style two-pane workspace: top navigation, a left job index and a right reading pane, with independent scrolling. Keep search and filters intact when selecting another job. Each whole job card is a keyboard-accessible button with selected state; place the score on the right and omit the redundant View role link. Each card shows a large numeric score without repeated Fit or tier labels, a company and role, a named colored stage, a row of document availability indicators and relative time added. Preserve an accessible score description. Missing documents remain visibly unavailable in the list; generation belongs to an explicit action in each document card.
 
-Selecting a job updates the adjacent reading pane. A View listing link sits immediately below the fit score and opens the saved original posting in a new tab. An icon-only status control sits beside the status badge, with an accessible name and tooltip. Prototype links use explicit example.com placeholders because the roles are illustrative; production must use the real saved source URL and show an unavailable state when absent. Documents come first, ahead of overview and context sections. Keep the fit page's shareability distinct from private letter, brief and research documents. Opening an existing document never generates another one.
+Selecting a job updates the adjacent reading pane. A View listing link sits immediately below the fit score and opens the saved original posting in a new tab. An icon-only status control sits beside the status badge, with an accessible name and tooltip. Prototype links use explicit example.com placeholders because the roles are illustrative; production must use the real saved source URL and show an unavailable state when absent. The job header sits above four tabs in this order: Overview, Documents, Role details, Activity. Overview opens by default; documents and their version controls appear only within Documents. Keep the fit page's shareability distinct from private letter, brief and research documents. Opening an existing document never generates another one.
 
 Stage colors: violet Interviewing, blue Applied, teal Reviewing, green Offer, slate New, rose Rejected. Retain stage names and accessible contrast: color must not carry meaning alone. Map these variants to the application's existing status taxonomy when implementing.
 
@@ -31,7 +31,7 @@ Reviewed the free [AdminCN repository](https://github.com/shadcnstudio/shadcn-ne
 | Mail item layout | Separated job cards, metadata and timestamp row | Card, Button, Badge |
 | Navigation and user identity | Top navigation and workspace identity | Button, Avatar, Separator |
 | Badges | Consistent named stage colors | Badge variants |
-| User detail layouts | Focused role view with document cards first | Card, Tabs |
+| User detail layouts | Focused role view with four content tabs | Card, Tabs |
 | Document actions | Explicit open, version and generation actions | Button, DropdownMenu, Dialog, AlertDialog |
 | Search and filters | Compact controls with accessible labels | Input, Label, Select or NativeSelect |
 | Activity presentation | Recorded events and version outcomes | Semantic list and Separator |
@@ -69,3 +69,9 @@ Implement these compositions with shadcn Card, Badge, Button, Dialog, Select, La
 Open live and Generate new version share the main action row. Versions is a full-width collapsible section beneath it, with a version count and disclosure chevron. Its expanded list shows each version's model, relative creation time, live status, Preview and Publish live actions. Each card expands independently. Preview and model selection continue to use dialogs; returning from preview, generation or publishing opens the relevant inline history. The mockup uses native details/summary for keyboard-accessible disclosure; implementation should use shadcn Collapsible.
 
 Targeted checks cover keyboard expand/collapse, the absence of a version-list popup, preview, publication, and preservation of the live version while generating a draft.
+
+### Job tabs and muted actions
+
+Overview, Documents, Role details and Activity partition the reading pane. The selected tab stays active while browsing other jobs. Keyboard arrows, Home and End navigate the tabs; each tab has selected state and a labelled panel. Production should compose these using shadcn Tabs.
+
+Primary buttons use a pale neutral-purple fill, subtle border and dark text instead of a dark solid block, with distinct hover and keyboard focus states. This applies consistently to listing, open, generate and publish actions, including dialogs. The targeted verification covers tab order, keyboard selection, panel isolation and all document workflows within the Documents tab.
