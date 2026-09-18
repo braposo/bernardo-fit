@@ -5,6 +5,8 @@ Date: 18 September 2026.
 
 Visual companion: [annotated layouts, action styles and responsive guidance](admin-ux/README.md). Read it before implementation. It includes desktop, mobile, Materials and generation-review guides using the agreed amber sparkle convention, without repeated Paid AI button labels.
 
+Agent handoff: read [Implementation guardrails for agents](#11-implementation-guardrails-for-agents) before starting or resuming implementation.
+
 ## 1. Purpose and decision authority
 
 Make the admin easy to scan, navigate by application stage, and use without accidentally starting chargeable generation. Replace the long, mixed-action job rows with a compact pipeline and a selected-role workspace.
@@ -234,3 +236,23 @@ The overhaul is complete when every existing admin action is accounted for, pipe
 Out of scope unless separately requested: framework migration, new status taxonomy, Kanban board, new AI models, changing scoring/prompts, new billing system, speculative cost estimator, new task lifecycle engine, changing sharing/publication semantics, or redesigning public fit pages.
 
 Do not stop at a visual shell with unwired controls. Conversely, do not expand this UX project into unrelated architecture work. Record unavailable history or estimates honestly, and implement only the backend changes necessary for the agreed behaviour.
+
+## 11. Implementation guardrails for agents
+
+These guardrails apply across all work packages and future agent handoffs. They supplement the requirements and acceptance matrix above; they do not replace repository instructions or later explicit user decisions.
+
+1. **Use the written plan as the implementation authority.** Wireframes illustrate layout and hierarchy. Sample roles, counts, dates, model placeholders and annotation text must not become production data or product copy. Preserve backend business rules; if a guide conflicts with this plan, follow the written requirement and record the discrepancy.
+
+2. **Inventory existing actions before moving them.** Maintain a reviewable mapping of current action, new section/control, handler or API, and verification evidence. Include application questions, version preview/activation, archive/restore/delete, copy/share links, source links and bulk operations. Mark an action complete only when it remains reachable and works in its applicable states. Do not silently drop less-visible controls during the redesign.
+
+3. **Keep one source of navigation state and handle late responses.** Derive filters, URL state, selected job and workspace section from one coherent state model. Associate requests with stable job IDs and request versions. A stale role-detail or search response must not replace the current view. A save or run response for a previously selected role may update that role's stored state, but must not overwrite another role's fields or display its feedback as belonging to the current role. Verify rapid role/filter changes and out-of-order responses.
+
+4. **Preserve in-progress interaction during background updates.** Do not rebuild the workspace while someone is typing. Save acknowledgements, polling and run completion must preserve draft text, focus, cursor/selection and scroll. Never replace newer edits with an older server response. Keep failed saves recoverable without requiring the user to retype their work.
+
+5. **Prove generation boundaries using mocked requests.** Assert zero generation dispatches when opening outputs, filtering/searching, editing/saving, opening or cancelling a review, or previewing versions. Confirm that an explicit generation submission dispatches only the reviewed operation and job set, with duplicate submission recovery. Use mocks or deterministic fixtures; do not incur live generation costs merely to test UI wiring.
+
+6. **Preserve behavioural coverage during refactors.** If layout/module changes invalidate tests that inspect markup or extract functions, replace those checks with meaningful coverage at the new boundaries. Do not remove tests or weaken assertions simply to obtain passing CI. Record the replacement coverage for changed test assumptions, especially action reachability, mutation scope and generation side effects.
+
+7. **Verify density with realistic content.** Exercise long company/role names, missing fields, mixed stages, attention indicators and enough entries to require scrolling. Compare visible entries at the same viewport before and after the change. Compact layout must not rely on unreadably small text, clipped essential labels, tiny touch targets or sticky controls covering focused rows. Preserve wrapping where needed and show stage metadata in mixed-stage views.
+
+8. **Report incomplete work explicitly.** Each PR or agent handoff must list implemented behaviours, changed contracts, exact checks and outcomes, and remaining limitations. Identify unwired controls, unavailable backend capabilities, unverified states and failing checks. Screenshots support review but are not proof of functional completion; do not report the overhaul complete until the acceptance matrix and applicable PR checks pass.
