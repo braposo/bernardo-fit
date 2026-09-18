@@ -20,11 +20,12 @@ import { getScreenArtifact, listScreenArtifacts } from "../../lib/screen-artifac
 // A row can hold several of each, and sending them all just to render a few
 // dates would be a large response for nothing.
 function meta(v, kind) {
-  if (kind === "fit") return { vid: v.vid, at: v.createdAt, model: v.model || "", active: !!v.active,
+  const instructions = { versionInstructions: v.versionInstructions || "" };
+  if (kind === "fit") return { ...instructions, vid: v.vid, at: v.createdAt, model: v.model || "", active: !!v.active,
     score: v.internal ? v.internal.score : null };
-  if (kind === "letter") return { vid: v.vid, at: v.at, model: v.model || "", active: !!v.active,
+  if (kind === "letter") return { ...instructions, vid: v.vid, at: v.at, model: v.model || "", active: !!v.active,
     words: v.words || 0, salutation: v.salutation || "" };
-  return { vid: v.id, at: v.at, model: v.model || "", active: false,
+  return { ...instructions, vid: v.id, at: v.at, model: v.model || "", active: false,
     ...(kind === "research" ? { sources: (v.sources || []).length, partial: !!v.partial } : {}) };
 }
 

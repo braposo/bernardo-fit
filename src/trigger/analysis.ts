@@ -10,6 +10,7 @@ export type AnalysisPayload = {
   requestId: string;
   fingerprint: string;
   model: string;
+  versionInstructions?: string;
   mode?: "create" | "replace";
 };
 

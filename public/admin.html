@@ -715,7 +715,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       (v.active || !v.vid
         ? '<span class="vlive">Live</span>'
         : '<button class="ghost" data-act="veruse" data-kind="' + kind + '" data-vid="' + esc(v.vid) + '">Publish live</button>') +
-      '<div class="vpreview" hidden></div>' +
+      (v.versionInstructions ? '<details class="version-instructions"><summary>Additional instructions</summary><p>'+esc(v.versionInstructions)+'</p></details>' : '') + '<div class="vpreview" hidden></div>' +
     "</div>";
   }
 
@@ -917,7 +917,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<header class="role-header"><div class="role-identity"><div class="role-kicker">' + esc(j.company || 'No company') + '</div><h1>' + esc(j.role || 'Untitled role') +
       '</h1><div class="role-sub">' + headerMeta + (j.closed ? ' · Posting closed' : '') + '</div><div class="role-added">'+timeHtml(j.createdAt,'Added ')+'</div>' +
       '<div class="role-stage"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><div class="stage-control"><button class="ghost status-edit" aria-label="Change status" title="Change status"><span data-icon="settings"></span></button><div class="stage-popover"><label for="job-stage">Change status</label><select id="job-stage" data-act="stage" aria-label="Stage for ' + esc(j.role || 'role') + '">' + stageOptions(j) + '</select></div></div></div></div>' +
-      '<div class="score-actions"><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span>'+ (safeSourceUrl(j.sourceUrl)?'<a class="listing-link" href="'+esc(safeSourceUrl(j.sourceUrl))+'" target="_blank" rel="noopener">View listing <span data-icon="external"></span></a>':'<span class="field-help">No listing URL</span>')+'</div></header>' +
+      '<div class="score-actions"><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></div>'+ (safeSourceUrl(j.sourceUrl)?'<a class="listing-link" href="'+esc(safeSourceUrl(j.sourceUrl))+'" target="_blank" rel="noopener">View original listing <span data-icon="external"></span></a>':'<span class="listing-unavailable field-help">No listing URL</span>')+'</header>' +
       '<nav class="workspace-tabs" role="tablist" aria-label="Role sections">' +
       [["overview","Overview"],["materials","Documents"],["context","Role details"],["activity","Activity"]].map(function (item) {
         return '<button class="workspace-tab" role="tab" data-section="' + item[0] + '" aria-selected="' + (workspaceSection === item[0]) + '">' + item[1] + '</button>';
@@ -1033,6 +1033,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         '<div class="review-actions"><button class="ghost" type="button" data-review-cancel>Cancel</button><button class="generation" type="button" data-review-submit disabled>Reviewing…</button></div>'
     });
     var currentReview = null;
+    var versionInstructions = '';
+    var instructionsTimer;
+    var supportsVersionInstructions = ['cover','analyse','regenerate','research','brief','prepare-screen'].indexOf(options.kind) !== -1;
     var submitting = false;
     var requestId = newRequestId();
     var loadingSequence = 0;
@@ -1044,9 +1047,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var economyEl = dialog.querySelector('[data-review-economy]');
       return { action: 'review', id: options.id, kind: options.kind, reportId: options.reportId,
         questionId: options.questionId, forceResearch: options.forceResearch === true,
+        versionInstructions: supportsVersionInstructions ? versionInstructions : undefined,
         model: modelEl ? modelEl.value : model, economy: economyEl ? economyEl.checked : economyAnswers };
     }
     function paintReview(review) {
+      var active = document.activeElement;
+      var restoreInstructions = active && active.hasAttribute('data-version-instructions');
+      var caret = restoreInstructions ? [active.selectionStart, active.selectionEnd] : null;
       currentReview = review;
       model = review.model;
       localStorage.setItem(MODEL_KEY, model);
@@ -1056,15 +1063,25 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       renderAdmin(bodyEl, '<h3>Work to run</h3><ol>' + (review.steps || []).map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>' +
         jobsHtml + '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>' +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
-        '<h3>Inputs</h3><p>' + esc(review.inputSummary) + '</p><h3>Output and versions</h3><p>' + esc(review.publication) + '</p>' +
-        '<h3>Cost estimate unavailable</h3><p id="review-cost">' + esc(review.costText) + '</p>');
+        (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="Add to this job’s generic instructions for this version only…">'+esc(versionInstructions)+'</textarea>' : ''));
+      var instructionsEl = dialog.querySelector('[data-version-instructions]');
+      if (instructionsEl) {
+        if (restoreInstructions) { instructionsEl.focus(); instructionsEl.setSelectionRange(caret[0], caret[1]); }
+        instructionsEl.addEventListener('input', function() {
+          versionInstructions = instructionsEl.value; requestId = newRequestId();
+          currentReview = null; submit.disabled = true; setButtonLabel(submit, 'Reviewing…');
+          ++loadingSequence; clearTimeout(instructionsTimer);
+          instructionsTimer = setTimeout(loadReview, 350);
+        });
+      }
       submit.disabled = false; setButtonLabel(submit, review.submitLabel);
       var modelEl = dialog.querySelector('[data-review-model]');
-      if (modelEl) modelEl.addEventListener('change', function () { model = modelEl.value; loadReview(); });
+      if (modelEl) modelEl.addEventListener('change', function () { model = modelEl.value; requestId = newRequestId(); loadReview(); });
       var economyEl = dialog.querySelector('[data-review-economy]');
       if (economyEl) economyEl.addEventListener('change', function () { economyAnswers = economyEl.checked; localStorage.setItem('fit.economyAnswers', String(economyAnswers)); loadReview(); });
     }
     function loadReview() {
+      clearTimeout(instructionsTimer);
       var sequence = ++loadingSequence;
       submit.disabled = true; setButtonLabel(submit, 'Reviewing…'); currentReview = null;
       api('/api/admin/cover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody()) }).then(function (out) {
@@ -1074,18 +1091,18 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         paintReview(out.d.review);
       });
     }
-    function close() { dialog.close(); }
+    function close() { clearTimeout(instructionsTimer); dialog.close(); }
     dialog.querySelector('[data-review-cancel]').addEventListener('click', close);
     submit.addEventListener('click', function () {
       if (!currentReview || submitting) return;
       submitting = true;
-      dialog.querySelectorAll('select, input, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = true; });
+      dialog.querySelectorAll('select, input, textarea, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = true; });
       submit.disabled = true; setButtonLabel(submit, 'Starting…');
       var req = requestBody();
       req.action = undefined; req.kind = currentReview.effectiveKind; req.reviewFingerprint = currentReview.fingerprint; req.requestId = requestId;
       api('/api/admin/cover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) }).then(function (out) {
         submitting = false;
-        dialog.querySelectorAll('select, input, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = false; });
+        dialog.querySelectorAll('select, input, textarea, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = false; });
         if (unauthorised(out)) { close(); return; }
         if (!out.ok) {
           if (out.status === 409 && out.d.code === 'REVIEW_STALE') {

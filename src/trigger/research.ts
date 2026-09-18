@@ -4,7 +4,7 @@ import { executeResearchWork } from "../../lib/screen-work.js";
 import { hasKV } from "../../lib/kv.js";
 import { SCREEN_TASK_POLICY } from "../../lib/task-policy.js";
 
-export type ResearchPayload = { jobId: string; requestId: string; fingerprint: string; model?: string };
+export type ResearchPayload = { jobId: string; requestId: string; fingerprint: string; versionInstructions?: string; model?: string };
 export const companyResearchTask = task({
   id: "company-research", maxDuration: SCREEN_TASK_POLICY.maxDuration, retry: SCREEN_TASK_POLICY.retry,
   queue: { concurrencyLimit: SCREEN_TASK_POLICY.concurrencyLimit },

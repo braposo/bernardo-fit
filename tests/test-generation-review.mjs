@@ -93,6 +93,21 @@ try {
     assert.equal(different.kind, "prepare-screen");
     assert.equal(different.review.researchAction, "refresh");
   });
+  await test("supplemental instructions are reviewed, dispatched and never saved as generic instructions", async () => {
+    const job = await store.saveJob({ company: "Instructions", role: "EM", jobDescription: "A complete engineering leadership role description.", instructions: "Generic guidance" });
+    const body = { kind: "analyse", id: job.id, model: "claude-sonnet-5", versionInstructions: "Highlight mentoring" };
+    const review = (await call({ ...body, action: "review" })).body.review;
+    const before = triggers.length;
+    const stale = await call({ ...body, versionInstructions: "Focus on architecture", reviewFingerprint: review.fingerprint, requestId: "instructions-changed" });
+    assert.equal(stale.code, 409);
+    assert.equal(triggers.length, before);
+    const valid = await call({ ...body, reviewFingerprint: review.fingerprint, requestId: "instructions-reviewed" });
+    assert.equal(valid.code, 202);
+    assert.equal(triggers.at(-1).payload.versionInstructions, body.versionInstructions);
+    assert.equal((await store.getJob(job.id)).instructions, "Generic guidance");
+    const invalid = await call({ ...body, action: "review", versionInstructions: "x".repeat(4001) });
+    assert.equal(invalid.code, 400);
+  });
 } finally {
   tasks.trigger = originalTrigger;
   idempotencyKeys.create = originalKey;

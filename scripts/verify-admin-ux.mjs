@@ -58,12 +58,12 @@ try {
     if (url.pathname === '/api/admin/versions') {
       if (request.method() === 'POST') { mutations++; return reply({ok:true}); }
       if (url.searchParams.has('kind')) return reply({ content: { opening: 'Synthetic saved version content <script>unsafe()</script>' } });
-      return reply(Object.fromEntries(['fit','letter','research','brief'].map(kind => [kind, [{vid:'v2',at:'2026-09-15T10:00:00Z',model:'gpt-5.6-sol',active:true},{vid:'v1',at:'2026-09-01',model:'claude-sonnet-5',active:false}]])));
+      return reply(Object.fromEntries(['fit','letter','research','brief'].map(kind => [kind, [{vid:'v2',at:'2026-09-15T10:00:00Z',model:'gpt-5.6-sol',active:true},{vid:'v1',at:'2026-09-01',model:'claude-sonnet-5',active:false,versionInstructions:'Focus on team leadership <script>unsafe()</script>'}]])));
     }
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
       reviews++;
-      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: 'gpt-5.6-sol',
+      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.model || 'gpt-5.6-sol',
         submitLabel: 'Generate analysis', steps: ['Generate fixture output'], inputSummary: 'Saved fixture inputs',
         publication: 'Becomes active', costText: 'Estimate unavailable. May incur costs.' } });
     }
@@ -84,6 +84,7 @@ try {
     await page.locator('#stagefilter').getAttribute('data-slot') === 'native-select');
   check('approved tab names', (await page.locator('[role="tab"]').allTextContents()).join('|') === 'Overview|Documents|Role details|Activity');
   check('job card score has no repeated label', await page.locator('.pipeline-item .score-tile').first().textContent() === '80');
+  check('listing uses an unboxed link variant', await page.locator('.listing-link').getAttribute('data-variant') === 'link');
   check('listing uses actual saved source', await page.locator('.listing-link').getAttribute('href') === 'https://example.com/jobs/0');
   check('document cards isolated from Overview', await page.locator('.material-row').count() === 0);
   await page.locator('.status-edit').click();
@@ -124,19 +125,28 @@ try {
   await page.locator('[data-act="cover"]').click();
   await page.locator('[data-review-submit]:enabled').waitFor();
   check('review uses the shadcn Dialog', await page.locator('[role="dialog"]').getAttribute('data-slot') === 'dialog-content');
+  check('dialog removes verbose copy below model', await page.locator('[data-review-body]').textContent().then(t => !t.includes('Output and versions') && !t.includes('Cost estimate unavailable')));
+  await page.locator('[data-version-instructions]').fill('Highlight mentoring and platform ownership');
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  await page.locator('[data-review-model]').selectOption('claude-sonnet-5');
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  check('version instructions survive model changes', await page.locator('[data-version-instructions]').inputValue() === 'Highlight mentoring and platform ownership');
   await audit('Generation review');
+  if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path: `${process.env.ADMIN_UX_SCREENSHOTS}/admin-review.png`});
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press('Tab');
     check('dialog traps focus, step ' + i, await page.evaluate(() => !!document.activeElement.closest('[role="dialog"]')));
   }
   await page.keyboard.press('Escape');
-  check('cancelled review dispatches nothing', dispatches === 0 && reviews === 1);
+  check('cancelled review dispatches nothing', dispatches === 0 && reviews >= 1);
   check('dialog restores trigger focus', await page.locator('[data-act="cover"]').evaluate(el => el === document.activeElement));
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-document="brief"] [data-act="versions-toggle"]').click();
   await page.locator('[data-document="brief"] [data-act="verpreview"]').last().click();
   await page.getByText('Synthetic saved version content', { exact: false }).waitFor();
   check('version preview renders content without dispatch', dispatches === 0);
+  await page.locator('[data-document="brief"] .version-instructions summary').click();
+  check('additional version instructions are visible and escaped', await page.locator('[data-document="brief"] .version-instructions p').textContent() === 'Focus on team leadership <script>unsafe()</script>');
   const beforePublish = mutations;
   await page.locator('[data-document="brief"] [data-act="veruse"]').click();
   await page.waitForFunction(() => document.querySelector('.row-status')?.textContent !== 'Switching…');

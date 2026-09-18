@@ -65,7 +65,7 @@ const options = {
     if (has('stage-popover')) return <PopoverContent {...props} align="start">{children()}</PopoverContent>;
     if (has('material-row') || has('role-header')) return <Card {...props}>{children()}</Card>;
     if (has('pipeline-stage') || has('document-live')) return <Badge {...props} variant="secondary">{children()}</Badge>;
-    if (node.name === 'a' && has('listing-link')) return <Button asChild variant="secondary"><a {...props}>{children()}</a></Button>;
+    if (node.name === 'a' && has('listing-link')) return <Button asChild variant="link"><a {...props}>{children()}</a></Button>;
     if (node.name === 'article' && has('row-item')) {
       const nav = node.children.find(child => child instanceof Element && child.attribs.role === 'tablist');
       const active = nav?.children.find(child => child instanceof Element && child.attribs['aria-selected'] === 'true');

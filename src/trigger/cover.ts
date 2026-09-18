@@ -9,6 +9,7 @@ export type CoverPayload = {
   requestId: string;
   fingerprint: string;
   model: string;
+  versionInstructions?: string;
   origin: string;
 };
 

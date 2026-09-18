@@ -9,7 +9,7 @@ The official shadcn CLI added the Radix/new-york source components under `src/ad
 | Admin surface | shadcn component |
 | --- | --- |
 | Actions, links and pipeline selection | Button; custom `generation` variant with Lucide Sparkles |
-| Search and context/question editors | Input, Textarea, Label |
+| Search, context/question editors and per-version instructions | Input, Textarea, Label |
 | Stage filters, role stage and generation model | NativeSelect / NativeSelectOption |
 | Economy answer preference | Checkbox |
 | Workspace section navigation | Tabs, TabsList, TabsTrigger, TabsContent |
@@ -43,6 +43,6 @@ npm run test:admin-ui
 
 `npm run build` bundles the admin component entry with esbuild and generates its Tailwind stylesheet into ignored `public/assets/admin-ui.*` files. Run it before serving the local static admin. Vercel and GitHub Actions run this build automatically. API functions and Trigger tasks keep their existing build paths.
 
-`npm run test:admin-ui` uses synthetic data and intercepted API calls. Its 51 checks cover component usage, draft preservation, read-versus-generate boundaries, focus trapping/return, tabs, destructive cancellation, checkbox behavior, independent scrolling and widths of 1280, 768, 390 and 360 pixels. Axe scans Overview, context, usage, generation/answer reviews, destructive confirmation and mobile Documents for WCAG 2 A/AA and 2.1 AA violations. Automated scans supplement the keyboard and visual checks; they do not establish complete accessibility conformance.
+`npm run test:admin-ui` uses synthetic data and intercepted API calls. Its 55 checks cover component usage, draft preservation, read-versus-generate boundaries, focus trapping/return, tabs, destructive cancellation, checkbox behavior, independent scrolling and widths of 1280, 768, 390 and 360 pixels. Axe scans Overview, context, usage, generation/answer reviews, destructive confirmation and mobile Documents for WCAG 2 A/AA and 2.1 AA violations. Automated scans supplement the keyboard and visual checks; they do not establish complete accessibility conformance.
 
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` can select installed Chrome. `ADMIN_UX_SCREENSHOTS` optionally points to an existing screenshot directory. Full Node regression coverage remains authoritative in PR CI.
