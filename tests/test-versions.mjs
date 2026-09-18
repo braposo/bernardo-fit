@@ -187,9 +187,9 @@ check("letters capped at 10", (await listCoverVersions(await store.getJob(many.i
 console.log("\n--- the page ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
 check("versions box present", html.includes("verbox"));
-check("loads only in Activity", html.includes("if (!loaded) loadVersions()") && html.includes('workspaceSection === "context"'));
+check("loads metadata in Documents", html.includes("if (!loaded) loadVersions()") && html.includes('workspaceSection === "materials"'));
 check("preview is distinct from activation", html.includes('data-act="verpreview"') && html.includes('data-act="veruse"'));
-check("marks the active one", html.includes('class="vlive">active'));
+check("marks the active one", html.includes('class="vlive">Live'));
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

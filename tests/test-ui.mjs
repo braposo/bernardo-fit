@@ -25,7 +25,7 @@ function grab(name) {
   return null;
 }
 
-const needed = ["esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
+const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
   "tierClass", "stageLabel", "stageOptions", "materialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jobHtml", "pipelineItemHtml"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
@@ -34,7 +34,7 @@ const sandbox = [
   'var stages=["new","reviewing","applied","interviewing","offer","rejected","not_interested","expired"];',
   'var MODELS=[{id:"gpt-5.6-sol",label:"Sol"},{id:"claude-opus-5",label:"Opus"}];',
   'var workspaceSection="overview",selectedId="j1",showArchived=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true;',
-  'var location={origin:"https://fit.example"};',
+  'var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
   needed.map(grab).join("\n"),
   'return {jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
 ].join("\n");
@@ -58,7 +58,7 @@ const mixedRow = R.pipelineItemHtml(base);
 check("row contains company and role", /Sanity/.test(mixedRow) && /Engineering Manager/.test(mixedRow));
 check("mixed-stage row shows stage", /Interviewing/.test(mixedRow));
 R.setFilter("interviewing");
-check("specific-stage row omits duplicate stage", !/Interviewing/.test(R.pipelineItemHtml(base)));
+check("stage remains visible when filtered", /Interviewing/.test(R.pipelineItemHtml(base)));
 check("row has no editors or generation toolbar", !/textarea|data-act="cover"|data-act="regen"/.test(mixedRow));
 
 console.log("\n--- overview ---");
@@ -71,7 +71,7 @@ check("engagement is visible", /2<\/b> views/.test(overview));
 console.log("\n--- materials ---");
 const materials = render("materials", { briefStale: true, researchStale: true });
 for (const label of ["Open fit page", "Open letter", "Open previous brief", "Open research"]) check(label + " is present", materials.includes(label));
-for (const label of ["Regenerate analysis", "Rewrite letter", "Rewrite brief", "Refresh research"]) check(label + " is a sparkle action", new RegExp('class="generation"[^>]*>' + label).test(materials), materials.match(new RegExp('.{0,80}' + label)));
+for (const label of ["Generate new version"]) check(label + " is a sparkle action", new RegExp('class="generation"[^>]*>' + label).test(materials), materials.match(new RegExp('.{0,80}' + label)));
 check("stale brief remains openable", actions(materials).includes("briefopen"));
 check("one nearby cost explanation is used", (materials.match(/Sparkle actions run AI and may incur costs/g) || []).length === 1);
 check("no repeated Paid AI labels", !/Paid AI/.test(materials));
@@ -87,7 +87,7 @@ const context = render("context");
 for (const field of ["company", "role", "location", "salary", "sourceUrl", "jobDescription", "notes", "instructions"]) check("context labels " + field, context.includes('data-field="' + field + '"'));
 check("notes disclose AI use", /notes may be used as context/i.test(context));
 const activity = render("activity");
-check("versions are grouped in activity", /Output versions/.test(activity));
+check("versions live within document cards", !/Output versions/.test(activity) && (materials.match(/data-act="document-versions"/g)||[]).length === 4);
 check("record management is separate", /Record management/.test(activity));
 const version = R.versionRow({ vid: "v1", at: "2026-09-01", model: "gpt-5.6-sol", active: false }, "fit");
 check("version preview and activation are distinct", /verpreview/.test(version) && /veruse/.test(version));

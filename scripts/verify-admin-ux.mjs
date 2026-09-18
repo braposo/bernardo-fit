@@ -27,7 +27,7 @@ try {
     id: 'job' + i, company: i ? 'Example company ' + i : 'Example content infrastructure company with a long name',
     role: 'Engineering Manager, Developer Experience and Platform', stage: i === 1 ? 'new' : 'interviewing',
     jobDescription: 'A sufficiently detailed synthetic description for engineering leadership.', notes: '', instructions: '',
-    location: 'London', salary: '', hasDescription: true, score: 80 - i,
+    location: 'London', salary: '', createdAt: '2026-09-15T10:00:00Z', sourceUrl: 'https://example.com/jobs/'+i, hasDescription: true, score: 80 - i,
     fitReportId: i === 1 ? '' : 'fit' + i, hasCoverLetter: i !== 1, hasBrief: i !== 1,
     hasResearch: i !== 1, researchStale: true, briefStale: true,
     questions: i ? [] : [{ id: 'q1', q: 'Why this role?', limit: 120, a: 'A synthetic saved answer.' }],
@@ -35,7 +35,7 @@ try {
   let failSave = false, dispatches = 0, reviews = 0, mutations = 0;
   const errors = [];
   const page = await context.newPage();
-  page.on('pageerror', e => errors.push(e.message));
+  page.on('pageerror', e => { errors.push(e.message); console.error(e.message); });
   page.on('dialog', dialog => dialog.dismiss());
   await context.route('**/api/**', async route => {
     const request = route.request(), url = new URL(request.url());
@@ -53,11 +53,12 @@ try {
       if (request.method() === 'POST') return reply({ token: 'synthetic-token' });
       if (url.searchParams.has('q')) return reply({ matchingIds: jobs.filter(j => (j.company + j.role).toLowerCase().includes(url.searchParams.get('q').toLowerCase())).map(j => j.id) });
       if (url.searchParams.has('id')) return reply({ job: jobs.find(j => j.id === url.searchParams.get('id')) });
-      return reply({ jobs, stages: ['new', 'interviewing', 'expired'], archiveOnStage: ['expired'], archivedCount: 0 });
+      return reply({ jobs, stages: ['new', 'reviewing', 'interviewing', 'expired'], archiveOnStage: ['expired'], archivedCount: 0 });
     }
     if (url.pathname === '/api/admin/versions') {
+      if (request.method() === 'POST') { mutations++; return reply({ok:true}); }
       if (url.searchParams.has('kind')) return reply({ content: { opening: 'Synthetic saved version content <script>unsafe()</script>' } });
-      return reply({ fit: [], letter: [], research: [], brief: [{ vid: 'v1', at: '2026-09-01', active: false }] });
+      return reply(Object.fromEntries(['fit','letter','research','brief'].map(kind => [kind, [{vid:'v2',at:'2026-09-15T10:00:00Z',model:'gpt-5.6-sol',active:true},{vid:'v1',at:'2026-09-01',model:'claude-sonnet-5',active:false}]])));
     }
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
@@ -81,6 +82,15 @@ try {
   };
   check('pipeline controls use shadcn components', await page.locator('#search').getAttribute('data-slot') === 'input' &&
     await page.locator('#stagefilter').getAttribute('data-slot') === 'native-select');
+  check('approved tab names', (await page.locator('[role="tab"]').allTextContents()).join('|') === 'Overview|Documents|Role details|Activity');
+  check('job card score has no repeated label', await page.locator('.pipeline-item .score-tile').first().textContent() === '80');
+  check('listing uses actual saved source', await page.locator('.listing-link').getAttribute('href') === 'https://example.com/jobs/0');
+  check('document cards isolated from Overview', await page.locator('.material-row').count() === 0);
+  await page.locator('.status-edit').click();
+  check('status editor uses shadcn Popover', await page.locator('[data-slot="popover-content"]').isVisible());
+  await page.locator('[data-act="stage"]').selectOption('reviewing');
+  await page.waitForFunction(() => document.querySelector('.role-stage .pipeline-stage')?.textContent === 'Reviewing');
+  check('icon status control saves the stage', jobs[0].stage === 'reviewing');
   await audit('Overview');
   await page.locator('#usagebtn').click();
   await page.locator('[data-slot="table"]').waitFor();
@@ -102,6 +112,11 @@ try {
   await page.locator('#company').focus();
   await page.waitForFunction(() => document.querySelector('[data-save-for="notes"]').textContent === 'Saved');
   await page.locator('[data-section="materials"]').click();
+  await page.locator('[data-document="letter"] .version-summary').waitFor();
+  check('document cards use shadcn Card', await page.locator('.material-row[data-slot="card"]').count() === 4);
+  check('live version model and created time shown', (await page.locator('[data-document="letter"] .document-summary').textContent()).includes('Sol'));
+  check('versions use shadcn Collapsible', await page.locator('[data-slot="collapsible"]').count() === 4);
+  await audit('Documents');
   await page.locator('[data-act="letteropen"]').click();
   await page.locator('[data-act="briefopen"]').click();
   await page.locator('[data-act="researchopen"]').click();
@@ -117,10 +132,17 @@ try {
   await page.keyboard.press('Escape');
   check('cancelled review dispatches nothing', dispatches === 0 && reviews === 1);
   check('dialog restores trigger focus', await page.locator('[data-act="cover"]').evaluate(el => el === document.activeElement));
-  await page.locator('[data-section="activity"]').click();
-  await page.locator('[data-act="verpreview"]').click();
+  await page.locator('[data-section="materials"]').click();
+  await page.locator('[data-document="brief"] [data-act="versions-toggle"]').click();
+  await page.locator('[data-document="brief"] [data-act="verpreview"]').last().click();
   await page.getByText('Synthetic saved version content', { exact: false }).waitFor();
   check('version preview renders content without dispatch', dispatches === 0);
+  const beforePublish = mutations;
+  await page.locator('[data-document="brief"] [data-act="veruse"]').click();
+  await page.waitForFunction(() => document.querySelector('.row-status')?.textContent !== 'Switching…');
+  check('publishing a saved version calls the existing API', mutations === beforePublish + 1);
+  await page.locator('[data-document="brief"] [data-act="versions-toggle"]').waitFor();
+  check('expanded versions survive refresh', await page.locator('[data-document="brief"] [data-slot="collapsible"]').getAttribute('data-state') === 'open');
   await page.locator('[data-section="activity"]').focus();
   await page.keyboard.press('Home');
   await page.waitForFunction(() => document.activeElement?.getAttribute('data-section') === 'overview' && document.activeElement.getAttribute('aria-selected') === 'true');

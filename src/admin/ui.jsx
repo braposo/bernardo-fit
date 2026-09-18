@@ -2,7 +2,9 @@ import React, { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import parse, { attributesToProps, domToReact, Element } from 'html-react-parser';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, FileText, ExternalLink, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -51,6 +53,19 @@ const options = {
     const classes = (props.className || '').split(/\s+/);
     const has = name => classes.includes(name);
     const children = () => domToReact(node.children, options);
+    if (props['data-icon']) {
+      const Icon = { file: FileText, external: ExternalLink, settings: SlidersHorizontal, chevron: ChevronDown }[props['data-icon']];
+      return Icon ? (has("document-icon") ? <span className="document-icon"><Icon aria-hidden="true" className="ui-icon" /></span> : <Icon aria-hidden="true" className="ui-icon" />) : null;
+    }
+    if (has('document-versions')) return <Collapsible {...props} defaultOpen={props['data-open'] === 'true'} onOpenChange={open => document.dispatchEvent(new CustomEvent('admin:versions', { detail: { key: props['data-key'], open } }))}>{children()}</Collapsible>;
+    if (has('versions-trigger')) return <CollapsibleTrigger asChild><Button {...props} variant="ghost">{children()}</Button></CollapsibleTrigger>;
+    if (has('versions-content')) return <CollapsibleContent {...props} forceMount>{children()}</CollapsibleContent>;
+    if (has('stage-control')) return <Popover><div {...props}>{children()}</div></Popover>;
+    if (has('status-edit')) return <PopoverTrigger asChild><Button {...props} variant="ghost">{children()}</Button></PopoverTrigger>;
+    if (has('stage-popover')) return <PopoverContent {...props} align="start">{children()}</PopoverContent>;
+    if (has('material-row') || has('role-header')) return <Card {...props}>{children()}</Card>;
+    if (has('pipeline-stage') || has('document-live')) return <Badge {...props} variant="secondary">{children()}</Badge>;
+    if (node.name === 'a' && has('listing-link')) return <Button asChild variant="secondary"><a {...props}>{children()}</a></Button>;
     if (node.name === 'article' && has('row-item')) {
       const nav = node.children.find(child => child instanceof Element && child.attribs.role === 'tablist');
       const active = nav?.children.find(child => child instanceof Element && child.attribs['aria-selected'] === 'true');
@@ -85,6 +100,7 @@ const options = {
     }
     if (node.name === 'textarea') return <Textarea {...props} defaultValue={node.children.map(child => child.data || '').join('')} />;
     if (node.name === 'select') {
+      if (props['data-act'] === 'stage') props.onChange = event => document.dispatchEvent(new CustomEvent('admin:stage', { detail: event.target.value }));
       const selected = node.children.find(child => child instanceof Element && 'selected' in child.attribs);
       return <NativeSelect {...props} defaultValue={selected?.attribs.value}>{children()}</NativeSelect>;
     }

@@ -18,9 +18,11 @@ The official shadcn CLI added the Radix/new-york source components under `src/ad
 | Errors, stale/reply notices | Alert |
 | Attention and active-version indicators | Badge |
 | Usage breakdown | Table and its header/body/row/cell components |
-| Authentication and detail loading | Card, Skeleton |
+| Job header, document cards, authentication and loading | Card, Skeleton |
+| Inline document history | Collapsible, CollapsibleTrigger, CollapsibleContent |
+| Icon-only status editing | Popover, PopoverTrigger, PopoverContent with NativeSelect |
 
-NativeSelect is an official shadcn control. It deliberately retains native select behavior and mobile pickers. Text links, headings and structural layout do not require interactive primitives. The warm paper palette, existing fonts, blue navigation and amber generation convention are preserved through shared theme tokens.
+NativeSelect is an official shadcn control. It deliberately retains native select behavior and mobile pickers. Text links, headings and structural layout do not require interactive primitives. The approved AdminCN-inspired light palette uses shared tokens, separated cards, right-aligned score tiles, named color-coded stages, and muted primary actions. Sparkles and the adjacent cost explanation distinguish generation. The template compositions are adapted to the existing Radix-based shadcn components; no Base UI migration or paid template is introduced.
 
 ## Rendering boundary
 
@@ -41,6 +43,6 @@ npm run test:admin-ui
 
 `npm run build` bundles the admin component entry with esbuild and generates its Tailwind stylesheet into ignored `public/assets/admin-ui.*` files. Run it before serving the local static admin. Vercel and GitHub Actions run this build automatically. API functions and Trigger tasks keep their existing build paths.
 
-`npm run test:admin-ui` uses synthetic data and intercepted API calls. Its 39 checks cover component usage, draft preservation, read-versus-generate boundaries, focus trapping/return, tabs, destructive cancellation, checkbox behavior, independent scrolling and widths of 1280, 768, 390 and 360 pixels. Axe scans Overview, context, usage, generation/answer reviews, destructive confirmation and mobile Materials for WCAG 2 A/AA and 2.1 AA violations. Automated scans supplement the keyboard and visual checks; they do not establish complete accessibility conformance.
+`npm run test:admin-ui` uses synthetic data and intercepted API calls. Its 51 checks cover component usage, draft preservation, read-versus-generate boundaries, focus trapping/return, tabs, destructive cancellation, checkbox behavior, independent scrolling and widths of 1280, 768, 390 and 360 pixels. Axe scans Overview, context, usage, generation/answer reviews, destructive confirmation and mobile Documents for WCAG 2 A/AA and 2.1 AA violations. Automated scans supplement the keyboard and visual checks; they do not establish complete accessibility conformance.
 
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` can select installed Chrome. `ADMIN_UX_SCREENSHOTS` optionally points to an existing screenshot directory. Full Node regression coverage remains authoritative in PR CI.

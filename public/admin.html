@@ -458,6 +458,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 (function () {
   "use strict";
 
+  document.addEventListener("admin:stage", function(e) { if(document.onAdminStage) document.onAdminStage(e.detail); });
   var app = document.getElementById("app");
   var topnav = document.querySelector('.topnav');
   renderAdmin(topnav, topnav.innerHTML);
@@ -466,6 +467,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   var jobs = [];
   var fieldDrafts = new Map();
+  var expandedVersions = new Set();
+  document.addEventListener("admin:versions", function(e) { if(e.detail.open) expandedVersions.add(e.detail.key); else expandedVersions.delete(e.detail.key); });
   var listSequence = 0;
   var renderedRole = "", renderedSection = "";
   var renderedScrollKey = "";
@@ -701,17 +704,17 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     "</section>";
   }
 
-  function versionRow(v, kind) {
-    var bits = [fmtDateTime(v.at), modelLabel(v.model) || v.model];
+  function versionRow(v, kind, number) {
+    var bits = ['Created '+relativeTime(v.at), modelLabel(v.model) || v.model || 'Model not recorded'];
     if (kind === "letter" && v.words) bits.push(v.words + " words");
     if (kind === "fit" && v.score != null) bits.push("score " + v.score);
     if (kind === "research" && v.sources != null) bits.push(v.sources + " sources" + (v.partial ? " · partial" : ""));
     return '<div class="ver">' +
-      '<span class="vmeta">' + esc(bits.join(" · ")) + "</span>" +
+      '<strong>Version '+number+'</strong><span class="vmeta" title="'+esc(fmtDateTime(v.at))+'">' + esc(bits.join(" · ")) + "</span>" +
       '<button class="ghost" data-act="verpreview" data-kind="' + kind + '" data-vid="' + esc(v.vid || '') + '" type="button" aria-expanded="false">Preview content</button>' +
       (v.active || !v.vid
-        ? '<span class="vlive">active</span>'
-        : '<button class="ghost" data-act="veruse" data-kind="' + kind + '" data-vid="' + esc(v.vid) + '">Activate</button>') +
+        ? '<span class="vlive">Live</span>'
+        : '<button class="ghost" data-act="veruse" data-kind="' + kind + '" data-vid="' + esc(v.vid) + '">Publish live</button>') +
       '<div class="vpreview" hidden></div>' +
     "</div>";
   }
@@ -803,9 +806,19 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     }).join("");
   }
 
-  function materialRow(title, meta, actions) {
-    return '<section class="material-row"><div><h3>' + esc(title) + '</h3><div class="material-meta">' + meta +
-      '</div></div><div class="material-actions">' + actions + '</div></section>';
+  function relativeTime(iso) {
+    var stamp = Date.parse(iso); if (!Number.isFinite(stamp)) return 'Date unavailable';
+    var seconds = Math.max(0, (Date.now() - stamp) / 1000);
+    if (seconds < 60) return 'just now';
+    var units = [[31536000,'year'],[2592000,'month'],[86400,'day'],[3600,'hour'],[60,'minute']];
+    for (var i=0;i<units.length;i++) if(seconds>=units[i][0]) return new Intl.RelativeTimeFormat(undefined,{numeric:'auto'}).format(-Math.floor(seconds/units[i][0]),units[i][1]);
+  }
+  function timeHtml(iso, prefix) { return '<time title="'+esc(fmtDateTime(iso))+'"'+(iso?' datetime="'+esc(iso)+'"':'')+'>'+esc(prefix || '')+esc(relativeTime(iso))+'</time>'; }
+  function materialRow(title, meta, actions, kind, j) {
+    var key = j.id + ':' + kind;
+    return '<section class="material-row" data-document="'+kind+'"><div class="document-title"><span class="document-icon" data-icon="file"></span><h3>'+esc(title)+'</h3><span class="document-live" data-live="'+kind+'"></span></div>' +
+      '<div class="document-summary" data-summary="'+kind+'">'+meta+'</div>'+((kind==='fit'&&j.jd&&j.jd.stale)||(kind==='brief'&&j.briefStale)||(kind==='research'&&j.researchStale)?'<p class="field-help">Outdated · saved version remains readable</p>':'')+'<div class="material-actions">'+actions+'</div>'+
+      '<div class="document-versions" data-act="document-versions" data-key="'+esc(key)+'" data-open="'+expandedVersions.has(key)+'"><button class="versions-trigger" data-act="versions-toggle">Versions <span data-count="'+kind+'"></span><span data-icon="chevron"></span></button><div class="versions-content"><div class="verlist" data-kind="'+kind+'" aria-live="polite">Loading versions…</div></div></div></section>';
   }
 
   function runStateHtml(j) {
@@ -843,45 +856,41 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
     var fitActions = fitLink
       ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">Open fit page</a>' +
-        '<button class="ghost" data-act="copyfit" data-link="' + esc(fitLink) + '">Copy fit link</button>' +
-        '<button class="read-link" data-section-link="activity" data-version-group="fit">View versions</button>' +
-        '<button class="generation" data-act="regen">Regenerate analysis</button>'
+
+        '<button class="generation" data-act="regen">Generate new version</button>'
       : '<button class="generation" data-act="runfit"' + (hasDescription ? "" : " disabled") + '>Generate analysis</button>';
     var letterActions = (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' : '') +
-      (hasLetter ? '<button class="read-link" data-section-link="activity" data-version-group="letter">View versions</button>' : '') +
       '<button class="generation" data-act="cover"' + (coverActive || !coverDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
-      (coverActive ? 'Writing…' : hasLetter ? 'Rewrite letter' : 'Generate letter') + '</button>';
+      (coverActive ? 'Writing…' : hasLetter ? 'Generate new version' : 'Generate letter') + '</button>';
     var briefActions = (j.hasBrief ? '<button class="read-link" data-act="briefopen">Open ' + (j.briefStale ? 'previous ' : '') + 'brief</button>' : '') +
-      (j.hasBrief ? '<button class="read-link" data-section-link="activity" data-version-group="brief">View versions</button>' : '') +
       '<button class="generation" data-act="briefrewrite"' + (screenActive || !screenDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
-      (screenActive ? 'Preparing…' : j.hasBrief ? 'Rewrite brief' : 'Generate brief') + '</button>';
+      (screenActive ? 'Preparing…' : j.hasBrief ? 'Generate new version' : 'Generate brief') + '</button>';
     var researchActions = (j.hasResearch ? '<button class="read-link" data-act="researchopen">Open research</button>' : '') +
-      (j.hasResearch ? '<button class="read-link" data-section-link="activity" data-version-group="research">View versions</button>' : '') +
       '<button class="generation" data-act="researchrefresh"' + (!screenDispatchEnabled || researchActive ? ' disabled' : '') + '>' +
-      (researchActive ? 'Researching…' : j.hasResearch ? 'Refresh research' : 'Generate research') + '</button>';
+      (researchActive ? 'Researching…' : j.hasResearch ? 'Generate new version' : 'Generate research') + '</button>';
 
     var panel = '';
     if (!detailed) {
       panel = '<div class="workspace-panel"><p aria-live="polite">Loading role details…</p></div>';
     } else if (workspaceSection === "overview") {
       panel = '<section class="workspace-panel" id="panel-overview" role="tabpanel">' +
-        (j.score != null ? '<div class="score-block"><span class="score-value">' + j.score + '</span><span>Fit score</span></div>' +
+        (j.score != null ? '<h2>Why this role</h2>' +
           '<details class="score-details"><summary>How this score was assessed</summary><p>' +
           esc(j.scoreBreakdown ? 'Location ' + j.scoreBreakdown.location + ', AI/DX ' + j.scoreBreakdown.aiDx + ', leadership ' + j.scoreBreakdown.leadership + '.' : 'Open the fit page for the full assessment.') + '</p></details>' :
           '<p>No fit analysis has been generated yet.</p>') +
         (j.rationale ? '<p class="rationale">' + esc(j.rationale) + '</p>' : '') + owed + staleHtml(j) +
-        '<h2>Ready to use</h2><div class="overview-actions">' +
+        '<h2>Ready to use</h2><div class="overview-actions">' + (fitLink?'<button class="ghost" data-act="copyfit" data-link="'+esc(fitLink)+'">Copy fit link</button>':'') +
           (j.hasBrief ? '<button class="primary-link" data-act="briefopen">Open interview brief</button>' : '') +
           (fitLink ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page ↗</a>' : '') +
           (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' : '') + '</div>' +
         statsHtml(j) + '<p><button class="read-link" data-section-link="activity">View activity →</button></p></section>';
     } else if (workspaceSection === "materials") {
-      panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><p class="generation-legend" id="generation-legend">✦ Sparkle actions run AI and may incur costs.</p>' +
-        '<div class="material-list">' +
-          materialRow('Fit analysis', j.fitReportId ? 'Shareable page' + (j.jd && j.jd.stale ? ' · Outdated after description change' : ' · Current') : 'Not generated', fitActions) +
-          materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), letterActions) +
-          materialRow('Interview brief', 'Private · ' + (j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), briefActions) +
-          materialRow('Company research', 'Private · ' + (j.hasResearch ? (j.researchStale ? 'Outdated' : 'Current') + ' · ' + Number(j.researchSourceCount || 0) + ' sources' : 'Not generated'), researchActions) +
+      panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><h2>Documents</h2><p class="generation-legend" id="generation-legend">✦ Sparkle actions run AI and may incur costs.</p>' +
+        '<div class="material-list" data-act="verbox">' +
+          materialRow('Fit analysis', j.fitReportId ? 'Shareable page' + (j.jd && j.jd.stale ? ' · Outdated after description change' : ' · Current') : 'Not generated', fitActions, 'fit', j) +
+          materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), letterActions, 'letter', j) +
+          materialRow('Interview brief', 'Private · ' + (j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), briefActions, 'brief', j) +
+          materialRow('Company research', 'Private · ' + (j.hasResearch ? (j.researchStale ? 'Outdated' : 'Current') + ' · ' + Number(j.researchSourceCount || 0) + ' sources' : 'Not generated'), researchActions, 'research', j) +
         '</div>' + questionsHtml(j) + '</section>';
     } else if (workspaceSection === "context") {
       panel = '<section class="workspace-panel context-grid" id="panel-context" role="tabpanel">' +
@@ -899,17 +908,18 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       panel = '<section class="workspace-panel" id="panel-activity" role="tabpanel"><h2>Run activity</h2>' + runStateHtml(j) +
         '<p class="field-help">Recorded cost is available in AI activity &amp; usage. It is not a guaranteed quote for future work.</p>' +
         '<button class="ghost" data-act="usage">Open AI activity &amp; usage</button><h2>Engagement</h2>' + statsHtml(j) +
-        versionsHtml(j) + '<section class="activity-group"><h2>Record management</h2><div class="record-actions">' +
+        '<section class="activity-group"><h2>Record management</h2><div class="record-actions">' +
         (j.archived ? '<button class="ghost" data-act="restore">Restore to pipeline</button><button class="ghost danger" data-act="delete">Delete permanently</button>' : '<button class="ghost" data-act="archive">Archive</button>') +
         '</div></section></section>';
     }
 
     return '<article class="row-item" data-id="' + esc(j.id) + '"><button class="back-pipeline" data-act="back">← Back to pipeline</button>' +
-      '<header class="role-header"><div><div class="role-kicker">' + esc(j.company || 'No company') + '</div><h1>' + esc(j.role || 'Untitled role') +
-      '</h1><div class="role-sub">' + headerMeta + (j.closed ? ' · Posting closed' : '') + '</div></div>' +
-      '<label class="stage-control">Stage<select data-act="stage" aria-label="Stage for ' + esc(j.role || 'role') + '" class="stage-' + esc(j.stage) + '">' + stageOptions(j) + '</select></label></header>' +
+      '<header class="role-header"><div class="role-identity"><div class="role-kicker">' + esc(j.company || 'No company') + '</div><h1>' + esc(j.role || 'Untitled role') +
+      '</h1><div class="role-sub">' + headerMeta + (j.closed ? ' · Posting closed' : '') + '</div><div class="role-added">'+timeHtml(j.createdAt,'Added ')+'</div>' +
+      '<div class="role-stage"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><div class="stage-control"><button class="ghost status-edit" aria-label="Change status" title="Change status"><span data-icon="settings"></span></button><div class="stage-popover"><label for="job-stage">Change status</label><select id="job-stage" data-act="stage" aria-label="Stage for ' + esc(j.role || 'role') + '">' + stageOptions(j) + '</select></div></div></div></div>' +
+      '<div class="score-actions"><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span>'+ (safeSourceUrl(j.sourceUrl)?'<a class="listing-link" href="'+esc(safeSourceUrl(j.sourceUrl))+'" target="_blank" rel="noopener">View listing <span data-icon="external"></span></a>':'<span class="field-help">No listing URL</span>')+'</div></header>' +
       '<nav class="workspace-tabs" role="tablist" aria-label="Role sections">' +
-      [["overview","Overview"],["materials","Materials"],["context","Role & context"],["activity","Activity"]].map(function (item) {
+      [["overview","Overview"],["materials","Documents"],["context","Role details"],["activity","Activity"]].map(function (item) {
         return '<button class="workspace-tab" role="tab" data-section="' + item[0] + '" aria-selected="' + (workspaceSection === item[0]) + '">' + item[1] + '</button>';
       }).join('') + '</nav><span class="row-status" role="status" aria-live="polite"></span>' + panel + '</article>';
   }
@@ -1106,16 +1116,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
 
   function pipelineItemHtml(j) {
-    var signals = [];
-    if (j.replyOwed) signals.push("Reply owed");
-    if (!j.fitReportId && j.hasDescription) signals.push("Needs analysis");
-    if ([j.analysisRun, j.coverRun, j.prepareRun].some(function (run) { return run && ["dispatching", "queued"].indexOf(run.status) !== -1; })) signals.push("Running");
-    return '<button class="pipeline-item' + (selectedId === j.id ? ' selected' : '') + '" data-select-job="' + esc(j.id) + '" aria-pressed="' + (selectedId === j.id) + '">' +
-      '<span class="pipeline-line"><span class="pipeline-company">' + esc(j.company || 'No company') + '</span>' +
-      (j.score != null ? '<span class="pipeline-score">Fit ' + j.score + '</span>' : '') + '</span>' +
-      '<span class="pipeline-role">' + esc(j.role || 'Untitled role') + '</span>' +
-      '<span class="pipeline-meta">' + (!stageFilter ? '<span class="pipeline-stage">' + esc(stageLabel(j.stage)) + '</span>' : '') +
-      signals.map(function (s) { return '<span class="pipeline-signal">' + esc(s) + '</span>'; }).join('') + '</span></button>';
+    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span><span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
   }
 
   function loadSelectedDetail(id) {
@@ -1177,7 +1178,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
     renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + '"><aside class="pipeline" aria-label="' + (showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
-      (showArchived ? '<button class="ghost" id="togglearchived">Pipeline</button>' : (archivedCount ? '<button class="ghost" id="togglearchived">Archive (' + archivedCount + ')</button>' : '')) + '</div>' +
+      '<span class="pipeline-total">'+shown.length+' opportunities</span>' + '</div>' +
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
       '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select></div></div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
@@ -1429,9 +1430,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       });
 
       var sel = rowEl.querySelector('[data-act="stage"]');
-      sel.addEventListener("change", function () {
-        var next = sel.value;
-        sel.className = "stage-" + next;
+      document.onAdminStage = function (next) {
         status.textContent = "Saving…"; status.className = "row-status";
         patch({ stage: next }, function () {
           status.textContent = "Saved"; status.className = "row-status ok";
@@ -1441,13 +1440,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           var left = ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived;
           setTimeout(left ? function () { loadJobs(false); } : renderJobs, 700);
         });
-      });
+      };
 
       // ---- application questions ----
       function saveQuestion(edit, done) {
         status.textContent = "Saving…"; status.className = "row-status";
         patch({ question: edit }, function () {
-          status.textContent = ""; 
+          status.textContent = "";
           if (done) done();
         });
       }
@@ -1602,38 +1601,25 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       // ---- versions ----
       var verBox = rowEl.querySelector('[data-act="verbox"]');
       if (verBox) {
-        var verList = verBox.querySelector(".verlist");
+        var verList = verBox;
         var loaded = false;
         function paintVersions(d) {
-          var html = "";
-          if ((d.fit || []).length) {
-            html += '<div class="verhead" id="versions-fit" tabindex="-1">Fit analysis</div>' +
-              d.fit.map(function (v) { return versionRow(v, "fit"); }).join("");
-          }
-          if ((d.letter || []).length) {
-            html += '<div class="verhead" id="versions-letter" tabindex="-1">Cover letter</div>' +
-              d.letter.map(function (v) { return versionRow(v, "letter"); }).join("");
-          }
-          if ((d.brief || []).length) {
-            html += '<div class="verhead" id="versions-brief" tabindex="-1">Interview brief</div>' +
-              d.brief.map(function (v) { return versionRow(v, "brief"); }).join("");
-          }
-          if ((d.research || []).length) {
-            html += '<div class="verhead" id="versions-research" tabindex="-1">Company research</div>' +
-              d.research.map(function (v) { return versionRow(v, "research"); }).join("");
-          }
-          renderAdmin(verList, html || '<div class="ver"><span class="vmeta">Nothing generated yet.</span></div>');
+          ['fit','letter','brief','research'].forEach(function(kind) {
+            var versions=d[kind]||[], list=verBox.querySelector('.verlist[data-kind="'+kind+'"]');
+            if(!list) return;
+            renderAdmin(list,versions.length?versions.map(function(v,i){return versionRow(v,kind,versions.length-i);}).join(''):'<p class="field-help">No saved versions yet.</p>');
+            var live=versions.find(function(v){return v.active;}), current=live||versions[0];
+            var summary=verBox.querySelector('[data-summary="'+kind+'"]'), label=verBox.querySelector('[data-live="'+kind+'"]');
+            verBox.querySelector('[data-count="'+kind+'"]').textContent=versions.length;
+            label.textContent=live?'Live · v'+(versions.length-versions.indexOf(live)):current?'Saved':'Not created';
+            if(current) renderAdmin(summary,'<div class="version-summary"><strong>Version '+(versions.length-versions.indexOf(current))+'</strong><span>'+esc(modelLabel(current.model)||current.model||'Model not recorded')+'</span></div><p class="document-age">'+timeHtml(current.at,'Created ')+'</p><p class="field-help">'+(kind==='fit'?'Shareable fit page':'Private document')+'</p>');
+          });
           wireUse();
-          if (versionGroup) {
-            var target = document.getElementById('versions-' + versionGroup);
-            if (target) { target.scrollIntoView({ block: 'start' }); target.focus({ preventScroll: true }); }
-            versionGroup = "";
-          }
         }
         function loadVersions() {
           api("/api/admin/versions?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
-            if (unauthorised(out)) return;
-            if (!out.ok) { verList.textContent = out.d.error || "Could not load versions."; return; }
+            if (!rowEl.isConnected || unauthorised(out)) return;
+            if (!out.ok) { verList.querySelectorAll(".verlist").forEach(function(el){el.textContent=out.d.error || "Could not load versions. Reopen Documents to retry.";}); return; }
             loaded = true;
             paintVersions(out.d);
           });
@@ -1671,7 +1657,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
                   return;
                 }
                 status.textContent = "Switched"; status.className = "row-status ok";
-                loadVersions();
                 loadJobs(false);
               });
             });
