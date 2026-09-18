@@ -37,6 +37,11 @@ list("What they may ask",a.likelyQuestions)+(a.gapResponses&&a.gapResponses.leng
 list("Company reference",a.companyReference,"",true)+list("Role reference",a.roleReference,"",true)+
 '<details class="private"><summary>Private answers</summary><ul>'+fact("Advertised salary",pa.advertisedSalary)+fact("Previously discussed",pa.previouslyDiscussedSalary)+fact("My expectation",pa.personallyExpectedSalary)+fact("Availability",pa.availability)+fact("Location",pa.location)+fact("Working pattern",pa.locationMode)+fact("Notice period",pa.noticePeriod)+fact("Start date",pa.startDate)+fact("Work status",pa.sponsorship)+"</ul></details>"+
 list("Unknowns",a.unknowns,"unknowns")+sources(a.sources)}
+window.addEventListener("beforeprint", function () {
+  if (!j || !t) return;
+  fetch("/api/track", {method:"POST", headers:{"Content-Type":"application/json"}, keepalive:true,
+    body:JSON.stringify({id:j,token:t,event:"document_print",kind:kind})}).catch(function(){});
+});
 document.getElementById("present").onclick=function(){document.body.classList.toggle("present");this.textContent=document.body.classList.contains("present")?"Exit presentation":"Presentation mode"};
 if(!j||!t){body.textContent="Open this from the dashboard.";return}
 fetch("/api/letter?kind="+kind+"&j="+encodeURIComponent(j)+"&t="+encodeURIComponent(t),{referrerPolicy:"no-referrer"})

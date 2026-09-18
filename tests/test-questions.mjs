@@ -154,7 +154,7 @@ check("has a questions box", html.includes("qabox"));
 check("answer is escaped", html.includes("esc(q.a)"));
 check("question text is escaped", html.includes("esc(q.q"));
 check("has a copy button", html.includes("qcopy"));
-check("uses the durable run watcher", html.includes('watchWork(id, out.d.runId, status, "answer"'));
+check("uses reviewed durable generation", html.includes("kind: 'answer', questionId: qid") && html.includes("currentReview.effectiveKind === 'answer'"));
 check("shows the count against the limit", html.includes("qa-count"));
 check("add button present", html.includes("qadd"));
 check("remove button present", html.includes("qdel"));

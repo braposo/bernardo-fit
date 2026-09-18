@@ -32,6 +32,7 @@ const { analyseHandler: analyse, regenerateHandler: regen } = await import("./re
 const { executeCoverWork } = await import(lib + "cover-work.js");
 const { getActiveCoverArtifact, listCoverVersions } = await import(lib + "cover-artifacts.js");
 const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
+const { saveScreenArtifact } = await import(lib + "screen-artifacts.js");
 const versions = (await import(base + "admin/versions.js")).default;
 const reportHandler = (await import(base + "report.js")).default;
 
@@ -115,6 +116,19 @@ check("live model followed it", after.coverLetterModel === "claude-opus-5");
 check("only one letter is live", (await listCoverVersions(after)).filter((v) => v.active).length === 1);
 check("letter bodies are absent from the job", after.coverLetter === null && after.coverLetterVersions.length === 0);
 
+console.log("\n--- research and brief artifacts are grouped too ---");
+await saveScreenArtifact("research", job.id, "research-old", { at: "2026-08-01T00:00:00.000Z", model: "claude-sonnet-5", sources: [{ url: "https://a.test" }] });
+await saveScreenArtifact("research", job.id, "research-new", { at: "2026-09-01T00:00:00.000Z", model: "claude-opus-5", sources: [{ url: "https://b.test" }, { url: "https://c.test" }] });
+await saveScreenArtifact("brief", job.id, "brief-one", { at: "2026-09-02T00:00:00.000Z", model: "claude-opus-5", opening: "Hello" });
+await store.updateJob(job.id, { researchId: "research-new", researchAt: "2026-09-01T00:00:00.000Z", researchFingerprint: "fresh",
+  briefId: "brief-one", briefAt: "2026-09-02T00:00:00.000Z", briefFingerprint: "fresh" });
+res = await call(versions, { method: "GET", headers: auth, query: { id: job.id } });
+check("research versions listed with one active", res.body.research.length === 2 && res.body.research.filter((v) => v.active).length === 1, res.body.research);
+check("brief version listed active", res.body.brief.length === 1 && res.body.brief[0].active, res.body.brief);
+res = await call(versions, { method: "POST", headers: auth, body: { id: job.id, kind: "research", vid: "research-old" } });
+check("older research activates explicitly", res.statusCode === 200 && (await store.getJob(job.id)).researchId === "research-old", res.body);
+check("activated old research is truthfully stale", (await store.getJob(job.id)).researchFingerprint === "");
+
 console.log("\n--- listings stay small ---");
 res = await call(versions, { method: "GET", headers: auth, query: { id: job.id } });
 check("no report bodies in the listing", !JSON.stringify(res.body).includes("differentiators"));
@@ -140,6 +154,19 @@ check("migrated active body is readable", (await getActiveCoverArtifact(migrated
 check("migrated version count remains", migratedLegacy.coverLetterVersionCount === 2, migratedLegacy.coverLetterVersionCount);
 
 console.log("\n--- errors ---");
+const beforePreview = await store.getJob(job.id);
+const fitVersions = await store.listReportVersions(rid);
+const inactiveFit = fitVersions.find(v => !v.active);
+res = await call(versions, { method: 'GET', headers: auth, query: { id: job.id, kind: 'fit', vid: inactiveFit.vid } });
+check('preview reads the requested historical content', res.body.content.job_title === inactiveFit.report.job_title);
+check('preview does not expose stored input or internal fields', !('internal' in res.body.content) && !('jobDescription' in res.body.content));
+check('preview does not activate the fit version', (await store.listReportVersions(rid)).find(v => v.vid === inactiveFit.vid).active === false);
+check('preview does not mutate the job', JSON.stringify(await store.getJob(job.id)) === JSON.stringify(beforePreview));
+const coverVersions = await listCoverVersions(beforePreview);
+res = await call(versions, { method: 'GET', headers: auth, query: { id: job.id, kind: 'letter', vid: coverVersions[0].vid } });
+check('letter preview includes paragraphs', res.statusCode === 200 && res.body.content.paragraphs.length > 0);
+check('preview cannot read another jobs letter', (await call(versions, { method: 'GET', headers: auth, query: { id: legacy.id, kind: 'letter', vid: coverVersions[0].vid } })).statusCode === 404);
+check('preview requires admin authentication', (await call(versions, { method: 'GET', headers: {}, query: { id: job.id, kind: 'fit', vid: inactiveFit.vid } })).statusCode === 401);
 check("unknown version", (await call(versions, { method: "POST", headers: auth, body: { id: job.id, kind: "fit", vid: "nope" } })).statusCode === 404);
 check("bad kind", (await call(versions, { method: "POST", headers: auth, body: { id: job.id, kind: "banana", vid: "x" } })).statusCode === 400);
 check("unknown job", (await call(versions, { method: "GET", headers: auth, query: { id: "nope" } })).statusCode === 404);
@@ -160,9 +187,9 @@ check("letters capped at 10", (await listCoverVersions(await store.getJob(many.i
 console.log("\n--- the page ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
 check("versions box present", html.includes("verbox"));
-check("loads on open, not on list", html.includes('verBox.addEventListener("toggle"'));
-check("has a use button", html.includes('data-act="veruse"'));
-check("marks the live one", html.includes('class="vlive">live'));
+check("loads metadata in Documents", html.includes("if (!loaded) loadVersions()") && html.includes('workspaceSection === "materials"'));
+check("preview is distinct from activation", html.includes('data-act="verpreview"') && html.includes('data-act="veruse"'));
+check("marks the active one", html.includes('class="vlive">Live'));
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

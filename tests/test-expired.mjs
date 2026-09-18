@@ -61,10 +61,15 @@ const html = fs.readFileSync(root + "public/admin.html", "utf8");
 check("client fallback list has it", /var stages = \[[^\]]*"expired"\]/.test(html));
 check("has a style rule", html.includes(".stage-expired {"));
 check("no dead stage-closed rule", !html.includes(".stage-closed"));
-check("renders as a readable label", html.includes('s.replace(/_/g, " ")'));
+const stageLabelSource = html.slice(
+  html.indexOf("function stageLabel(value)"),
+  html.indexOf("\n\n  function stageOptions")
+);
+const stageLabel = Function('"use strict"; return (' + stageLabelSource + ');')();
+check("renders as a readable label", stageLabel("not_interested") === "Not Interested");
 
 console.log("\n--- and the duplicated meta line is gone ---");
-const dupes = (html.match(/meta\.push\("posting closed"\)/g) || []).length;
+const dupes = (html.match(/Posting closed/g) || []).length;
 check("posting closed appears once", dupes === 1, dupes);
 
 console.log("\n=========================");

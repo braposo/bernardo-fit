@@ -2,6 +2,7 @@ import { verifyViewToken } from "../lib/admin.js";
 import { getJob } from "../lib/store.js";
 import { getActiveCoverArtifact } from "../lib/cover-artifacts.js";
 import { getActiveBrief, getActiveResearch } from "../lib/screen-artifacts.js";
+import { appendAudit, auditEvent } from "../lib/job-audit.js";
 
 // GET /api/letter?j=<jobId>&t=<token>
 //
@@ -33,6 +34,7 @@ export default async function handler(req, res) {
     if (kind === "brief" || kind === "research") {
       const artifact = kind === "research" ? await getActiveResearch(job) : await getActiveBrief(job);
       if (!job || !artifact) return res.status(404).json({ error: `No ${kind} for this role yet.` });
+      await appendAudit("job", j, auditEvent("document.viewed", `${kind === "research" ? "Company research" : "Interview brief"} opened`, artifact.id, { actor: "admin" }));
       return res.status(200).json({ kind, company: job.company || "", role: job.role || "", artifact });
     }
     const letter = await getActiveCoverArtifact(job);
@@ -40,6 +42,7 @@ export default async function handler(req, res) {
       res.status(404).json({ error: "No cover letter for this role yet." });
       return;
     }
+    await appendAudit("job", j, auditEvent("document.viewed", "Cover letter opened", letter.vid, { actor: "admin" }));
     res.status(200).json({
       company: job.company || "",
       role: job.role || "",

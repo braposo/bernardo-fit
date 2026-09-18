@@ -75,12 +75,12 @@ check("no expired row in the pipeline", !live.some((j) => j.stage === "expired" 
 const archived = await store.listJobs({ onlyArchived: true });
 check("expired rows are in the archive", archived.some((j) => j.stage === "expired"));
 
-console.log("\n--- the page scopes the chips, not the dropdown ---");
+console.log("\n--- the page scopes the pipeline filter, not the role dropdown ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
 check("constant defined", html.includes('var ARCHIVE_ON_STAGE = ["expired", "rejected", "not_interested"];'));
 check("only the consolidated status is offered", !html.includes('"not_a_fit"') && html.includes('"not_interested"'));
-check("chips filtered", /data-stage[\s\S]{0,400}stages\.filter\(function \(s\) \{ return showArchived/.test(html));
-check("dropdown NOT filtered, so you can still set them", /var opts = stages\.map\(function/.test(html));
+check("pipeline options are filtered", /var allowedStages = stages\.filter\(function \(s\) \{ return showArchived/.test(html));
+check("role dropdown still offers every stage", /function stageOptions\(j\)[\s\S]{0,160}stages\.map/.test(html));
 check("a stranded filter is cleared", html.includes("if (!showArchived && ARCHIVE_ON_STAGE.indexOf(stageFilter) !== -1) stageFilter = null;"));
 check("list refetched when the row leaves", html.includes("var left = ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived;"));
 

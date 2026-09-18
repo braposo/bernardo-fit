@@ -3,6 +3,8 @@
 Status: Ready for implementation. This document specifies the agreed direction; it does not record completed implementation.
 Date: 18 September 2026.
 
+Implementation amendment: the subsequent user request to use shadcn/ui authorizes a React/shadcn rendering layer for the admin, superseding the plain-HTML-only constraint below for that surface. Preserve the existing behavior and backend architecture. See [component coverage and build instructions](admin-ux/shadcn-components.md).
+
 Visual companion: [annotated layouts, action styles and responsive guidance](admin-ux/README.md). Read it before implementation. It includes desktop, mobile, Materials and generation-review guides using the agreed amber sparkle convention, without repeated Paid AI button labels.
 
 Agent handoff: read [Implementation guardrails for agents](#11-implementation-guardrails-for-agents) before starting or resuming implementation.

@@ -33,5 +33,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build admin components
+        run: npm run build
+
       - name: Run tests
         run: npm test
+
+      - name: Install browser for admin accessibility checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify admin components and accessibility
+        run: npm run test:admin-ui

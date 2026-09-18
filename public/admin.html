@@ -273,13 +273,180 @@
   .empty small { display: block; font-family: var(--sans); font-size: 13.5px; margin-top: 10px; }
   .loadmore { text-align: center; margin: 32px 0 60px; }
   .pagefoot { height: 60px; }
+
+  /* Pipeline + workspace */
+  :root {
+    --accent: #155a99; --accent-deep: #104a7f; --paper: #faf8f4; --surface: #fffefa;
+    --ink: #211f1a; --sub: #666258; --hair: #e5e0d6; --hair-strong: #d8d3c8;
+    --generation: #fff0d4; --generation-ink: #7a4810; --selected: #eaf1f8;
+    --weak: #a02929; --weak-soft: rgba(160,41,41,.08); --maxw: 1440px; --pad: clamp(16px, 3vw, 32px);
+  }
+  html { height: 100%; }
+  body { min-height: 100%; font-size: 16px; line-height: 1.5; }
+  button, .ghost, select, input, textarea { border-radius: 7px; }
+  button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible,
+  summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .frame { max-width: var(--maxw); }
+  .masthead { padding: 18px 0 14px; border-bottom: 1px solid var(--hair); }
+  .topnav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .topnav button { min-height: 40px; padding: 8px 12px; background: transparent; color: var(--ink); }
+  .topnav button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+  .admin-shell { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad) 40px; display: grid;
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr); min-height: calc(100vh - 76px); }
+  .pipeline { border-right: 1px solid var(--hair-strong); min-width: 0; position: sticky; top: 0;
+    height: 100vh; display: flex; flex-direction: column; }
+  .pipeline-head { position: sticky; top: 0; z-index: 3; padding: 24px 20px 14px 0;
+    background: linear-gradient(var(--paper) 86%, rgba(250,248,244,.88)); }
+  .pipeline-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .pipeline h1 { font: 600 24px/1.2 var(--display); margin: 0; }
+  .pipeline-controls { display: grid; gap: 8px; }
+  .pipeline-controls .searchbox, .pipeline-controls select { width: 100%; min-height: 44px; border: 1px solid var(--hair-strong);
+    background-color: var(--surface); border-radius: 7px; font: 400 15px/1.3 var(--sans); letter-spacing: 0; text-transform: none; }
+  .pipeline-controls .searchbox { padding: 10px 12px; }
+  .pipeline-list { padding: 0 14px 28px 0; display: grid; grid-auto-rows: max-content; gap: 4px; overflow-y: auto; min-height: 0; align-content: start; }
+  .pipeline-head, .bulkbar { flex-shrink: 0; }
+  .vpreview { flex-basis: 100%; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .pipeline-item { width: 100%; min-height: 64px; padding: 10px 12px; text-align: left; color: var(--ink);
+    background: transparent; border: 1px solid transparent; border-radius: 8px; display: block; }
+  .pipeline-item:hover { background: var(--surface); border-color: var(--hair); }
+  .pipeline-item.selected { background: var(--selected); border-color: var(--accent); }
+  .pipeline-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .pipeline-company { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .pipeline-score, .pipeline-stage, .pipeline-signal { flex: none; color: var(--sub); font-size: 13px; }
+  .pipeline-role { display: block; margin-top: 2px; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+  .pipeline-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .pipeline-empty { padding: 32px 14px 32px 0; color: var(--sub); }
+  .pipeline-empty button { margin-top: 12px; }
+  .bulkbar { padding: 0 14px 16px 0; }
+  .workspace { min-width: 0; padding: 24px clamp(20px, 3vw, 32px) 60px; }
+  .workspace-empty { max-width: 540px; padding: 15vh 0; color: var(--sub); }
+  .back-pipeline { display: none; min-height: 44px; padding: 6px 0; margin: -8px 0 12px; background: transparent; color: var(--accent); }
+  .role-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .role-kicker { color: var(--accent); font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+  .role-header h1 { margin: 0; font: 600 clamp(24px, 3vw, 28px)/1.18 var(--display); letter-spacing: -.02em; }
+  .role-sub { color: var(--sub); margin-top: 6px; }
+  .stage-control { flex: none; display: grid; gap: 5px; color: var(--sub); font-size: 14px; }
+  .stage-control select { min-height: 44px; min-width: 170px; background-color: var(--surface); font: 500 14px var(--sans);
+    text-transform: none; letter-spacing: 0; color: var(--ink); border-color: var(--hair-strong); }
+  .owed { color: var(--ink); background: var(--surface); border-color: var(--hair-strong); }
+  .qa-answer.refused, .qa-count.over { color: var(--weak); }
+  .workspace-tabs { display: flex; gap: 6px 24px; flex-wrap: wrap; border-bottom: 1px solid var(--hair-strong); margin-top: 24px; }
+  .workspace-tab { min-height: 44px; padding: 9px 0; border-radius: 0; background: transparent; color: var(--ink); }
+  .workspace-tab[aria-selected="true"] { color: var(--accent); box-shadow: inset 0 -2px var(--accent); }
+  .workspace-tab:hover { background: transparent; color: var(--accent); }
+  .workspace-panel { padding-top: 22px; max-width: 920px; }
+  .workspace-panel h2 { font: 600 20px var(--display); margin: 28px 0 8px; }
+  .workspace-panel h2:first-child { margin-top: 0; }
+  .workspace-panel h3 { font: 600 17px var(--display); margin: 0; }
+  .notice { border-left: 3px solid var(--hair-strong); padding: 10px 12px; margin: 0 0 18px; color: var(--sub); background: rgba(255,254,250,.55); }
+  .stalejd, .archnote { color: var(--sub); }
+  .notice.error { border-color: var(--weak); color: var(--weak); }
+  .notice a, .notice button { margin-left: 6px; }
+  .score-block { display: flex; gap: 14px; align-items: baseline; }
+  .score-value { color: var(--accent); font: 600 32px var(--display); }
+  .score-details summary { color: var(--accent); cursor: pointer; }
+  .score-details p { color: var(--sub); margin: 8px 0 0; }
+  .overview-actions, .record-actions { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; margin: 18px 0; }
+  .read-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+  button.read-link { appearance: none; border: 0; background: transparent; padding: 8px 0; border-radius: 0; }
+  .read-link:hover { text-decoration: underline; }
+  .primary-link { display: inline-block; padding: 10px 14px; border-radius: 7px; background: var(--accent); color: white; }
+  .primary-link:hover { background: var(--accent-deep); text-decoration: none; }
+  .generation-legend { color: var(--generation-ink); font-size: 14px; margin: 0 0 10px; }
+  .generation { min-height: 44px; padding: 9px 13px; border: 1px solid #a86b25; border-radius: 7px;
+    background: var(--generation); color: var(--generation-ink); font-weight: 600; }
+  .generation:hover { background: #ffe7bd; color: #633706; }
+  .generation::before { content: "✦"; margin-right: 6px; }
+  .material-list { border-top: 1px solid var(--hair); }
+  .material-row { display: grid; grid-template-columns: minmax(180px, 1fr) auto; gap: 18px; align-items: center;
+    padding: 18px 0; border-bottom: 1px solid var(--hair); }
+  .material-meta { color: var(--sub); font-size: 14px; margin-top: 3px; }
+  .material-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px 18px; flex-wrap: wrap; }
+  .field { margin: 0 0 22px; }
+  .field label, .field .field-label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .field-help { color: var(--sub); font-size: 14px; margin: 0 0 8px; }
+  .field input[type="text"], .field input[type="url"], .field textarea { width: 100%; border: 1px solid var(--hair-strong);
+    background: var(--surface); color: var(--ink); padding: 11px 12px; font: 400 16px/1.5 var(--sans); }
+  .field textarea { min-height: 120px; resize: vertical; }
+  .field textarea.tall { min-height: 280px; }
+  .field-status { min-height: 21px; margin-top: 5px; color: var(--sub); font-size: 14px; }
+  .field-status.err { color: var(--weak); }
+  .context-grid { max-width: 760px; }
+  .question-list { margin-top: 24px; }
+  .qa { padding: 18px 0; }
+  .qa textarea { margin-top: 0; background: var(--surface); font-size: 16px; }
+  .qa-bar label { font: 500 13px var(--sans); letter-spacing: 0; text-transform: none; }
+  .qa-bar input[type=number] { min-height: 40px; background: var(--surface); }
+  .qa-answer { background: var(--surface); border: 1px solid var(--hair); }
+  .activity-group { margin-bottom: 30px; }
+  .activity-list { border-top: 1px solid var(--hair); }
+  .activity-row { padding: 12px 0; border-bottom: 1px solid var(--hair); display: flex; align-items: center;
+    justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .run-state { font-size: 14px; color: var(--sub); }
+  .run-state strong { color: var(--ink); }
+  .row-status { min-height: 21px; display: inline-block; }
+  dialog.review-dialog { width: min(620px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); padding: 0;
+    border: 1px solid var(--hair-strong); border-radius: 12px; background: var(--surface); color: var(--ink); }
+  .review-dialog::backdrop { background: rgba(26,24,20,.48); }
+  .review-head, .review-body, .review-actions { padding: 20px 24px; }
+  .review-head { border-bottom: 1px solid var(--hair); }
+  .review-head h2 { margin: 0; font: 600 24px var(--display); }
+  .review-head p { margin: 4px 0 0; color: var(--sub); }
+  .review-body { overflow: auto; max-height: calc(100vh - 250px); }
+  .review-body h3 { font-size: 16px; margin: 20px 0 6px; }
+  .review-body h3:first-child { margin-top: 0; }
+  .review-body ol { margin: 6px 0; padding-left: 22px; }
+  .review-jobs { max-height: 150px; overflow: auto; border: 1px solid var(--hair); border-radius: 7px; padding: 8px 12px; }
+  .review-jobs div { padding: 5px 0; border-bottom: 1px solid var(--hair); }
+  .review-jobs div:last-child { border: 0; }
+  .review-model { width: 100%; min-height: 44px; background-color: var(--surface); font: 500 15px var(--sans);
+    text-transform: none; letter-spacing: 0; }
+  .review-actions { position: sticky; bottom: 0; border-top: 1px solid var(--hair); background: var(--surface);
+    display: flex; justify-content: flex-end; gap: 10px; }
+  .review-actions .ghost, .review-actions .generation { min-height: 44px; }
+  [hidden] { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+  @media (max-width: 900px) {
+    .masthead { display: none; }
+    .admin-shell { display: block; min-height: 100vh; padding: 0 16px; }
+    .pipeline { border: 0; position: static; height: auto; display: block; }
+    .pipeline-list { overflow: visible; }
+    .pipeline-item { scroll-margin-top: 190px; }
+    .pipeline-head { padding: 18px 0 12px; }
+    .pipeline-list, .bulkbar { padding-right: 0; }
+    .workspace { display: none; padding: 18px 0 48px; }
+    .admin-shell.has-selection .pipeline { display: none; }
+    .admin-shell.has-selection .workspace { display: block; }
+    .back-pipeline { display: inline-block; }
+    .role-header { display: block; }
+    .stage-control { margin-top: 16px; max-width: 230px; }
+    .workspace-tabs { gap: 2px 20px; }
+    .material-row { grid-template-columns: 1fr; gap: 12px; }
+    .material-actions { justify-content: flex-start; align-items: stretch; }
+    .material-actions > * { width: 100%; text-align: left; min-height: 44px; padding: 10px 0; }
+    .material-actions .generation, .material-actions .ghost { padding: 10px 12px; }
+    .review-head, .review-body, .review-actions { padding-left: 16px; padding-right: 16px; }
+    .review-actions { display: grid; grid-template-columns: 1fr; }
+    .review-actions .generation { grid-row: 1; }
+  }
+  @media (forced-colors: active) {
+    .pipeline-item.selected, .generation { border: 2px solid ButtonText; }
+    .workspace-tab[aria-selected="true"] { border-bottom: 2px solid LinkText; }
+  }
 </style>
+<link rel="stylesheet" href="/assets/admin-ui.css" />
 </head>
 <body>
   <div class="frame">
     <div class="masthead">
       <div class="mark">bernardo-fit<span class="dot">.</span></div>
-      <div class="kicker">Admin</div>
+      <nav class="topnav" aria-label="Admin views">
+        <button type="button" data-collection="active" aria-current="page">Pipeline</button>
+        <button type="button" data-collection="archive">Archive</button>
+        <button type="button" id="usagebtn">AI activity &amp; usage</button>
+      </nav>
     </div>
   </div>
   <main id="app"></main>
@@ -287,14 +454,30 @@
 <script type="module">
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 import { summariseUsage } from "./admin-usage.js";
+import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError } from "./assets/admin-ui.js";
 (function () {
   "use strict";
 
+  document.addEventListener("admin:stage", function(e) { if(document.onAdminStage) document.onAdminStage(e.detail); });
   var app = document.getElementById("app");
+  var topnav = document.querySelector('.topnav');
+  renderAdmin(topnav, topnav.innerHTML);
   var SECRET_KEY = "bfit_admin_secret";
   var secret = sessionStorage.getItem(SECRET_KEY) || "";
 
   var jobs = [];
+  var fieldDrafts = new Map();
+  var expandedVersions = new Set();
+  document.addEventListener("admin:versions", function(e) { if(e.detail.open) expandedVersions.add(e.detail.key); else expandedVersions.delete(e.detail.key); });
+  var listSequence = 0;
+  var renderedRole = "", renderedSection = "";
+  var renderedScrollKey = "";
+  var suppressAutoSelect = false;
+
+  function draftKey(id, field) { return id + ':' + field; }
+  function hasPendingEdits(id) {
+    return Array.from(fieldDrafts.keys()).some(function (key) { return !id || key.indexOf(id + ':') === 0; });
+  }
   var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_interested", "expired"];
   // These archive the row on the server, so they only ever describe archived
   // jobs. Filtering by them in the pipeline view would always come back empty.
@@ -315,28 +498,25 @@ import { summariseUsage } from "./admin-usage.js";
   }
 
   function showUsage() {
-    var dialog = document.createElement("dialog");
-    dialog.className = "usage-dialog";
-    dialog.setAttribute("aria-label", "AI usage over the last 30 days");
-    dialog.innerHTML = '<button class="ghost" style="float:right" data-close>Close</button><h2>AI usage · last 30 days</h2><div data-content aria-live="polite">Loading…</div>';
-    document.body.appendChild(dialog);
+    var dialog = createAdminDialog({
+      title: 'AI activity & usage', description: 'Recorded usage over the last 30 days.', className: 'usage-dialog',
+      content: '<button class="ghost" data-close>Close</button><div data-content aria-live="polite">Loading…</div>'
+    });
     dialog.querySelector("[data-close]").addEventListener("click", function () { dialog.close(); });
-    dialog.addEventListener("close", function () { dialog.remove(); });
-    dialog.showModal();
     api("/api/admin/reports?usage=1").then(function (out) {
       if (!dialog.isConnected) return;
       var target = dialog.querySelector("[data-content]");
       if (unauthorised(out)) { dialog.close(); return; }
       if (!out.ok) { target.textContent = "Could not load usage. Close and try again."; return; }
       var usage = summariseUsage(out.d);
-      target.innerHTML = '<p><strong>Estimated $' + usage.estimatedUsd.toFixed(2) + ' USD</strong> across ' + usage.pricedCalls + ' priced calls. ' +
+      renderAdmin(target, '<p><strong>Estimated $' + usage.estimatedUsd.toFixed(2) + ' USD</strong> across ' + usage.pricedCalls + ' priced calls. ' +
         usage.savedCalls + ' answers used profile facts without a model call.</p>' +
         '<p>' + usage.input.toLocaleString() + ' input tokens · ' + usage.output.toLocaleString() + ' output tokens · ' + usage.cachePercent.toFixed(1) + '% of input read from cache.</p>' +
         '<p>Estimates cover calls with recorded prices (' + usage.pricedCalls + ' of ' + usage.calls + '). Earlier calls and missing usage are excluded from cost. Provider billing remains authoritative.</p>' +
         '<div class="usage-scroll"><table><thead><tr><th>Task</th><th>Model</th><th>Effort</th><th>Calls</th><th>Output tokens</th><th>Errors</th><th>Estimated USD</th></tr></thead><tbody>' +
         usage.groups.map(function (row) { return '<tr><td>' + esc(row.kind) + '</td><td>' + esc(row.source === "profile" ? "Profile facts" : modelLabel(row.model) || row.model) +
           '</td><td>' + esc(row.effort) + '</td><td>' + row.calls + '</td><td>' + row.output.toLocaleString() + '</td><td>' + row.errors + '</td><td>$' + (row.estimatedCostMicros / 1e6).toFixed(3) + '</td></tr>'; }).join("") +
-        '</tbody></table></div>' + (!usage.groups.length ? '<p>No detailed usage recorded yet.</p>' : '');
+        '</tbody></table></div>' + (!usage.groups.length ? '<p>No detailed usage recorded yet.</p>' : ''));
     });
   }
 
@@ -354,6 +534,12 @@ import { summariseUsage } from "./admin-usage.js";
   var activeRuns = {};
   var coverDispatchEnabled = true;
   var screenDispatchEnabled = true;
+  var selectedId = "";
+  var workspaceSection = "overview";
+  var detailSequence = 0;
+  var selectedMissing = false;
+  var searchLoading = false;
+  var versionGroup = "";
 
   var reports = [];
   var total = 0;
@@ -361,7 +547,12 @@ import { summariseUsage } from "./admin-usage.js";
   var LIMIT = 20;
 
   function esc(s) {
-    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function safeSourceUrl(value) {
+    try { var url = new URL(value); return /^https?:$/.test(url.protocol) ? url.href : ''; }
+    catch (_) { return ''; }
   }
   function fmtDate(iso) {
     if (!iso) return "—";
@@ -372,6 +563,44 @@ import { summariseUsage } from "./admin-usage.js";
     if (!iso) return "—";
     var d = new Date(iso);
     return fmtDate(iso) + " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+
+  var VALID_SECTIONS = ["overview", "materials", "context", "activity"];
+  function readNavigationState() {
+    var p = new URLSearchParams(location.search);
+    showArchived = p.get("collection") === "archive";
+    stageFilter = p.get("stage") || null;
+    searchQuery = p.get("q") || "";
+    selectedId = p.get("job") || "";
+    workspaceSection = VALID_SECTIONS.indexOf(p.get("section")) !== -1 ? p.get("section") : "overview";
+  }
+  function navigationUrl() {
+    var p = new URLSearchParams();
+    if (showArchived) p.set("collection", "archive");
+    if (stageFilter) p.set("stage", stageFilter);
+    if (searchQuery.trim()) p.set("q", searchQuery.trim());
+    if (selectedId) p.set("job", selectedId);
+    if (selectedId && workspaceSection !== "overview") p.set("section", workspaceSection);
+    return location.pathname + (p.toString() ? "?" + p.toString() : "");
+  }
+  function writeNavigation(mode, state) {
+    history[mode === "push" ? "pushState" : "replaceState"](state || { admin: true }, "", navigationUrl());
+  }
+  function scrollKey() {
+    return "fit.pipeline.scroll." + (showArchived ? "archive" : "active") + "." + (stageFilter || "all") + "." + searchQuery.trim().toLowerCase();
+  }
+  function rememberPipelineScroll() {
+    var list = document.querySelector(".pipeline-list");
+    if (window.innerWidth <= 900 && document.querySelector('.admin-shell.has-selection')) return;
+    if (list) sessionStorage.setItem(renderedScrollKey || scrollKey(), String(window.innerWidth <= 900 ? window.scrollY : list.scrollTop));
+  }
+  function restorePipelineScroll() {
+    var value = parseInt(sessionStorage.getItem(scrollKey()) || "0", 10) || 0;
+    requestAnimationFrame(function () {
+      var list = document.querySelector(".pipeline-list");
+      if (window.innerWidth <= 900) { if (!selectedId) window.scrollTo(0, value); }
+      else if (list) list.scrollTop = value;
+    });
   }
 
   function api(path, opts) {
@@ -440,14 +669,14 @@ import { summariseUsage } from "./admin-usage.js";
   // ---------- Gate ----------
 
   function renderGate(err) {
-    app.innerHTML =
+    renderAdmin(app,
       '<div class="frame"><div class="gate">' +
         "<h1>Locked</h1>" +
         "<p>Enter the admin secret to continue.</p>" +
-        '<input type="password" id="secret" placeholder="Admin secret" autofocus />' +
+        '<label for="secret">Admin secret</label><input type="password" id="secret" autocomplete="current-password" autofocus />' +
         (err ? '<div class="err">' + esc(err) + "</div>" : "") +
         '<div class="row"><button id="unlock">Unlock</button></div>' +
-      "</div></div>";
+      "</div></div>");
 
     var input = document.getElementById("secret");
     function tryUnlock() {
@@ -467,24 +696,36 @@ import { summariseUsage } from "./admin-usage.js";
   // have one version of each and nobody looks at them.
   function versionsHtml(j) {
     var n = j.letterVersionCount != null ? j.letterVersionCount : (j.coverLetterVersions || []).length;
-    var label = j.fitReportId || n ? "Versions" : "";
+    var label = j.fitReportId || n || j.hasResearch || j.hasBrief ? "Versions" : "";
     if (!label) return "";
-    return '<details class="jdbox verbox" data-act="verbox">' +
-      "<summary>Versions</summary>" +
-      '<div class="verlist">Loading…</div>' +
-    "</details>";
+    return '<section class="activity-group verbox" data-act="verbox" aria-labelledby="versions-heading">' +
+      '<h2 id="versions-heading">Output versions</h2>' +
+      '<div class="verlist" aria-live="polite">Loading…</div>' +
+    "</section>";
   }
 
-  function versionRow(v, kind) {
-    var bits = [fmtDateTime(v.at), modelLabel(v.model) || v.model];
+  function versionRow(v, kind, number) {
+    var bits = ['Created '+relativeTime(v.at), modelLabel(v.model) || v.model || 'Model not recorded'];
     if (kind === "letter" && v.words) bits.push(v.words + " words");
     if (kind === "fit" && v.score != null) bits.push("score " + v.score);
+    if (kind === "research" && v.sources != null) bits.push(v.sources + " sources" + (v.partial ? " · partial" : ""));
     return '<div class="ver">' +
-      '<span class="vmeta">' + esc(bits.join(" · ")) + "</span>" +
+      '<strong>Version '+number+'</strong><span class="vmeta" title="'+esc(fmtDateTime(v.at))+'">' + esc(bits.join(" · ")) + "</span>" +
+      '<button class="ghost" data-act="verpreview" data-kind="' + kind + '" data-vid="' + esc(v.vid || '') + '" type="button" aria-expanded="false">Preview content</button>' +
       (v.active || !v.vid
-        ? '<span class="vlive">live</span>'
-        : '<button class="ghost" data-act="veruse" data-kind="' + kind + '" data-vid="' + esc(v.vid) + '">Use this</button>') +
+        ? '<span class="vlive">Live</span>'
+        : '<button class="ghost" data-act="veruse" data-kind="' + kind + '" data-vid="' + esc(v.vid) + '">Publish live</button>') +
+      (v.versionInstructions ? '<details class="version-instructions"><summary>Additional instructions</summary><p>'+esc(v.versionInstructions)+'</p></details>' : '') + '<div class="vpreview" hidden></div>' +
     "</div>";
+  }
+
+  function previewHtml(value) {
+    if (value == null) return '';
+    if (Array.isArray(value)) return '<ul>' + value.map(function (item) { return '<li>' + previewHtml(item) + '</li>'; }).join('') + '</ul>';
+    if (typeof value === 'object') return Object.keys(value).filter(function (key) { return key !== 'lead'; }).map(function (key) {
+      return '<div><strong>' + esc(key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ')) + '</strong>' + previewHtml(value[key]) + '</div>';
+    }).join('');
+    return '<p>' + esc(value) + '</p>';
   }
 
   function questionsHtml(j) {
@@ -493,10 +734,11 @@ import { summariseUsage } from "./admin-usage.js";
       var answered = q.a || q.refused;
       var over = q.a && countWords(q.a) > q.limit;
       return '<div class="qa" data-qid="' + esc(q.id) + '">' +
-        '<textarea class="jd qq" data-act="qtext" placeholder="Paste the question from the application form…">' + esc(q.q || "") + '</textarea>' +
+        '<label class="field-label" for="question-' + esc(q.id) + '">Question</label>' +
+        '<textarea id="question-' + esc(q.id) + '" class="jd qq" data-act="qtext" placeholder="Paste the question from the application form…">' + esc(q.q || "") + '</textarea>' +
         '<div class="qa-bar">' +
           '<label>max <input type="number" data-act="qlimit" min="20" max="500" step="10" value="' + (q.limit || 120) + '"> words</label>' +
-          '<button class="ghost" data-act="qdraft">' + (answered ? "Draft again" : "Draft answer") + '</button>' +
+          '<button class="generation" data-act="qdraft">' + (answered ? "Draft again" : "Draft answer") + '</button>' +
           (q.a ? '<button class="ghost" data-act="qcopy">Copy</button>' : "") +
           '<button class="ghost" data-act="qdel">Remove</button>' +
           (q.a ? '<span class="qa-count' + (over ? " over" : "") + '">' + countWords(q.a) + " / " + q.limit + '</span>' : "") +
@@ -511,15 +753,54 @@ import { summariseUsage } from "./admin-usage.js";
     var label = qs.length
       ? "Application questions (" + n + " of " + qs.length + " answered)"
       : "Application questions";
-    return '<details class="jdbox qabox"' + (qs.length ? " open" : "") + '>' +
-      '<summary>' + label + '</summary>' +
-      body +
+    return '<section class="question-list qabox" aria-labelledby="questions-heading">' +
+      '<h2 id="questions-heading">' + label + '</h2>' +
+      '<p class="field-help">Edit and save questions locally. Sparkle actions draft answers after review.</p>' + body +
       '<div class="qa-bar"><button class="ghost" data-act="qadd">Add a question</button></div>' +
-    '</details>';
+    '</section>';
   }
 
   function countWords(s) {
     return String(s || "").trim().split(/\s+/).filter(Boolean).length;
+  }
+
+  function recordJobAction(id, event) {
+    api('/api/admin/jobs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'activity',id:id,event:event})}).catch(function(){});
+  }
+  function jobUsageHtml(data) {
+    var usage = summariseUsage(data || {});
+    return '<section class="job-usage"><h2>AI activity &amp; usage</h2><p class="field-help">For this job, since per-job usage recording began. Earlier calls are not included. Costs are estimates; provider billing remains authoritative.</p>' +
+      '<div class="analytics-summary"><div><strong>$'+usage.estimatedUsd.toFixed(3)+'</strong><span>Estimated USD</span></div><div><strong>'+usage.calls+'</strong><span>AI calls</span></div><div><strong>'+usage.input.toLocaleString()+'</strong><span>Input tokens</span></div><div><strong>'+usage.output.toLocaleString()+'</strong><span>Output tokens</span></div></div>' +
+      '<p class="field-help">'+usage.pricedCalls+' of '+usage.calls+' calls priced · '+usage.cachePercent.toFixed(1)+'% input cached · '+usage.savedCalls+' answers from profile facts</p>' +
+      (usage.groups.length ? '<div class="usage-scroll" role="region" aria-label="AI usage by task and model" tabindex="0"><table><thead><tr><th>Task</th><th>Model</th><th>Effort</th><th>Calls</th><th>Output tokens</th><th>Errors</th><th>Estimated USD</th></tr></thead><tbody>' +
+        usage.groups.map(function(row) { return '<tr><td>'+esc(row.kind)+'</td><td>'+esc(row.source === 'profile' ? 'Profile facts' : modelLabel(row.model) || row.model)+'</td><td>'+esc(row.effort)+'</td><td>'+row.calls+'</td><td>'+row.output.toLocaleString()+'</td><td>'+row.errors+'</td><td>$'+(row.estimatedCostMicros/1e6).toFixed(3)+'</td></tr>'; }).join('') + '</tbody></table></div>' : '<p>No AI usage recorded for this job yet.</p>') + '</section>';
+  }
+
+  function loadJobActivity(target, id, state) {
+    var sequence = target.activitySequence = (target.activitySequence || 0) + 1;
+    state = state || { events: [], snapshot: null };
+    var offset = state.events.length;
+    api('/api/admin/jobs?id='+encodeURIComponent(id)+'&activity=1&offset='+offset+(state.snapshot ? '&snapshot='+state.snapshot : '')).then(function(out) {
+      if (!target.isConnected || target.activitySequence !== sequence || selectedId !== id || unauthorised(out)) return;
+      if (!out.ok) {
+        renderAdmin(target, '<p role="alert">Could not load activity.</p><button class="ghost" data-activity-retry>Retry</button>');
+        target.querySelector('[data-activity-retry]').onclick = function() { loadJobActivity(target,id); }; return;
+      }
+      var data=out.d, stats=data.stats || {};
+      state.events=state.events.concat(data.events || []); state.snapshot=data.snapshot;
+      renderAdmin(target, '<h2>Analytics summary</h2><div class="analytics-summary engagement-summary">'+[[stats.view || 0,'Fit page views'],[stats.copy_link || 0,'Link copies'],[stats.cv_download || 0,'CV downloads']].map(function(item) { return '<div><strong>'+item[0]+'</strong><span>'+item[1]+'</span></div>'; }).join('')+'</div>' +
+        '<section class="job-audit"><div class="audit-heading"><h2>Audit log</h2><button class="ghost" data-activity-refresh>Refresh activity</button></div><p class="field-help">Newest first · timestamps in your local time. Views and downloads are anonymous client-reported events.</p>' +
+        (data.historyNote ? '<p class="field-help">'+esc(data.historyNote)+'</p>' : '') +
+        '<ol class="audit-log">'+state.events.map(function(event) { return '<li><time datetime="'+esc(event.at)+'" title="'+esc(event.at)+'">'+esc(new Date(event.at).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}))+'</time><strong title="'+esc(event.title+(event.detail ? ' — '+event.detail : ''))+'">'+esc(event.title)+'</strong></li>'; }).join('')+'</ol>' +
+        (!state.events.length ? '<p>No recorded actions yet.</p>' : '') + (data.hasMore ? '<button class="ghost" data-activity-more>Load older actions</button>' : '') + '</section>' + jobUsageHtml(data.usage));
+      target.querySelector('[data-activity-refresh]').onclick=function(){loadJobActivity(target,id);};
+      var more=target.querySelector('[data-activity-more]');
+      if(more) more.onclick=function(){more.disabled=true; more.textContent='Loading…'; loadJobActivity(target,id,state);};
+    }).catch(function() {
+      if (!target.isConnected || target.activitySequence !== sequence) return;
+      renderAdmin(target, '<p role="alert">Could not load activity.</p><button class="ghost" data-activity-retry>Retry</button>');
+      target.querySelector('[data-activity-retry]').onclick=function(){loadJobActivity(target,id);};
+    });
   }
 
   function statsHtml(j) {
@@ -554,29 +835,54 @@ import { summariseUsage } from "./admin-usage.js";
     return "tier-" + String(t || "").toLowerCase().replace(/[^a-z]/g, "");
   }
 
+  function stageLabel(value) {
+    return String(value || "new").replace(/_/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
+  function stageOptions(j) {
+    return stages.map(function (s) {
+      return '<option value="' + esc(s) + '"' + (j.stage === s ? " selected" : "") + ">" + esc(stageLabel(s)) + "</option>";
+    }).join("");
+  }
+
+  function relativeTime(iso) {
+    var stamp = Date.parse(iso); if (!Number.isFinite(stamp)) return 'Date unavailable';
+    var seconds = Math.max(0, (Date.now() - stamp) / 1000);
+    if (seconds < 60) return 'just now';
+    var units = [[31536000,'year'],[2592000,'month'],[86400,'day'],[3600,'hour'],[60,'minute']];
+    for (var i=0;i<units.length;i++) if(seconds>=units[i][0]) return new Intl.RelativeTimeFormat(undefined,{numeric:'auto'}).format(-Math.floor(seconds/units[i][0]),units[i][1]);
+  }
+  function timeHtml(iso, prefix) { return '<time title="'+esc(fmtDateTime(iso))+'"'+(iso?' datetime="'+esc(iso)+'"':'')+'>'+esc(prefix || '')+esc(relativeTime(iso))+'</time>'; }
+  function materialRow(title, meta, actions, kind, j) {
+    var key = j.id + ':' + kind;
+    return '<section class="material-row" data-document="'+kind+'"><div class="document-title"><span class="document-icon" data-icon="file"></span><h3>'+esc(title)+'</h3><span class="document-live" data-live="'+kind+'"></span></div>' +
+      '<div class="document-summary" data-summary="'+kind+'">'+meta+'</div>'+((kind==='fit'&&j.jd&&j.jd.stale)||(kind==='brief'&&j.briefStale)||(kind==='research'&&j.researchStale)?'<p class="field-help">Outdated · saved version remains readable</p>':'')+'<div class="material-actions">'+actions+'</div>'+
+      '<div class="document-versions" data-act="document-versions" data-key="'+esc(key)+'" data-open="'+expandedVersions.has(key)+'"><button class="versions-trigger" data-act="versions-toggle">Versions <span data-count="'+kind+'"></span><span data-icon="chevron"></span></button><div class="versions-content"><div class="verlist" data-kind="'+kind+'" aria-live="polite">Loading versions…</div></div></div></section>';
+  }
+
+  function runStateHtml(j) {
+    var rows = [
+      ["Fit analysis", j.analysisRun], ["Cover letter", j.coverRun], ["Research", j.researchRun],
+      ["Interview preparation", j.prepareRun || j.briefRun],
+    ].filter(function (pair) { return pair[1] && pair[1].status; });
+    if (!rows.length) return '<p class="run-state">No recorded role-level run state is available.</p>';
+    return '<div class="activity-list">' + rows.map(function (pair) {
+      return '<div class="activity-row"><span><strong>' + esc(pair[0]) + '</strong></span><span class="run-state">' +
+        esc(stageLabel(pair[1].status)) + (pair[1].startedAt ? ' · ' + esc(fmtDateTime(pair[1].startedAt)) : '') + '</span></div>';
+    }).join("") + '</div>';
+  }
+
   function jobHtml(j) {
     var detailed = Object.prototype.hasOwnProperty.call(j, "jobDescription");
     var hasDescription = detailed ? !!j.jobDescription : !!j.hasDescription;
     var hasLetter = !!j.hasCoverLetter;
     var coverActive = !!(j.coverRun && j.coverRun.runId &&
       (j.coverRun.status === "dispatching" || j.coverRun.status === "queued"));
-    var screenActive = !!(j.prepareRun && j.prepareRun.runId &&
-      (j.prepareRun.status === "dispatching" || j.prepareRun.status === "queued"));
+    var screenActive = [j.prepareRun, j.briefRun].some(function (run) { return run && run.runId && ['dispatching', 'queued'].indexOf(run.status) !== -1; });
+    var researchActive = !!(j.researchRun && j.researchRun.runId && ['dispatching', 'queued'].indexOf(j.researchRun.status) !== -1);
     var fitLink = j.fitReportId ? location.origin + "/?r=" + encodeURIComponent(j.fitReportId) : "";
     var mailLink = j.threadId ? "https://mail.google.com/mail/u/0/#all/" + encodeURIComponent(j.threadId) : "";
-    var meta = [];
-    if (j.source) meta.push(esc(j.source));
-    if (j.location) meta.push(esc(j.location));
-    if (j.salary) meta.push(esc(j.salary));
-    if (j.userViewed) meta.push("you viewed this");
-    if (j.closed) meta.push("posting closed");
-    if (j.coverLetterModel) meta.push("letter: " + modelLabel(j.coverLetterModel));
-    if (j.researchId) meta.push("research: " + j.researchSourceCount + " sources" + (j.researchStale ? " · stale" : ""));
-    if (j.briefId) meta.push("screen brief" + (j.briefStale ? " · stale" : ""));
-
-    var opts = stages.map(function (s) {
-      return '<option value="' + s + '"' + (j.stage === s ? " selected" : "") + ">" + s.replace(/_/g, " ") + "</option>";
-    }).join("");
+    var headerMeta = [j.location, j.locationMode, j.salary].filter(Boolean).map(esc).join(" · ") || "Location and salary not recorded";
 
     var owed = "";
     if (j.replyOwed && j.recruiter) {
@@ -587,79 +893,74 @@ import { summariseUsage } from "./admin-usage.js";
       owed = '<div class="owed">Reply owed</div>';
     }
 
-    var detailHtml = detailed
-      ? '<details class="jdbox">' +
-          "<summary>" + (j.jobDescription ? "Job description" : "Add a job description to enable analysis") +
-            (j.jd && j.jd.stale ? '<span class="staledot" title="Changed since the analysis was generated"></span>' : "") +
-          "</summary>" +
-          '<textarea class="jd" data-act="jd" placeholder="Paste the job description here…">' + esc(j.jobDescription || "") + "</textarea>" +
-        "</details>" +
-        '<details class="jdbox insbox"' + (j.instructions ? " open" : "") + ">" +
-          "<summary>" + (j.instructions ? "Instructions for generation" : "Add instructions for generation") + "</summary>" +
-          '<textarea class="jd ins" data-act="instructions" placeholder="Steer the analysis and the letter for this role. What to emphasise, context from a call, an angle to take.">' + esc(j.instructions || "") + "</textarea>" +
-        "</details>" + versionsHtml(j) + questionsHtml(j) +
-        '<textarea class="notes" data-act="notes" placeholder="Notes…">' + esc(j.notes || "") + "</textarea>"
-      : '<div class="row-actions"><button class="ghost" data-act="detail">Open details' +
-          ((j.questionCount || j.hasNotes || j.hasInstructions) ? " · " + [j.questionCount ? j.questionCount + " question" + (j.questionCount === 1 ? "" : "s") : "", j.hasNotes ? "notes" : "", j.hasInstructions ? "instructions" : ""].filter(Boolean).join(" · ") : "") +
-        "</button></div>";
+    var fitActions = fitLink
+      ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">Open fit page</a>' +
 
-    return (
-      '<div class="row-item" data-id="' + esc(j.id) + '">' +
-        '<div class="row-head">' +
-          "<div>" +
-            '<div class="row-title" data-act="titleview">' + esc(j.role || "Untitled role") +
-              (j.company ? ' <span class="company">at ' + esc(j.company) + "</span>" : ' <span class="company">no company</span>') +
-              '<button class="titlepen" data-act="edittitle" title="Edit role and company">edit</button>' +
-            "</div>" +
-            '<div class="titleedit" data-act="titleform" hidden>' +
-              '<input data-act="erole" value="' + esc(j.role || "") + '" placeholder="Role" />' +
-              '<span class="at">at</span>' +
-              '<input class="co" data-act="ecompany" value="' + esc(j.company || "") + '" placeholder="Company" />' +
-            "</div>" +
-            '<div class="row-meta">' + meta.join(" · ") + "</div>" +
-          "</div>" +
-          '<div class="row-right">' +
-            (j.score != null
-              ? '<span class="scorebadge ' + tierClass(j.tier) + '" title="' +
-                (j.scoreBreakdown
-                  ? "location " + j.scoreBreakdown.location + " · AI/DX " + j.scoreBreakdown.aiDx + " · leadership " + j.scoreBreakdown.leadership
-                  : "") + '">' + j.score + "</span>"
-              : "") +
-            '<select data-act="stage" class="stage-' + esc(j.stage) + '">' + opts + "</select>" +
-          "</div>" +
-        "</div>" +
-        (j.archived
-          ? '<div class="archnote">Archived' + (j.archivedAt ? ' ' + fmtDate(j.archivedAt) : '') +
-            (j.fitReportId ? '. The fit page still works for anyone holding the link.' : '.') + '</div>'
-          : '') +
-        owed +
-        (j.rationale ? '<div class="rationale">' + esc(j.rationale) + "</div>" : "") +
-        staleHtml(j) +
-        statsHtml(j) +
-        detailHtml +
-        '<div class="row-actions">' +
-          (fitLink
-            ? '<a class="ghost" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page</a>' +
-              '<button class="ghost" data-act="copyfit" data-link="' + esc(fitLink) + '">Copy fit link</button>' +
-              '<button class="ghost" data-act="regen">Regenerate</button>' +
-              '<button class="ghost" data-act="cover"' + (coverActive || !coverDispatchEnabled ? " disabled" : "") +
-                (!coverDispatchEnabled ? ' title="Cover generation is paused"' : "") + '>' +
-                (!coverDispatchEnabled ? "Cover paused" : coverActive ? "Writing…" : hasLetter ? "Cover letter" : "Write cover letter") + '</button>'
-              + '<button class="ghost" data-act="screen"' + (screenActive || !screenDispatchEnabled ? " disabled" : "") + '>' +
-                (!screenDispatchEnabled ? "Screen prep paused" : screenActive ? "Preparing…" : j.hasBrief && !j.briefStale ? "Open brief" : "Prepare screen") + '</button>' +
-              (j.hasBrief ? '<button class="ghost" data-act="briefrewrite">Rewrite brief</button>' : "") +
-              (j.hasResearch ? '<button class="ghost" data-act="researchopen">Inspect research</button><button class="ghost" data-act="researchrefresh">Refresh research</button>' : "")
-            : '<button class="ghost" data-act="runfit"' + (hasDescription ? "" : " disabled") + ">Generate fit analysis</button>") +
-          (j.sourceUrl ? '<a class="ghost" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting</a>' : "") +
-          (mailLink ? '<a class="ghost" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email</a>' : "") +
-          (j.archived
-            ? '<button class="ghost" data-act="restore">Restore to pipeline</button>' +
-              '<button class="ghost danger" data-act="delete">Delete permanently</button>'
-            : '<button class="ghost" data-act="archive">Archive</button>') +
-          '<span class="row-status"></span>' +
-        "</div>" +
-      "</div>"
-    );
+        '<button class="generation" data-act="regen">Generate new version</button>'
+      : '<button class="generation" data-act="runfit"' + (hasDescription ? "" : " disabled") + '>Generate analysis</button>';
+    var letterActions = (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' : '') +
+      '<button class="generation" data-act="cover"' + (coverActive || !coverDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
+      (coverActive ? 'Writing…' : hasLetter ? 'Generate new version' : 'Generate letter') + '</button>';
+    var briefActions = (j.hasBrief ? '<button class="read-link" data-act="briefopen">Open ' + (j.briefStale ? 'previous ' : '') + 'brief</button>' : '') +
+      '<button class="generation" data-act="briefrewrite"' + (screenActive || !screenDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
+      (screenActive ? 'Preparing…' : j.hasBrief ? 'Generate new version' : 'Generate brief') + '</button>';
+    var researchActions = (j.hasResearch ? '<button class="read-link" data-act="researchopen">Open research</button>' : '') +
+      '<button class="generation" data-act="researchrefresh"' + (!screenDispatchEnabled || researchActive ? ' disabled' : '') + '>' +
+      (researchActive ? 'Researching…' : j.hasResearch ? 'Generate new version' : 'Generate research') + '</button>';
+
+    var panel = '';
+    if (!detailed) {
+      panel = '<div class="workspace-panel"><p aria-live="polite">Loading role details…</p></div>';
+    } else if (workspaceSection === "overview") {
+      panel = '<section class="workspace-panel" id="panel-overview" role="tabpanel">' +
+        (j.score != null ? '<h2>Why this role</h2>' +
+          '<div class="score-gauges">' + [['location','Location',35],['aiDx','AI / Developer experience',35],['leadership','Leadership',30]].map(function (dimension) {
+            var value = j.scoreBreakdown && j.scoreBreakdown[dimension[0]];
+            return '<div data-score-gauge="'+dimension[1]+'" data-value="'+esc(value == null ? '' : value)+'" data-weight="'+dimension[2]+'"></div>';
+          }).join('') + '</div>'  :
+          '<p>No fit analysis has been generated yet.</p>') +
+        (j.rationale ? '<p class="rationale">' + esc(j.rationale) + '</p>' : '') + owed + staleHtml(j) +
+        '<h2>Ready to use</h2><div class="overview-actions">' + (fitLink?'<button class="ghost" data-act="copyfit" data-link="'+esc(fitLink)+'">Copy fit link</button>':'') +
+          (j.hasBrief ? '<button class="primary-link" data-act="briefopen">Open interview brief</button>' : '') +
+          (fitLink ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page ↗</a>' : '') +
+          (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' : '') + '</div>' +
+        '</section>';
+    } else if (workspaceSection === "materials") {
+      panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><h2>Documents</h2><p class="generation-legend" id="generation-legend">✦ Sparkle actions run AI and may incur costs.</p>' +
+        '<div class="material-list" data-act="verbox">' +
+          materialRow('Fit analysis', j.fitReportId ? 'Shareable page' + (j.jd && j.jd.stale ? ' · Outdated after description change' : ' · Current') : 'Not generated', fitActions, 'fit', j) +
+          materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), letterActions, 'letter', j) +
+          materialRow('Interview brief', 'Private · ' + (j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), briefActions, 'brief', j) +
+          materialRow('Company research', 'Private · ' + (j.hasResearch ? (j.researchStale ? 'Outdated' : 'Current') + ' · ' + Number(j.researchSourceCount || 0) + ' sources' : 'Not generated'), researchActions, 'research', j) +
+        '</div>' + questionsHtml(j) + '</section>';
+    } else if (workspaceSection === "context") {
+      panel = '<section class="workspace-panel context-grid" id="panel-context" role="tabpanel">' +
+        '<div class="field"><label for="company">Company</label><input id="company" type="text" data-field="company" value="' + esc(j.company || '') + '"><div class="field-status" data-save-for="company"></div></div>' +
+        '<div class="field"><label for="role">Role title</label><input id="role" type="text" data-field="role" value="' + esc(j.role || '') + '"><div class="field-status" data-save-for="role"></div></div>' +
+        '<div class="field"><label for="location">Location</label><input id="location" type="text" data-field="location" value="' + esc(j.location || '') + '"><div class="field-status" data-save-for="location"></div></div>' +
+        '<div class="field"><label for="salary">Salary</label><input id="salary" type="text" data-field="salary" value="' + esc(j.salary || '') + '"><div class="field-status" data-save-for="salary"></div></div>' +
+        '<div class="field"><label for="sourceUrl">Posting or source URL</label><input id="sourceUrl" type="url" data-field="sourceUrl" value="' + esc(j.sourceUrl || '') + '"><div class="field-status" data-save-for="sourceUrl"></div></div>' +
+        '<div class="field"><label for="jobDescription">Job description</label><p class="field-help">Changes make the current fit analysis and interview brief outdated.</p><textarea id="jobDescription" class="tall" data-field="jobDescription">' + esc(j.jobDescription || '') + '</textarea><div class="field-status" data-save-for="jobDescription"></div></div>' +
+        '<div class="field"><label for="notes">Private notes</label><p class="field-help">Hidden from public pages. These notes may be used as context when preparing interview materials.</p><textarea id="notes" data-field="notes">' + esc(j.notes || '') + '</textarea><div class="field-status" data-save-for="notes"></div></div>' +
+        '<div class="field"><label for="instructions">AI instructions</label><p class="field-help">Tell generation what to emphasise or avoid. Saving does not run AI.</p><textarea id="instructions" data-field="instructions">' + esc(j.instructions || '') + '</textarea><div class="field-status" data-save-for="instructions"></div></div>' +
+        '<div class="overview-actions">' + (safeSourceUrl(j.sourceUrl) ? '<a class="read-link" href="' + esc(safeSourceUrl(j.sourceUrl)) + '" target="_blank" rel="noopener">View posting ↗</a>' : '') +
+          (mailLink ? '<a class="read-link" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email ↗</a>' : '') + '</div></section>';
+    } else {
+      panel = '<section class="workspace-panel" id="panel-activity" role="tabpanel"><div data-job-activity="'+esc(j.id)+'" aria-live="polite"><p>Loading activity…</p></div>' +
+        '<section class="activity-group"><h2>Record management</h2><div class="record-actions">' +
+        (j.archived ? '<button class="ghost" data-act="restore">Restore to pipeline</button><button class="ghost danger" data-act="delete">Delete permanently</button>' : '<button class="ghost" data-act="archive">Archive</button>') +
+        '</div></section></section>';
+    }
+
+    return '<article class="row-item" data-id="' + esc(j.id) + '"><button class="back-pipeline" data-act="back">← Back to pipeline</button>' +
+      '<header class="role-header"><div class="role-identity"><div class="role-kicker">' + esc(j.company || 'No company') + '</div><h1>' + esc(j.role || 'Untitled role') +
+      '</h1><div class="role-sub">' + headerMeta + (j.closed ? ' · Posting closed' : '') + '</div><div class="role-added">'+timeHtml(j.createdAt,'Added ')+'</div>' +
+      '<div class="role-stage"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><div class="stage-control"><button class="ghost status-edit" aria-label="Change status" title="Change status"><span data-icon="settings"></span></button><div class="stage-popover"><label for="job-stage">Change status</label><select id="job-stage" data-act="stage" aria-label="Stage for ' + esc(j.role || 'role') + '">' + stageOptions(j) + '</select></div></div></div></div>' +
+      '<div class="score-actions"><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></div>'+ (safeSourceUrl(j.sourceUrl)?'<a class="listing-link" href="'+esc(safeSourceUrl(j.sourceUrl))+'" target="_blank" rel="noopener">View original listing <span data-icon="external"></span></a>':'<span class="listing-unavailable field-help">No listing URL</span>')+'</header>' +
+      '<nav class="workspace-tabs" role="tablist" aria-label="Role sections">' +
+      [["overview","Overview"],["materials","Documents"],["context","Role details"],["activity","Activity"]].map(function (item) {
+        return '<button class="workspace-tab" role="tab" data-section="' + item[0] + '" aria-selected="' + (workspaceSection === item[0]) + '">' + item[1] + '</button>';
+      }).join('') + '</nav><span class="row-status" role="status" aria-live="polite"></span>' + panel + '</article>';
   }
 
   // Everything a search term is allowed to hit. Job descriptions are included
@@ -702,45 +1003,36 @@ import { summariseUsage } from "./admin-usage.js";
     if (!q) {
       searchMatches = null;
       searchRequested = "";
+      searchLoading = false;
       searchSequence++;
       if (searchTimer) clearTimeout(searchTimer);
+      renderJobs();
     } else if (searchRequested !== q) {
       if (searchTimer) clearTimeout(searchTimer);
+      searchSequence++;
+      searchMatches = null;
+      searchLoading = true;
       searchTimer = setTimeout(function () {
         var requested = q;
+        var requestedArchive = showArchived;
         var sequence = ++searchSequence;
         searchRequested = requested;
         var prefix = showArchived ? "?archived=1&" : "?";
         api("/api/admin/jobs" + prefix + "q=" + encodeURIComponent(requested), { method: "GET" }).then(function (out) {
-          if (sequence !== searchSequence || requested !== searchQuery.trim().toLowerCase()) return;
-          if (unauthorised(out) || !out.ok) return;
+          if (sequence !== searchSequence || requestedArchive !== showArchived || requested !== searchQuery.trim().toLowerCase()) return;
+          searchLoading = false;
+          if (unauthorised(out) || !out.ok) { renderJobs(); return; }
           searchMatches = new Set(out.d.matchingIds || []);
           paintSearch();
         });
       }, 180);
+    } else {
+      renderJobs();
     }
-    paintSearch();
   }
 
   function paintSearch() {
-    var q = searchQuery.trim().toLowerCase();
-    var visible = 0;
-    Array.prototype.forEach.call(document.querySelectorAll(".row-item"), function (el) {
-      var j = jobs.find(function (x) { return x.id === el.getAttribute("data-id"); });
-      var hit = !q || searchMatches === null || !j || searchMatches.has(j.id);
-      el.style.display = hit ? "" : "none";
-      if (hit) visible++;
-    });
-
-    var countEl = document.querySelector(".toolbar .count");
-    if (countEl) {
-      countEl.textContent = q
-        ? visible + " matching of " + jobs.length
-        : countEl.getAttribute("data-base") || countEl.textContent;
-    }
-
-    var none = document.getElementById("nomatches");
-    if (none) none.style.display = q && searchMatches !== null && visible === 0 ? "" : "none";
+    renderJobs();
   }
 
   // Opens an already-written letter in a new tab, fetching a fresh
@@ -752,7 +1044,7 @@ import { summariseUsage } from "./admin-usage.js";
       body: JSON.stringify({ action: "letter-token", id: id }),
     }).then(function (out) {
       if (unauthorised(out)) return;
-      if (!out.ok) { alert(out.d.error || "Could not open the letter."); return; }
+      if (!out.ok) { notifyAdmin(out.d.error || "Could not open the letter."); return; }
       window.open("/letter?j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token) + "&print=1", "_blank", "noopener");
     });
   }
@@ -763,81 +1055,207 @@ import { summariseUsage } from "./admin-usage.js";
       body: JSON.stringify({ action: "artifact-token", kind: kind, id: id }),
     }).then(function (out) {
       if (unauthorised(out)) return;
-      if (!out.ok) { alert(out.d.error || "Could not open this artifact."); return; }
+      if (!out.ok) { notifyAdmin(out.d.error || "Could not open this artifact."); return; }
       window.open("/brief?kind=" + encodeURIComponent(kind) + "&j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token), "_blank", "noopener");
     });
   }
 
+  function openGenerationReview(options) {
+    options = options || {};
+    if (hasPendingEdits(options.id)) {
+      notifyAdmin('Save pending edits in Role & context before reviewing generation. Failed saves can be retried by leaving the field again.');
+      return;
+    }
+    var dialog = createAdminDialog({
+      title: 'Review generation', description: options.subject || 'Review the exact work and costs before starting.', className: 'review-dialog',
+      content: '<div class="review-body" data-review-body aria-live="polite">Checking current inputs and scope…</div>' +
+        '<div class="review-actions"><button class="ghost" type="button" data-review-cancel>Cancel</button><button class="generation" type="button" data-review-submit disabled>Reviewing…</button></div>'
+    });
+    var currentReview = null;
+    var versionInstructions = '';
+    var instructionsTimer;
+    var supportsVersionInstructions = ['cover','analyse','regenerate','research','brief','prepare-screen'].indexOf(options.kind) !== -1;
+    var submitting = false;
+    var requestId = newRequestId();
+    var loadingSequence = 0;
+    var submit = dialog.querySelector('[data-review-submit]');
+    var bodyEl = dialog.querySelector('[data-review-body]');
+
+    function requestBody() {
+      var modelEl = dialog.querySelector('[data-review-model]');
+      var economyEl = dialog.querySelector('[data-review-economy]');
+      return { action: 'review', id: options.id, kind: options.kind, reportId: options.reportId,
+        questionId: options.questionId, forceResearch: options.forceResearch === true,
+        versionInstructions: supportsVersionInstructions ? versionInstructions : undefined,
+        model: modelEl ? modelEl.value : model, economy: economyEl ? economyEl.checked : economyAnswers };
+    }
+    function paintReview(review) {
+      var active = document.activeElement;
+      var restoreInstructions = active && active.hasAttribute('data-version-instructions');
+      var caret = restoreInstructions ? [active.selectionStart, active.selectionEnd] : null;
+      currentReview = review;
+      model = review.model;
+      localStorage.setItem(MODEL_KEY, model);
+      var models = MODELS.map(function (item) { return '<option value="' + esc(item.id) + '"' + (item.id === review.model ? ' selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
+      var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
+        return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
+      renderAdmin(bodyEl, '<h3>Work to run</h3><ol>' + (review.steps || []).map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>' +
+        jobsHtml + '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>' +
+        (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
+        (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="Add to this job’s generic instructions for this version only…">'+esc(versionInstructions)+'</textarea>' : ''));
+      var instructionsEl = dialog.querySelector('[data-version-instructions]');
+      if (instructionsEl) {
+        if (restoreInstructions) { instructionsEl.focus(); instructionsEl.setSelectionRange(caret[0], caret[1]); }
+        instructionsEl.addEventListener('input', function() {
+          versionInstructions = instructionsEl.value; requestId = newRequestId();
+          currentReview = null; submit.disabled = true; setButtonLabel(submit, 'Reviewing…');
+          ++loadingSequence; clearTimeout(instructionsTimer);
+          instructionsTimer = setTimeout(loadReview, 350);
+        });
+      }
+      submit.disabled = false; setButtonLabel(submit, review.submitLabel);
+      var modelEl = dialog.querySelector('[data-review-model]');
+      if (modelEl) modelEl.addEventListener('change', function () { model = modelEl.value; requestId = newRequestId(); loadReview(); });
+      var economyEl = dialog.querySelector('[data-review-economy]');
+      if (economyEl) economyEl.addEventListener('change', function () { economyAnswers = economyEl.checked; localStorage.setItem('fit.economyAnswers', String(economyAnswers)); loadReview(); });
+    }
+    function loadReview() {
+      clearTimeout(instructionsTimer);
+      var sequence = ++loadingSequence;
+      submit.disabled = true; setButtonLabel(submit, 'Reviewing…'); currentReview = null;
+      api('/api/admin/cover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody()) }).then(function (out) {
+        if (sequence !== loadingSequence || !dialog.isConnected) return;
+        if (unauthorised(out)) { dialog.close(); return; }
+        if (!out.ok) { renderAdmin(bodyEl, '<div class="notice error">' + esc(out.d.error || 'Could not prepare this review.') + '</div>'); setButtonLabel(submit, 'Unavailable'); return; }
+        paintReview(out.d.review);
+      });
+    }
+    function close() { clearTimeout(instructionsTimer); dialog.close(); }
+    dialog.querySelector('[data-review-cancel]').addEventListener('click', close);
+    submit.addEventListener('click', function () {
+      if (!currentReview || submitting) return;
+      submitting = true;
+      dialog.querySelectorAll('select, input, textarea, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = true; });
+      submit.disabled = true; setButtonLabel(submit, 'Starting…');
+      var req = requestBody();
+      req.action = undefined; req.kind = currentReview.effectiveKind; req.reviewFingerprint = currentReview.fingerprint; req.requestId = requestId;
+      api('/api/admin/cover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) }).then(function (out) {
+        submitting = false;
+        dialog.querySelectorAll('select, input, textarea, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = false; });
+        if (unauthorised(out)) { close(); return; }
+        if (!out.ok) {
+          if (out.status === 409 && out.d.code === 'REVIEW_STALE') {
+            showAdminError(bodyEl, 'The inputs or scope changed. Review the refreshed scope before submitting.');
+            requestId = newRequestId(); loadReview(); return;
+          }
+          submit.disabled = false; setButtonLabel(submit, currentReview.submitLabel);
+          showAdminError(bodyEl, out.d.error || 'Could not start generation.'); return;
+        }
+        close();
+        if (options.status) { options.status.textContent = 'Queued…'; options.status.className = 'row-status'; }
+        if (currentReview.effectiveKind === 'cover') watchCover(options.id, out.d.runId, options.status, false);
+        else {
+          var watched = watchWork(options.id || 'batch', out.d.runId, options.status || options.trigger, currentReview.effectiveKind, false);
+          if (currentReview.effectiveKind === 'answer') watched.then(function () {
+            api('/api/admin/jobs?id=' + encodeURIComponent(options.id), { method: 'GET' }).then(function (detail) {
+              if (!detail.ok) return;
+              var index = jobs.findIndex(function (item) { return item.id === options.id; });
+              if (index !== -1) jobs[index] = Object.assign({}, jobs[index], detail.d.job);
+              renderJobs();
+            });
+          });
+        }
+      });
+    });
+    dialog.querySelector('[data-review-cancel]').focus();
+    loadReview();
+  }
+
+  function pipelineItemHtml(j) {
+    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span><span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
+  }
+
+  function loadSelectedDetail(id) {
+    var existing = jobs.find(function (j) { return j.id === id; });
+    if (!id || (existing && Object.prototype.hasOwnProperty.call(existing, "jobDescription"))) return;
+    var sequence = ++detailSequence;
+    selectedMissing = false;
+    api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
+      if (sequence !== detailSequence || selectedId !== id) return;
+      if (unauthorised(out)) return;
+      if (!out.ok) { selectedMissing = true; renderJobs(); return; }
+      var i = jobs.findIndex(function (j) { return j.id === id; });
+      if (i === -1) jobs.push(Object.assign({}, out.d.job, { _outOfCollection: !!out.d.job.archived !== showArchived }));
+      else jobs[i] = Object.assign({}, jobs[i], out.d.job);
+      renderJobs();
+    });
+  }
+
   function renderJobs() {
+    // Keep live editors in place during background refreshes and search updates.
+    var focused = document.activeElement;
+    var preserveWorkspace = renderedRole === selectedId && renderedSection === workspaceSection &&
+      focused && focused.matches('.workspace input, .workspace textarea');
+    if (preserveWorkspace) return;
+    var searchFocused = focused && focused.id === 'search';
+    var searchStart = searchFocused ? focused.selectionStart : null;
+    var searchEnd = searchFocused ? focused.selectionEnd : null;
+    rememberPipelineScroll();
     if (!showArchived && ARCHIVE_ON_STAGE.indexOf(stageFilter) !== -1) stageFilter = null;
+    var q = searchQuery.trim().toLowerCase();
+    var collectionJobs = jobs.filter(function (j) { return !j._outOfCollection; });
+    var searched = q && searchMatches instanceof Set ? collectionJobs.filter(function (j) { return searchMatches.has(j.id); }) : collectionJobs.slice();
     var counts = {};
     stages.forEach(function (s) { counts[s] = 0; });
-    jobs.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
-
-
-    var shown = jobs.filter(function (j) {
-      if (stageFilter && j.stage !== stageFilter) return false;
-      return true;
-    });
-    // Best fit first; anything unscored sinks to the bottom.
+    searched.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
+    var shown = searched.filter(function (j) { return !stageFilter || j.stage === stageFilter; });
     shown.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
+    var pendingAnalysis = collectionJobs.filter(function (j) { return !j.fitReportId && j.hasDescription; }).length;
 
-    var filtering = stageFilter;
-    var pendingAnalysis = jobs.filter(function (j) { return !j.fitReportId && j.hasDescription; }).length;
-
-    var html = '<div class="frame">' +
-      '<div class="toolbar">' +
-        '<h1>' + (showArchived ? 'Archived' : 'Pipeline') + '</h1>' +
-        '<div class="right">' +
-          '<input type="search" id="search" class="searchbox" placeholder="Search roles…" ' +
-            'value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" />' +
-          '<span class="count" data-base="' + esc(shown.length + (filtering ? " shown of " : " of ") + jobs.length) + '">' +
-            shown.length + (filtering ? " shown of " : " of ") + jobs.length + "</span>" +
-          '<span class="modelpick">model' +
-            '<select id="modelsel" class="' + (model === "claude-sonnet-5" ? "backup" : "") + '">' +
-              MODELS.map(function (m) {
-                return '<option value="' + m.id + '"' + (model === m.id ? " selected" : "") + ">" + m.label + "</option>";
-              }).join("") +
-            "</select></span>" +
-          '<label class="modelpick" title="Use confirmed profile facts directly and Sonnet with shorter context for routine motivation questions. Other answers use the selected model.">' +
-            '<input type="checkbox" id="economyanswers"' + (economyAnswers ? ' checked' : '') + '>Save on routine answers</label>' +
-          '<button class="ghost" id="usagebtn">Usage</button>' +
-          (!showArchived && pendingAnalysis
-            ? '<button class="ghost" id="analyseall">' + (activeRuns["analyse-all"] ? "Analysing…" : "Analyse all (" + pendingAnalysis + ")") + '</button>'
-            : '') +
-
-          (archivedCount || showArchived
-            ? '<button class="ghost" id="togglearchived">' +
-              (showArchived ? 'Back to pipeline' : 'Archived (' + archivedCount + ')') + '</button>'
-            : '') +
-        "</div>" +
-      "</div>";
-
-    if (unlinked) {
-      html += '<button class="adoptbanner" id="adopt">' + unlinked + " saved analys" +
-        (unlinked === 1 ? "is is" : "es are") + " not in the pipeline yet · click to add" + "</button>";
+    if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) {
+      selectedId = shown[0].id;
+      writeNavigation("replace");
     }
+    var selected = jobs.find(function (j) { return j.id === selectedId; });
+    var selectedVisible = !!selected && shown.some(function (j) { return j.id === selected.id; });
+    var allowedStages = stages.filter(function (s) { return showArchived || ARCHIVE_ON_STAGE.indexOf(s) === -1; });
+    var countText = searchLoading ? "…" : searched.length;
+    var filterOptions = '<option value=""' + (stageFilter ? '' : ' selected') + '>All stages (' + countText + ')</option>' +
+      allowedStages.map(function (s) { return '<option value="' + esc(s) + '"' + (stageFilter === s ? ' selected' : '') + '>' +
+        esc(stageLabel(s)) + ' (' + (searchLoading ? '…' : counts[s]) + ')</option>'; }).join('');
 
-    html += '<div class="stagebar">' +
-        '<button class="stagechip' + (stageFilter ? "" : " on") + '" data-stage="">All stages</button>' +
-        stages.filter(function (s) { return showArchived || ARCHIVE_ON_STAGE.indexOf(s) === -1; }).map(function (s) {
-          return '<button class="stagechip' + (stageFilter === s ? " on" : "") + '" data-stage="' + s + '">' +
-            s.replace(/_/g, " ") + " " + counts[s] + "</button>";
-        }).join("") +
-      "</div>";
+    var emptyText = !collectionJobs.length ? (showArchived ? 'Nothing archived.' : 'No opportunities yet.') :
+      searchLoading ? 'Searching…' : q && !searched.length ? 'No roles match this search.' : 'No roles match this stage.';
+    var listHtml = shown.length ? shown.map(pipelineItemHtml).join('') : '<div class="pipeline-empty">' + emptyText +
+      (q && !searchLoading ? '<br><button class="ghost" data-clear-search>Clear search</button>' : stageFilter ? '<br><button class="ghost" data-all-stages>Show all stages</button>' : '') + '</div>';
+    var workspaceHtml = selectedMissing ? '<div class="workspace-empty"><h1>Role unavailable</h1><p>This role no longer exists or cannot be opened.</p><button class="ghost" data-return-list>Return to pipeline</button></div>' :
+      selected ? (!selectedVisible ? '<div class="notice">This role no longer matches the current pipeline view.<button class="read-link" data-return-list>Return to the list</button></div>' : '') + jobHtml(selected) :
+      '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a role from the pipeline to review its fit, materials, context and activity.</p></div>';
 
-    if (!jobs.length) {
-      html += showArchived
-        ? '<div class="empty">Nothing archived.</div>'
-        : '<div class="empty">No opportunities yet.<small>The recurring inbox review adds them here, and anything analysed on the site shows up too.</small></div>';
-    } else if (!shown.length) {
-      html += '<div class="empty">Nothing matches these filters.</div>';
-    } else {
-      html += shown.map(jobHtml).join("") +
-        '<div class="empty" id="nomatches" style="display:none">Nothing matches that search.</div>';
+    renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + '"><aside class="pipeline" aria-label="' + (showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
+      '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
+      '<span class="pipeline-total">'+shown.length+' opportunities</span>' + '</div>' +
+      '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
+      '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select></div></div>' +
+      (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
+      (!showArchived && pendingAnalysis ? '<div class="bulkbar"><button class="generation" id="analyseall"' + (activeRuns['analyse-all'] ? ' disabled' : '') + '>' +
+        (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse ready roles (' + pendingAnalysis + ')') + '</button><p class="field-help">Sparkle actions run AI and may incur costs.</p></div>' : '') +
+      '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
+
+    renderedRole = selectedId; renderedSection = workspaceSection;
+    renderedScrollKey = scrollKey();
+    restorePipelineScroll();
+    if (searchFocused) {
+      var restoredSearch = document.getElementById('search');
+      restoredSearch.focus(); restoredSearch.setSelectionRange(searchStart, searchEnd);
     }
-    html += '<div class="pagefoot"></div></div>';
-    app.innerHTML = html;
+    document.querySelectorAll('.generation').forEach(function (button) {
+      button.setAttribute('aria-description', 'Sparkle actions run AI and may incur costs.');
+    });
+
+    document.querySelectorAll('[data-collection]').forEach(function (button) {
+      button.setAttribute('aria-current', button.getAttribute('data-collection') === (showArchived ? 'archive' : 'active') ? 'page' : 'false');
+    });
 
 
     var adoptBtn = document.getElementById("adopt");
@@ -850,7 +1268,7 @@ import { summariseUsage } from "./admin-usage.js";
           body: JSON.stringify({ kind: "adopt", requestId: newRequestId() }),
         }).then(function (out) {
           if (unauthorised(out)) return;
-          if (!out.ok) { alert(out.d.error || "Failed."); adoptBtn.disabled = false; return; }
+          if (!out.ok) { notifyAdmin(out.d.error || "Failed."); adoptBtn.disabled = false; return; }
           activeRuns.adopt = { runId: out.d.runId };
           watchWork("batch", out.d.runId, adoptBtn, "adopt", false).then(function () { activeRuns.adopt = null; });
         });
@@ -861,16 +1279,7 @@ import { summariseUsage } from "./admin-usage.js";
     if (analyseAllBtn) {
       analyseAllBtn.disabled = !!activeRuns["analyse-all"];
       analyseAllBtn.addEventListener("click", function () {
-        analyseAllBtn.disabled = true; analyseAllBtn.textContent = "Dispatching…";
-        api("/api/admin/cover", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind: "analyse-all", model: model, requestId: newRequestId() }),
-        }).then(function (out) {
-          if (unauthorised(out)) return;
-          if (!out.ok) { analyseAllBtn.disabled = false; analyseAllBtn.textContent = out.d.error || "Could not start."; return; }
-          activeRuns["analyse-all"] = { runId: out.d.runId };
-          watchWork("batch", out.d.runId, analyseAllBtn, "analyse-all", false).then(function () { activeRuns["analyse-all"] = null; });
-        });
+        openGenerationReview({ kind: 'analyse-all', trigger: analyseAllBtn, status: analyseAllBtn });
       });
     }
 
@@ -887,41 +1296,76 @@ import { summariseUsage } from "./admin-usage.js";
     if (searchEl) {
       searchEl.addEventListener("input", function () {
         searchQuery = searchEl.value;
+        writeNavigation("replace");
         applySearch();
       });
       searchEl.addEventListener("keydown", function (e) {
-        if (e.key === "Escape") { searchEl.value = ""; searchQuery = ""; applySearch(); }
+        if (e.key === "Escape") { searchEl.value = ""; searchQuery = ""; writeNavigation("replace"); applySearch(); }
       });
     }
 
-    var modelSel = document.getElementById("modelsel");
-    document.getElementById("usagebtn").addEventListener("click", showUsage);
-    var economySel = document.getElementById("economyanswers");
-    if (economySel) economySel.addEventListener("change", function () {
-      economyAnswers = economySel.checked;
-      localStorage.setItem("fit.economyAnswers", String(economyAnswers));
-    });
-    if (modelSel) modelSel.addEventListener("change", function () {
-      model = modelSel.value;
-      localStorage.setItem(MODEL_KEY, model);
-      modelSel.className = model === "claude-sonnet-5" ? "backup" : "";
+    var usageButton = document.getElementById("usagebtn");
+    if (usageButton) usageButton.onclick = showUsage;
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-collection]'), function (button) {
+      button.onclick = function () {
+        var nextArchived = button.getAttribute('data-collection') === 'archive';
+        if (nextArchived === showArchived) return;
+        rememberPipelineScroll(); showArchived = nextArchived; stageFilter = null; selectedId = ""; searchMatches = null; searchRequested = "";
+        writeNavigation("push"); loadJobs(false);
+      };
     });
 
     var archToggle = document.getElementById("togglearchived");
     if (archToggle) {
       archToggle.addEventListener("click", function () {
+        rememberPipelineScroll();
         showArchived = !showArchived;
         stageFilter = null;
+        selectedId = "";
+        searchMatches = null;
+        searchRequested = "";
+        writeNavigation("push");
         loadJobs(false);
       });
     }
 
-    Array.prototype.forEach.call(document.querySelectorAll(".stagechip"), function (chip) {
-      chip.addEventListener("click", function () {
-        stageFilter = chip.getAttribute("data-stage") || null;
-        renderJobs();
+    var stageFilterEl = document.getElementById("stagefilter");
+    if (stageFilterEl) stageFilterEl.addEventListener("change", function () {
+      rememberPipelineScroll(); stageFilter = stageFilterEl.value || null; writeNavigation("push"); renderJobs(); restorePipelineScroll();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-select-job]'), function (button) {
+      button.addEventListener('click', function () {
+        rememberPipelineScroll(); selectedId = button.getAttribute('data-select-job'); selectedMissing = false;
+        writeNavigation('push', { admin: true, selectedFromList: true }); renderJobs(); loadSelectedDetail(selectedId);
       });
     });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-section-link]'), function (button) {
+      button.addEventListener('click', function () {
+        workspaceSection = button.getAttribute('data-section-link'); versionGroup = button.getAttribute('data-version-group') || "";
+        writeNavigation('push'); renderJobs();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-return-list], [data-act="back"]'), function (button) {
+      button.addEventListener('click', function () {
+        suppressAutoSelect = true;
+        selectedId = ""; writeNavigation('push'); renderJobs(); restorePipelineScroll();
+      });
+    });
+    var clearSearch = document.querySelector('[data-clear-search]');
+    if (clearSearch) clearSearch.addEventListener('click', function () { searchQuery = ""; searchMatches = null; writeNavigation('push'); renderJobs(); });
+    var allStages = document.querySelector('[data-all-stages]');
+    if (allStages) allStages.addEventListener('click', function () { stageFilter = null; writeNavigation('push'); renderJobs(); });
+
+    var listing = document.querySelector('.listing-link');
+    if (listing) listing.addEventListener('click', function() { recordJobAction(selectedId,'listing_opened'); });
+    var activityTarget = document.querySelector('[data-job-activity]');
+    if (activityTarget) loadJobActivity(activityTarget, selectedId);
+
+    var selectedSummary = jobs.find(function (j) { return j.id === selectedId; });
+    if (selectedId && !selectedMissing && (!selectedSummary || !Object.prototype.hasOwnProperty.call(selectedSummary, 'jobDescription'))) {
+      loadSelectedDetail(selectedId);
+    }
 
     Array.prototype.forEach.call(document.querySelectorAll(".row-jd"), function (el) {
       el.addEventListener("click", function () { el.classList.toggle("expanded"); });
@@ -965,19 +1409,66 @@ import { summariseUsage } from "./admin-usage.js";
         });
       });
 
-      function patch(body, onDone) {
+      function patch(body, onDone, onError) {
         api("/api/admin/jobs?id=" + encodeURIComponent(id), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         }).then(function (out) {
           if (unauthorised(out)) return;
-          if (!out.ok) { status.textContent = out.d.error || "Save failed."; status.className = "row-status err"; return; }
+          if (!out.ok) { status.textContent = out.d.error || "Save failed."; status.className = "row-status err"; if (onError) onError(); return; }
           var i = jobs.findIndex(function (j) { return j.id === id; });
           if (i !== -1) jobs[i] = Object.assign({}, jobs[i], out.d.job);
           if (onDone) onDone(out.d.job);
         });
       }
+      [['researchRun', 'research'], ['briefRun', 'brief']].forEach(function (entry) {
+        var run = job[entry[0]];
+        if (!run || !run.runId || ['dispatching', 'queued'].indexOf(run.status) === -1 || attachedCoverWatches[run.runId]) return;
+        attachedCoverWatches[run.runId] = true;
+        watchWork(id, run.runId, status, entry[1], false).then(function () { delete attachedCoverWatches[run.runId]; });
+      });
+
+      var fieldSaveSeq = {};
+      Array.prototype.forEach.call(rowEl.querySelectorAll('[data-field]'), function (input) {
+        var draftField = input.getAttribute('data-field');
+        var key = draftKey(id, draftField);
+        var savedDraft = fieldDrafts.get(key);
+        var liveFeedback = rowEl.querySelector('[data-save-for="' + draftField + '"]');
+        if (liveFeedback) liveFeedback.setAttribute('role', 'status');
+        if (savedDraft) {
+          input.value = savedDraft.value;
+          if (liveFeedback) liveFeedback.textContent = savedDraft.message || 'Unsaved changes';
+        }
+        input.addEventListener('input', function () {
+          fieldDrafts.set(key, { value: input.value, message: 'Unsaved changes' });
+          if (liveFeedback) liveFeedback.textContent = 'Unsaved changes';
+        });
+        input.addEventListener('blur', function () {
+          var field = input.getAttribute('data-field');
+          var value = input.value;
+          if (value === String(job[field] || '')) return;
+          var draft = { value: value, message: 'Saving…' };
+          fieldDrafts.set(key, draft);
+          var feedback = rowEl.querySelector('[data-save-for="' + field + '"]');
+          var sequence = (fieldSaveSeq[field] || 0) + 1; fieldSaveSeq[field] = sequence;
+          if (feedback) { feedback.textContent = 'Saving…'; feedback.className = 'field-status'; }
+          api('/api/admin/jobs?id=' + encodeURIComponent(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries([[field, value]])) }).then(function (out) {
+            if (unauthorised(out) || fieldSaveSeq[field] !== sequence) return;
+            if (!out.ok) {
+              draft.message = "Couldn't save. Leave this field again to retry.";
+              if (feedback) { feedback.textContent = (out.d && out.d.error) || "Couldn't save. Your draft is still here; leave the field again to retry."; feedback.className = 'field-status err'; }
+              return;
+            }
+            var index = jobs.findIndex(function (item) { return item.id === id; });
+            if (index !== -1) jobs[index] = Object.assign({}, jobs[index], out.d.job);
+            job = jobs[index] || job;
+            if (fieldDrafts.get(key) === draft) fieldDrafts.delete(key);
+            if (feedback) feedback.textContent = input.value === value ? 'Saved' : 'Saved earlier edit; newer text is not saved yet.';
+          });
+        });
+      });
 
       var detailBtn = rowEl.querySelector('[data-act="detail"]');
       if (detailBtn) detailBtn.addEventListener("click", function () {
@@ -997,9 +1488,7 @@ import { summariseUsage } from "./admin-usage.js";
       });
 
       var sel = rowEl.querySelector('[data-act="stage"]');
-      sel.addEventListener("change", function () {
-        var next = sel.value;
-        sel.className = "stage-" + next;
+      document.onAdminStage = function (next) {
         status.textContent = "Saving…"; status.className = "row-status";
         patch({ stage: next }, function () {
           status.textContent = "Saved"; status.className = "row-status ok";
@@ -1009,13 +1498,13 @@ import { summariseUsage } from "./admin-usage.js";
           var left = ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived;
           setTimeout(left ? function () { loadJobs(false); } : renderJobs, 700);
         });
-      });
+      };
 
       // ---- application questions ----
       function saveQuestion(edit, done) {
         status.textContent = "Saving…"; status.className = "row-status";
         patch({ question: edit }, function () {
-          status.textContent = ""; 
+          status.textContent = "";
           if (done) done();
         });
       }
@@ -1051,14 +1540,40 @@ import { summariseUsage } from "./admin-usage.js";
         function currentEdit() {
           return { id: qid, q: text.value, limit: parseInt(lim.value, 10) || 120 };
         }
-        function persist() { saveQuestion(currentEdit()); }
+        var questionKey = draftKey(id, 'question-' + qid);
+        var questionDraft = fieldDrafts.get(questionKey);
+        if (questionDraft) { text.value = questionDraft.value.q; lim.value = questionDraft.value.limit; }
+        var questionStatus = document.createElement('div');
+        questionStatus.className = 'field-status'; questionStatus.setAttribute('role', 'status');
+        questionStatus.textContent = questionDraft ? questionDraft.message : '';
+        qEl.appendChild(questionStatus);
+        function rememberQuestion() {
+          fieldDrafts.set(questionKey, { value: currentEdit(), message: 'Unsaved question changes' });
+          questionStatus.textContent = 'Unsaved question changes';
+        }
+        text.addEventListener('input', rememberQuestion);
+        lim.addEventListener('input', rememberQuestion);
+        function persist(done) {
+          var draft = { value: currentEdit(), message: 'Saving…' };
+          fieldDrafts.set(questionKey, draft); questionStatus.textContent = draft.message;
+          patch({ question: draft.value }, function () {
+            if (fieldDrafts.get(questionKey) === draft) {
+              fieldDrafts.delete(questionKey); questionStatus.textContent = 'Saved';
+            }
+            if (typeof done === 'function') done();
+          }, function () {
+            draft.message = "Couldn't save. Leave the question again to retry.";
+            questionStatus.textContent = draft.message;
+          });
+        }
         if (text) text.addEventListener("blur", persist);
         if (lim) lim.addEventListener("change", persist);
 
         var del = qEl.querySelector('[data-act="qdel"]');
-        if (del) del.addEventListener("click", function () {
-          if (text.value.trim() && !confirm("Remove this question and its answer?")) return;
+        if (del) del.addEventListener("click", async function () {
+          if (text.value.trim() && !await confirmAdmin({ title: 'Remove question?', description: 'This removes the question and its saved answer.', confirmLabel: 'Remove question', destructive: true })) return;
           saveQuestion({ id: qid, remove: true }, function () {
+            fieldDrafts.delete(questionKey);
             var qElIndex = (job.questions || []).findIndex(function (q) { return q.id === qid; });
             if (qElIndex !== -1) job.questions.splice(qElIndex, 1);
             renderJobs();
@@ -1069,6 +1584,7 @@ import { summariseUsage } from "./admin-usage.js";
         if (copy) copy.addEventListener("click", function () {
           var a = (qEl.querySelector(".qa-answer") || {}).textContent || "";
           navigator.clipboard.writeText(a).then(function () {
+            recordJobAction(id,"answer_copied");
             copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy"; }, 1400);
           });
         });
@@ -1079,29 +1595,10 @@ import { summariseUsage } from "./admin-usage.js";
             status.textContent = "Write the question first."; status.className = "row-status err";
             return;
           }
-          draft.disabled = true;
-          status.textContent = "Drafting…"; status.className = "row-status";
           // Persist the question text first, so the server answers what is on screen.
-          patch({ question: currentEdit() }, function () {
-            var requestId = newRequestId();
-            api("/api/admin/cover", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: id, kind: "answer", questionId: qid, model: model, requestId: requestId, economy: economyAnswers }),
-            }).then(function (out) {
-              if (unauthorised(out)) return;
-              if (!out.ok) { draft.disabled = false; status.textContent = out.d.error || "Could not draft it."; status.className = "row-status err"; return null; }
-              return watchWork(id, out.d.runId, status, "answer", false);
-            }).then(function (out) {
-              draft.disabled = false;
-              if (!out || !out.ok || out.d.status !== "COMPLETED" || out.d.result?.outcome !== "completed") return;
-              api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (detail) {
-                if (!detail.ok) return;
-                var i = jobs.findIndex(function (j) { return j.id === id; });
-                if (i !== -1) jobs[i] = Object.assign({}, jobs[i], detail.d.job);
-                renderJobs();
-              });
-            });
+          persist(function () {
+            openGenerationReview({ id: id, kind: 'answer', questionId: qid, trigger: draft, status: status,
+              subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
           });
         });
       });
@@ -1163,30 +1660,46 @@ import { summariseUsage } from "./admin-usage.js";
       // ---- versions ----
       var verBox = rowEl.querySelector('[data-act="verbox"]');
       if (verBox) {
-        var verList = verBox.querySelector(".verlist");
+        var verList = verBox;
         var loaded = false;
         function paintVersions(d) {
-          var html = "";
-          if ((d.fit || []).length) {
-            html += '<div class="verhead">Fit analysis</div>' +
-              d.fit.map(function (v) { return versionRow(v, "fit"); }).join("");
-          }
-          if ((d.letter || []).length) {
-            html += '<div class="verhead">Cover letter</div>' +
-              d.letter.map(function (v) { return versionRow(v, "letter"); }).join("");
-          }
-          verList.innerHTML = html || '<div class="ver"><span class="vmeta">Nothing generated yet.</span></div>';
+          ['fit','letter','brief','research'].forEach(function(kind) {
+            var versions=d[kind]||[], list=verBox.querySelector('.verlist[data-kind="'+kind+'"]');
+            if(!list) return;
+            renderAdmin(list,versions.length?versions.map(function(v,i){return versionRow(v,kind,versions.length-i);}).join(''):'<p class="field-help">No saved versions yet.</p>');
+            var live=versions.find(function(v){return v.active;}), current=live||versions[0];
+            var summary=verBox.querySelector('[data-summary="'+kind+'"]'), label=verBox.querySelector('[data-live="'+kind+'"]');
+            verBox.querySelector('[data-count="'+kind+'"]').textContent=versions.length;
+            label.textContent=live?'Live · v'+(versions.length-versions.indexOf(live)):current?'Saved':'Not created';
+            if(current) renderAdmin(summary,'<div class="version-summary"><strong>Version '+(versions.length-versions.indexOf(current))+'</strong><span>'+esc(modelLabel(current.model)||current.model||'Model not recorded')+'</span></div><p class="document-age">'+timeHtml(current.at,'Created ')+'</p><p class="field-help">'+(kind==='fit'?'Shareable fit page':'Private document')+'</p>');
+          });
           wireUse();
         }
         function loadVersions() {
           api("/api/admin/versions?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
-            if (unauthorised(out)) return;
-            if (!out.ok) { verList.textContent = out.d.error || "Could not load versions."; return; }
+            if (!rowEl.isConnected || unauthorised(out)) return;
+            if (!out.ok) { verList.querySelectorAll(".verlist").forEach(function(el){el.textContent=out.d.error || "Could not load versions. Reopen Documents to retry.";}); return; }
             loaded = true;
             paintVersions(out.d);
           });
         }
         function wireUse() {
+          [].forEach.call(verList.querySelectorAll('[data-act="verpreview"]'), function (btn) {
+            btn.addEventListener('click', function () {
+              var preview = btn.parentElement.querySelector('.vpreview');
+              preview.hidden = !preview.hidden;
+              btn.textContent = preview.hidden ? 'Preview content' : 'Hide preview';
+              btn.setAttribute('aria-expanded', String(!preview.hidden));
+              if (preview.hidden || preview.dataset.loaded) return;
+              preview.textContent = 'Loading version…';
+              api('/api/admin/versions?id=' + encodeURIComponent(id) + '&kind=' + encodeURIComponent(btn.getAttribute('data-kind')) +
+                '&vid=' + encodeURIComponent(btn.getAttribute('data-vid')), { method: 'GET' }).then(function (out) {
+                if (unauthorised(out)) return;
+                if (!out.ok) { preview.textContent = out.d.error || 'Could not load version. Close and reopen to retry.'; return; }
+                renderAdmin(preview, previewHtml(out.d.content)); preview.dataset.loaded = 'true';
+              });
+            });
+          });
           [].forEach.call(verList.querySelectorAll('[data-act="veruse"]'), function (btn) {
             btn.addEventListener("click", function () {
               btn.disabled = true;
@@ -1203,15 +1716,12 @@ import { summariseUsage } from "./admin-usage.js";
                   return;
                 }
                 status.textContent = "Switched"; status.className = "row-status ok";
-                loadVersions();
                 loadJobs(false);
               });
             });
           });
         }
-        verBox.addEventListener("toggle", function () {
-          if (verBox.open && !loaded) loadVersions();
-        });
+        if (!loaded) loadVersions();
       }
 
       var ins = rowEl.querySelector('[data-act="instructions"]');
@@ -1244,6 +1754,7 @@ import { summariseUsage } from "./admin-usage.js";
       if (copyFit) {
         copyFit.addEventListener("click", function () {
           navigator.clipboard.writeText(copyFit.getAttribute("data-link")).then(function () {
+            recordJobAction(id,"fit_link_copied");
             copyFit.textContent = "Copied";
             setTimeout(function () { copyFit.textContent = "Copy fit link"; }, 1600);
           });
@@ -1266,116 +1777,40 @@ import { summariseUsage } from "./admin-usage.js";
       var runFit = rowEl.querySelector('[data-act="runfit"]');
       if (runFit) {
         runFit.addEventListener("click", function () {
-          var text = jd ? (jd.value || "").trim() : "";
-          if (jd && text.length < 20) {
-            status.textContent = "Add a fuller job description first."; status.className = "row-status err";
-            return;
-          }
-          runFit.disabled = true;
-          status.textContent = "Running analysis…"; status.className = "row-status";
-          // If details are open, save the text first. Compact rows already have
-          // their description stored and can start without downloading it.
-          function analyse() {
-            var requestId = newRequestId();
-            api("/api/admin/cover", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: id, kind: "analyse", model: model, requestId: requestId }),
-            }).then(function (out) {
-              if (unauthorised(out)) return;
-              if (!out.ok) {
-                runFit.disabled = false;
-                status.textContent = out.d.error || "Analysis failed.";
-                status.className = "row-status err";
-                return;
-              }
-              watchWork(id, out.d.runId, status, "analyse", false).then(function () { runFit.disabled = false; });
-            });
-          }
-          if (jd) patch({ jobDescription: text }, analyse);
-          else analyse();
+          openGenerationReview({ id: id, kind: 'analyse', trigger: runFit, status: status,
+            subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
         });
       }
 
       var coverBtn = rowEl.querySelector('[data-act="cover"]');
       if (coverBtn) {
         coverBtn.addEventListener("click", function () {
-          var had = !!(job.coverLetter || job.hasCoverLetter);
-          if (had && !confirm("Rewrite the cover letter for this role?")) {
-            // Already have one and not rewriting: just open it.
-            openLetter(id);
-            return;
-          }
-          coverBtn.disabled = true;
-          status.textContent = "Dispatching…"; status.className = "row-status";
-          var requestId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()).replace(/-/g, "");
-          function dispatch(attempt) {
-            api("/api/admin/cover", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: id, model: model, requestId: requestId }),
-            }).then(function (out) {
-              if (out.status === 0 && attempt === 0) {
-                status.textContent = "Connection dropped. Recovering dispatch…";
-                setTimeout(function () { dispatch(1); }, 1000);
-                return;
-              }
-              if (unauthorised(out)) return;
-              if (!out.ok) {
-                coverBtn.disabled = false;
-                status.textContent = out.d.error || "Could not start it.";
-                status.className = "row-status err";
-                return;
-              }
-              watchCover(id, out.d.runId, status, true);
-            });
-          }
-          dispatch(0);
+          openGenerationReview({ id: id, kind: 'cover', trigger: coverBtn, status: status,
+            subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
         });
       }
-
-      function dispatchScreen(kind, forceResearch, openKind) {
-        status.textContent = "Dispatching…"; status.className = "row-status";
-        var requestId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()).replace(/-/g, "");
-        api("/api/admin/cover", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: id, kind: kind, model: model, requestId: requestId, forceResearch: !!forceResearch }),
-        }).then(function (out) {
-          if (unauthorised(out)) return;
-          if (!out.ok) { status.textContent = out.d.error || "Could not start it."; status.className = "row-status err"; return; }
-          watchWork(id, out.d.runId, status, kind, true);
-        });
-      }
-      var screenBtn = rowEl.querySelector('[data-act="screen"]');
-      if (screenBtn) screenBtn.addEventListener("click", function () {
-        if (job.hasBrief && !job.briefStale) openArtifact(id, "brief");
-        else { screenBtn.disabled = true; dispatchScreen("prepare-screen", false, "brief"); }
-      });
       var rewriteBrief = rowEl.querySelector('[data-act="briefrewrite"]');
       if (rewriteBrief) rewriteBrief.addEventListener("click", function () {
-        rewriteBrief.disabled = true;
-        dispatchScreen(job.researchStale ? "prepare-screen" : "brief", false, "brief");
+        openGenerationReview({ id: id, kind: 'prepare-screen', trigger: rewriteBrief, status: status,
+          subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
       });
+      var letterOpen = rowEl.querySelector('[data-act="letteropen"]');
+      if (letterOpen) letterOpen.addEventListener('click', function () { openLetter(id); });
+      var briefOpen = rowEl.querySelector('[data-act="briefopen"]');
+      if (briefOpen) briefOpen.addEventListener('click', function () { openArtifact(id, 'brief'); });
       var researchOpen = rowEl.querySelector('[data-act="researchopen"]');
       if (researchOpen) researchOpen.addEventListener("click", function () { openArtifact(id, "research"); });
       var researchRefresh = rowEl.querySelector('[data-act="researchrefresh"]');
-      if (researchRefresh) researchRefresh.addEventListener("click", function () { researchRefresh.disabled = true; dispatchScreen("research", true, "research"); });
+      if (researchRefresh) researchRefresh.addEventListener("click", function () {
+        openGenerationReview({ id: id, kind: 'research', trigger: researchRefresh, status: status,
+          subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
+      });
 
       var regen = rowEl.querySelector('[data-act="regen"]');
       if (regen) {
         regen.addEventListener("click", function () {
-          regen.disabled = true;
-          status.textContent = "Regenerating…"; status.className = "row-status";
-          var requestId = newRequestId();
-          api("/api/admin/cover", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: id, reportId: job.fitReportId, kind: "regenerate", model: model, requestId: requestId }),
-          }).then(function (out) {
-            if (unauthorised(out)) return;
-            if (!out.ok) { regen.disabled = false; status.textContent = out.d.error || "Regenerate failed."; status.className = "row-status err"; return; }
-            watchWork(id, out.d.runId, status, "regenerate", false).then(function () { regen.disabled = false; });
-          });
+          openGenerationReview({ id: id, reportId: job.fitReportId, kind: 'regenerate', trigger: regen, status: status,
+            subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
         });
       }
 
@@ -1397,30 +1832,39 @@ import { summariseUsage } from "./admin-usage.js";
 
       var deleteBtn = rowEl.querySelector('[data-act="delete"]');
       if (deleteBtn) {
-        deleteBtn.addEventListener("click", function () {
+        deleteBtn.addEventListener("click", async function () {
           var what = (job.role || "this row") + (job.company ? " at " + job.company : "");
-          if (!confirm("Delete " + what + " for good?\n\nThe row and its notes go. The fit page itself stays up, so any link you already shared keeps working.")) return;
+          if (!await confirmAdmin({ title: 'Delete ' + what + '?', description: 'The role and its notes will be permanently removed. The shared fit page stays available.', confirmLabel: 'Delete permanently', destructive: true })) return;
           status.textContent = "Deleting…"; status.className = "row-status";
           api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (out) {
             if (unauthorised(out)) return;
             if (!out.ok) { status.textContent = out.d.error || "Delete failed."; status.className = "row-status err"; return; }
+            jobs = jobs.filter(function (item) { return item.id !== id; });
+            selectedMissing = selectedId === id;
             loadJobs(false);
           });
         });
       }
     });
 
-    // Re-apply the search after any re-render, so a filter change or a saved
-    // edit doesn't quietly bring hidden rows back.
-    applySearch();
   }
 
   function loadJobs(firstTry) {
+    var sequence = ++listSequence;
+    var requestedArchive = showArchived;
     api("/api/admin/jobs" + (showArchived ? "?archived=1" : ""), { method: "GET" }).then(function (out) {
+      if (sequence !== listSequence || requestedArchive !== showArchived) return;
       if (unauthorised(out, firstTry)) return;
       if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
       sessionStorage.setItem(SECRET_KEY, secret);
-      jobs = out.d.jobs || [];
+      var previous = new Map(jobs.map(function (job) { return [job.id, job]; }));
+      jobs = (out.d.jobs || []).map(function (summary) {
+        var detail = previous.get(summary.id);
+        return detail && Object.prototype.hasOwnProperty.call(detail, 'jobDescription') ? Object.assign({}, detail, summary) : summary;
+      });
+      if (selectedId && !jobs.some(function (job) { return job.id === selectedId; }) && previous.has(selectedId)) {
+        jobs.push(Object.assign({}, previous.get(selectedId), { _outOfCollection: true }));
+      }
       if (out.d.stages && out.d.stages.length) stages = out.d.stages;
       if (out.d.models && out.d.models.length) MODELS = out.d.models;
       if (out.d.archiveOnStage) ARCHIVE_ON_STAGE = out.d.archiveOnStage;
@@ -1430,7 +1874,10 @@ import { summariseUsage } from "./admin-usage.js";
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;
       activeRuns = out.d.activeRuns || {};
+      if (stageFilter && stages.indexOf(stageFilter) === -1) stageFilter = null;
       renderJobs();
+      if (searchQuery.trim() && searchRequested !== searchQuery.trim().toLowerCase()) applySearch();
+      else restorePipelineScroll();
     });
   }
 
@@ -1444,6 +1891,20 @@ import { summariseUsage } from "./admin-usage.js";
     if (el) { e.preventDefault(); el.focus(); el.select(); }
   });
 
+  document.addEventListener('admin:section', function (event) {
+    workspaceSection = event.detail; writeNavigation('push'); renderJobs();
+    document.querySelector('[data-section="' + workspaceSection + '"]').focus();
+  });
+
+  window.addEventListener('popstate', function () {
+    var wasArchived = showArchived;
+    readNavigationState();
+    searchMatches = null; searchRequested = ""; selectedMissing = false;
+    if (wasArchived !== showArchived) loadJobs(false);
+    else { renderJobs(); if (searchQuery.trim()) applySearch(); loadSelectedDetail(selectedId); restorePipelineScroll(); }
+  });
+
+  readNavigationState();
   if (secret) loadJobs(true);
   else renderGate();
 })();

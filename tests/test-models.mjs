@@ -160,15 +160,16 @@ check("the task payload cannot steer the model", !/payload\.model|model:\s*paylo
 
 console.log("\n--- the page ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
-check("picker present", html.includes('id="modelsel"'));
+check("picker present in the generation review", html.includes('data-review-model'));
 check("persisted", html.includes('localStorage.setItem(MODEL_KEY, model)'));
 check("page defaults to sol", html.includes('localStorage.getItem(MODEL_KEY) || "gpt-5.6-sol"'));
 check("guards a bad stored value", html.includes('if (!MODELS.some('));
-check("sent with analysis and letter", html.includes('kind: "analyse", model: model') && html.includes("id: id, model: model, requestId: requestId"));
-check("sent with regenerate", html.includes('kind: "regenerate", model: model'));
-check("sent with answers", html.includes("questionId: qid, model: model"));
+check("review sends the selected model", html.includes('model: modelEl ? modelEl.value : model'));
+check("analysis and letter use shared review", html.includes("kind: 'analyse'") && html.includes("kind: 'cover'"));
+check("regenerate uses shared review", html.includes("kind: 'regenerate'"));
+check("answers use shared review", html.includes("kind: 'answer', questionId: qid"));
 check("letter token minting carries no model", html.includes('action: "letter-token", id: id'));
-check("shows which model wrote the letter", html.includes('meta.push("letter: " + modelLabel('));
+check("shows which model wrote the letter", html.includes('modelLabel(j.coverLetterModel)'));
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

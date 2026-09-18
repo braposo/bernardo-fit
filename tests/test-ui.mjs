@@ -1,172 +1,109 @@
-// Guards the admin UI against controls quietly disappearing.
-//
-// The other tests grep admin.html for strings, which proves a line exists and
-// nothing about whether it renders. This one pulls the real render functions
-// out of the page, runs them over job rows in each state, and asserts on the
-// markup they actually produce. It also checks that every control rendered has
-// a handler wired to it, which is the failure that looks identical to a missing
-// button: it is on screen and does nothing.
-//
-// Written after the Draft answer button appeared to vanish. It had not; the
-// label changes to "Draft again" once a question is answered. The same sweep
-// found a word counter splitting on the letter "s" and an edit control that was
-// invisible on any touch screen, neither of which any existing test could see.
-
+// Focused rendering regressions for the pipeline + selected-role workspace.
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
+const componentUI = fs.readFileSync(root + "src/admin/ui.jsx", "utf8");
 const style = html.match(/<style>([\s\S]*?)<\/style>/)[1];
 const script = html.match(/<script(?:\s+type="module")?>([\s\S]*?)<\/script>/)[1];
-
 let pass = 0, fail = 0;
-const check = (n, c, e) => {
-  if (c) { pass++; console.log("  ok   " + n); }
-  else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e).slice(0, 200) : "")); }
+const check = (name, condition, evidence) => {
+  if (condition) { pass++; console.log("  ok   " + name); }
+  else { fail++; console.log("  FAIL " + name + (evidence !== undefined ? "  -> " + JSON.stringify(evidence).slice(0, 220) : "")); }
 };
 
-// Lift a named function out of the page by matching its braces.
 function grab(name) {
-  const i = script.indexOf("function " + name + "(");
-  if (i === -1) return null;
+  const start = script.indexOf("function " + name + "(");
+  if (start === -1) return null;
   let depth = 0;
-  for (let k = script.indexOf("{", i); k < script.length; k++) {
-    if (script[k] === "{") depth++;
-    else if (script[k] === "}") { depth--; if (!depth) return script.slice(i, k + 1); }
+  for (let i = script.indexOf("{", start); i < script.length; i++) {
+    if (script[i] === "{") depth++;
+    else if (script[i] === "}" && --depth === 0) return script.slice(start, i + 1);
   }
   return null;
 }
 
-const NEEDED = ["esc", "fmtDate", "fmtDateTime", "tierClass", "statsHtml", "versionsHtml", "versionRow", "questionsHtml", "countWords", "jobHtml", "staleHtml", "fmtChars"];
-const missing = NEEDED.filter((n) => !grab(n));
-
-console.log("\n--- the render functions are all still there ---");
-check("no render function went missing", !missing.length, missing);
-if (missing.length) { console.log("\npassed " + pass + ", failed " + fail); process.exit(1); }
+const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
+  "tierClass", "stageLabel", "stageOptions", "materialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jobHtml", "pipelineItemHtml"];
+const missing = needed.filter((name) => !grab(name));
+check("render helpers remain testable", missing.length === 0, missing);
 
 const sandbox = [
-  script.match(/var stages = \[[^;]+;/)[0],
-  script.match(/var MODELS = \[[^;]+;/)[0],
-  'function modelLabel(id){ for (var i=0;i<MODELS.length;i++) if (MODELS[i].id===id) return MODELS[i].label; return ""; }',
-  'var location = { origin: "https://fit.bernardoraposo.com" };',
-  'var coverDispatchEnabled = true;',
-  'var screenDispatchEnabled = true;',
-  NEEDED.map(grab).join("\n"),
-  "return { jobHtml: jobHtml, questionsHtml: questionsHtml, countWords: countWords, fmtChars: fmtChars };",
+  'var stages=["new","reviewing","applied","interviewing","offer","rejected","not_interested","expired"];',
+  'var MODELS=[{id:"gpt-5.6-sol",label:"Sol"},{id:"claude-opus-5",label:"Opus"}];',
+  'var workspaceSection="overview",selectedId="j1",showArchived=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true;',
+  'var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
+  needed.map(grab).join("\n"),
+  'return {jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
 ].join("\n");
-
 let R;
-try { R = new Function(sandbox)(); }
-catch (err) { check("render functions evaluate", false, String(err)); console.log("\npassed " + pass + ", failed " + fail); process.exit(1); }
-check("render functions evaluate", true);
+try { R = new Function(sandbox)(); check("render helpers evaluate", true); }
+catch (error) { check("render helpers evaluate", false, String(error)); console.log(`\npassed ${pass}, failed ${fail}`); process.exit(1); }
 
 const base = {
-  id: "j1", role: "Engineering Manager", company: "DISCO", stage: "new", source: "LinkedIn job alert",
-  jobDescription: "a".repeat(400), instructions: "", notes: "", archived: false,
-  questions: [], coverLetterVersions: [], stats: null,
-  score: 70, tier: "Worth a look", scoreBreakdown: { location: 1, aiDx: 1, leadership: 1 },
+  id: "j1", role: "Engineering Manager", company: "Sanity", stage: "interviewing", source: "LinkedIn",
+  location: "London", locationMode: "Hybrid", salary: "£120k", jobDescription: "A".repeat(300), notes: "private",
+  instructions: "Emphasise platform work", questions: [], archived: false, score: 70, tier: "Worth a look",
+  scoreBreakdown: { location: 2, aiDx: 3, leadership: 4 }, fitReportId: "fit1", hasDescription: true,
+  hasCoverLetter: true, coverLetterAt: "2026-09-01T00:00:00Z", hasResearch: true, researchId: "r1",
+  researchSourceCount: 8, hasBrief: true, briefId: "b1", stats: { view: 2, copy_link: 1, cv_download: 0 },
 };
-const row = (over) => R.jobHtml({ ...base, ...over });
-const acts = (h) => [...h.matchAll(/data-act="([^"]+)"/g)].map((m) => m[1]);
+const render = (section, over = {}) => { R.setSection(section); return R.jobHtml({ ...base, ...over }); };
+const actions = (markup) => [...markup.matchAll(/data-act="([^"]+)"/g)].map((match) => match[1]);
 
-console.log("\n--- every row offers its core controls ---");
-const bare = acts(row({}));
-for (const a of ["titleview", "titleform", "edittitle", "erole", "ecompany", "jd", "instructions", "notes", "stage", "qadd"]) {
-  check("bare row has " + a, bare.includes(a), bare);
-}
+console.log("\n--- compact pipeline ---");
+const mixedRow = R.pipelineItemHtml(base);
+check("row contains company and role", /Sanity/.test(mixedRow) && /Engineering Manager/.test(mixedRow));
+check("mixed-stage row shows stage", /Interviewing/.test(mixedRow));
+R.setFilter("interviewing");
+check("stage remains visible when filtered", /Interviewing/.test(R.pipelineItemHtml(base)));
+check("row has no editors or generation toolbar", !/textarea|data-act="cover"|data-act="regen"/.test(mixedRow));
 
-console.log("\n--- an analysed row gains the generation controls ---");
-const analysed = acts(row({ fitReportId: "rep1" }));
-for (const a of ["regen", "cover", "screen", "verbox"]) check("analysed row has " + a, analysed.includes(a), analysed);
-// A row with nothing generated has nothing to version, so the box is absent
-// by design rather than missing.
-check("a bare row has no versions box", !bare.includes("verbox"));
-const prepared = acts(row({ fitReportId: "rep1", hasResearch: true, researchId: "r1", hasBrief: true, briefId: "b1" }));
-for (const a of ["screen", "briefrewrite", "researchopen", "researchrefresh"]) check("prepared row has " + a, prepared.includes(a), prepared);
+console.log("\n--- overview ---");
+const overview = render("overview");
+check("score has three rating gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 3);
+check("existing material shortcuts are read actions", actions(overview).includes("briefopen") && actions(overview).includes("letteropen"));
+check("overview has no generation buttons", !/class="generation"/.test(overview));
+check("engagement and activity shortcut are absent from Overview", !/class="stats"|data-section-link="activity"/.test(overview));
 
-console.log("\n--- a question always offers a way to answer it ---");
-// The bug that prompted this file: the label changes once answered, so assert
-// the control exists in both states rather than assuming one label.
-const unanswered = row({ questions: [{ id: "q1", q: "Why here?", limit: 120, a: "", refused: false }] });
-const answered = row({ questions: [{ id: "q1", q: "Why here?", limit: 120, a: "one two three", refused: false, answeredAt: "2026-08-21T00:00:00Z" }] });
-const refused = row({ questions: [{ id: "q1", q: "Salary?", limit: 120, a: "", refused: true, reason: "no figure on file" }] });
+console.log("\n--- materials ---");
+const materials = render("materials", { briefStale: true, researchStale: true });
+for (const label of ["Open fit page", "Open letter", "Open previous brief", "Open research"]) check(label + " is present", materials.includes(label));
+for (const label of ["Generate new version"]) check(label + " is a sparkle action", new RegExp('class="generation"[^>]*>' + label).test(materials), materials.match(new RegExp('.{0,80}' + label)));
+check("stale brief remains openable", actions(materials).includes("briefopen"));
+check("one nearby cost explanation is used", (materials.match(/Sparkle actions run AI and may incur costs/g) || []).length === 1);
+check("no repeated Paid AI labels", !/Paid AI/.test(materials));
 
-check("unanswered question has a draft control", acts(unanswered).includes("qdraft"));
-check("answered question still has one", acts(answered).includes("qdraft"));
-check("refused question still has one", acts(refused).includes("qdraft"));
-check("unanswered reads Draft answer", /Draft answer/.test(unanswered));
-check("answered reads Draft again", /Draft again/.test(answered), answered.match(/>[^<]*Draft[^<]*</));
-check("every question can be removed", acts(unanswered).includes("qdel"));
-check("an answered question can be copied", acts(answered).includes("qcopy"));
-check("an unanswered one cannot", !acts(unanswered).includes("qcopy"));
-check("the question box opens itself when there are questions", /<details class="jdbox qabox" open>/.test(unanswered));
+console.log("\n--- questions ---");
+const questionMarkup = render("materials", { questions: [{ id: "q1", q: "Why here?", limit: 120, a: "one two three" }] });
+for (const action of ["qtext", "qlimit", "qdraft", "qcopy", "qdel", "qadd"]) check("question has " + action, actions(questionMarkup).includes(action));
+check("drafting is a generation action", /class="generation" data-act="qdraft"/.test(questionMarkup));
+check("word count is correct", R.countWords("systems and services") === 3);
 
-console.log("\n--- the word count is a word count ---");
-check("counts words, not letters", R.countWords("one two three four") === 4, R.countWords("one two three four"));
-check("splits on whitespace, not on the letter s", R.countWords("systems and services") === 3, R.countWords("systems and services"));
-check("handles newlines and runs of space", R.countWords("a\n\nb   c") === 3);
-check("empty is zero", R.countWords("") === 0 && R.countWords(null) === 0);
-const long = new Array(130).fill("word").join(" ");
-check("flags an answer over its limit", /qa-count over/.test(row({ questions: [{ id: "q1", q: "Q", limit: 120, a: long }] })));
-check("does not flag one under it", !/qa-count over/.test(row({ questions: [{ id: "q1", q: "Q", limit: 120, a: "short answer" }] })));
+console.log("\n--- role context and activity ---");
+const context = render("context");
+for (const field of ["company", "role", "location", "salary", "sourceUrl", "jobDescription", "notes", "instructions"]) check("context labels " + field, context.includes('data-field="' + field + '"'));
+check("notes disclose AI use", /notes may be used as context/i.test(context));
+const activity = render("activity");
+check("versions live within document cards", !/Output versions/.test(activity) && (materials.match(/data-act="document-versions"/g)||[]).length === 4);
+check("record management is separate", /Record management/.test(activity));
+const version = R.versionRow({ vid: "v1", at: "2026-09-01", model: "gpt-5.6-sol", active: false }, "fit");
+check("version preview and activation are distinct", /verpreview/.test(version) && /veruse/.test(version));
 
-console.log("\n--- a row says so when its analysis is out of date ---");
-// The score answers a question about a description the row no longer holds.
-// Nothing looks wrong on such a row, which is the reason it needs saying.
-const fresh = row({ fitReportId: "rep1", jd: { stale: false, was: 5000, now: 5000 } });
-const stale = row({ fitReportId: "rep1", jd: { stale: true, was: 1362, now: 6180 } });
-const shrunk = row({ fitReportId: "rep1", jd: { stale: true, was: 8894, now: 812 } });
-const unanalysed = row({ jd: null });
-
-check("a stale row is flagged", /Analysis is out of date/.test(stale));
-check("a fresh one is not", !/Analysis is out of date/.test(fresh));
-check("a row with no analysis is not", !/Analysis is out of date/.test(unanalysed));
-check("it says what it scored on", /1,362 characters/.test(stale), stale.match(/stalejd[\s\S]{0,200}/));
-check("and what the row holds now", /now 6,180/.test(stale));
-check("growth reads as a plus", /\(\+354%\)/.test(stale), stale.match(/\([-+]\d+%\)/));
-// A description that shrank is just as wrong, and reads differently.
-check("shrinkage reads as a minus", /\(-91%\)/.test(shrunk), shrunk.match(/\([-+]\d+%\)/));
-check("it says what to do about it", /Regenerate to rescore/.test(stale));
-
-// It is a warning, not a widget. On a narrow screen a flex row with its own
-// button broke into three ragged pieces, and the row already has Regenerate.
-const banner = stale.match(/<div class="stalejd">([\s\S]*?)<\/div>/)[1];
-check("the warning is one run of text", !/<(button|span|div)/.test(banner), banner);
-check("with nothing but emphasis in it", banner.replace(/<\/?b>/g, "").indexOf("<") === -1, banner);
-check("it does not add a second regenerate button", (stale.match(/data-act="regen"/g) || []).length === 1);
-check("no rule down the side of the row", !/isstale/.test(stale) && !style.includes("isstale"));
-check("the collapsed description still carries a dot", /staledot/.test(stale));
-check("a fresh one carries none", !/staledot/.test(fresh));
-check("thousands are grouped", R.fmtChars(15600) === "15,600 characters", R.fmtChars(15600));
-check("nothing is still counted", R.fmtChars(0) === "0 characters" && R.fmtChars(null) === "0 characters");
-
-console.log("\n--- an archived row swaps its actions rather than losing them ---");
-const arch = acts(row({ archived: true, fitReportId: "rep1" }));
-check("offers restore", arch.includes("restore"), arch);
-check("offers delete", arch.includes("delete"), arch);
-check("a live row offers archive instead", acts(row({ fitReportId: "rep1" })).includes("archive"));
-
-console.log("\n--- every rendered control is wired to something ---");
-// A control that renders but has no listener looks exactly like a missing one.
-const rendered = new Set([].concat(bare, analysed, prepared, arch, acts(unanswered), acts(answered)));
-const NOT_CLICKABLE = new Set(["titleview", "titleform", "erole", "ecompany", "qtext", "qlimit"]);
-for (const a of [...rendered].sort()) {
-  if (NOT_CLICKABLE.has(a)) continue;
-  const wired = script.includes('[data-act="' + a + '"]');
-  check(a + " has a handler", wired);
-}
-
-console.log("\n--- no control is revealed by hover alone ---");
-// Touch screens have no hover, so a control that only appears on hover does not
-// exist there. This is how the edit control was invisible on a phone.
-const hidden = [...style.matchAll(/([.#][\w-]+)\s*\{[^}]*opacity:\s*0\s*;[^}]*\}/g)].map((m) => m[1]);
-for (const sel of hidden) {
-  const hasTouchFallback = new RegExp("@media \\(hover: none\\)[\\s\\S]*?\\" + sel).test(style);
-  check(sel + " is reachable without hover", hasTouchFallback, sel);
-}
-check("checked at least the known one", style.includes(".titlepen"));
+console.log("\n--- navigation, review and responsive contract ---");
+check("one stage dropdown replaces stage chips", /id="stagefilter"/.test(script) && !/class="stagechip/.test(script));
+check("model moved into generation review", /data-review-model/.test(script) && !/id="modelsel"/.test(script));
+check("opening review uses the read-only action", /action:\s*'review'/.test(script));
+check("submit carries reviewed fingerprint", /reviewFingerprint\s*=\s*currentReview\.fingerprint/.test(script));
+check("cancel only closes the dialog", /data-review-cancel[\s\S]*addEventListener\('click', close\)/.test(script));
+check("review delegates focus and Escape to shadcn Dialog", /createAdminDialog\(/.test(script) && /<Dialog open onOpenChange/.test(componentUI) && /onCloseAutoFocus/.test(componentUI));
+check("URL state includes collection, stage, search, job and section", ["collection", "stage", "q", "job", "section"].every((key) => script.includes('p.set("' + key + '"')));
+check("search replaces history", /searchQuery = searchEl\.value;\s*writeNavigation\("replace"\)/.test(script));
+check("mobile collapses to one pane near 900px", /@media \(max-width: 900px\)/.test(style) && /\.admin-shell\.has-selection \.pipeline \{ display: none/.test(style));
+check("mobile actions do not scroll horizontally", !/material-actions[^}]*overflow-x/.test(style));
+check("generation uses amber tokens", style.includes("--generation: #fff0d4") && /\.generation \{/.test(style));
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

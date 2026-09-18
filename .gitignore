@@ -13,3 +13,6 @@ npm-debug.log*
 scripts/.live-check-ledger.json
 
 .trigger
+
+# Generated shadcn admin bundle (built locally, in CI, and by Vercel)
+public/assets/admin-ui.*

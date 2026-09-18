@@ -10,6 +10,7 @@ export type AnalysisPayload = {
   requestId: string;
   fingerprint: string;
   model: string;
+  versionInstructions?: string;
   mode?: "create" | "replace";
 };
 
@@ -18,7 +19,7 @@ export const analysisTask = task({
   maxDuration: ANALYSIS_TASK_POLICY.maxDuration,
   retry: ANALYSIS_TASK_POLICY.retry,
   queue: { concurrencyLimit: ANALYSIS_TASK_POLICY.concurrencyLimit },
-  run: async (payload: AnalysisPayload, { ctx }) => withGenerationContext({ runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
+  run: async (payload: AnalysisPayload, { ctx }) => withGenerationContext({ jobId: payload.jobId, reportId: payload.reportId, runId: ctx.run.id, taskAttempt: ctx.attempt.number }, async () => {
     if (!hasKV) throw new AbortTaskRunError("KV is required by persistent workers.");
     metadata.set("phase", "analysing").set("requestId", payload.requestId);
     if (payload.jobId) metadata.set("jobId", payload.jobId);
