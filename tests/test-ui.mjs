@@ -24,7 +24,7 @@ function grab(name) {
   return null;
 }
 
-const needed = ["esc", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
+const needed = ["esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
   "tierClass", "stageLabel", "stageOptions", "materialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jobHtml", "pipelineItemHtml"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);

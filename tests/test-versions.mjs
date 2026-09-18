@@ -154,6 +154,19 @@ check("migrated active body is readable", (await getActiveCoverArtifact(migrated
 check("migrated version count remains", migratedLegacy.coverLetterVersionCount === 2, migratedLegacy.coverLetterVersionCount);
 
 console.log("\n--- errors ---");
+const beforePreview = await store.getJob(job.id);
+const fitVersions = await store.listReportVersions(rid);
+const inactiveFit = fitVersions.find(v => !v.active);
+res = await call(versions, { method: 'GET', headers: auth, query: { id: job.id, kind: 'fit', vid: inactiveFit.vid } });
+check('preview reads the requested historical content', res.body.content.job_title === inactiveFit.report.job_title);
+check('preview does not expose stored input or internal fields', !('internal' in res.body.content) && !('jobDescription' in res.body.content));
+check('preview does not activate the fit version', (await store.listReportVersions(rid)).find(v => v.vid === inactiveFit.vid).active === false);
+check('preview does not mutate the job', JSON.stringify(await store.getJob(job.id)) === JSON.stringify(beforePreview));
+const coverVersions = await listCoverVersions(beforePreview);
+res = await call(versions, { method: 'GET', headers: auth, query: { id: job.id, kind: 'letter', vid: coverVersions[0].vid } });
+check('letter preview includes paragraphs', res.statusCode === 200 && res.body.content.paragraphs.length > 0);
+check('preview cannot read another jobs letter', (await call(versions, { method: 'GET', headers: auth, query: { id: legacy.id, kind: 'letter', vid: coverVersions[0].vid } })).statusCode === 404);
+check('preview requires admin authentication', (await call(versions, { method: 'GET', headers: {}, query: { id: job.id, kind: 'fit', vid: inactiveFit.vid } })).statusCode === 401);
 check("unknown version", (await call(versions, { method: "POST", headers: auth, body: { id: job.id, kind: "fit", vid: "nope" } })).statusCode === 404);
 check("bad kind", (await call(versions, { method: "POST", headers: auth, body: { id: job.id, kind: "banana", vid: "x" } })).statusCode === 400);
 check("unknown job", (await call(versions, { method: "GET", headers: auth, query: { id: "nope" } })).statusCode === 404);

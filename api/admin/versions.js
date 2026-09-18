@@ -30,6 +30,7 @@ function meta(v, kind) {
 
 export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
+  res.setHeader("Cache-Control", "private, no-store");
 
   try {
     if (req.method === "GET") {
@@ -42,6 +43,25 @@ export default async function handler(req, res) {
       if (!job) {
         res.status(404).json({ error: "Job not found" });
         return;
+      }
+      if (req.query.kind) {
+        const { kind, vid } = req.query;
+        let artifact;
+        if (kind === "fit") {
+          artifact = vid ? (await listReportVersions(job.fitReportId)).find(v => v.vid === vid)?.report
+            : await getReport(job.fitReportId);
+        } else if (kind === "letter") {
+          artifact = await getCoverArtifact(job.id, vid);
+          if (!artifact) artifact = (job.coverLetterVersions || []).find(v => v.vid === vid);
+        } else if (kind === "brief" || kind === "research") {
+          artifact = await getScreenArtifact(kind, job.id, vid);
+        } else return res.status(400).json({ error: "Unknown version kind" });
+        if (!artifact) return res.status(404).json({ error: "Version not found" });
+        const fields = kind === "fit" ? ["job_title", "company", "pitch", "categories", "differentiators", "closing"]
+          : kind === "letter" ? ["salutation", "paragraphs"]
+          : kind === "research" ? ["summary", "signals", "risks", "roleContext", "unknowns", "sources"]
+          : ["contact", "opening", "why", "conversation", "likelyQuestions", "gapResponses", "greenFlags", "redFlags", "questionsToAsk", "companyReference", "roleReference", "personalAnswers", "unknowns", "sources"];
+        return res.status(200).json({ content: Object.fromEntries(fields.filter(key => artifact[key] !== undefined).map(key => [key, artifact[key]])) });
       }
       let fit = job.fitReportId ? await listReportVersions(job.fitReportId) : [];
       // Analyses generated before versioning existed have no version list.

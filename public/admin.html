@@ -293,7 +293,8 @@
   .topnav button[aria-current="page"] { color: var(--accent); font-weight: 600; }
   .admin-shell { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad) 40px; display: grid;
     grid-template-columns: minmax(300px, 340px) minmax(0, 1fr); min-height: calc(100vh - 76px); }
-  .pipeline { border-right: 1px solid var(--hair-strong); min-width: 0; }
+  .pipeline { border-right: 1px solid var(--hair-strong); min-width: 0; position: sticky; top: 0;
+    height: 100vh; display: flex; flex-direction: column; }
   .pipeline-head { position: sticky; top: 0; z-index: 3; padding: 24px 20px 14px 0;
     background: linear-gradient(var(--paper) 86%, rgba(250,248,244,.88)); }
   .pipeline-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -302,7 +303,9 @@
   .pipeline-controls .searchbox, .pipeline-controls select { width: 100%; min-height: 44px; border: 1px solid var(--hair-strong);
     background-color: var(--surface); border-radius: 7px; font: 400 15px/1.3 var(--sans); letter-spacing: 0; text-transform: none; }
   .pipeline-controls .searchbox { padding: 10px 12px; }
-  .pipeline-list { padding: 0 14px 28px 0; display: grid; gap: 4px; }
+  .pipeline-list { padding: 0 14px 28px 0; display: grid; grid-auto-rows: max-content; gap: 4px; overflow-y: auto; min-height: 0; align-content: start; }
+  .pipeline-head, .bulkbar { flex-shrink: 0; }
+  .vpreview { flex-basis: 100%; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
   .pipeline-item { width: 100%; min-height: 64px; padding: 10px 12px; text-align: left; color: var(--ink);
     background: transparent; border: 1px solid transparent; border-radius: 8px; display: block; }
   .pipeline-item:hover { background: var(--surface); border-color: var(--hair); }
@@ -310,7 +313,7 @@
   .pipeline-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .pipeline-company { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
   .pipeline-score, .pipeline-stage, .pipeline-signal { flex: none; color: var(--sub); font-size: 13px; }
-  .pipeline-role { margin-top: 2px; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+  .pipeline-role { display: block; margin-top: 2px; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
   .pipeline-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
   .pipeline-empty { padding: 32px 14px 32px 0; color: var(--sub); }
   .pipeline-empty button { margin-top: 12px; }
@@ -324,7 +327,9 @@
   .role-sub { color: var(--sub); margin-top: 6px; }
   .stage-control { flex: none; display: grid; gap: 5px; color: var(--sub); font-size: 14px; }
   .stage-control select { min-height: 44px; min-width: 170px; background-color: var(--surface); font: 500 14px var(--sans);
-    text-transform: none; letter-spacing: 0; }
+    text-transform: none; letter-spacing: 0; color: var(--ink); border-color: var(--hair-strong); }
+  .owed { color: var(--ink); background: var(--surface); border-color: var(--hair-strong); }
+  .qa-answer.refused, .qa-count.over { color: var(--weak); }
   .workspace-tabs { display: flex; gap: 6px 24px; flex-wrap: wrap; border-bottom: 1px solid var(--hair-strong); margin-top: 24px; }
   .workspace-tab { min-height: 44px; padding: 9px 0; border-radius: 0; background: transparent; color: var(--ink); }
   .workspace-tab[aria-selected="true"] { color: var(--accent); box-shadow: inset 0 -2px var(--accent); }
@@ -406,7 +411,9 @@
   @media (max-width: 900px) {
     .masthead { display: none; }
     .admin-shell { display: block; min-height: 100vh; padding: 0 16px; }
-    .pipeline { border: 0; }
+    .pipeline { border: 0; position: static; height: auto; display: block; }
+    .pipeline-list { overflow: visible; }
+    .pipeline-item { scroll-margin-top: 190px; }
     .pipeline-head { padding: 18px 0 12px; }
     .pipeline-list, .bulkbar { padding-right: 0; }
     .workspace { display: none; padding: 18px 0 48px; }
@@ -454,6 +461,16 @@ import { summariseUsage } from "./admin-usage.js";
   var secret = sessionStorage.getItem(SECRET_KEY) || "";
 
   var jobs = [];
+  var fieldDrafts = new Map();
+  var listSequence = 0;
+  var renderedRole = "", renderedSection = "";
+  var renderedScrollKey = "";
+  var suppressAutoSelect = false;
+
+  function draftKey(id, field) { return id + ':' + field; }
+  function hasPendingEdits(id) {
+    return Array.from(fieldDrafts.keys()).some(function (key) { return !id || key.indexOf(id + ':') === 0; });
+  }
   var stages = ["new", "reviewing", "applied", "interviewing", "offer", "rejected", "not_interested", "expired"];
   // These archive the row on the server, so they only ever describe archived
   // jobs. Filtering by them in the pipeline view would always come back empty.
@@ -530,6 +547,10 @@ import { summariseUsage } from "./admin-usage.js";
     return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
+  function safeSourceUrl(value) {
+    try { var url = new URL(value); return /^https?:$/.test(url.protocol) ? url.href : ''; }
+    catch (_) { return ''; }
+  }
   function fmtDate(iso) {
     if (!iso) return "—";
     var d = new Date(iso);
@@ -567,13 +588,14 @@ import { summariseUsage } from "./admin-usage.js";
   }
   function rememberPipelineScroll() {
     var list = document.querySelector(".pipeline-list");
-    if (list) sessionStorage.setItem(scrollKey(), String(window.innerWidth <= 900 ? window.scrollY : list.scrollTop));
+    if (window.innerWidth <= 900 && document.querySelector('.admin-shell.has-selection')) return;
+    if (list) sessionStorage.setItem(renderedScrollKey || scrollKey(), String(window.innerWidth <= 900 ? window.scrollY : list.scrollTop));
   }
   function restorePipelineScroll() {
     var value = parseInt(sessionStorage.getItem(scrollKey()) || "0", 10) || 0;
     requestAnimationFrame(function () {
       var list = document.querySelector(".pipeline-list");
-      if (window.innerWidth <= 900) window.scrollTo(0, value);
+      if (window.innerWidth <= 900) { if (!selectedId) window.scrollTo(0, value); }
       else if (list) list.scrollTop = value;
     });
   }
@@ -686,12 +708,21 @@ import { summariseUsage } from "./admin-usage.js";
     if (kind === "research" && v.sources != null) bits.push(v.sources + " sources" + (v.partial ? " · partial" : ""));
     return '<div class="ver">' +
       '<span class="vmeta">' + esc(bits.join(" · ")) + "</span>" +
-      '<button class="ghost" data-act="verpreview" type="button">Preview details</button>' +
+      '<button class="ghost" data-act="verpreview" data-kind="' + kind + '" data-vid="' + esc(v.vid || '') + '" type="button" aria-expanded="false">Preview content</button>' +
       (v.active || !v.vid
         ? '<span class="vlive">active</span>'
         : '<button class="ghost" data-act="veruse" data-kind="' + kind + '" data-vid="' + esc(v.vid) + '">Activate</button>') +
-      '<div class="vpreview" hidden>This preview shows version metadata only. Opening it did not activate the version.</div>' +
+      '<div class="vpreview" hidden></div>' +
     "</div>";
+  }
+
+  function previewHtml(value) {
+    if (value == null) return '';
+    if (Array.isArray(value)) return '<ul>' + value.map(function (item) { return '<li>' + previewHtml(item) + '</li>'; }).join('') + '</ul>';
+    if (typeof value === 'object') return Object.keys(value).filter(function (key) { return key !== 'lead'; }).map(function (key) {
+      return '<div><strong>' + esc(key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ')) + '</strong>' + previewHtml(value[key]) + '</div>';
+    }).join('');
+    return '<p>' + esc(value) + '</p>';
   }
 
   function questionsHtml(j) {
@@ -795,8 +826,8 @@ import { summariseUsage } from "./admin-usage.js";
     var hasLetter = !!j.hasCoverLetter;
     var coverActive = !!(j.coverRun && j.coverRun.runId &&
       (j.coverRun.status === "dispatching" || j.coverRun.status === "queued"));
-    var screenActive = !!(j.prepareRun && j.prepareRun.runId &&
-      (j.prepareRun.status === "dispatching" || j.prepareRun.status === "queued"));
+    var screenActive = [j.prepareRun, j.briefRun].some(function (run) { return run && run.runId && ['dispatching', 'queued'].indexOf(run.status) !== -1; });
+    var researchActive = !!(j.researchRun && j.researchRun.runId && ['dispatching', 'queued'].indexOf(j.researchRun.status) !== -1);
     var fitLink = j.fitReportId ? location.origin + "/?r=" + encodeURIComponent(j.fitReportId) : "";
     var mailLink = j.threadId ? "https://mail.google.com/mail/u/0/#all/" + encodeURIComponent(j.threadId) : "";
     var headerMeta = [j.location, j.locationMode, j.salary].filter(Boolean).map(esc).join(" · ") || "Location and salary not recorded";
@@ -826,8 +857,8 @@ import { summariseUsage } from "./admin-usage.js";
       (screenActive ? 'Preparing…' : j.hasBrief ? 'Rewrite brief' : 'Generate brief') + '</button>';
     var researchActions = (j.hasResearch ? '<button class="read-link" data-act="researchopen">Open research</button>' : '') +
       (j.hasResearch ? '<button class="read-link" data-section-link="activity" data-version-group="research">View versions</button>' : '') +
-      '<button class="generation" data-act="researchrefresh"' + (!screenDispatchEnabled ? ' disabled' : '') + '>' +
-      (j.hasResearch ? 'Refresh research' : 'Generate research') + '</button>';
+      '<button class="generation" data-act="researchrefresh"' + (!screenDispatchEnabled || researchActive ? ' disabled' : '') + '>' +
+      (researchActive ? 'Researching…' : j.hasResearch ? 'Refresh research' : 'Generate research') + '</button>';
 
     var panel = '';
     if (!detailed) {
@@ -848,9 +879,9 @@ import { summariseUsage } from "./admin-usage.js";
       panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><p class="generation-legend" id="generation-legend">✦ Sparkle actions run AI and may incur costs.</p>' +
         '<div class="material-list">' +
           materialRow('Fit analysis', j.fitReportId ? 'Shareable page' + (j.jd && j.jd.stale ? ' · Outdated after description change' : ' · Current') : 'Not generated', fitActions) +
-          materialRow('Cover letter', hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated', letterActions) +
-          materialRow('Interview brief', j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated', briefActions) +
-          materialRow('Company research', j.hasResearch ? (j.researchStale ? 'Outdated' : 'Current') + ' · ' + Number(j.researchSourceCount || 0) + ' sources' : 'Not generated', researchActions) +
+          materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), letterActions) +
+          materialRow('Interview brief', 'Private · ' + (j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), briefActions) +
+          materialRow('Company research', 'Private · ' + (j.hasResearch ? (j.researchStale ? 'Outdated' : 'Current') + ' · ' + Number(j.researchSourceCount || 0) + ' sources' : 'Not generated'), researchActions) +
         '</div>' + questionsHtml(j) + '</section>';
     } else if (workspaceSection === "context") {
       panel = '<section class="workspace-panel context-grid" id="panel-context" role="tabpanel">' +
@@ -862,7 +893,7 @@ import { summariseUsage } from "./admin-usage.js";
         '<div class="field"><label for="jobDescription">Job description</label><p class="field-help">Changes make the current fit analysis and interview brief outdated.</p><textarea id="jobDescription" class="tall" data-field="jobDescription">' + esc(j.jobDescription || '') + '</textarea><div class="field-status" data-save-for="jobDescription"></div></div>' +
         '<div class="field"><label for="notes">Private notes</label><p class="field-help">Hidden from public pages. These notes may be used as context when preparing interview materials.</p><textarea id="notes" data-field="notes">' + esc(j.notes || '') + '</textarea><div class="field-status" data-save-for="notes"></div></div>' +
         '<div class="field"><label for="instructions">AI instructions</label><p class="field-help">Tell generation what to emphasise or avoid. Saving does not run AI.</p><textarea id="instructions" data-field="instructions">' + esc(j.instructions || '') + '</textarea><div class="field-status" data-save-for="instructions"></div></div>' +
-        '<div class="overview-actions">' + (j.sourceUrl ? '<a class="read-link" href="' + esc(j.sourceUrl) + '" target="_blank" rel="noopener">View posting ↗</a>' : '') +
+        '<div class="overview-actions">' + (safeSourceUrl(j.sourceUrl) ? '<a class="read-link" href="' + esc(safeSourceUrl(j.sourceUrl)) + '" target="_blank" rel="noopener">View posting ↗</a>' : '') +
           (mailLink ? '<a class="read-link" href="' + esc(mailLink) + '" target="_blank" rel="noopener">Open email ↗</a>' : '') + '</div></section>';
     } else {
       panel = '<section class="workspace-panel" id="panel-activity" role="tabpanel"><h2>Run activity</h2>' + runStateHtml(j) +
@@ -929,15 +960,17 @@ import { summariseUsage } from "./admin-usage.js";
       renderJobs();
     } else if (searchRequested !== q) {
       if (searchTimer) clearTimeout(searchTimer);
+      searchSequence++;
       searchMatches = null;
       searchLoading = true;
       searchTimer = setTimeout(function () {
         var requested = q;
+        var requestedArchive = showArchived;
         var sequence = ++searchSequence;
         searchRequested = requested;
         var prefix = showArchived ? "?archived=1&" : "?";
         api("/api/admin/jobs" + prefix + "q=" + encodeURIComponent(requested), { method: "GET" }).then(function (out) {
-          if (sequence !== searchSequence || requested !== searchQuery.trim().toLowerCase()) return;
+          if (sequence !== searchSequence || requestedArchive !== showArchived || requested !== searchQuery.trim().toLowerCase()) return;
           searchLoading = false;
           if (unauthorised(out) || !out.ok) { renderJobs(); return; }
           searchMatches = new Set(out.d.matchingIds || []);
@@ -980,6 +1013,10 @@ import { summariseUsage } from "./admin-usage.js";
 
   function openGenerationReview(options) {
     options = options || {};
+    if (hasPendingEdits(options.id)) {
+      alert('Save pending edits in Role & context before reviewing generation. Failed saves can be retried by leaving the field again.');
+      return;
+    }
     lastFocusedControl = options.trigger || document.activeElement;
     var dialog = document.createElement('dialog');
     dialog.className = 'review-dialog';
@@ -990,6 +1027,7 @@ import { summariseUsage } from "./admin-usage.js";
       '<div class="review-actions"><button class="ghost" type="button" data-review-cancel>Cancel</button><button class="generation" type="button" data-review-submit disabled>Reviewing…</button></div>';
     document.body.appendChild(dialog);
     var currentReview = null;
+    var submitting = false;
     var requestId = newRequestId();
     var loadingSequence = 0;
     var submit = dialog.querySelector('[data-review-submit]');
@@ -1043,11 +1081,15 @@ import { summariseUsage } from "./admin-usage.js";
     });
     dialog.addEventListener('close', function () { dialog.remove(); if (lastFocusedControl && lastFocusedControl.isConnected) lastFocusedControl.focus(); });
     submit.addEventListener('click', function () {
-      if (!currentReview) return;
+      if (!currentReview || submitting) return;
+      submitting = true;
+      dialog.querySelectorAll('select, input, [data-review-cancel]').forEach(function (control) { control.disabled = true; });
       submit.disabled = true; submit.textContent = 'Starting…';
       var req = requestBody();
       req.action = undefined; req.kind = currentReview.effectiveKind; req.reviewFingerprint = currentReview.fingerprint; req.requestId = requestId;
       api('/api/admin/cover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) }).then(function (out) {
+        submitting = false;
+        dialog.querySelectorAll('select, input, [data-review-cancel]').forEach(function (control) { control.disabled = false; });
         if (unauthorised(out)) { close(); return; }
         if (!out.ok) {
           if (out.status === 409 && out.d.code === 'REVIEW_STALE') {
@@ -1099,15 +1141,24 @@ import { summariseUsage } from "./admin-usage.js";
     api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
       if (sequence !== detailSequence || selectedId !== id) return;
       if (unauthorised(out)) return;
-      if (!out.ok) { selectedMissing = out.status === 404; renderJobs(); return; }
+      if (!out.ok) { selectedMissing = true; renderJobs(); return; }
       var i = jobs.findIndex(function (j) { return j.id === id; });
-      if (i === -1) jobs.push(out.d.job);
+      if (i === -1) jobs.push(Object.assign({}, out.d.job, { _outOfCollection: !!out.d.job.archived !== showArchived }));
       else jobs[i] = Object.assign({}, jobs[i], out.d.job);
       renderJobs();
     });
   }
 
   function renderJobs() {
+    // Keep live editors in place during background refreshes and search updates.
+    var focused = document.activeElement;
+    var preserveWorkspace = renderedRole === selectedId && renderedSection === workspaceSection &&
+      focused && focused.matches('.workspace input, .workspace textarea');
+    if (preserveWorkspace) return;
+    var searchFocused = focused && focused.id === 'search';
+    var searchStart = searchFocused ? focused.selectionStart : null;
+    var searchEnd = searchFocused ? focused.selectionEnd : null;
+    rememberPipelineScroll();
     if (!showArchived && ARCHIVE_ON_STAGE.indexOf(stageFilter) !== -1) stageFilter = null;
     var q = searchQuery.trim().toLowerCase();
     var collectionJobs = jobs.filter(function (j) { return !j._outOfCollection; });
@@ -1119,7 +1170,7 @@ import { summariseUsage } from "./admin-usage.js";
     shown.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
     var pendingAnalysis = collectionJobs.filter(function (j) { return !j.fitReportId && j.hasDescription; }).length;
 
-    if (!selectedId && window.innerWidth > 900 && shown.length) {
+    if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) {
       selectedId = shown[0].id;
       writeNavigation("replace");
     }
@@ -1146,8 +1197,19 @@ import { summariseUsage } from "./admin-usage.js";
       '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select></div></div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
       (!showArchived && pendingAnalysis ? '<div class="bulkbar"><button class="generation" id="analyseall"' + (activeRuns['analyse-all'] ? ' disabled' : '') + '>' +
-        (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse ready roles (' + pendingAnalysis + ')') + '</button></div>' : '') +
+        (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse ready roles (' + pendingAnalysis + ')') + '</button><p class="field-help">Sparkle actions run AI and may incur costs.</p></div>' : '') +
       '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>';
+
+    renderedRole = selectedId; renderedSection = workspaceSection;
+    renderedScrollKey = scrollKey();
+    restorePipelineScroll();
+    if (searchFocused) {
+      var restoredSearch = document.getElementById('search');
+      restoredSearch.focus(); restoredSearch.setSelectionRange(searchStart, searchEnd);
+    }
+    document.querySelectorAll('.generation').forEach(function (button) {
+      button.setAttribute('aria-description', 'Sparkle actions run AI and may incur costs.');
+    });
 
     document.querySelectorAll('[data-collection]').forEach(function (button) {
       button.setAttribute('aria-current', button.getAttribute('data-collection') === (showArchived ? 'archive' : 'active') ? 'page' : 'false');
@@ -1237,10 +1299,27 @@ import { summariseUsage } from "./admin-usage.js";
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-section]'), function (button) {
+      button.id = 'tab-' + button.getAttribute('data-section');
+      button.setAttribute('aria-controls', 'panel-' + button.getAttribute('data-section'));
+      button.tabIndex = button.getAttribute('aria-selected') === 'true' ? 0 : -1;
       button.addEventListener('click', function () {
         workspaceSection = button.getAttribute('data-section'); writeNavigation('push'); renderJobs();
+        document.getElementById('tab-' + workspaceSection).focus();
+      });
+      button.addEventListener('keydown', function (event) {
+        var sections = ['overview', 'materials', 'context', 'activity'];
+        var index = sections.indexOf(workspaceSection);
+        if (event.key === 'ArrowRight') index = (index + 1) % sections.length;
+        else if (event.key === 'ArrowLeft') index = (index + sections.length - 1) % sections.length;
+        else if (event.key === 'Home') index = 0;
+        else if (event.key === 'End') index = sections.length - 1;
+        else return;
+        event.preventDefault();
+        document.querySelector('[data-section="' + sections[index] + '"]').click();
       });
     });
+    var panel = document.querySelector('[role="tabpanel"]');
+    if (panel) panel.setAttribute('aria-labelledby', 'tab-' + workspaceSection);
     Array.prototype.forEach.call(document.querySelectorAll('[data-section-link]'), function (button) {
       button.addEventListener('click', function () {
         workspaceSection = button.getAttribute('data-section-link'); versionGroup = button.getAttribute('data-version-group') || "";
@@ -1249,8 +1328,8 @@ import { summariseUsage } from "./admin-usage.js";
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-return-list], [data-act="back"]'), function (button) {
       button.addEventListener('click', function () {
-        if (history.state && history.state.selectedFromList) { history.back(); return; }
-        selectedId = ""; writeNavigation('replace'); renderJobs(); restorePipelineScroll();
+        suppressAutoSelect = true;
+        selectedId = ""; writeNavigation('push'); renderJobs(); restorePipelineScroll();
       });
     });
     var clearSearch = document.querySelector('[data-clear-search]');
@@ -1308,26 +1387,47 @@ import { summariseUsage } from "./admin-usage.js";
         });
       });
 
-      function patch(body, onDone) {
+      function patch(body, onDone, onError) {
         api("/api/admin/jobs?id=" + encodeURIComponent(id), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         }).then(function (out) {
           if (unauthorised(out)) return;
-          if (!out.ok) { status.textContent = out.d.error || "Save failed."; status.className = "row-status err"; return; }
+          if (!out.ok) { status.textContent = out.d.error || "Save failed."; status.className = "row-status err"; if (onError) onError(); return; }
           var i = jobs.findIndex(function (j) { return j.id === id; });
           if (i !== -1) jobs[i] = Object.assign({}, jobs[i], out.d.job);
           if (onDone) onDone(out.d.job);
         });
       }
+      [['researchRun', 'research'], ['briefRun', 'brief']].forEach(function (entry) {
+        var run = job[entry[0]];
+        if (!run || !run.runId || ['dispatching', 'queued'].indexOf(run.status) === -1 || attachedCoverWatches[run.runId]) return;
+        attachedCoverWatches[run.runId] = true;
+        watchWork(id, run.runId, status, entry[1], false).then(function () { delete attachedCoverWatches[run.runId]; });
+      });
 
       var fieldSaveSeq = {};
       Array.prototype.forEach.call(rowEl.querySelectorAll('[data-field]'), function (input) {
+        var draftField = input.getAttribute('data-field');
+        var key = draftKey(id, draftField);
+        var savedDraft = fieldDrafts.get(key);
+        var liveFeedback = rowEl.querySelector('[data-save-for="' + draftField + '"]');
+        if (liveFeedback) liveFeedback.setAttribute('role', 'status');
+        if (savedDraft) {
+          input.value = savedDraft.value;
+          if (liveFeedback) liveFeedback.textContent = savedDraft.message || 'Unsaved changes';
+        }
+        input.addEventListener('input', function () {
+          fieldDrafts.set(key, { value: input.value, message: 'Unsaved changes' });
+          if (liveFeedback) liveFeedback.textContent = 'Unsaved changes';
+        });
         input.addEventListener('blur', function () {
           var field = input.getAttribute('data-field');
           var value = input.value;
           if (value === String(job[field] || '')) return;
+          var draft = { value: value, message: 'Saving…' };
+          fieldDrafts.set(key, draft);
           var feedback = rowEl.querySelector('[data-save-for="' + field + '"]');
           var sequence = (fieldSaveSeq[field] || 0) + 1; fieldSaveSeq[field] = sequence;
           if (feedback) { feedback.textContent = 'Saving…'; feedback.className = 'field-status'; }
@@ -1335,12 +1435,14 @@ import { summariseUsage } from "./admin-usage.js";
             body: JSON.stringify(Object.fromEntries([[field, value]])) }).then(function (out) {
             if (unauthorised(out) || fieldSaveSeq[field] !== sequence) return;
             if (!out.ok) {
+              draft.message = "Couldn't save. Leave this field again to retry.";
               if (feedback) { feedback.textContent = (out.d && out.d.error) || "Couldn't save. Your draft is still here; leave the field again to retry."; feedback.className = 'field-status err'; }
               return;
             }
             var index = jobs.findIndex(function (item) { return item.id === id; });
             if (index !== -1) jobs[index] = Object.assign({}, jobs[index], out.d.job);
             job = jobs[index] || job;
+            if (fieldDrafts.get(key) === draft) fieldDrafts.delete(key);
             if (feedback) feedback.textContent = input.value === value ? 'Saved' : 'Saved earlier edit; newer text is not saved yet.';
           });
         });
@@ -1418,7 +1520,32 @@ import { summariseUsage } from "./admin-usage.js";
         function currentEdit() {
           return { id: qid, q: text.value, limit: parseInt(lim.value, 10) || 120 };
         }
-        function persist() { saveQuestion(currentEdit()); }
+        var questionKey = draftKey(id, 'question-' + qid);
+        var questionDraft = fieldDrafts.get(questionKey);
+        if (questionDraft) { text.value = questionDraft.value.q; lim.value = questionDraft.value.limit; }
+        var questionStatus = document.createElement('div');
+        questionStatus.className = 'field-status'; questionStatus.setAttribute('role', 'status');
+        questionStatus.textContent = questionDraft ? questionDraft.message : '';
+        qEl.appendChild(questionStatus);
+        function rememberQuestion() {
+          fieldDrafts.set(questionKey, { value: currentEdit(), message: 'Unsaved question changes' });
+          questionStatus.textContent = 'Unsaved question changes';
+        }
+        text.addEventListener('input', rememberQuestion);
+        lim.addEventListener('input', rememberQuestion);
+        function persist(done) {
+          var draft = { value: currentEdit(), message: 'Saving…' };
+          fieldDrafts.set(questionKey, draft); questionStatus.textContent = draft.message;
+          patch({ question: draft.value }, function () {
+            if (fieldDrafts.get(questionKey) === draft) {
+              fieldDrafts.delete(questionKey); questionStatus.textContent = 'Saved';
+            }
+            if (typeof done === 'function') done();
+          }, function () {
+            draft.message = "Couldn't save. Leave the question again to retry.";
+            questionStatus.textContent = draft.message;
+          });
+        }
         if (text) text.addEventListener("blur", persist);
         if (lim) lim.addEventListener("change", persist);
 
@@ -1426,6 +1553,7 @@ import { summariseUsage } from "./admin-usage.js";
         if (del) del.addEventListener("click", function () {
           if (text.value.trim() && !confirm("Remove this question and its answer?")) return;
           saveQuestion({ id: qid, remove: true }, function () {
+            fieldDrafts.delete(questionKey);
             var qElIndex = (job.questions || []).findIndex(function (q) { return q.id === qid; });
             if (qElIndex !== -1) job.questions.splice(qElIndex, 1);
             renderJobs();
@@ -1447,7 +1575,7 @@ import { summariseUsage } from "./admin-usage.js";
             return;
           }
           // Persist the question text first, so the server answers what is on screen.
-          patch({ question: currentEdit() }, function () {
+          persist(function () {
             openGenerationReview({ id: id, kind: 'answer', questionId: qid, trigger: draft, status: status,
               subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
           });
@@ -1552,7 +1680,16 @@ import { summariseUsage } from "./admin-usage.js";
             btn.addEventListener('click', function () {
               var preview = btn.parentElement.querySelector('.vpreview');
               preview.hidden = !preview.hidden;
-              btn.textContent = preview.hidden ? 'Preview details' : 'Hide preview';
+              btn.textContent = preview.hidden ? 'Preview content' : 'Hide preview';
+              btn.setAttribute('aria-expanded', String(!preview.hidden));
+              if (preview.hidden || preview.dataset.loaded) return;
+              preview.textContent = 'Loading version…';
+              api('/api/admin/versions?id=' + encodeURIComponent(id) + '&kind=' + encodeURIComponent(btn.getAttribute('data-kind')) +
+                '&vid=' + encodeURIComponent(btn.getAttribute('data-vid')), { method: 'GET' }).then(function (out) {
+                if (unauthorised(out)) return;
+                if (!out.ok) { preview.textContent = out.d.error || 'Could not load version. Close and reopen to retry.'; return; }
+                preview.innerHTML = previewHtml(out.d.content); preview.dataset.loaded = 'true';
+              });
             });
           });
           [].forEach.call(verList.querySelectorAll('[data-act="veruse"]'), function (btn) {
@@ -1705,8 +1842,10 @@ import { summariseUsage } from "./admin-usage.js";
   }
 
   function loadJobs(firstTry) {
-    var editing = !!(document.activeElement && document.activeElement.matches && document.activeElement.matches('.workspace input, .workspace textarea'));
+    var sequence = ++listSequence;
+    var requestedArchive = showArchived;
     api("/api/admin/jobs" + (showArchived ? "?archived=1" : ""), { method: "GET" }).then(function (out) {
+      if (sequence !== listSequence || requestedArchive !== showArchived) return;
       if (unauthorised(out, firstTry)) return;
       if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
       sessionStorage.setItem(SECRET_KEY, secret);
@@ -1728,9 +1867,9 @@ import { summariseUsage } from "./admin-usage.js";
       archivedCount = out.d.archivedCount || 0;
       activeRuns = out.d.activeRuns || {};
       if (stageFilter && stages.indexOf(stageFilter) === -1) stageFilter = null;
-      if (!editing) renderJobs();
+      renderJobs();
       if (searchQuery.trim() && searchRequested !== searchQuery.trim().toLowerCase()) applySearch();
-      else if (!editing) restorePipelineScroll();
+      else restorePipelineScroll();
     });
   }
 
