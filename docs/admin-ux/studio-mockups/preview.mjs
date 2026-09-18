@@ -32,7 +32,17 @@ else {
       await page.screenshot({ path: fileURLToPath(new URL(name, import.meta.url)), fullPage: true });
       console.log(`Rendered ${name}`);
     }
+    await page.setViewportSize({ width: 1440, height: 1080 });
     await page.goto(origin + '/?view=pipeline');
+    await page.locator('[data-job="linear"]').click();
+    assert.ok(await page.locator('.reading-pane h1').textContent().then(s => s.includes('Product Platform')));
+    assert.equal(await page.locator('[data-job="linear"]').getAttribute('aria-pressed'), 'true');
+    assert.ok(await page.locator('.job-pane').isVisible());
+    assert.equal(await page.locator('.listing-bar a').getAttribute('href'), 'https://example.com/jobs/linear');
+    assert.equal(await page.locator('.listing-bar a').getAttribute('target'), '_blank');
+    await page.locator('[data-job="sanity"]').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('[data-job="sanity"]').getAttribute('aria-pressed'), 'true');
     await page.locator('#search').fill('Linear');
     assert.equal(await page.locator('.job-card').count(), 1);
     await page.locator('#search').fill('');
@@ -43,6 +53,12 @@ else {
     await page.locator('[data-doc="Cover letter"]').click();
     assert.ok(await page.locator('dialog').isVisible());
     await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 390, height: 1180 });
+    await page.locator('.focus-back').click();
+    assert.ok(await page.locator('.job-pane').isVisible());
+    await page.locator('[data-job="linear"]').click();
+    assert.ok(await page.locator('.reading-pane').isVisible());
+    assert.equal(await page.locator('.job-pane').isVisible(), false);
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log('Mockup navigation, filtering, document preview and responsive checks passed.');
   } finally {
