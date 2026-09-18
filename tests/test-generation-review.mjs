@@ -88,6 +88,9 @@ try {
       researchFingerprint: researchFingerprint(job) });
     const same = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-sonnet-5" });
     const different = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-opus-5" });
+    const instructed = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-sonnet-5", versionInstructions: "Emphasise leadership in the brief" });
+    assert.equal(instructed.kind, "brief", "brief-specific instructions do not force another research call");
+    assert.equal(instructed.payload.versionInstructions, "Emphasise leadership in the brief");
     assert.equal(same.kind, "brief");
     assert.equal(same.review.researchAction, "reuse");
     assert.equal(different.kind, "prepare-screen");
