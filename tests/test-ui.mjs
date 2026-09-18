@@ -5,6 +5,7 @@ import path from "node:path";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..").replace(/\\/g, "/") + "/";
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
+const componentUI = fs.readFileSync(root + "src/admin/ui.jsx", "utf8");
 const style = html.match(/<style>([\s\S]*?)<\/style>/)[1];
 const script = html.match(/<script(?:\s+type="module")?>([\s\S]*?)<\/script>/)[1];
 let pass = 0, fail = 0;
@@ -97,7 +98,7 @@ check("model moved into generation review", /data-review-model/.test(script) && 
 check("opening review uses the read-only action", /action:\s*'review'/.test(script));
 check("submit carries reviewed fingerprint", /reviewFingerprint\s*=\s*currentReview\.fingerprint/.test(script));
 check("cancel only closes the dialog", /data-review-cancel[\s\S]*addEventListener\('click', close\)/.test(script));
-check("review traps focus and handles Escape through cancel", /event\.key !== 'Tab'/.test(script) && /addEventListener\('cancel'/.test(script));
+check("review delegates focus and Escape to shadcn Dialog", /createAdminDialog\(/.test(script) && /<Dialog open onOpenChange/.test(componentUI) && /onCloseAutoFocus/.test(componentUI));
 check("URL state includes collection, stage, search, job and section", ["collection", "stage", "q", "job", "section"].every((key) => script.includes('p.set("' + key + '"')));
 check("search replaces history", /searchQuery = searchEl\.value;\s*writeNavigation\("replace"\)/.test(script));
 check("mobile collapses to one pane near 900px", /@media \(max-width: 900px\)/.test(style) && /\.admin-shell\.has-selection \.pipeline \{ display: none/.test(style));

@@ -2,6 +2,8 @@
 
 Reviewed against `../admin-ux-implementation-plan.md` and the visual guide on 18 September 2026.
 
+Follow-up: the requested shadcn integration now supplies the shared admin controls and Radix dialog/tab behavior. See [component coverage and build instructions](shadcn-components.md). The expanded browser suite passes 39 checks and includes automated accessibility scans; CI now builds the component assets and runs that suite.
+
 ## Corrections
 
 - Long pipeline entries now contain their text and scroll independently on desktop. Mobile retains the sticky filter block and a single pane. Stage controls use neutral colours; amber is reserved for generation.

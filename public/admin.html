@@ -436,6 +436,7 @@
     .workspace-tab[aria-selected="true"] { border-bottom: 2px solid LinkText; }
   }
 </style>
+<link rel="stylesheet" href="/assets/admin-ui.css" />
 </head>
 <body>
   <div class="frame">
@@ -453,10 +454,13 @@
 <script type="module">
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 import { summariseUsage } from "./admin-usage.js";
+import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError } from "./assets/admin-ui.js";
 (function () {
   "use strict";
 
   var app = document.getElementById("app");
+  var topnav = document.querySelector('.topnav');
+  renderAdmin(topnav, topnav.innerHTML);
   var SECRET_KEY = "bfit_admin_secret";
   var secret = sessionStorage.getItem(SECRET_KEY) || "";
 
@@ -491,28 +495,25 @@ import { summariseUsage } from "./admin-usage.js";
   }
 
   function showUsage() {
-    var dialog = document.createElement("dialog");
-    dialog.className = "usage-dialog";
-    dialog.setAttribute("aria-label", "AI usage over the last 30 days");
-    dialog.innerHTML = '<button class="ghost" style="float:right" data-close>Close</button><h2>AI usage · last 30 days</h2><div data-content aria-live="polite">Loading…</div>';
-    document.body.appendChild(dialog);
+    var dialog = createAdminDialog({
+      title: 'AI activity & usage', description: 'Recorded usage over the last 30 days.', className: 'usage-dialog',
+      content: '<button class="ghost" data-close>Close</button><div data-content aria-live="polite">Loading…</div>'
+    });
     dialog.querySelector("[data-close]").addEventListener("click", function () { dialog.close(); });
-    dialog.addEventListener("close", function () { dialog.remove(); });
-    dialog.showModal();
     api("/api/admin/reports?usage=1").then(function (out) {
       if (!dialog.isConnected) return;
       var target = dialog.querySelector("[data-content]");
       if (unauthorised(out)) { dialog.close(); return; }
       if (!out.ok) { target.textContent = "Could not load usage. Close and try again."; return; }
       var usage = summariseUsage(out.d);
-      target.innerHTML = '<p><strong>Estimated $' + usage.estimatedUsd.toFixed(2) + ' USD</strong> across ' + usage.pricedCalls + ' priced calls. ' +
+      renderAdmin(target, '<p><strong>Estimated $' + usage.estimatedUsd.toFixed(2) + ' USD</strong> across ' + usage.pricedCalls + ' priced calls. ' +
         usage.savedCalls + ' answers used profile facts without a model call.</p>' +
         '<p>' + usage.input.toLocaleString() + ' input tokens · ' + usage.output.toLocaleString() + ' output tokens · ' + usage.cachePercent.toFixed(1) + '% of input read from cache.</p>' +
         '<p>Estimates cover calls with recorded prices (' + usage.pricedCalls + ' of ' + usage.calls + '). Earlier calls and missing usage are excluded from cost. Provider billing remains authoritative.</p>' +
         '<div class="usage-scroll"><table><thead><tr><th>Task</th><th>Model</th><th>Effort</th><th>Calls</th><th>Output tokens</th><th>Errors</th><th>Estimated USD</th></tr></thead><tbody>' +
         usage.groups.map(function (row) { return '<tr><td>' + esc(row.kind) + '</td><td>' + esc(row.source === "profile" ? "Profile facts" : modelLabel(row.model) || row.model) +
           '</td><td>' + esc(row.effort) + '</td><td>' + row.calls + '</td><td>' + row.output.toLocaleString() + '</td><td>' + row.errors + '</td><td>$' + (row.estimatedCostMicros / 1e6).toFixed(3) + '</td></tr>'; }).join("") +
-        '</tbody></table></div>' + (!usage.groups.length ? '<p>No detailed usage recorded yet.</p>' : '');
+        '</tbody></table></div>' + (!usage.groups.length ? '<p>No detailed usage recorded yet.</p>' : ''));
     });
   }
 
@@ -535,7 +536,6 @@ import { summariseUsage } from "./admin-usage.js";
   var detailSequence = 0;
   var selectedMissing = false;
   var searchLoading = false;
-  var lastFocusedControl = null;
   var versionGroup = "";
 
   var reports = [];
@@ -666,14 +666,14 @@ import { summariseUsage } from "./admin-usage.js";
   // ---------- Gate ----------
 
   function renderGate(err) {
-    app.innerHTML =
+    renderAdmin(app,
       '<div class="frame"><div class="gate">' +
         "<h1>Locked</h1>" +
         "<p>Enter the admin secret to continue.</p>" +
-        '<input type="password" id="secret" placeholder="Admin secret" autofocus />' +
+        '<label for="secret">Admin secret</label><input type="password" id="secret" autocomplete="current-password" autofocus />' +
         (err ? '<div class="err">' + esc(err) + "</div>" : "") +
         '<div class="row"><button id="unlock">Unlock</button></div>' +
-      "</div></div>";
+      "</div></div>");
 
     var input = document.getElementById("secret");
     function tryUnlock() {
@@ -995,7 +995,7 @@ import { summariseUsage } from "./admin-usage.js";
       body: JSON.stringify({ action: "letter-token", id: id }),
     }).then(function (out) {
       if (unauthorised(out)) return;
-      if (!out.ok) { alert(out.d.error || "Could not open the letter."); return; }
+      if (!out.ok) { notifyAdmin(out.d.error || "Could not open the letter."); return; }
       window.open("/letter?j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token) + "&print=1", "_blank", "noopener");
     });
   }
@@ -1006,7 +1006,7 @@ import { summariseUsage } from "./admin-usage.js";
       body: JSON.stringify({ action: "artifact-token", kind: kind, id: id }),
     }).then(function (out) {
       if (unauthorised(out)) return;
-      if (!out.ok) { alert(out.d.error || "Could not open this artifact."); return; }
+      if (!out.ok) { notifyAdmin(out.d.error || "Could not open this artifact."); return; }
       window.open("/brief?kind=" + encodeURIComponent(kind) + "&j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token), "_blank", "noopener");
     });
   }
@@ -1014,18 +1014,14 @@ import { summariseUsage } from "./admin-usage.js";
   function openGenerationReview(options) {
     options = options || {};
     if (hasPendingEdits(options.id)) {
-      alert('Save pending edits in Role & context before reviewing generation. Failed saves can be retried by leaving the field again.');
+      notifyAdmin('Save pending edits in Role & context before reviewing generation. Failed saves can be retried by leaving the field again.');
       return;
     }
-    lastFocusedControl = options.trigger || document.activeElement;
-    var dialog = document.createElement('dialog');
-    dialog.className = 'review-dialog';
-    dialog.setAttribute('aria-labelledby', 'review-title');
-    dialog.setAttribute('aria-describedby', 'review-cost');
-    dialog.innerHTML = '<div class="review-head"><h2 id="review-title">Review generation</h2><p>' + esc(options.subject || '') + '</p></div>' +
-      '<div class="review-body" data-review-body aria-live="polite">Checking current inputs and scope…</div>' +
-      '<div class="review-actions"><button class="ghost" type="button" data-review-cancel>Cancel</button><button class="generation" type="button" data-review-submit disabled>Reviewing…</button></div>';
-    document.body.appendChild(dialog);
+    var dialog = createAdminDialog({
+      title: 'Review generation', description: options.subject || 'Review the exact work and costs before starting.', className: 'review-dialog',
+      content: '<div class="review-body" data-review-body aria-live="polite">Checking current inputs and scope…</div>' +
+        '<div class="review-actions"><button class="ghost" type="button" data-review-cancel>Cancel</button><button class="generation" type="button" data-review-submit disabled>Reviewing…</button></div>'
+    });
     var currentReview = null;
     var submitting = false;
     var requestId = newRequestId();
@@ -1047,12 +1043,12 @@ import { summariseUsage } from "./admin-usage.js";
       var models = MODELS.map(function (item) { return '<option value="' + esc(item.id) + '"' + (item.id === review.model ? ' selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
       var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
         return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
-      bodyEl.innerHTML = '<h3>Work to run</h3><ol>' + (review.steps || []).map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>' +
+      renderAdmin(bodyEl, '<h3>Work to run</h3><ol>' + (review.steps || []).map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>' +
         jobsHtml + '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>' +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
         '<h3>Inputs</h3><p>' + esc(review.inputSummary) + '</p><h3>Output and versions</h3><p>' + esc(review.publication) + '</p>' +
-        '<h3>Cost estimate unavailable</h3><p id="review-cost">' + esc(review.costText) + '</p>';
-      submit.disabled = false; submit.textContent = review.submitLabel;
+        '<h3>Cost estimate unavailable</h3><p id="review-cost">' + esc(review.costText) + '</p>');
+      submit.disabled = false; setButtonLabel(submit, review.submitLabel);
       var modelEl = dialog.querySelector('[data-review-model]');
       if (modelEl) modelEl.addEventListener('change', function () { model = modelEl.value; loadReview(); });
       var economyEl = dialog.querySelector('[data-review-economy]');
@@ -1060,44 +1056,34 @@ import { summariseUsage } from "./admin-usage.js";
     }
     function loadReview() {
       var sequence = ++loadingSequence;
-      submit.disabled = true; submit.textContent = 'Reviewing…'; currentReview = null;
+      submit.disabled = true; setButtonLabel(submit, 'Reviewing…'); currentReview = null;
       api('/api/admin/cover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody()) }).then(function (out) {
         if (sequence !== loadingSequence || !dialog.isConnected) return;
         if (unauthorised(out)) { dialog.close(); return; }
-        if (!out.ok) { bodyEl.innerHTML = '<div class="notice error">' + esc(out.d.error || 'Could not prepare this review.') + '</div>'; submit.textContent = 'Unavailable'; return; }
+        if (!out.ok) { renderAdmin(bodyEl, '<div class="notice error">' + esc(out.d.error || 'Could not prepare this review.') + '</div>'); setButtonLabel(submit, 'Unavailable'); return; }
         paintReview(out.d.review);
       });
     }
     function close() { dialog.close(); }
     dialog.querySelector('[data-review-cancel]').addEventListener('click', close);
-    dialog.addEventListener('cancel', function (event) { event.preventDefault(); close(); });
-    dialog.addEventListener('keydown', function (event) {
-      if (event.key !== 'Tab') return;
-      var focusable = Array.prototype.filter.call(dialog.querySelectorAll('button:not([disabled]), select:not([disabled]), input:not([disabled])'), function (el) { return !el.hidden; });
-      if (!focusable.length) return;
-      var first = focusable[0], last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    });
-    dialog.addEventListener('close', function () { dialog.remove(); if (lastFocusedControl && lastFocusedControl.isConnected) lastFocusedControl.focus(); });
     submit.addEventListener('click', function () {
       if (!currentReview || submitting) return;
       submitting = true;
-      dialog.querySelectorAll('select, input, [data-review-cancel]').forEach(function (control) { control.disabled = true; });
-      submit.disabled = true; submit.textContent = 'Starting…';
+      dialog.querySelectorAll('select, input, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = true; });
+      submit.disabled = true; setButtonLabel(submit, 'Starting…');
       var req = requestBody();
       req.action = undefined; req.kind = currentReview.effectiveKind; req.reviewFingerprint = currentReview.fingerprint; req.requestId = requestId;
       api('/api/admin/cover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) }).then(function (out) {
         submitting = false;
-        dialog.querySelectorAll('select, input, [data-review-cancel]').forEach(function (control) { control.disabled = false; });
+        dialog.querySelectorAll('select, input, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = false; });
         if (unauthorised(out)) { close(); return; }
         if (!out.ok) {
           if (out.status === 409 && out.d.code === 'REVIEW_STALE') {
-            bodyEl.insertAdjacentHTML('afterbegin', '<div class="notice error">The inputs or scope changed. Review the refreshed scope before submitting.</div>');
+            showAdminError(bodyEl, 'The inputs or scope changed. Review the refreshed scope before submitting.');
             requestId = newRequestId(); loadReview(); return;
           }
-          submit.disabled = false; submit.textContent = currentReview.submitLabel;
-          bodyEl.insertAdjacentHTML('afterbegin', '<div class="notice error">' + esc(out.d.error || 'Could not start generation.') + '</div>'); return;
+          submit.disabled = false; setButtonLabel(submit, currentReview.submitLabel);
+          showAdminError(bodyEl, out.d.error || 'Could not start generation.'); return;
         }
         close();
         if (options.status) { options.status.textContent = 'Queued…'; options.status.className = 'row-status'; }
@@ -1115,7 +1101,6 @@ import { summariseUsage } from "./admin-usage.js";
         }
       });
     });
-    dialog.showModal();
     dialog.querySelector('[data-review-cancel]').focus();
     loadReview();
   }
@@ -1190,7 +1175,7 @@ import { summariseUsage } from "./admin-usage.js";
       selected ? (!selectedVisible ? '<div class="notice">This role no longer matches the current pipeline view.<button class="read-link" data-return-list>Return to the list</button></div>' : '') + jobHtml(selected) :
       '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a role from the pipeline to review its fit, materials, context and activity.</p></div>';
 
-    app.innerHTML = '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + '"><aside class="pipeline" aria-label="' + (showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
+    renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + '"><aside class="pipeline" aria-label="' + (showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
       (showArchived ? '<button class="ghost" id="togglearchived">Pipeline</button>' : (archivedCount ? '<button class="ghost" id="togglearchived">Archive (' + archivedCount + ')</button>' : '')) + '</div>' +
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
@@ -1198,7 +1183,7 @@ import { summariseUsage } from "./admin-usage.js";
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
       (!showArchived && pendingAnalysis ? '<div class="bulkbar"><button class="generation" id="analyseall"' + (activeRuns['analyse-all'] ? ' disabled' : '') + '>' +
         (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse ready roles (' + pendingAnalysis + ')') + '</button><p class="field-help">Sparkle actions run AI and may incur costs.</p></div>' : '') +
-      '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>';
+      '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
 
     renderedRole = selectedId; renderedSection = workspaceSection;
     renderedScrollKey = scrollKey();
@@ -1226,7 +1211,7 @@ import { summariseUsage } from "./admin-usage.js";
           body: JSON.stringify({ kind: "adopt", requestId: newRequestId() }),
         }).then(function (out) {
           if (unauthorised(out)) return;
-          if (!out.ok) { alert(out.d.error || "Failed."); adoptBtn.disabled = false; return; }
+          if (!out.ok) { notifyAdmin(out.d.error || "Failed."); adoptBtn.disabled = false; return; }
           activeRuns.adopt = { runId: out.d.runId };
           watchWork("batch", out.d.runId, adoptBtn, "adopt", false).then(function () { activeRuns.adopt = null; });
         });
@@ -1298,28 +1283,6 @@ import { summariseUsage } from "./admin-usage.js";
         writeNavigation('push', { admin: true, selectedFromList: true }); renderJobs(); loadSelectedDetail(selectedId);
       });
     });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-section]'), function (button) {
-      button.id = 'tab-' + button.getAttribute('data-section');
-      button.setAttribute('aria-controls', 'panel-' + button.getAttribute('data-section'));
-      button.tabIndex = button.getAttribute('aria-selected') === 'true' ? 0 : -1;
-      button.addEventListener('click', function () {
-        workspaceSection = button.getAttribute('data-section'); writeNavigation('push'); renderJobs();
-        document.getElementById('tab-' + workspaceSection).focus();
-      });
-      button.addEventListener('keydown', function (event) {
-        var sections = ['overview', 'materials', 'context', 'activity'];
-        var index = sections.indexOf(workspaceSection);
-        if (event.key === 'ArrowRight') index = (index + 1) % sections.length;
-        else if (event.key === 'ArrowLeft') index = (index + sections.length - 1) % sections.length;
-        else if (event.key === 'Home') index = 0;
-        else if (event.key === 'End') index = sections.length - 1;
-        else return;
-        event.preventDefault();
-        document.querySelector('[data-section="' + sections[index] + '"]').click();
-      });
-    });
-    var panel = document.querySelector('[role="tabpanel"]');
-    if (panel) panel.setAttribute('aria-labelledby', 'tab-' + workspaceSection);
     Array.prototype.forEach.call(document.querySelectorAll('[data-section-link]'), function (button) {
       button.addEventListener('click', function () {
         workspaceSection = button.getAttribute('data-section-link'); versionGroup = button.getAttribute('data-version-group') || "";
@@ -1550,8 +1513,8 @@ import { summariseUsage } from "./admin-usage.js";
         if (lim) lim.addEventListener("change", persist);
 
         var del = qEl.querySelector('[data-act="qdel"]');
-        if (del) del.addEventListener("click", function () {
-          if (text.value.trim() && !confirm("Remove this question and its answer?")) return;
+        if (del) del.addEventListener("click", async function () {
+          if (text.value.trim() && !await confirmAdmin({ title: 'Remove question?', description: 'This removes the question and its saved answer.', confirmLabel: 'Remove question', destructive: true })) return;
           saveQuestion({ id: qid, remove: true }, function () {
             fieldDrafts.delete(questionKey);
             var qElIndex = (job.questions || []).findIndex(function (q) { return q.id === qid; });
@@ -1659,7 +1622,7 @@ import { summariseUsage } from "./admin-usage.js";
             html += '<div class="verhead" id="versions-research" tabindex="-1">Company research</div>' +
               d.research.map(function (v) { return versionRow(v, "research"); }).join("");
           }
-          verList.innerHTML = html || '<div class="ver"><span class="vmeta">Nothing generated yet.</span></div>';
+          renderAdmin(verList, html || '<div class="ver"><span class="vmeta">Nothing generated yet.</span></div>');
           wireUse();
           if (versionGroup) {
             var target = document.getElementById('versions-' + versionGroup);
@@ -1688,7 +1651,7 @@ import { summariseUsage } from "./admin-usage.js";
                 '&vid=' + encodeURIComponent(btn.getAttribute('data-vid')), { method: 'GET' }).then(function (out) {
                 if (unauthorised(out)) return;
                 if (!out.ok) { preview.textContent = out.d.error || 'Could not load version. Close and reopen to retry.'; return; }
-                preview.innerHTML = previewHtml(out.d.content); preview.dataset.loaded = 'true';
+                renderAdmin(preview, previewHtml(out.d.content)); preview.dataset.loaded = 'true';
               });
             });
           });
@@ -1824,9 +1787,9 @@ import { summariseUsage } from "./admin-usage.js";
 
       var deleteBtn = rowEl.querySelector('[data-act="delete"]');
       if (deleteBtn) {
-        deleteBtn.addEventListener("click", function () {
+        deleteBtn.addEventListener("click", async function () {
           var what = (job.role || "this row") + (job.company ? " at " + job.company : "");
-          if (!confirm("Delete " + what + " for good?\n\nThe row and its notes go. The fit page itself stays up, so any link you already shared keeps working.")) return;
+          if (!await confirmAdmin({ title: 'Delete ' + what + '?', description: 'The role and its notes will be permanently removed. The shared fit page stays available.', confirmLabel: 'Delete permanently', destructive: true })) return;
           status.textContent = "Deleting…"; status.className = "row-status";
           api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (out) {
             if (unauthorised(out)) return;
@@ -1881,6 +1844,11 @@ import { summariseUsage } from "./admin-usage.js";
     if (tag === "input" || tag === "textarea" || t.isContentEditable) return;
     var el = document.getElementById("search");
     if (el) { e.preventDefault(); el.focus(); el.select(); }
+  });
+
+  document.addEventListener('admin:section', function (event) {
+    workspaceSection = event.detail; writeNavigation('push'); renderJobs();
+    document.querySelector('[data-section="' + workspaceSection + '"]').focus();
   });
 
   window.addEventListener('popstate', function () {

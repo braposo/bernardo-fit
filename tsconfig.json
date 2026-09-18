@@ -1,9 +1,11 @@
 {
-  "//": "This project is plain ESM JavaScript everywhere except the Trigger.dev files, which are the only TypeScript in the repo. Nothing runs tsc: Trigger's own CLI bundles these with esbuild, and Vercel builds api/*.js untouched. This config exists so an editor can type-check and complete inside trigger.config.ts and the tasks.",
+  "//": "Trigger's CLI bundles the TypeScript tasks; Vercel builds api/*.js untouched. The admin JSX has a separate esbuild/Tailwind build. The @ alias locates its shadcn components; the included TypeScript files remain Trigger-only.",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/admin/*"] },
     "lib": ["ES2023"],
     "strict": true,
     "skipLibCheck": true,

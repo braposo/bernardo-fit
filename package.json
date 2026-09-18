@@ -6,9 +6,20 @@
   "private": true,
   "dependencies": {
     "@trigger.dev/sdk": "4.5.16",
-    "@vercel/kv": "^2.0.0"
+    "@vercel/kv": "^2.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cn": "^0.3.0",
+    "html-react-parser": "^6.1.8",
+    "lucide-react": "^1.47.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.7.0"
   },
   "scripts": {
+    "build": "node scripts/build-admin.mjs",
+    "test:admin-ui": "node scripts/verify-admin-ux.mjs",
     "test": "node tests/run.mjs",
     "trigger:dev": "trigger dev --skip-update-check",
     "trigger:check": "trigger deploy --dry-run --skip-update-check",
@@ -16,7 +27,14 @@
     "trigger:health": "trigger report health --env prod --period 24h"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@tailwindcss/cli": "^4.3.3",
     "@trigger.dev/build": "4.5.16",
-    "trigger.dev": "4.5.16"
+    "esbuild": "^0.28.2",
+    "playwright": "^1.63.0",
+    "shadcn": "^4.21.0",
+    "tailwindcss": "^4.3.3",
+    "trigger.dev": "4.5.16",
+    "tw-animate-css": "^1.4.0"
   }
 }

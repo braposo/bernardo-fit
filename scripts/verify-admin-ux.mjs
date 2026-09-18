@@ -5,10 +5,11 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
 const { chromium } = createRequire(import.meta.url)('playwright');
+const { default: AxeBuilder } = await import('@axe-core/playwright');
 const server = createServer(async (req, res) => {
   const name = new URL(req.url, 'http://localhost').pathname;
-  if (!['/admin.html', '/admin-run.js', '/admin-usage.js'].includes(name)) { res.writeHead(404).end(); return; }
-  res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : 'text/html');
+  if (!['/admin.html', '/admin-run.js', '/admin-usage.js', '/assets/admin-ui.js', '/assets/admin-ui.css'].includes(name)) { res.writeHead(404).end(); return; }
+  res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html');
   res.end(await readFile(new URL('../public' + name, import.meta.url)));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -31,7 +32,7 @@ try {
     hasResearch: i !== 1, researchStale: true, briefStale: true,
     questions: i ? [] : [{ id: 'q1', q: 'Why this role?', limit: 120, a: 'A synthetic saved answer.' }],
   }));
-  let failSave = false, dispatches = 0, reviews = 0;
+  let failSave = false, dispatches = 0, reviews = 0, mutations = 0;
   const errors = [];
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
@@ -42,6 +43,7 @@ try {
     const reply = (json, status = 200) => route.fulfill({ status, json });
     if (url.pathname === '/api/admin/jobs') {
       if (request.method() === 'PATCH') {
+        mutations++;
         if (failSave) return reply({ error: 'Fixture save failed' }, 500);
         const job = jobs.find(j => j.id === url.searchParams.get('id'));
         if (body.question) Object.assign(job.questions.find(q => q.id === body.question.id), body.question);
@@ -57,6 +59,7 @@ try {
       if (url.searchParams.has('kind')) return reply({ content: { opening: 'Synthetic saved version content <script>unsafe()</script>' } });
       return reply({ fit: [], letter: [], research: [], brief: [{ vid: 'v1', at: '2026-09-01', active: false }] });
     }
+    if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
       reviews++;
       return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: 'gpt-5.6-sol',
@@ -70,10 +73,28 @@ try {
     return reply({ error: 'Unexpected fixture request' }, 404);
   });
   await page.goto(origin + '/admin.html?job=job0');
+  const audit = async name => {
+    await page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))));
+    const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    check(name + ' has no automated WCAG A/AA violations', result.violations.length === 0 ||
+      (console.log(JSON.stringify(result.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) })), null, 2)), false));
+  };
+  check('pipeline controls use shadcn components', await page.locator('#search').getAttribute('data-slot') === 'input' &&
+    await page.locator('#stagefilter').getAttribute('data-slot') === 'native-select');
+  await audit('Overview');
+  await page.locator('#usagebtn').click();
+  await page.locator('[data-slot="table"]').waitFor();
+  check('usage uses shadcn Table inside Dialog', await page.locator('[role="dialog"] [data-slot="table"]').count() === 1);
+  await audit('Usage');
+  await page.locator('[data-close]').click();
   await page.locator('[data-section="context"]').click();
+  check('context uses shadcn fields and labels', await page.locator('#notes').getAttribute('data-slot') === 'textarea' &&
+    await page.locator('label[for="notes"]').getAttribute('data-slot') === 'label');
+  await audit('Role context');
   await page.locator('#notes').fill('Draft survives a failed save');
   failSave = true;
   await page.locator('[data-section="materials"]').click();
+  check('all admin buttons use shadcn primitives', await page.locator('button:not([data-slot])').count() === 0);
   await page.locator('[data-section="context"]').click();
   check('failed draft survives section navigation', await page.locator('#notes').inputValue() === 'Draft survives a failed save');
   failSave = false;
@@ -87,6 +108,12 @@ try {
   check('opening stale outputs dispatches nothing', dispatches === 0 && reviews === 0);
   await page.locator('[data-act="cover"]').click();
   await page.locator('[data-review-submit]:enabled').waitFor();
+  check('review uses the shadcn Dialog', await page.locator('[role="dialog"]').getAttribute('data-slot') === 'dialog-content');
+  await audit('Generation review');
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press('Tab');
+    check('dialog traps focus, step ' + i, await page.evaluate(() => !!document.activeElement.closest('[role="dialog"]')));
+  }
   await page.keyboard.press('Escape');
   check('cancelled review dispatches nothing', dispatches === 0 && reviews === 1);
   check('dialog restores trigger focus', await page.locator('[data-act="cover"]').evaluate(el => el === document.activeElement));
@@ -96,6 +123,7 @@ try {
   check('version preview renders content without dispatch', dispatches === 0);
   await page.locator('[data-section="activity"]').focus();
   await page.keyboard.press('Home');
+  await page.waitForFunction(() => document.activeElement?.getAttribute('data-section') === 'overview' && document.activeElement.getAttribute('aria-selected') === 'true');
   check('Home key selects and focuses Overview', await page.locator('[data-section="overview"]').evaluate(el => el.getAttribute('aria-selected') === 'true' && el === document.activeElement));
   await page.locator('#search').fill('Example');
   await page.waitForTimeout(350);
@@ -113,6 +141,21 @@ try {
   failSave = false;
   await page.locator('[data-act="qtext"]').focus();
   await page.locator('[data-section="overview"]').click();
+  await page.locator('[data-section="materials"]').click();
+  const mutationsBeforeCancel = mutations;
+  await page.locator('[data-act="qdel"]').click();
+  await page.locator('[role="alertdialog"]').waitFor();
+  await audit('Destructive confirmation');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  check('destructive cancellation makes no mutation', mutations === mutationsBeforeCancel);
+  await page.locator('[data-act="qdraft"]').click();
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  check('economy preference uses shadcn Checkbox', await page.locator('[data-review-economy]').getAttribute('data-slot') === 'checkbox');
+  await page.locator('[data-review-economy]').click();
+  await page.waitForFunction(() => localStorage.getItem('fit.economyAnswers') === 'false');
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  await audit('Answer review');
+  await page.keyboard.press('Escape');
   await page.locator('[data-select-job="job1"]').click();
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-act="runfit"]').click();
@@ -124,6 +167,7 @@ try {
   for (const width of [1280, 768, 390, 360]) {
     await page.setViewportSize({ width, height: 900 });
     check('no horizontal overflow at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (width === 390) await audit('Mobile materials');
     if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: `${process.env.ADMIN_UX_SCREENSHOTS}/admin-${width}.png`, fullPage: true });
   }
   await page.locator('[data-act="back"]').click();

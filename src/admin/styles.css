@@ -1,0 +1,108 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@source "./**/*.{js,jsx}";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #fffefa;
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--secondary);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--secondary);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--primary);
+  --color-generation: #fff0d4;
+  --color-generation-foreground: #7a4810;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+}
+
+:root {
+  --background: #faf8f4;
+  --foreground: #211f1a;
+  --card: #fffefa;
+  --primary: #155a99;
+  --secondary: #efede7;
+  --muted-foreground: #666258;
+  --destructive: #a02929;
+  --border: #d8d3c8;
+  --input: #a7a095;
+  --radius: .5rem;
+}
+
+/* The HTML shell still owns layout. Components own control styling, above the
+   legacy unlayered rules until the remaining templates migrate to JSX. */
+[data-slot="button"] {
+  @apply min-h-11 h-auto rounded-md px-3 py-2 text-sm font-medium;
+  line-height: 1.4;
+}
+[data-slot="button"][data-variant="default"] { @apply bg-primary text-primary-foreground; }
+[data-slot="button"][data-variant="outline"] { @apply border border-input bg-card text-foreground; }
+[data-slot="button"][data-variant="ghost"] { @apply bg-transparent text-foreground; }
+[data-slot="button"][data-variant="link"] { @apply border-0 bg-transparent text-primary; }
+[data-slot="button"][data-variant="destructive"] { @apply bg-destructive text-white; }
+[data-slot="button"][data-variant="generation"] { @apply border border-generation-foreground bg-generation text-generation-foreground; }
+[data-slot="button"].generation::before { content: none; }
+[data-slot="button"].pipeline-item { @apply block h-auto whitespace-normal text-left; }
+[data-slot="button"].pipeline-item.selected { background: #eaf1f8; }
+[data-slot="button"].back-pipeline { align-self: flex-start; justify-content: flex-start; padding-left: 0; }
+[data-slot="button"]:hover { filter: brightness(.97); }
+[data-slot="button"]:focus-visible, [data-slot="input"]:focus-visible,
+[data-slot="textarea"]:focus-visible, [data-slot="native-select"]:focus-visible,
+[data-slot="tabs-trigger"]:focus-visible, [data-slot="checkbox"]:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 3px;
+}
+[data-slot="input"], [data-slot="textarea"], [data-slot="native-select"] {
+  @apply min-h-11 rounded-md border border-input bg-card text-base text-foreground;
+}
+[data-slot="native-select-wrapper"] { width: 100%; }
+[data-slot="native-select"] { background-image: none; }
+[data-slot="label"] { @apply text-sm font-medium text-foreground; }
+[data-slot="label"].sr-only { display: block; }
+[data-slot="badge"] { @apply rounded-md border-border bg-secondary text-xs text-foreground; }
+[data-slot="tabs-list"] { width: 100%; height: auto; justify-content: flex-start; padding: 0; border-radius: 0; }
+[data-slot="tabs-trigger"] { min-height: 44px; flex: none; border: 0; padding: 10px 0; }
+[data-slot="tabs-trigger"]::after { display: none; }
+[data-slot="tabs-trigger"][data-state="active"] { color: var(--primary); background: transparent; box-shadow: inset 0 -2px var(--primary); }
+[data-slot="tabs-content"] { margin: 0; }
+[data-slot="dialog-content"].review-dialog,
+[data-slot="dialog-content"].usage-dialog {
+  width: min(680px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px);
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; gap: 16px; overflow-y: auto;
+}
+[data-slot="dialog-content"].usage-dialog { width: min(920px, calc(100vw - 32px)); }
+[data-slot="dialog-header"] { text-align: left; }
+[data-slot="dialog-title"] { font: 600 24px/1.25 var(--display); margin: 0; }
+[data-slot="dialog-description"] { margin: 0; }
+.review-dialog .review-body { padding: 0; max-height: calc(100dvh - 270px); }
+.review-dialog .review-actions { padding: 16px 0 0; background: var(--card); }
+[data-slot="alert-dialog-content"] { max-height: calc(100dvh - 32px); overflow-y: auto; }
+[data-slot="checkbox"] { min-width: 20px; min-height: 20px; padding: 0; background: var(--card); }
+[data-slot="checkbox"][data-state="checked"] { background: var(--primary); color: white; }
+[data-slot="label"]:has([data-slot="checkbox"]) { min-height: 44px; }
+[data-slot="card"].gate { padding: 24px; gap: 16px; }
+.stats .none { opacity: 1; color: var(--muted-foreground); }
+.stats { font-size: 13px; }
+@media (max-width: 900px) {
+  [data-slot="dialog-content"].review-dialog { padding: 16px; }
+  [data-slot="tabs-list"] { column-gap: 16px; }
+  [data-slot="tabs-trigger"] { font-size: 14px; }
+  .material-actions [data-slot="button"] { justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot] { animation: none !important; transition: none !important; }
+}
