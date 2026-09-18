@@ -3,6 +3,8 @@
 Status: Ready for implementation. This document specifies the agreed direction; it does not record completed implementation.
 Date: 18 September 2026.
 
+Visual companion: [annotated layouts, action styles and responsive guidance](admin-ux/README.md). Read it before implementation. It includes desktop, mobile, Materials and generation-review guides using the agreed amber sparkle convention, without repeated Paid AI button labels.
+
 ## 1. Purpose and decision authority
 
 Make the admin easy to scan, navigate by application stage, and use without accidentally starting chargeable generation. Replace the long, mixed-action job rows with a compact pipeline and a selected-role workspace.
