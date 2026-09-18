@@ -13,9 +13,9 @@ Run `node docs/admin-ux/studio-mockups/preview.mjs --serve` and open http://127.
 
 ## Recommended direction
 
-Use an email-style two-pane workspace: top navigation, a left job index and a right reading pane, with independent scrolling. Keep search and filters intact when selecting another job. Each whole job card is a keyboard-accessible button with selected state; place the score on the right and omit the redundant View role link. Each card shows a large numeric score without repeated Fit or tier labels, a company and role, a named colored stage, a row of document availability indicators and relative time added. Preserve an accessible score description. Missing documents remain visibly unavailable in the list; generation belongs to an explicit action in the focused role page.
+Use an email-style two-pane workspace: top navigation, a left job index and a right reading pane, with independent scrolling. Keep search and filters intact when selecting another job. Each whole job card is a keyboard-accessible button with selected state; place the score on the right and omit the redundant View role link. Each card shows a large numeric score without repeated Fit or tier labels, a company and role, a named colored stage, a row of document availability indicators and relative time added. Preserve an accessible score description. Missing documents remain visibly unavailable in the list; generation belongs to an explicit action in each document card.
 
-Selecting a job updates the adjacent reading pane. A prominent View listing & apply link opens the saved original posting in a new tab. Prototype links use explicit example.com placeholders because the roles are illustrative; production must use the real saved source URL and show an unavailable state when absent. Documents come first, ahead of overview and context sections. Keep the fit page's shareability distinct from private letter, brief and research documents. Opening an existing document never generates another one.
+Selecting a job updates the adjacent reading pane. A View listing link sits immediately below the fit score and opens the saved original posting in a new tab. An icon-only status control sits beside the status badge, with an accessible name and tooltip. Prototype links use explicit example.com placeholders because the roles are illustrative; production must use the real saved source URL and show an unavailable state when absent. Documents come first, ahead of overview and context sections. Keep the fit page's shareability distinct from private letter, brief and research documents. Opening an existing document never generates another one.
 
 Stage colors: violet Interviewing, blue Applied, teal Reviewing, green Offer, slate New, rose Rejected. Retain stage names and accessible contrast: color must not carry meaning alone. Map these variants to the application's existing status taxonomy when implementing.
 
@@ -49,3 +49,17 @@ Production work should use existing shadcn components, verify keyboard focus and
 ## Verification
 
 `preview.mjs` renders four screenshots and checks search, filtering, keyboard/card selection, preserved browsing controls, listing link targets, mobile back navigation, document dialogs, Escape dismissal, page errors and horizontal overflow at desktop/mobile sizes. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a local Chrome executable if necessary. No full application test suite is required for these isolated design artifacts.
+
+## Document lifecycle revision
+
+Each existing document card displays its live version number, model and relative creation time. Open live opens that exact version. Versions opens a compact version picker with each saved version's model, creation time, preview action and Publish live action. Private documents remain private: live means the selected current version, not public visibility.
+
+Generate new version opens a model selector and optional instructions. A new result is a draft; the live version stays in place until explicitly published. Empty cards have a prominent Generate document action leading to the same flow. Model labels mirror the application's current configured choices; the mockup makes no external AI calls and charges nothing. Production should preserve existing generation cost confirmation and load actual model availability, document content, version IDs and dates from the backend.
+
+The interactive mockup supports generating fixture drafts with different models, previewing saved versions, selecting an older live version and publishing a first version. Changes last only for the current page session.
+
+- [Version picker](05-document-versions.png)
+- [Model selection and generation](06-generate-version.png)
+- [Missing documents](07-missing-documents.png)
+
+Implement these compositions with shadcn Card, Badge, Button, Dialog, Select, Label, Textarea and Tooltip. Keep the primary actions visible rather than placing the version workflow in an overflow menu. On mobile, use one document card per row for readable metadata and comfortable controls.
