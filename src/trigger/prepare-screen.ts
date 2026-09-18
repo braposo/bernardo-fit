@@ -6,9 +6,10 @@ import { getActiveResearch } from "../../lib/screen-artifacts.js";
 import { getJob, getReport, mutateJob } from "../../lib/store.js";
 import { researchIsReusable } from "../../lib/screen-work.js";
 import { resolveModel } from "../../lib/models.js";
+import { prepareBaseFingerprint } from "../../lib/generation-review.js";
 import { SCREEN_TASK_POLICY } from "../../lib/task-policy.js";
 
-export type PreparePayload = { jobId: string; requestId: string; fingerprint: string; model: string; forceResearch?: boolean };
+export type PreparePayload = { jobId: string; requestId: string; fingerprint: string; model: string; researchAction: "refresh" };
 const childId = (requestId: string, suffix: string) => `${requestId.slice(0, 90)}-${suffix}`;
 
 export const prepareScreenTask = task({
@@ -21,8 +22,15 @@ export const prepareScreenTask = task({
       return { outcome: "superseded", jobId: payload.jobId, requestId: payload.requestId };
     }
     const model = resolveModel(payload.model);
+    let report = job.fitReportId ? await getReport(job.fitReportId) : null;
     let research = await getActiveResearch(job);
-    if (payload.forceResearch || !researchIsReusable(job, research, Date.now(), model)) {
+    if (!report || payload.researchAction !== "refresh" ||
+        prepareBaseFingerprint(job, report, model, payload.researchAction, research) !== payload.fingerprint) {
+      await mutateJob(payload.jobId, (current) => current.prepareRun?.requestId === payload.requestId
+        ? { prepareRun: { ...current.prepareRun, status: "superseded", finishedAt: new Date().toISOString() } } : undefined);
+      return { outcome: "superseded", jobId: payload.jobId, requestId: payload.requestId };
+    }
+    if (!researchIsReusable(job, research, Date.now(), model) || payload.researchAction === "refresh") {
       metadata.set("phase", "researching");
       const requestId = childId(payload.requestId, "research");
       const fingerprint = researchFingerprint(job);
@@ -40,9 +48,14 @@ export const prepareScreenTask = task({
       job = await getJob(payload.jobId); research = await getActiveResearch(job);
     }
     if (!job || !research) throw new AbortTaskRunError("Company research is missing.");
-    const report = job.fitReportId ? await getReport(job.fitReportId) : null;
+    report = job.fitReportId ? await getReport(job.fitReportId) : null;
     if (!report) throw new AbortTaskRunError("The linked fit analysis is missing.");
     if (job.prepareRun?.requestId !== payload.requestId || job.prepareRun?.fingerprint !== payload.fingerprint) {
+      return { outcome: "superseded", jobId: payload.jobId, requestId: payload.requestId };
+    }
+    if (prepareBaseFingerprint(job, report, model, payload.researchAction, research) !== payload.fingerprint) {
+      await mutateJob(payload.jobId, (current) => current.prepareRun?.requestId === payload.requestId
+        ? { prepareRun: { ...current.prepareRun, status: "superseded", finishedAt: new Date().toISOString() } } : undefined);
       return { outcome: "superseded", jobId: payload.jobId, requestId: payload.requestId };
     }
     metadata.set("phase", "writing");

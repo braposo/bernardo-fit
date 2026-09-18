@@ -69,21 +69,13 @@ check("role survives an import run", r3.role === "Director of Engineering", r3.r
 
 console.log("\n--- the page ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
-check("edit button present", html.includes('data-act="edittitle"'));
-check("both inputs present", html.includes('data-act="erole"') && html.includes('data-act="ecompany"'));
-check("values escaped", html.includes('esc(j.role || "")') && html.includes('esc(j.company || "")'));
-check("prompts when there is no company", html.includes("no company"));
-check("saves on blur", html.includes('el.addEventListener("blur", saveTitle)'));
-check("enter commits", html.includes('if (e.key === "Enter")'));
-check("escape reverts", html.includes('if (e.key === "Escape")'));
-check("does not save while moving between the two inputs", html.includes("titleForm.contains(document.activeElement)"));
-// A display rule on .titleedit outranks the UA display:none behind the hidden
-// attribute, so without this the inputs sit there permanently.
-check("hidden beats the display rule", html.includes(".titleedit[hidden] { display: none; }"));
-check("the view half hides too", html.includes(".row-title[hidden]"));
-check("form starts hidden", html.includes(`data-act="titleform" hidden>`));
-
-check("skips a no-op save", html.includes('if (role === (job.role || "") && company === (job.company || ""))'));
+check("both labelled inputs are in role context", html.includes('data-field="role"') && html.includes('data-field="company"'));
+check("values escaped", html.includes("esc(j.role || '')") && html.includes("esc(j.company || '')"));
+check("prompts when there is no company", html.includes("No company"));
+check("saves each field on blur", html.includes("input.addEventListener('blur'"));
+check("keeps failed drafts and offers retry", html.includes("Your draft is still here"));
+check("late responses are scoped by field sequence", html.includes("fieldSaveSeq[field] !== sequence"));
+check("skips a no-op save", html.includes("value === String(job[field] || '')"));
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

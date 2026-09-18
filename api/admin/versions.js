@@ -8,6 +8,7 @@ import {
 } from "../../lib/store.js";
 import { getCoverArtifact, listCoverVersions, migrateLegacyCoverArtifacts } from "../../lib/cover-artifacts.js";
 import { applyAnalysisToOwners } from "../../lib/analysis-completion.js";
+import { getScreenArtifact, listScreenArtifacts } from "../../lib/screen-artifacts.js";
 
 // GET  /api/admin/versions?id=<jobId>          list both kinds for one row
 // POST /api/admin/versions { id, kind, vid }   make one of them live
@@ -19,10 +20,12 @@ import { applyAnalysisToOwners } from "../../lib/analysis-completion.js";
 // A row can hold several of each, and sending them all just to render a few
 // dates would be a large response for nothing.
 function meta(v, kind) {
-  return kind === "fit"
-    ? { vid: v.vid, at: v.createdAt, model: v.model || "", active: !!v.active, score: v.internal ? v.internal.score : null }
-    : { vid: v.vid, at: v.at, model: v.model || "", active: !!v.active,
-        words: v.words || 0, salutation: v.salutation || "" };
+  if (kind === "fit") return { vid: v.vid, at: v.createdAt, model: v.model || "", active: !!v.active,
+    score: v.internal ? v.internal.score : null };
+  if (kind === "letter") return { vid: v.vid, at: v.at, model: v.model || "", active: !!v.active,
+    words: v.words || 0, salutation: v.salutation || "" };
+  return { vid: v.id, at: v.at, model: v.model || "", active: false,
+    ...(kind === "research" ? { sources: (v.sources || []).length, partial: !!v.partial } : {}) };
 }
 
 export default async function handler(req, res) {
@@ -56,16 +59,19 @@ export default async function handler(req, res) {
           }];
         }
       }
+      const [research, brief] = await Promise.all([listScreenArtifacts(job.id, "research"), listScreenArtifacts(job.id, "brief")]);
       res.status(200).json({
         fit: fit.map((v) => meta(v, "fit")),
         letter: (await listCoverVersions(job)).map((v) => meta(v, "letter")),
+        research: research.map((v) => ({ ...meta(v, "research"), active: v.id === job.researchId })),
+        brief: brief.map((v) => ({ ...meta(v, "brief"), active: v.id === job.briefId })),
       });
       return;
     }
 
     if (req.method === "POST") {
       const { id, kind, vid } = req.body || {};
-      if (!id || !vid || (kind !== "fit" && kind !== "letter")) {
+      if (!id || !vid || !["fit", "letter", "research", "brief"].includes(kind)) {
         res.status(400).json({ error: "Missing id, vid, or kind" });
         return;
       }
@@ -93,6 +99,20 @@ export default async function handler(req, res) {
         await applyAnalysisToOwners(job.fitReportId, chosen?.internal || null);
         res.status(200).json({ ok: true, kind, vid });
         return;
+      }
+
+      if (kind === "research" || kind === "brief") {
+        const artifact = await getScreenArtifact(kind, job.id, vid);
+        if (!artifact) return res.status(404).json({ error: "Version not found" });
+        await mutateJob(id, () => kind === "research" ? {
+          researchId: artifact.id, researchAt: artifact.at || "", researchModel: artifact.model || "",
+          researchSourceCount: (artifact.sources || []).length, researchPartial: !!artifact.partial,
+          researchFingerprint: "", briefFingerprint: "", researchRun: null,
+        } : {
+          briefId: artifact.id, briefAt: artifact.at || "", briefModel: artifact.model || "",
+          briefStage: artifact.stage || "screen", briefFingerprint: "", briefRun: null, prepareRun: null,
+        });
+        return res.status(200).json({ ok: true, kind, vid });
       }
 
       await migrateLegacyCoverArtifacts(job);

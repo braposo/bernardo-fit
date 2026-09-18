@@ -1,10 +1,9 @@
 import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
 import { requireAdmin } from "../../lib/admin.js";
-import { analysisFingerprint, answerFingerprint, briefFingerprint, coverFingerprint, digest, researchFingerprint } from "../../lib/generation-fingerprint.js";
-import { getJob, getReport, mutateJob } from "../../lib/store.js";
-import { getActiveResearch } from "../../lib/screen-artifacts.js";
+import { digest } from "../../lib/generation-fingerprint.js";
+import { assertReviewedScope, resolveGenerationReview, REVIEWED_GENERATION_KINDS } from "../../lib/generation-review.js";
+import { getJob, mutateJob } from "../../lib/store.js";
 import { resolveModel } from "../../lib/models.js";
-import { researchIsReusable } from "../../lib/screen-work.js";
 import { clearActiveRun, getReceiptForRequest, getRunReceipt, saveActiveRun, saveRunReceipt } from "../../lib/run-receipts.js";
 import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, ANALYSE_ALL_TASK_ID, ANSWER_TASK_ID, BRIEF_TASK_ID,
   COVER_TASK_ID, PREPARE_SCREEN_TASK_ID, RESEARCH_TASK_ID, TERMINAL_RUN_STATUSES,
@@ -25,45 +24,6 @@ const SPECS = {
 const validRequestId = (value) => /^[a-zA-Z0-9_-]{8,100}$/.test(String(value || "")) ? String(value) : "";
 const origin = () => (process.env.PUBLIC_BASE_URL || "https://fit.bernardoraposo.com").replace(/\/$/, "");
 const finished = () => new Date().toISOString();
-
-async function buildContext(kind, job, body, model) {
-  const reportId = body.reportId || job?.fitReportId || "";
-  const report = reportId ? await getReport(reportId) : null;
-  if (["cover", "brief", "prepare-screen", "regenerate"].includes(kind) && !report) {
-    throw Object.assign(new Error("Generate the fit analysis first; this work is built from it."), { status: 409 });
-  }
-  if (kind === "cover") return { fingerprint: coverFingerprint(job, report, model), payload: { model, origin: origin() } };
-  if (kind === "research") return { fingerprint: researchFingerprint(job), payload: { model } };
-  if (kind === "analyse") {
-    if (String(job.jobDescription || "").trim().length < 20) {
-      throw Object.assign(new Error("Add a fuller job description first."), { status: 409 });
-    }
-    return { fingerprint: analysisFingerprint(job, model), payload: { model, mode: "create" } };
-  }
-  if (kind === "regenerate") {
-    if (job.fitReportId !== reportId) throw Object.assign(new Error("This analysis does not belong to that role."), { status: 409 });
-    return { fingerprint: analysisFingerprint(job, model, "replace", report),
-    payload: { model, mode: "replace", reportId } };
-  }
-  if (kind === "answer") {
-    const questionId = String(body.questionId || "");
-    const question = (job.questions || []).find((item) => item.id === questionId);
-    if (!question) {
-      throw Object.assign(new Error("Question not found"), { status: 404 });
-    }
-    if (!String(question.q || "").trim()) throw Object.assign(new Error("Write the question first."), { status: 409 });
-    const economy = body.economy === true;
-    return { fingerprint: answerFingerprint(job, questionId, model, report, { economy }), payload: { model, questionId, economy } };
-  }
-  const research = await getActiveResearch(job);
-  if (kind === "brief" && !researchIsReusable(job, research)) {
-    throw Object.assign(new Error("Refresh the company research before rewriting the brief."), { status: 409 });
-  }
-  if (kind === "brief") return { fingerprint: briefFingerprint(job, report, research), payload: { model } };
-  return { fingerprint: digest({ research: researchFingerprint(job), brief: briefFingerprint(job, report, research || {}), model,
-    forceResearch: kind === "prepare-screen" && body.forceResearch === true }),
-    payload: { model, ...(kind === "prepare-screen" ? { forceResearch: !!body.forceResearch } : {}) } };
-}
 
 async function writeRun(jobId, spec, body, run) {
   if (spec.global) return;
@@ -141,6 +101,10 @@ export default async function handler(req, res) {
     }
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
     const body = req.body || {};
+    if (body.action === "review") {
+      const resolved = await resolveGenerationReview(body);
+      return res.status(200).json({ review: resolved.review });
+    }
     const kind = String(body.kind || "cover");
     const spec = SPECS[kind];
     let requestId = validRequestId(body.requestId);
@@ -156,12 +120,17 @@ export default async function handler(req, res) {
     if (["research", "brief", "prepare-screen"].includes(kind) && !screenDispatchEnabled()) {
       return res.status(503).json({ error: "This generation is temporarily paused." });
     }
-    const job = spec.global ? null : await getJob(ownerId);
+    let resolved = null;
+    if (REVIEWED_GENERATION_KINDS.has(kind)) {
+      resolved = await resolveGenerationReview(body);
+      assertReviewedScope(body, resolved);
+    }
+    const job = spec.global ? null : (resolved?.job || await getJob(ownerId));
     if (!spec.global && !job) return res.status(404).json({ error: "Job not found" });
-    const model = resolveModel(body.model);
-    const built = spec.global
-      ? { fingerprint: digest({ kind, requestId, model }), payload: { model } }
-      : await buildContext(kind, job, body, model);
+    const model = resolved?.model || resolveModel(body.model);
+    const built = resolved
+      ? { fingerprint: resolved.workFingerprint, payload: { ...resolved.payload, ...(kind === "cover" ? { origin: origin() } : {}) } }
+      : { fingerprint: digest({ kind, requestId, model }), payload: { model } };
     const prior = spec.field === "questionRun" ? job?.questions?.find(q => q.id === body.questionId)?.run : job?.[spec.field];
     if (prior?.runId && prior.fingerprint === built.fingerprint && ["dispatching", "queued"].includes(prior.status)) {
       const currentRun = await runs.retrieve(prior.runId);
@@ -190,6 +159,6 @@ export default async function handler(req, res) {
       throw error;
     }
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message || "Unexpected error", detail: error.detail });
+    res.status(error.status || 500).json({ error: error.message || "Unexpected error", ...(error.code ? { code: error.code } : {}), detail: error.detail });
   }
 }

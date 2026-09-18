@@ -6,15 +6,22 @@ import { resolveModel } from "../../lib/models.js";
 import { listJobs, mutateJob } from "../../lib/store.js";
 import { BATCH_TASK_POLICY } from "../../lib/task-policy.js";
 
-export type AnalyseAllPayload = { requestId: string; model: string };
+export type AnalyseAllPayload = { requestId: string; model: string; jobs: Array<{ id: string; fingerprint: string }> };
 export const analyseAllTask = task({
   id: "analyse-all", maxDuration: BATCH_TASK_POLICY.maxDuration, retry: BATCH_TASK_POLICY.retry,
   queue: { concurrencyLimit: BATCH_TASK_POLICY.concurrencyLimit },
   run: async (payload: AnalyseAllPayload) => {
     const model = resolveModel(payload.model);
-    const pending = (await listJobs()).filter((job) => !job.fitReportId && String(job.jobDescription || "").trim().length >= 20);
-    metadata.set("phase", pending.length ? "analysing" : "completed").set("total", pending.length);
-    if (!pending.length) return summariseAnalysisBatch([], []);
+    const reviewed = Array.isArray(payload.jobs) ? payload.jobs : [];
+    const reviewedById = new Map(reviewed.map((item) => [item.id, item]));
+    const pending = (await listJobs()).filter((job) => {
+      const item = reviewedById.get(job.id);
+      return !!item && !job.fitReportId && String(job.jobDescription || "").trim().length >= 20 &&
+        analysisFingerprint(job, model) === item.fingerprint;
+    });
+    const skipped = reviewed.length - pending.length;
+    metadata.set("phase", pending.length ? "analysing" : "completed").set("total", reviewed.length).set("skipped", skipped);
+    if (!pending.length) return { ...summariseAnalysisBatch([], []), reviewed: reviewed.length, skipped };
     const items: Array<{ payload: AnalysisPayload; options: any }> = [];
     for (const job of pending) {
       const requestId = analysisChildRequestId(payload.requestId, job.id);
@@ -28,6 +35,6 @@ export const analyseAllTask = task({
     const result = await analysisTask.batchTriggerAndWait(items);
     const summary = summariseAnalysisBatch(pending, result.runs);
     metadata.set("phase", "completed").set("completed", summary.analysed).set("failed", summary.failed);
-    return summary;
+    return { ...summary, reviewed: reviewed.length, skipped };
   },
 });

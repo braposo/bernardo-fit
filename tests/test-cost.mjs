@@ -12,6 +12,7 @@ import { summariseUsage } from '../public/admin-usage.js';
 import * as store from '../lib/store.js';
 import jobsHandler from '../api/admin/jobs.js';
 import dispatchHandler, { claimRun } from '../api/admin/cover.js';
+import { resolveGenerationReview } from '../lib/generation-review.js';
 import { tasks, runs, idempotencyKeys } from '@trigger.dev/sdk';
 import { runResearch } from '../lib/research.js';
 import { executeAnswerWork } from '../lib/answer-work.js';
@@ -173,8 +174,9 @@ await test('dispatch recovers the same claim after an ambiguous error and preser
   };
   runs.retrieve=async()=>({status:'COMPLETED'});
   const job=await store.saveJob({company:'Dispatch',jobDescription:'A complete engineering leadership role description.'});
+  const review=await resolveGenerationReview({id:job.id,kind:'analyse',model:opus});
   const invoke=async requestId=>{const res={status(code){this.code=code;return this},json(body){this.body=body;return this},setHeader(){}};
-   await dispatchHandler({method:'POST',headers:{'x-admin-secret':'mock-admin'},body:{id:job.id,kind:'analyse',model:opus,requestId}},res);return res;};
+   await dispatchHandler({method:'POST',headers:{'x-admin-secret':'mock-admin'},body:{id:job.id,kind:'analyse',model:opus,requestId,reviewFingerprint:review.fingerprint}},res);return res;};
   assert.equal((await invoke('dispatch-first')).code,500);
   const second=await invoke('dispatch-retry');assert.equal(second.code,202);assert.equal(second.body.requestId,'dispatch-first');assert.equal(keys[0],keys[1]);
   assert.equal((await store.getJob(job.id)).analysisRun.status,'completed');
