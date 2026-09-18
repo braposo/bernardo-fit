@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc"><title id="title">Mobile list, role and materials screens</title><desc id="desc">Three mobile wireframes show a pipeline with sticky search and one stage dropdown, selected role overview, and vertically stacked material actions. Returning restores filters and list position.</desc><rect x="0" y="0" width="1200" height="900" rx="0" fill="#f0eee8" stroke="#f0eee8"/>
+<text x="30" y="40" font-family="Arial, sans-serif" font-size="26" fill="#211f1a" font-weight="700">03 / Mobile: list → role → return</text>
+<text x="30" y="69" font-family="Arial, sans-serif" font-size="16" fill="#666258" font-weight="400">Each frame represents one screen at approximately 390 px. Do not squeeze the desktop columns onto a phone.</text>
+<rect x="30" y="100" width="330" height="610" rx="18" fill="#faf8f4" stroke="#d8d3c8"/>
+<rect x="435" y="100" width="330" height="610" rx="18" fill="#faf8f4" stroke="#d8d3c8"/>
+<rect x="840" y="100" width="330" height="610" rx="18" fill="#faf8f4" stroke="#d8d3c8"/>
+<text x="50" y="139" font-family="Arial, sans-serif" font-size="23" fill="#211f1a" font-weight="700">Pipeline</text>
+<rect x="50" y="157" width="290" height="40" rx="8" fill="#fffefa" stroke="#d8d3c8"/>
+<text x="62" y="182" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Search roles…</text>
+<rect x="50" y="205" width="290" height="44" rx="7" fill="#fffefa" stroke="#d8d3c8"/><text x="62" y="233" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Filter: Interviewing (5) ▾</text><rect x="45" y="265" width="300" height="73" rx="7" fill="#eaf1f8" stroke="#155a99"/><text x="57" y="291" font-family="Arial, sans-serif" font-size="16" fill="#155a99" font-weight="700">Sanity</text><text x="281" y="291" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 70</text><text x="57" y="314" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Manager</text>
+<rect x="45" y="343" width="300" height="73" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="369" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company A</text><text x="281" y="369" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 65</text><text x="57" y="392" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Lead</text>
+<rect x="45" y="421" width="300" height="73" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="447" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company B</text><text x="281" y="447" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 63</text><text x="57" y="470" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Head of Engineering</text>
+<rect x="45" y="499" width="300" height="73" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="525" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company C</text><text x="281" y="525" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 61</text><text x="57" y="548" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Engineering Manager</text>
+<rect x="45" y="577" width="300" height="73" rx="7" fill="#faf8f4" stroke="#d8d3c8"/><text x="57" y="603" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="700">Example company D</text><text x="281" y="603" font-family="Arial, sans-serif" font-size="13" fill="#666258" font-weight="400">Fit 59</text><text x="57" y="626" font-family="Arial, sans-serif" font-size="15" fill="#211f1a" font-weight="400">Platform Lead</text>
+<text x="455" y="138" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">← Back to pipeline</text>
+<text x="455" y="184" font-family="Arial, sans-serif" font-size="17" fill="#155a99" font-weight="700">Sanity</text>
+<text x="455" y="215" font-family="Arial, sans-serif" font-size="23" fill="#211f1a" font-weight="400">Engineering Manager</text>
+<text x="455" y="240" font-family="Arial, sans-serif" font-size="23" fill="#211f1a" font-weight="400">(Content Agent)</text>
+<text x="455" y="283" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">London · Hybrid, 1–3 days</text>
+<rect x="455" y="301" width="180" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
+<text x="467" y="326" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">Stage: Interviewing ▾</text>
+<text x="455" y="373" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Overview</text>
+<text x="565" y="373" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Materials</text>
+<text x="455" y="406" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Role &amp; context</text>
+<text x="615" y="406" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Activity</text>
+<path d="M455 420H745" stroke="#d8d3c8"/>
+<text x="455" y="459" font-family="Arial, sans-serif" font-size="23" fill="#155a99" font-weight="700">70  Fit score</text>
+<text x="455" y="493" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Strong fit for AI content and</text>
+<text x="455" y="518" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">engineering leadership.</text>
+<text x="455" y="543" font-family="Arial, sans-serif" font-size="16" fill="#211f1a" font-weight="400">Clarify the London cadence.</text>
+<rect x="455" y="579" width="268" height="38" rx="7" fill="#155a99" stroke="#d8d3c8"/>
+<text x="467" y="604" font-family="Arial, sans-serif" font-size="14" fill="#fff" font-weight="600">Open interview brief</text>
+<text x="455" y="650" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">View fit page ↗</text>
+<text x="860" y="138" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">← Back to pipeline</text>
+<text x="860" y="184" font-family="Arial, sans-serif" font-size="22" fill="#211f1a" font-weight="700">Sanity / Materials</text>
+<text x="860" y="216" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="400">✦ Sparkle actions run AI</text>
+<text x="860" y="241" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="400">and may incur costs.</text>
+<text x="860" y="286" font-family="Arial, sans-serif" font-size="20" fill="#211f1a" font-weight="700">Interview brief</text>
+<text x="860" y="315" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Outdated: research changed</text>
+<text x="860" y="352" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Open previous brief</text>
+<text x="860" y="390" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">View versions</text>
+<rect x="860" y="414" width="270" height="38" rx="7" fill="#fff0d4" stroke="#7a4810"/>
+<text x="872" y="439" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="600">✦  Rewrite brief</text>
+<path d="M860 479H1150" stroke="#d8d3c8"/>
+<text x="860" y="518" font-family="Arial, sans-serif" font-size="20" fill="#211f1a" font-weight="700">Company research</text>
+<text x="860" y="547" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">30 sources</text>
+<text x="860" y="584" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Open research</text>
+<rect x="860" y="612" width="270" height="38" rx="7" fill="#fff0d4" stroke="#7a4810"/>
+<text x="872" y="637" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="600">✦  Refresh research</text>
+<rect x="35" y="749" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
+<text x="44" y="769" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">1</text>
+<text x="75" y="768" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">List</text>
+<text x="75" y="795" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Sticky search + one stage dropdown.</text>
+<text x="75" y="820" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Two-line rows; no repeated stage.</text>
+<rect x="435" y="749" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
+<text x="444" y="769" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">2</text>
+<text x="475" y="768" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Role workspace</text>
+<text x="475" y="795" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Back restores the list position.</text>
+<text x="475" y="820" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Section controls wrap accessibly.</text>
+<rect x="835" y="749" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
+<text x="844" y="769" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">3</text>
+<text x="875" y="768" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Actions stack</text>
+<text x="875" y="795" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Keep labels and targets readable.</text>
+<text x="875" y="820" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">No horizontal action-row scrolling.</text></svg>

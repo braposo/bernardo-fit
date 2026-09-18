@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc"><title id="title">Materials and action styling</title><desc id="desc">Four outputs with separate blue Open and Versions links and amber sparkle generation buttons. A single cost legend explains the convention.</desc><rect x="0" y="0" width="1200" height="900" rx="0" fill="#f0eee8" stroke="#f0eee8"/>
+<text x="30" y="40" font-family="Arial, sans-serif" font-size="26" fill="#211f1a" font-weight="700">02 / Materials: visual action vocabulary</text>
+<text x="30" y="69" font-family="Arial, sans-serif" font-size="16" fill="#666258" font-weight="400">No repeated Paid AI labels. Amber + sparkle + an explicit verb identify generation actions.</text>
+<rect x="30" y="95" width="1140" height="510" rx="8" fill="#faf8f4" stroke="#d8d3c8"/>
+<text x="55" y="133" font-family="Arial, sans-serif" font-size="22" fill="#211f1a" font-weight="700">Sanity / Materials</text>
+<text x="55" y="167" font-family="Arial, sans-serif" font-size="15" fill="#7a4810" font-weight="400">✦  Sparkle actions run AI and may incur costs.</text>
+<path d="M55 185H1145" stroke="#d8d3c8"/>
+<text x="55" y="210" font-family="Arial, sans-serif" font-size="18" fill="#211f1a" font-weight="700">Fit analysis</text>
+<text x="55" y="236" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Shareable page · Current</text>
+<text x="635" y="218" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Open</text>
+<text x="725" y="218" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Versions</text>
+<rect x="890" y="192" width="245" height="38" rx="7" fill="#fff0d4" stroke="#7a4810"/>
+<text x="902" y="217" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="600">✦  Regenerate analysis</text>
+<path d="M55 256H1145" stroke="#d8d3c8"/>
+<text x="55" y="293" font-family="Arial, sans-serif" font-size="18" fill="#211f1a" font-weight="700">Cover letter</text>
+<text x="55" y="319" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Saved letter · Current</text>
+<text x="635" y="301" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Open</text>
+<text x="725" y="301" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Versions</text>
+<rect x="890" y="275" width="245" height="38" rx="7" fill="#fff0d4" stroke="#7a4810"/>
+<text x="902" y="300" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="600">✦  Rewrite letter</text>
+<path d="M55 339H1145" stroke="#d8d3c8"/>
+<text x="55" y="376" font-family="Arial, sans-serif" font-size="18" fill="#211f1a" font-weight="700">Interview brief</text>
+<text x="55" y="402" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Outdated: research changed · Previous brief remains readable</text>
+<text x="635" y="384" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Open</text>
+<text x="725" y="384" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Versions</text>
+<rect x="890" y="358" width="245" height="38" rx="7" fill="#fff0d4" stroke="#7a4810"/>
+<text x="902" y="383" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="600">✦  Rewrite brief</text>
+<path d="M55 422H1145" stroke="#d8d3c8"/>
+<text x="55" y="459" font-family="Arial, sans-serif" font-size="18" fill="#211f1a" font-weight="700">Company research</text>
+<text x="55" y="485" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">30 sources · Current</text>
+<text x="635" y="467" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Open</text>
+<text x="725" y="467" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Versions</text>
+<rect x="890" y="441" width="245" height="38" rx="7" fill="#fff0d4" stroke="#7a4810"/>
+<text x="902" y="466" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="600">✦  Refresh research</text>
+<path d="M55 505H1145" stroke="#d8d3c8"/>
+<text x="55" y="552" font-family="Arial, sans-serif" font-size="18" fill="#211f1a" font-weight="700">Application questions</text>
+<text x="55" y="578" font-family="Arial, sans-serif" font-size="14" fill="#666258" font-weight="400">Question text, word limits, saved answers and draft actions</text>
+<text x="905" y="565" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Open questions →</text>
+<rect x="35" y="640" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
+<text x="44" y="660" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">1</text>
+<text x="75" y="659" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Navigation</text>
+<text x="75" y="686" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Blue links open saved content.</text>
+<text x="75" y="711" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Opening outdated content is still allowed.</text>
+<rect x="435" y="640" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
+<text x="444" y="660" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">2</text>
+<text x="475" y="659" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Editing / utilities</text>
+<text x="475" y="686" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Neutral buttons save, copy and edit.</text>
+<text x="475" y="711" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Use field-level save feedback.</text>
+<rect x="830" y="640" width="28" height="28" rx="14" fill="#155a99" stroke="#155a99"/>
+<text x="839" y="660" font-family="Arial, sans-serif" font-size="15" fill="#fff" font-weight="700">3</text>
+<text x="870" y="659" font-family="Arial, sans-serif" font-size="17" fill="#211f1a" font-weight="700">Generation</text>
+<text x="870" y="686" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Amber actions open a review.</text>
+<text x="870" y="711" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Only review submission runs AI.</text>
+<text x="75" y="777" font-family="Arial, sans-serif" font-size="15" fill="#155a99" font-weight="600">Open letter →</text>
+<rect x="465" y="751" width="155" height="38" rx="7" fill="#fffefa" stroke="#d8d3c8"/>
+<text x="477" y="776" font-family="Arial, sans-serif" font-size="14" fill="#211f1a" font-weight="600">Copy fit link</text>
+<rect x="870" y="751" width="220" height="38" rx="7" fill="#fff0d4" stroke="#7a4810"/>
+<text x="882" y="776" font-family="Arial, sans-serif" font-size="14" fill="#7a4810" font-weight="600">✦  Rewrite letter</text>
+<text x="35" y="854" font-family="Arial, sans-serif" font-size="15" fill="#666258" font-weight="400">Stale notices use descriptive neutral text; do not reuse the amber generation treatment for warnings or stage filters.</text></svg>
