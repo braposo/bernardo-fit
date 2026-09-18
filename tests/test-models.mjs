@@ -1,5 +1,6 @@
 process.env.ADMIN_SECRET = "test-secret-value";
 process.env.ANTHROPIC_API_KEY = "sk-fake";
+process.env.OPENAI_API_KEY = "sk-fake";
 // Paths are derived rather than hard-coded so the suite runs from a clone.
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -14,6 +15,7 @@ let stopReason = "end_turn";
 globalThis.fetch = async (_u, opts) => {
   const body = JSON.parse(opts.body);
   sent.push(body.model);
+  if (_u.includes("api.openai.com")) return { ok: true, status: 200, json: async () => ({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ job_title: "T", company: "C", pitch: "p", categories: [], differentiators: [], closing: "c" }) }] }] }) };
   return {
     ok: true,
     json: async () => ({
@@ -54,28 +56,29 @@ function mockRes() {
 }
 const auth = { "x-admin-secret": "test-secret-value", host: "fit.bernardoraposo.com" };
 const reset = () => { sent = []; };
+const SOL = "gpt-5.6-sol", ASTRA = "gpt-6-astra";
 const OPUS = "claude-opus-5", SONNET = "claude-sonnet-5";
 
 console.log("\n--- the model list ---");
-check("opus is the default", M.DEFAULT_MODEL === OPUS);
-check("both models offered, default first", M.MODELS.map((m) => m.id).join() === OPUS + "," + SONNET, M.MODELS.map((m) => m.id));
+check("sol is the default", M.DEFAULT_MODEL === SOL);
+check("four models offered, default first", M.MODELS.map((m) => m.id).join() === [SOL, ASTRA, OPUS, SONNET].join(), M.MODELS.map((m) => m.id));
 check("ids carry no date suffix", M.MODELS.every((m) => !/\d{8}$/.test(m.id)));
 check("resolves a known id", M.resolveModel(SONNET) === SONNET);
-check("falls back to the default on rubbish", M.resolveModel("gpt-4") === OPUS);
-check("falls back on empty", M.resolveModel("") === OPUS && M.resolveModel(undefined) === OPUS);
+check("falls back to the default on rubbish", M.resolveModel("gpt-4") === SOL);
+check("falls back on empty", M.resolveModel("") === SOL && M.resolveModel(undefined) === SOL);
 check("labels", M.modelLabel(OPUS) === "Opus" && M.modelLabel(SONNET) === "Sonnet");
 
 console.log("\n--- generators send what they are given ---");
 reset(); await runAnalysis("A long enough job description for a role.", { model: OPUS });
 check("analysis: opus", sent[0] === OPUS, sent);
 reset(); await runAnalysis("A long enough job description for a role.");
-check("analysis: defaults to opus", sent[0] === OPUS, sent);
+check("analysis: defaults to sol", sent[0] === SOL, sent);
 reset(); await runCoverLetter({ report: { job_description: "x" }, fitUrl: "https://x", model: OPUS });
 check("cover: opus", sent[0] === OPUS, sent);
 reset(); await runAnswer({ question: "Why us?", limit: 100, model: OPUS });
 check("answer: opus", sent[0] === OPUS, sent);
 reset(); await runAnalysis("Another job description here.", { model: "claude-opus-5-20260101" });
-check("a date-suffixed id is refused, not passed through", sent[0] === OPUS, sent);
+check("an unknown id uses the default", sent[0] === SOL, sent);
 
 console.log("\n--- thinking blocks do not corrupt parsing ---");
 const { report } = await runAnalysis("A job description for a platform role.", { model: OPUS });
@@ -159,7 +162,7 @@ console.log("\n--- the page ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
 check("picker present", html.includes('id="modelsel"'));
 check("persisted", html.includes('localStorage.setItem(MODEL_KEY, model)'));
-check("page defaults to opus", html.includes('localStorage.getItem(MODEL_KEY) || "claude-opus-5"'));
+check("page defaults to sol", html.includes('localStorage.getItem(MODEL_KEY) || "gpt-5.6-sol"'));
 check("guards a bad stored value", html.includes('if (!MODELS.some('));
 check("sent with analysis and letter", html.includes('kind: "analyse", model: model') && html.includes("id: id, model: model, requestId: requestId"));
 check("sent with regenerate", html.includes('kind: "regenerate", model: model'));

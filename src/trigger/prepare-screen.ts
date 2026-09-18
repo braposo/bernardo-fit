@@ -5,7 +5,7 @@ import { briefFingerprint, researchFingerprint } from "../../lib/generation-fing
 import { getActiveResearch } from "../../lib/screen-artifacts.js";
 import { getJob, getReport, mutateJob } from "../../lib/store.js";
 import { researchIsReusable } from "../../lib/screen-work.js";
-import { PUBLIC_MODEL, resolveModel } from "../../lib/models.js";
+import { resolveModel } from "../../lib/models.js";
 import { SCREEN_TASK_POLICY } from "../../lib/task-policy.js";
 
 export type PreparePayload = { jobId: string; requestId: string; fingerprint: string; model: string; forceResearch?: boolean };
@@ -20,15 +20,16 @@ export const prepareScreenTask = task({
     if (!job || job.prepareRun?.requestId !== payload.requestId || job.prepareRun?.fingerprint !== payload.fingerprint) {
       return { outcome: "superseded", jobId: payload.jobId, requestId: payload.requestId };
     }
+    const model = resolveModel(payload.model);
     let research = await getActiveResearch(job);
-    if (payload.forceResearch || !researchIsReusable(job, research)) {
+    if (payload.forceResearch || !researchIsReusable(job, research, Date.now(), model)) {
       metadata.set("phase", "researching");
       const requestId = childId(payload.requestId, "research");
       const fingerprint = researchFingerprint(job);
       await mutateJob(payload.jobId, (current) => current.prepareRun?.requestId === payload.requestId
         ? { researchRun: { requestId, runId: "", fingerprint, status: "queued", startedAt: new Date().toISOString(), finishedAt: "" } } : undefined);
       const key = await idempotencyKeys.create(`research:${payload.jobId}:${requestId}`, { scope: "global" });
-      const result = await companyResearchTask.triggerAndWait({ jobId: payload.jobId, requestId, fingerprint, model: PUBLIC_MODEL },
+      const result = await companyResearchTask.triggerAndWait({ jobId: payload.jobId, requestId, fingerprint, model },
         { idempotencyKey: key, idempotencyKeyTTL: "30d", tags: [`job:${payload.jobId}`, `request:${requestId}`] });
       if (!result.ok) throw result.error;
       if (result.output.outcome !== "completed") {
@@ -47,7 +48,7 @@ export const prepareScreenTask = task({
     metadata.set("phase", "writing");
     const requestId = childId(payload.requestId, "brief");
     const fingerprint = briefFingerprint(job, report, research);
-    const model = resolveModel(payload.model);
+
     await mutateJob(payload.jobId, (current) => current.prepareRun?.requestId === payload.requestId
       ? { briefRun: { requestId, runId: "", fingerprint, status: "queued", startedAt: new Date().toISOString(), finishedAt: "" } } : undefined);
     const key = await idempotencyKeys.create(`brief:${payload.jobId}:${requestId}`, { scope: "global" });

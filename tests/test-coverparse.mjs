@@ -27,7 +27,7 @@ const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else
 const FIT = "https://fit.bernardoraposo.com/?r=abc";
 async function run(payload) {
   reply = payload; calls = 0;
-  try { return { ok: true, out: await runCoverLetter({ report: { job_description: "jd" }, fitUrl: FIT }) }; }
+  try { return { ok: true, out: await runCoverLetter({ model: "claude-opus-5", report: { job_description: "jd" }, fitUrl: FIT }) }; }
   catch (err) { return { ok: false, err: err.message }; }
 }
 
@@ -71,7 +71,7 @@ for (const [label, payload] of cases) {
 console.log("\n--- retry then salvage ---");
 reply = (n) => (n === 1 ? "not json at all" : GOOD);
 calls = 0;
-let out = await runCoverLetter({ report: { job_description: "jd" }, fitUrl: FIT });
+let out = await runCoverLetter({ model: "claude-opus-5", report: { job_description: "jd" }, fitUrl: FIT });
 check("retries once and succeeds", !!out && calls === 2, calls);
 
 reply = () =>
@@ -80,7 +80,7 @@ reply = () =>
   "At SingleStore I ran the Web team for five years and delivered two full replatformings.\n\n" +
   "I have led one team rather than several, so the scope here is a genuine step up for me.";
 calls = 0;
-out = await runCoverLetter({ report: { job_description: "jd" }, fitUrl: FIT });
+out = await runCoverLetter({ model: "claude-opus-5", report: { job_description: "jd" }, fitUrl: FIT });
 check("salvages prose after two failures", !!out && out.paragraphs.length >= 3, out && out.paragraphs.length);
 check("salvage tried twice first", calls === 2, calls);
 check("salvaged first paragraph is the lead", out.paragraphs[0].lead === true);

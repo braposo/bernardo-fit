@@ -6,12 +6,13 @@ import { executeIngestBatch } from "../lib/ingest-work.js";
 import { getJob, getReport, listJobs, mutateJob } from "../lib/store.js";
 import { resolveModel } from "../lib/models.js";
 
+// Legacy handler scenarios explicitly exercise Claude; provider/default routing has separate tests.
 let sequence = 0;
 const requestId = (kind) => `test_${kind}_${Date.now()}_${++sequence}`;
 const fail = (res, error) => res.status(error.status || 500).json({ error: error.message || "Unexpected error" });
 
 async function runAnalysis(job, model, mode = "create", reportId = "") {
-  const wanted = resolveModel(model);
+  const wanted = resolveModel(model ?? "claude-opus-5");
   const report = reportId ? await getReport(reportId) : job.fitReportId ? await getReport(job.fitReportId) : null;
   const rid = requestId(mode);
   const fingerprint = analysisFingerprint(job, wanted, mode, report);
@@ -56,7 +57,7 @@ export async function regenerateHandler(req, res) {
     const job = req.body?.jobId ? await getJob(req.body.jobId) : owners.find((row) => String(row.instructions || "").trim()) || owners[0] || null;
     if (req.body?.jobId && !job) return res.status(404).json({ error: "Job not found" });
     if (job) return res.status(200).json(await runAnalysis(job, req.body?.model, "replace", reportId));
-    const model = resolveModel(req.body?.model);
+    const model = resolveModel(req.body?.model ?? "claude-opus-5");
     const rid = requestId("replace");
     const fingerprint = analysisFingerprint(null, model, "replace", await getReport(reportId));
     const result = await executeAnalysisWork({ reportId, requestId: rid, fingerprint, model, mode: "replace" });
@@ -74,7 +75,7 @@ export async function answerHandler(req, res) {
     const question = (job.questions || []).find((q) => q.id === req.body.questionId);
     if (!question) return res.status(404).json({ error: "Question not found" });
     if (!String(question.q || "").trim()) return res.status(400).json({ error: "Write the question first." });
-    const model = resolveModel(req.body?.model);
+    const model = resolveModel(req.body?.model ?? "claude-opus-5");
     const report = job.fitReportId ? await getReport(job.fitReportId) : null;
     const rid = requestId("answer");
     const fingerprint = answerFingerprint(job, req.body?.questionId, model, report);
