@@ -25,4 +25,4 @@ Browser verification uses synthetic API fixtures and dispatches no paid generati
 
 ## Publication decision
 
-The mockup proposed generating an unpublished draft. Existing PR #6 generation automatically makes successful outputs live; this remains unchanged pending the user's explicit choice between these behaviors. The server-backed review accurately explains automatic publication, and previous versions can be selected explicitly. No worker or publication contract is silently changed in this UI update.
+Successful generation automatically makes the new version live, as confirmed by the user. The current version stays readable while generation runs, and previous versions remain available for preview and explicit publication. The server-backed generation review explains this behavior. Existing worker and publication contracts are preserved; private documents remain private.
