@@ -10,6 +10,7 @@ import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, ANALYSE_ALL_TASK_ID, ANSWER_TASK_ID, B
   coverDispatchEnabled, screenDispatchEnabled } from "../../lib/task-policy.js";
 
 const SPECS = {
+  "jev-score": { taskId: "jev-score", field: "jevRun" },
   cover: { taskId: COVER_TASK_ID, field: "coverRun" },
   research: { taskId: RESEARCH_TASK_ID, field: "researchRun" },
   brief: { taskId: BRIEF_TASK_ID, field: "briefRun" },

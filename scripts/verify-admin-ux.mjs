@@ -58,7 +58,7 @@ try {
         stats: {view:12,copy_link:2,cv_download:3}, usage:{days:[{calls:1,pricedCalls:1,input:100,output:50,estimatedCostMicros:1000}],breakdown:[{kind:'analysis',model:'gpt-5.6-sol',effort:'high',calls:1,output:50,estimatedCostMicros:1000}]}
       });
       if (url.searchParams.has('id')) return reply({ job: jobs.find(j => j.id === url.searchParams.get('id')) });
-      return reply({ jobs, stages: ['new', 'reviewing', 'interviewing', 'expired'], archiveOnStage: ['expired'], archivedCount: 0 });
+      return reply({ jobs, stages: ['new', 'reviewing', 'interviewing', 'expired'], archiveOnStage: ['expired'], archivedCount: 0, features: { jevEnabled: true } });
     }
     if (url.pathname === '/api/admin/versions') {
       if (request.method() === 'POST') { mutations++; return reply({ok:true}); }
@@ -68,7 +68,7 @@ try {
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
       reviews++;
-      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.model || 'gpt-5.6-sol',
+      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'typesafe-ai/jev' : body.model || 'gpt-5.6-sol',
         submitLabel: 'Generate analysis', steps: ['Generate fixture output'], inputSummary: 'Saved fixture inputs',
         publication: 'Becomes active', costText: 'Estimate unavailable. May incur costs.' } });
     }
@@ -237,6 +237,23 @@ try {
   }
   await page.locator('[data-act="back"]').click();
   check('mobile back shows pipeline', await page.locator('.pipeline').isVisible());
+  jobs[0].jevAssessment = { assessedAt: '2026-09-19T12:00:00Z', score: null,
+    dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility'].map((label, i) => ({ label, score: i === 4 ? null : 75, weight: [25,25,20,20,10][i], confidence: 0.9 })),
+    posting: { choice: 'partial' }, constraint: { choice: 'unknown' } };
+  jobs[0].score = null;
+  await page.goto(origin + '/admin.html?job=job0');
+  await page.locator('[data-act="jevscore"]').waitFor();
+  check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
+  check('missing practical evidence is visible', await page.getByText('Insufficient evidence', { exact: true }).isVisible());
+  check('five dimensions fit mobile viewport', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await audit('Jev assessment mobile');
+  const writingModel = await page.evaluate(() => localStorage.getItem('fit.model'));
+  await page.locator('[data-act="jevscore"]').click();
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  check('Jev review has a fixed model', await page.locator('[data-review-model]').count() === 0);
+  check('Jev preserves writing-model preference', await page.evaluate(() => localStorage.getItem('fit.model')) === writingModel);
+  await audit('Jev review');
+  await page.keyboard.press('Escape');
   check('no browser errors', errors.length === 0);
   console.log(`passed ${passed}, failed 0`);
 } finally {

@@ -24,6 +24,7 @@ import { getActiveRuns } from "../../lib/run-receipts.js";
 import { appendAudit, auditEvent } from "../../lib/job-audit.js";
 import { getJobHistory } from "../../lib/job-history.js";
 import { readJobUsage } from "../../lib/usage.js";
+import { jevEnabled } from "../../lib/jev.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
@@ -85,7 +86,7 @@ export default async function handler(req, res) {
         archivedCount: all.filter(j => j.archived).length,
         models: MODELS.map(({ id, label }) => ({ id, label })),
         archiveOnStage: ARCHIVE_ON_STAGE,
-        features: { coverDispatchEnabled: coverDispatchEnabled(), screenDispatchEnabled: screenDispatchEnabled() },
+        features: { coverDispatchEnabled: coverDispatchEnabled(), screenDispatchEnabled: screenDispatchEnabled(), jevEnabled: jevEnabled() },
         viewingArchived: onlyArchived,
         activeRuns,
       });

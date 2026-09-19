@@ -26,14 +26,14 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "stageLabel", "stageOptions", "materialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jobHtml", "pipelineItemHtml"];
+  "tierClass", "stageLabel", "stageOptions", "materialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
 
 const sandbox = [
   'var stages=["new","reviewing","applied","interviewing","offer","rejected","not_interested","expired"];',
   'var MODELS=[{id:"gpt-5.6-sol",label:"Sol"},{id:"claude-opus-5",label:"Opus"}];',
-  'var workspaceSection="overview",selectedId="j1",showArchived=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true;',
+  'var workspaceSection="overview",selectedId="j1",showArchived=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true,jevEnabled=true;',
   'var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
   needed.map(grab).join("\n"),
   'return {jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
@@ -65,7 +65,12 @@ console.log("\n--- overview ---");
 const overview = render("overview");
 check("score has three rating gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 3);
 check("existing material shortcuts are read actions", actions(overview).includes("briefopen") && actions(overview).includes("letteropen"));
-check("overview has no generation buttons", !/class="generation"/.test(overview));
+check("overview offers the standalone Jev assessment", /class="generation" data-act="jevscore"/.test(overview));
+const jev = render("overview", { score: null, jevStale: true, jevAssessment: { assessedAt: "2026-09-19T12:00:00Z", score: null,
+  dimensions: ["Responsibilities", "Evidence", "Scope", "Direction", "Practical"].map(label => ({ label, score: 75, weight: 20, confidence: null })),
+  posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
+check("Jev shows five gauges and stale assessments withhold values", (jev.match(/data-score-gauge=/g) || []).length === 5 && (jev.match(/data-value=""/g) || []).length === 5);
+check("Jev uncertainty and posting quality are visible", jev.includes("Outdated") && jev.includes("Partial description") && jev.includes("Confidence unavailable"));
 check("engagement and activity shortcut are absent from Overview", !/class="stats"|data-section-link="activity"/.test(overview));
 
 console.log("\n--- materials ---");

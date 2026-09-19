@@ -534,6 +534,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var activeRuns = {};
   var coverDispatchEnabled = true;
   var screenDispatchEnabled = true;
+  var jevEnabled = false;
   var selectedId = "";
   var workspaceSection = "overview";
   var detailSequence = 0;
@@ -862,7 +863,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   function runStateHtml(j) {
     var rows = [
-      ["Fit analysis", j.analysisRun], ["Cover letter", j.coverRun], ["Research", j.researchRun],
+      ["Fit assessment", j.jevRun], ["Fit analysis", j.analysisRun], ["Cover letter", j.coverRun], ["Research", j.researchRun],
       ["Interview preparation", j.prepareRun || j.briefRun],
     ].filter(function (pair) { return pair[1] && pair[1].status; });
     if (!rows.length) return '<p class="run-state">No recorded role-level run state is available.</p>';
@@ -913,12 +914,15 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       panel = '<div class="workspace-panel"><p aria-live="polite">Loading role details…</p></div>';
     } else if (workspaceSection === "overview") {
       panel = '<section class="workspace-panel" id="panel-overview" role="tabpanel">' +
-        (j.score != null ? '<h2>Why this role</h2>' +
+        (j.jevAssessment ? jevAssessmentHtml(j) : j.score != null ? '<h2>Why this role</h2>' +
           '<div class="score-gauges">' + [['location','Location',35],['aiDx','AI / Developer experience',35],['leadership','Leadership',30]].map(function (dimension) {
             var value = j.scoreBreakdown && j.scoreBreakdown[dimension[0]];
             return '<div data-score-gauge="'+dimension[1]+'" data-value="'+esc(value == null ? '' : value)+'" data-weight="'+dimension[2]+'"></div>';
           }).join('') + '</div>'  :
-          '<p>No fit analysis has been generated yet.</p>') +
+          '<p>No fit assessment has been generated yet.</p>') +
+        '<button class="generation" data-act="jevscore"' + (!jevEnabled || !j.hasDescription || j.archived || (j.jevRun && ["dispatching", "queued"].indexOf(j.jevRun.status) !== -1) ? ' disabled' : '') + '>Assess fit with Jev</button>' +
+        '<p class="field-help">' + (jevEnabled ? 'Private five-dimension scoring, posting quality and constraint checks. Uses AI credits.' : 'Configure the Gateway key in Vercel and Trigger.dev to use Jev.') + '</p>' +
+        (j.jevRun && j.jevRun.status === 'failed' ? '<p class="notice error">The last fit assessment failed. Check Gateway access and retry. Any previous assessment is retained.</p>' : '') +
         (j.rationale ? '<p class="rationale">' + esc(j.rationale) + '</p>' : '') + owed + staleHtml(j) +
         '<h2>Ready to use</h2><div class="overview-actions">' + (fitLink?'<button class="ghost" data-act="copyfit" data-link="'+esc(fitLink)+'">Copy fit link</button>':'') +
           (j.hasBrief ? '<button class="primary-link" data-act="briefopen">Open interview brief</button>' : '') +
@@ -1060,6 +1064,20 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     });
   }
 
+  function jevAssessmentHtml(j) {
+    var a = j.jevAssessment;
+    var postingLabels = { complete: 'Substantive posting', partial: 'Partial description', inaccessible: 'Posting inaccessible or expired', unrelated: 'Not a job description' };
+    var constraintLabels = { conflict: 'Possible hard-constraint conflict: review the requirements', clear: 'No hard-constraint conflict identified', unknown: 'Practical constraints need clarification' };
+    return '<h2>Fit assessment</h2><p class="field-help">Jev · ' + esc(fmtDateTime(a.assessedAt)) +
+      (j.jevStale ? ' · Outdated: assess again after context changes' : ' · ' + esc(j.tier)) + '</p>' +
+      '<div class="score-gauges">' + a.dimensions.map(function (d) {
+        return '<div><div data-score-gauge="' + esc(d.label) + '" data-value="' + (j.jevStale || d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div><p class="field-help">' +
+          (d.score == null ? 'Insufficient evidence' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') + '</p></div>';
+      }).join('') + '</div><p>' + esc(postingLabels[a.posting.choice] || 'Posting needs review') + ' · ' + esc(constraintLabels[a.constraint.choice] || 'Constraints need review') + '</p>' +
+      '<p class="field-help">' + (a.score == null ? 'No overall score until all five dimensions and the posting have sufficient evidence. ' : '') +
+      'Confidence describes the assessment, not your chance of an offer.' + (j.legacyScore == null ? '' : ' Previous analysis score: ' + esc(j.legacyScore) + '/100.') + '</p>';
+  }
+
   function openGenerationReview(options) {
     options = options || {};
     if (hasPendingEdits(options.id)) {
@@ -1094,13 +1112,12 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var restoreInstructions = active && active.hasAttribute('data-version-instructions');
       var caret = restoreInstructions ? [active.selectionStart, active.selectionEnd] : null;
       currentReview = review;
-      model = review.model;
-      localStorage.setItem(MODEL_KEY, model);
+      if (options.kind !== 'jev-score') { model = review.model; localStorage.setItem(MODEL_KEY, model); }
       var models = MODELS.map(function (item) { return '<option value="' + esc(item.id) + '"' + (item.id === review.model ? ' selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
       var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
         return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
       renderAdmin(bodyEl, '<h3>Work to run</h3><ol>' + (review.steps || []).map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>' +
-        jobsHtml + '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>' +
+        jobsHtml + (options.kind === 'jev-score' ? '<p>Jev · Private assessment · Uses AI credits</p>' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
         (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="Add to this job’s generic instructions for this version only…">'+esc(versionInstructions)+'</textarea>' : ''));
       var instructionsEl = dialog.querySelector('[data-version-instructions]');
@@ -1422,7 +1439,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           if (onDone) onDone(out.d.job);
         });
       }
-      [['researchRun', 'research'], ['briefRun', 'brief']].forEach(function (entry) {
+      [['researchRun', 'research'], ['briefRun', 'brief'], ['jevRun', 'jev-score']].forEach(function (entry) {
         var run = job[entry[0]];
         if (!run || !run.runId || ['dispatching', 'queued'].indexOf(run.status) === -1 || attachedCoverWatches[run.runId]) return;
         attachedCoverWatches[run.runId] = true;
@@ -1774,6 +1791,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         });
       });
 
+      var scoreFit = rowEl.querySelector('[data-act="jevscore"]');
+      if (scoreFit) scoreFit.addEventListener('click', function () {
+        openGenerationReview({ id: id, kind: 'jev-score', trigger: scoreFit, status: status });
+      });
       var runFit = rowEl.querySelector('[data-act="runfit"]');
       if (runFit) {
         runFit.addEventListener("click", function () {
@@ -1870,6 +1891,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (out.d.archiveOnStage) ARCHIVE_ON_STAGE = out.d.archiveOnStage;
       coverDispatchEnabled = !out.d.features || out.d.features.coverDispatchEnabled !== false;
       screenDispatchEnabled = !out.d.features || out.d.features.screenDispatchEnabled !== false;
+      jevEnabled = !!(out.d.features && out.d.features.jevEnabled);
       if (!MODELS.some(function (m) { return m.id === model; })) model = MODELS[0].id;
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;
