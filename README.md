@@ -90,12 +90,13 @@ Implementation and validation notes are in [the cost review](docs/cost-optimisat
 
 ### Jev fit assessments and answer routing
 
-Jev is the decision model accessed through Vercel AI Gateway, separate from the writing-model picker. It is available automatically when `AI_GATEWAY_API_KEY` is configured, with no feature flag. It adds:
+Jev is the decision model accessed through Vercel AI Gateway, also responsible for selecting writing models. It is available automatically when `AI_GATEWAY_API_KEY` is configured, with no feature flag. It adds:
 
 - **Assess fit with Jev** in the admin role overview. No full report is required. Five rubric scores use responsibilities (25%), evidence of capability (25%), seniority/scope (20%), career direction (20%), and practical compatibility (10%).
 - **Posting quality and hard-constraint checks** in the same assessment. Manual assessments never change an existing job's stage or archive state; ingestion uses these checks when deciding whether to admit a new job.
 - **Automatic ingestion screening** evaluates each new opportunity against those same five dimensions before creating a pipeline row. Only complete assessments scoring at least `JEV_INGEST_MIN_SCORE` (default **60/100**) with no flagged hard-constraint conflict are admitted. Existing jobs keep their stage, notes and archive state and receive the usual metadata refresh.
-- **Routine-answer routing** when Save on routine answers is enabled. Exact confirmed facts and existing routine matches keep their current paths. Jev can identify additional single-intent motivation questions; only a routine probability of at least 0.95 and reported confidence of at least 0.8 allows compact Sonnet context. Missing confidence, uncertainty, custom instructions or a Gateway failure preserve full context and the selected model.
+- **Automatic model selection** uses Jev before public and admin fit pages, letters, research, briefs and answers. It chooses among the existing Sonnet, Sol, Astra and Opus models based on task complexity, preferring the least expensive sufficient option. The review shows the choice and policy reason; bulk analysis selects per role. Decisions are cached for unchanged inputs for 30 days and carried into workers. Missing/uncertain confidence uses balanced Sol; a Gateway failure blocks the review. Public generation uses the same router inside its worker; visitors cannot override the model and existing request limits still apply. Without the Gateway key, public generation falls back to Sonnet and admin generation uses its configured model.
+- **Routine-answer routing** when Save on routine answers is enabled. Exact confirmed facts and existing routine matches keep their current context paths. Reviewed Jev model choices are pinned, without a second classifier call. Legacy requests can still use the following routing: Jev can identify additional single-intent motivation questions; only a routine probability of at least 0.95 and reported confidence of at least 0.8 allows compact Sonnet context. Missing confidence, uncertainty, custom instructions or a Gateway failure preserve full context and the selected model.
 
 Setup:
 
@@ -110,9 +111,9 @@ The current Jev assessment supplies the admin pipeline score; the old analysis s
 
 Requests use the [Gateway evaluation HTTP API](https://vercel.com/docs/ai-gateway/modalities/evaluation), a 30-second timeout and zero-data-retention routing. Usage and failures appear in the existing usage log under `jev-fit` and `jev-route`; monetary estimates remain unavailable rather than assuming promotional pricing is permanent. Without a Gateway key, the admin explains the missing configuration and answer routing keeps the existing policy. Existing assessments remain readable.
 
-### Legacy analysis scoring
+### Fit pages never score
 
-Generating an analysis also produces a fit score, a tier and a one-line rationale, weighted location 0.35, AI-or-DX surface 0.35 and leadership scope 0.30. **None of it is public.** The model returns it in an `internal` block that `splitInternal()` pulls off before the report is ever saved, so the score lives on the pipeline row behind the admin secret and never travels with the report. `/api/report` strips the block again on the way out as a second line of defence, in case an older saved report still carries one inline. Regenerating an analysis rescores the row that owns it.
+Jev is the sole producer of new fit scores. Ingestion uses its five rubric assessments and hard-constraint checks; the weighted total and threshold comparison are inexpensive code, with no writing-model call. Fit-page prompts contain no scoring rubric or private scoring output. Any unsolicited legacy `internal` block is discarded. Generation, cache recovery and version restoration leave both Jev assessments and historical scores unchanged. Historical scores remain private for comparison; `/api/report` still strips old inline blocks defensively.
 
 These are a model-generated read against the profile, for triage. They are not employer assessments and no company ever sees one.
 

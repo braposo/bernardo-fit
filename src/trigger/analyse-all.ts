@@ -6,7 +6,7 @@ import { resolveModel } from "../../lib/models.js";
 import { listJobs, mutateJob } from "../../lib/store.js";
 import { BATCH_TASK_POLICY } from "../../lib/task-policy.js";
 
-export type AnalyseAllPayload = { requestId: string; model: string; jobs: Array<{ id: string; fingerprint: string }> };
+export type AnalyseAllPayload = { requestId: string; model: string; jobs: Array<{ id: string; fingerprint: string; model?: string }> };
 export const analyseAllTask = task({
   id: "analyse-all", maxDuration: BATCH_TASK_POLICY.maxDuration, retry: BATCH_TASK_POLICY.retry,
   queue: { concurrencyLimit: BATCH_TASK_POLICY.concurrencyLimit },
@@ -17,13 +17,14 @@ export const analyseAllTask = task({
     const pending = (await listJobs()).filter((job) => {
       const item = reviewedById.get(job.id);
       return !!item && !job.fitReportId && String(job.jobDescription || "").trim().length >= 20 &&
-        analysisFingerprint(job, model) === item.fingerprint;
+        analysisFingerprint(job, resolveModel(item.model || model)) === item.fingerprint;
     });
     const skipped = reviewed.length - pending.length;
     metadata.set("phase", pending.length ? "analysing" : "completed").set("total", reviewed.length).set("skipped", skipped);
     if (!pending.length) return { ...summariseAnalysisBatch([], []), reviewed: reviewed.length, skipped };
     const items: Array<{ payload: AnalysisPayload; options: any }> = [];
     for (const job of pending) {
+      const model = resolveModel(reviewedById.get(job.id)?.model || payload.model);
       const requestId = analysisChildRequestId(payload.requestId, job.id);
       const fingerprint = analysisFingerprint(job, model);
       await mutateJob(job.id, () => ({ analysisRun: { requestId, runId: "", fingerprint,

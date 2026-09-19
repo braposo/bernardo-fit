@@ -57,8 +57,8 @@ const reportId = await store.saveReport({ company: "Shared", job_title: "Lead", 
 const one = await store.saveJob({ company: "Shared", role: "Lead", fitReportId: reportId });
 const two = await store.saveJob({ company: "Agency", role: "Lead", fitReportId: reportId });
 await applyAnalysisToOwners(reportId, { score: 84, tier: "Strong", breakdown: { evidence: 8 }, reasoning: "fit" });
-check("shared owner one rescored", (await store.getJob(one.id)).score === 84);
-check("shared owner two rescored", (await store.getJob(two.id)).score === 84);
+check("shared owner one not rescored", (await store.getJob(one.id)).score === null);
+check("shared owner two not rescored", (await store.getJob(two.id)).score === null);
 const active = await store.saveJob({ company: "Question", role: "Role", jobDescription: "private posting",
   questions: [{ id: "q1", q: "Why?", run: { requestId: "req12345", runId: "run1", status: "queued" } }] });
 const view = jobSummary(active);

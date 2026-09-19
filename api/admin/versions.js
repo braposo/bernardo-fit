@@ -114,12 +114,8 @@ export default async function handler(req, res) {
           res.status(404).json({ error: "Version not found" });
           return;
         }
-        // The row's score belongs to whichever analysis is live, so move it back
-        // with the version. Older versions saved before scores were snapshotted
-        // have none, and the row keeps what it had rather than being blanked.
-        const versions = await listReportVersions(job.fitReportId);
-        const chosen = versions.find((v) => v.vid === vid);
-        await applyAnalysisToOwners(job.fitReportId, chosen?.internal || null);
+        // Restore prose without changing the independently assessed fit score.
+        await applyAnalysisToOwners(job.fitReportId, null);
         res.status(200).json({ ok: true, kind, vid });
         return;
       }

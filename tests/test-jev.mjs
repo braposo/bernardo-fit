@@ -102,6 +102,7 @@ await test("worker persists assessment once, retains legacy score, and keeps rep
   await mutateJob(job.id, () => ({ fitReportId: "jev-public" }));
   await applyAnalysisToOwners("jev-public", { score: 95, tier: "Act now", breakdown: {}, reasoning: "Legacy" });
   assert.equal(jobSummary(await getJob(job.id)).score, 75);
+  assert.equal((await getJob(job.id)).score, 55, "page completion also preserves historical scores");
   assert.equal(JSON.stringify(await getReport("jev-public")).includes("jev"), false);
 });
 await test("edits invalidate scores and stale in-flight results cannot attach", async () => {

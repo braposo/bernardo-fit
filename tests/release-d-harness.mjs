@@ -21,7 +21,7 @@ async function runAnalysis(job, model, mode = "create", reportId = "") {
     status: "queued", startedAt: new Date().toISOString(), finishedAt: "" } }));
   const result = await executeAnalysisWork({ jobId: job.id, reportId, requestId: rid, fingerprint, model: wanted, mode });
   return { ...result, model: wanted, ...(result.reportId ? { report: await getReport(result.reportId) } : {}),
-    ...(mode === "replace" ? { rescored: true } : {}) };
+    ...(mode === "replace" ? { rescored: false } : {}) };
 }
 
 export async function analyseHandler(req, res) {

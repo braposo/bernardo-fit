@@ -11,6 +11,7 @@ export type AnswerPayload = {
   fingerprint: string;
   model: string;
   economy?: boolean;
+  modelRouting?: boolean;
 };
 
 export const answerTask = task({

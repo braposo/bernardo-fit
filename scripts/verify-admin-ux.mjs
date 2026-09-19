@@ -32,7 +32,7 @@ try {
     hasResearch: i !== 1, researchStale: true, briefStale: true,
     questions: i ? [] : [{ id: 'q1', q: 'Why this role?', limit: 120, a: 'A synthetic saved answer.' }],
   }));
-  let failSave = false, dispatches = 0, reviews = 0, mutations = 0;
+  let failSave = false, dispatches = 0, reviews = 0, mutations = 0, jevRoutesModels = false;
   const errors = [];
   const page = await context.newPage();
   page.on('pageerror', e => { errors.push(e.message); console.error(e.message); });
@@ -69,6 +69,7 @@ try {
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
       reviews++;
       return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'typesafe-ai/jev' : body.model || 'gpt-5.6-sol',
+        routing: jevRoutesModels ? { source: 'jev', reason: 'Standard synthesis uses balanced Sol.' } : null,
         submitLabel: 'Generate analysis', steps: ['Generate fixture output'], inputSummary: 'Saved fixture inputs',
         publication: 'Becomes active', costText: 'Estimate unavailable. May incur costs.' } });
     }
@@ -253,6 +254,16 @@ try {
   check('Jev review has a fixed model', await page.locator('[data-review-model]').count() === 0);
   check('Jev preserves writing-model preference', await page.evaluate(() => localStorage.getItem('fit.model')) === writingModel);
   await audit('Jev review');
+  await page.keyboard.press('Escape');
+  jevRoutesModels = true;
+  await page.goto(origin + '/admin.html?job=job1');
+  await page.locator('[data-section="materials"]').waitFor();
+  await page.locator('[data-section="materials"]').click();
+  await page.locator('[data-act="runfit"]').click();
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  check('writing review identifies Jev routing', await page.getByText('Model selected by Jev', { exact: true }).isVisible());
+  check('Jev selected writer is fixed in review', await page.locator('[data-review-model]').count() === 0);
+  await audit('Jev model selection');
   await page.keyboard.press('Escape');
   check('no browser errors', errors.length === 0);
   console.log(`passed ${passed}, failed 0`);

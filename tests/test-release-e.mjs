@@ -76,7 +76,7 @@ const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
 check("public API accepts request IDs rather than Trigger run IDs", api.includes("request: String") === false && !api.includes("req.query?.run"));
 check("public status returns only a report ID on completion", api.includes("reportId: result.reportId") && !api.includes("result: run.output"));
 check("task payload is reference-only", /inputId: string;\s*fingerprint: string/.test(task) && !/jobDescription/.test(task));
-check("worker pins the public model server-side", work.includes("model: PUBLIC_MODEL") && !/\{[^}]*model[^}]*\}\)\s*\{/.test(work));
+check("worker routes the public model server-side", work.includes("selectWritingModel") && work.includes("fallback: PUBLIC_MODEL") && work.includes("executePublicAnalysisWork({ requestId, inputId, fingerprint })"));
 check("usage ref is the public request ID", work.includes("ref: requestId"));
 check("worker output excludes report and private scoring bodies", !/return \{[^}]*report:|return \{[^}]*internal:/s.test(work));
 check("browser resumes an active request from the URL", html.includes('params.get("p")') && html.includes('params.get("t")'));
