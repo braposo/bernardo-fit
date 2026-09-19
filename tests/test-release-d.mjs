@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { passingScreen } from "./ingest-fixture.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const lib = (name) => import("file:///" + path.join(root, "lib", name).replace(/\\/g, "/"));
@@ -38,14 +39,14 @@ console.log("\n--- batch ingest matching and concurrent identity ---");
 const first = await executeIngestBatch([
   { externalId: "same-1", company: "Acme", role: "Engineering Manager", jobDescription: "short" },
   { externalId: "same-1", company: "Acme", role: "Engineering Manager", jobDescription: "a much longer description" },
-]);
+], { screen: passingScreen });
 check("matches a row created earlier in the upload", first.added === 1 && first.updated === 1, first);
 let rows = await store.listJobs({ includeArchived: true });
 check("one upload identity produces one row", rows.length === 1, rows);
 check("longer posting wins", rows[0].jobDescription === "a much longer description", rows[0].jobDescription);
 await Promise.all([
-  executeIngestBatch([{ externalId: "race-1", company: "Race Co", role: "Director", threadId: "thread-a" }]),
-  executeIngestBatch([{ externalId: "race-2", company: "Race Co", role: "Director", threadId: "thread-b" }]),
+  executeIngestBatch([{ externalId: "race-1", company: "Race Co", role: "Director", threadId: "thread-a" }], { screen: passingScreen }),
+  executeIngestBatch([{ externalId: "race-2", company: "Race Co", role: "Director", threadId: "thread-b" }], { screen: passingScreen }),
 ]);
 rows = await store.listJobs({ includeArchived: true });
 check("concurrent creates share deterministic identity", rows.filter((row) => row.company === "Race Co").length === 1, rows);

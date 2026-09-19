@@ -93,7 +93,8 @@ Implementation and validation notes are in [the cost review](docs/cost-optimisat
 Jev is the decision model accessed through Vercel AI Gateway, separate from the writing-model picker. It is available automatically when `AI_GATEWAY_API_KEY` is configured, with no feature flag. It adds:
 
 - **Assess fit with Jev** in the admin role overview. No full report is required. Five rubric scores use responsibilities (25%), evidence of capability (25%), seniority/scope (20%), career direction (20%), and practical compatibility (10%).
-- **Posting quality and hard-constraint checks** in the same assessment. These are review signals, never automatic rejection or archiving.
+- **Posting quality and hard-constraint checks** in the same assessment. Manual assessments never change an existing job's stage or archive state; ingestion uses these checks when deciding whether to admit a new job.
+- **Automatic ingestion screening** evaluates each new opportunity against those same five dimensions before creating a pipeline row. Only complete assessments scoring at least `JEV_INGEST_MIN_SCORE` (default **60/100**) with no flagged hard-constraint conflict are admitted. Existing jobs keep their stage, notes and archive state and receive the usual metadata refresh.
 - **Routine-answer routing** when Save on routine answers is enabled. Exact confirmed facts and existing routine matches keep their current paths. Jev can identify additional single-intent motivation questions; only a routine probability of at least 0.95 and reported confidence of at least 0.8 allows compact Sonnet context. Missing confidence, uncertainty, custom instructions or a Gateway failure preserve full context and the selected model.
 
 Setup:
@@ -117,7 +118,13 @@ These are a model-generated read against the profile, for triage. They are not e
 
 ## Recurring inbox review
 
-A recurring agent-side workflow scans Gmail, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. Its schedule lives outside this repository. The endpoint returns HTTP 202 and the CLI follows the background run to completion. Stage, notes, score, linked analysis and archived state all survive. New rows arrive unscored, because scoring belongs to the analysis step.
+A recurring agent-side workflow scans Gmail, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. Its schedule lives outside this repository. The endpoint returns HTTP 202 and the CLI follows the background run to completion. Existing jobs retain their stage, notes, score, linked analysis and archived state. New jobs are scored by Jev before admission and arrive with their five-dimension assessment attached, without generating a full fit report.
+
+Set `JEV_INGEST_MIN_SCORE` to an integer from 0 to 100 in Vercel (default 60). This is an inclusive minimum, captured with the batch at admission so configuration changes do not change its threshold on retry. Set it in Trigger.dev too for older queued requests that lack a captured policy. There is no feature flag and incoming opportunity JSON cannot override the threshold or supply a trusted score.
+
+The batch result and ingest CLI distinguish `filtered` (below threshold or a hard-constraint conflict), `needsReview` (insufficient evidence/incomplete posting), and `failed` (evaluation unavailable or malformed). These candidates are **not added** to the pipeline. `screeningRows` lists each candidate and its reason; improve the source description or configuration and resubmit to reconsider it. The original input and successful assessments are retained for 30 days. Failed evaluations are not cached, and the CLI exits unsuccessfully when any evaluation fails, while reporting any jobs that were admitted. A missing Gateway key never admits unscored new jobs.
+
+Ingest scoring uses up to four concurrent evaluations. A successful assessment is reused on retry within the same request when the candidate input, profile and rubric are unchanged. Re-importing an existing row does not rescore or remove it; changed scoring inputs mark its retained assessment stale, and **Assess fit with Jev** refreshes it manually. Deploy the updated ingest worker as well as the web branch before testing this flow.
 
 The server still holds no mail credentials. The scan runs agent-side and only the resulting JSON is posted. `scripts/ingest-opportunities.mjs` reads `ADMIN_SECRET` from `.env.local` itself and never prints or forwards it, so whatever assembles the JSON never handles the credential. Populate it once with `vercel env pull`.
 

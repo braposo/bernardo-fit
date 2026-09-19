@@ -161,7 +161,7 @@ await ingestHandler({ method: "POST", headers: auth, body: { opportunities: [
 check("added the two valid rows", res.body.added === 2, res.body);
 check("skipped the invalid ones", res.body.skipped === 3, res.body);
 check("returns what it added", res.body.addedRows.length === 2 && res.body.addedRows[0].company === "NewCo");
-check("new rows arrive unscored", (await store.listJobs()).find((j) => j.externalId === "ing-1").score === null);
+check("new rows retain a separate Jev assessment without inventing a legacy score", (await store.listJobs()).find((j) => j.externalId === "ing-1").score === null && (await store.listJobs()).find((j) => j.externalId === "ing-1").jevAssessment.score === 75);
 
 console.log("\n--- ingest is an upsert that respects your edits ---");
 const ing1 = (await store.listJobs()).find((j) => j.externalId === "ing-1");
