@@ -1,4 +1,5 @@
 export function coverPhaseText(run) {
+  if (run?.phase === "scoring") return "Assessing fit…";
   if (run?.phase === "researching") return "Researching…";
   if (run?.phase === "analysing") return "Analysing…";
   if (run?.phase === "answering") return "Drafting…";
@@ -14,9 +15,11 @@ export function workCompletion(out) {
     return { text: out?.d?.error || "Background work failed.", tone: "err", open: false };
   }
   if (out.d?.result?.outcome !== "completed") return { text: "A newer request replaced this work.", tone: "", open: false };
+  if (out.d.kind === "jev-score") return { text: "Fit assessment ready", tone: "ok", open: false };
   if (out.d.kind === "research") return { text: (out.d.result.sources || 0) + " sources", tone: "ok", open: true };
   if (out.d.kind === "analyse" || out.d.kind === "regenerate") return { text: "Analysis ready", tone: "ok", open: false };
-  if (out.d.kind === "answer") return { text: out.d.result.refused ? "Needs you" : (out.d.result.words || 0) + " words",
+  if (out.d.kind === "answer") return { text: (out.d.result.refused ? "Needs you" : (out.d.result.words || 0) + " words") +
+      (out.d.result.routing === "jev-unavailable-full" ? " · Jev unavailable; used full context" : ""),
     tone: out.d.result.refused || out.d.result.over ? "err" : "ok", open: false };
   if (out.d.kind === "analyse-all") return { text: out.d.result.analysed + " analysed, " + out.d.result.failed + " failed",
     tone: out.d.result.failed ? "err" : "ok", open: false };

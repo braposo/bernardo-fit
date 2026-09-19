@@ -19,6 +19,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "scripts": {
+    "jev:check": "node --env-file-if-exists=.env.local scripts/check-jev.mjs",
     "build": "node scripts/build-admin.mjs",
     "test:admin-ui": "node scripts/verify-admin-ux.mjs",
     "test": "node tests/run.mjs",
