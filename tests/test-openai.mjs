@@ -87,10 +87,10 @@ await test("search caps, citations, sources and search errors use the shared con
   assert.deepEqual(toolResultErrors(result.blocks), ["failed"]);
   assert.equal((await readUsage(request.ref))[0].searches, 2);
 });
-await test("Sol analysis parses JSON and keeps private scoring separate", async () => {
+await test("Sol analysis parses JSON and discards unsolicited private scoring", async () => {
   mock(JSON.stringify({ job_title: "Engineer", company: "Sanity", pitch: "Fit", categories: [], differentiators: [], closing: "End", internal: { score: 70 } }));
   const out = await runAnalysis("A sufficiently long job description.");
-  assert.equal(out.report.company, "Sanity"); assert.equal(out.internal.score, 70);
+  assert.equal(out.report.company, "Sanity"); assert.equal(out.internal, null);
   assert.equal(out.report.internal, undefined);
 });
 await test("Astra cover letter, Sol answers and brief use their existing parsers", async () => {
