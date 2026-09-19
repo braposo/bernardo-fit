@@ -90,7 +90,7 @@ Implementation and validation notes are in [the cost review](docs/cost-optimisat
 
 ### Jev fit assessments and answer routing
 
-Jev is an optional decision model accessed through Vercel AI Gateway, separate from the writing-model picker. It adds:
+Jev is the decision model accessed through Vercel AI Gateway, separate from the writing-model picker. It is available automatically when `AI_GATEWAY_API_KEY` is configured, with no feature flag. It adds:
 
 - **Assess fit with Jev** in the admin role overview. No full report is required. Five rubric scores use responsibilities (25%), evidence of capability (25%), seniority/scope (20%), career direction (20%), and practical compatibility (10%).
 - **Posting quality and hard-constraint checks** in the same assessment. These are review signals, never automatic rejection or archiving.
@@ -100,14 +100,14 @@ Setup:
 
 1. Save `AI_GATEWAY_API_KEY` in your ignored `.env.local` for local checks. Never paste it into the admin UI or commit it.
 2. Run `npm run jev:check` (Node 22+). This sends one synthetic request through the Gateway and may use credits; it does not read or change any jobs.
-3. Add `AI_GATEWAY_API_KEY` and `JEV_ENABLED=1` to matching **Vercel and Trigger.dev** environments. The web app enables the control; the Trigger worker makes the scoring request. Deploy the new `jev-score` worker before enabling the web control.
+3. Add `AI_GATEWAY_API_KEY` to matching **Vercel and Trigger.dev** environments. The key makes the web control available and enables Jev answer routing; the Trigger worker makes the scoring request. Deploy the new `jev-score` worker before testing the web control. Use Preview and the matching Trigger.dev environment to test this branch before merging.
 4. Open a role, save any context edits, and select **Assess fit with Jev**. The result is private. Existing public fit reports, letters and their versions are unchanged.
 
 Scores are derived from five-level, zero-indexed rubrics and normalised to 0–100. Each dimension has a separate evidence-sufficiency question. An overall score is withheld if any dimension lacks sufficient evidence or the posting is incomplete. Confidence is the model's reported certainty, not an offer probability. Thresholds and weights are initial policy choices requiring calibration against personally labelled roles.
 
 The current Jev assessment supplies the admin pipeline score; the old analysis score is retained for comparison. Changes to the profile, rubric, role description, location, salary or saved instructions mark the assessment outdated and withhold the pipeline score until reassessment. Generating or restoring a written report does not overwrite the separate Jev assessment. Failed reassessments retain the previous result and show a failed run.
 
-Requests use the [Gateway evaluation HTTP API](https://vercel.com/docs/ai-gateway/modalities/evaluation), a 30-second timeout and zero-data-retention routing. Usage and failures appear in the existing usage log under `jev-fit` and `jev-route`; monetary estimates remain unavailable rather than assuming promotional pricing is permanent. Set `JEV_ENABLED=0` in both environments to stop new evaluations. Existing assessments remain readable.
+Requests use the [Gateway evaluation HTTP API](https://vercel.com/docs/ai-gateway/modalities/evaluation), a 30-second timeout and zero-data-retention routing. Usage and failures appear in the existing usage log under `jev-fit` and `jev-route`; monetary estimates remain unavailable rather than assuming promotional pricing is permanent. Without a Gateway key, the admin explains the missing configuration and answer routing keeps the existing policy. Existing assessments remain readable.
 
 ### Legacy analysis scoring
 

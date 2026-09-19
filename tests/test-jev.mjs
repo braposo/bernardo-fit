@@ -11,7 +11,6 @@ import { applyAnalysisToOwners } from "../lib/analysis-completion.js";
 import { readUsage } from "../lib/usage.js";
 import handler from "../api/admin/cover.js";
 process.env.ADMIN_SECRET = "jev-test";
-process.env.JEV_ENABLED = "1";
 process.env.AI_GATEWAY_API_KEY = "synthetic-key";
 let passed = 0, failed = 0, calls = 0;
 async function test(name, fn) {
@@ -38,12 +37,14 @@ globalThis.fetch = async (url, options) => {
 const job = await saveJob({ company: "Example", role: "Engineering Manager", score: 55, jobDescription: "Remote UK engineering leadership role with AI products and developer tools." });
 const basePolicy = answerPolicy({ question: "What attracted you to our opportunity?", model: "gpt-6-astra", economy: true, report: { pitch: "fit" } });
 const routeOptions = { question: "What attracted you to our opportunity?", economy: true, report: { pitch: "fit" }, ref: "route" };
-await test("disabled feature makes no calls", async () => {
-  process.env.JEV_ENABLED = "0"; const before = calls;
+await test("missing Gateway key makes no calls; key alone enables Jev", async () => {
+  delete process.env.AI_GATEWAY_API_KEY; const before = calls;
   assert.equal(jevEnabled(), false);
-  await assert.rejects(evaluateJev({}), /Enable Jev/);
+  assert.equal(jevEnabled({ AI_GATEWAY_API_KEY: "   " }), false);
+  await assert.rejects(evaluateJev({}), /Configure AI_GATEWAY_API_KEY/);
   assert.deepEqual(await routeAnswer(basePolicy, routeOptions), basePolicy);
-  assert.equal(calls, before); process.env.JEV_ENABLED = "1";
+  assert.equal(calls, before); process.env.AI_GATEWAY_API_KEY = "synthetic-key";
+  assert.equal(jevEnabled(), true);
 });
 await test("rubrics normalise zero-indexed scores and retain reported confidence", async () => {
   const a = await assessFit(job, "fit"); assert.equal(a.score, 75); assert.equal(a.dimensions.length, 5);

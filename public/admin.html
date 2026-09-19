@@ -921,7 +921,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           }).join('') + '</div>'  :
           '<p>No fit assessment has been generated yet.</p>') +
         '<button class="generation" data-act="jevscore"' + (!jevEnabled || !j.hasDescription || j.archived || (j.jevRun && ["dispatching", "queued"].indexOf(j.jevRun.status) !== -1) ? ' disabled' : '') + '>Assess fit with Jev</button>' +
-        '<p class="field-help">' + (jevEnabled ? 'Private five-dimension scoring, posting quality and constraint checks. Uses AI credits.' : 'To enable Jev, configure the Gateway key and JEV_ENABLED in Vercel and Trigger.dev.') + '</p>' +
+        '<p class="field-help">' + (jevEnabled ? 'Private five-dimension scoring, posting quality and constraint checks. Uses AI credits.' : 'Configure the Gateway key in Vercel and Trigger.dev to use Jev.') + '</p>' +
         (j.jevRun && j.jevRun.status === 'failed' ? '<p class="notice error">The last fit assessment failed. Check Gateway access and retry. Any previous assessment is retained.</p>' : '') +
         (j.rationale ? '<p class="rationale">' + esc(j.rationale) + '</p>' : '') + owed + staleHtml(j) +
         '<h2>Ready to use</h2><div class="overview-actions">' + (fitLink?'<button class="ghost" data-act="copyfit" data-link="'+esc(fitLink)+'">Copy fit link</button>':'') +

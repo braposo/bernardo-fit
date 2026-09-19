@@ -4,7 +4,6 @@ if (!process.env.AI_GATEWAY_API_KEY?.trim()) {
   console.error("Set AI_GATEWAY_API_KEY in .env.local or your environment first.");
   process.exit(1);
 }
-process.env.JEV_ENABLED = "1";
 try {
   const result = await evaluateJev({ state: "This role is fully remote within the UK.",
     questions: { remote: { type: "boolean", instructions: "Does the posting explicitly allow remote work?" } }, kind: "jev-check", ref: "jev-check" });
