@@ -9,16 +9,16 @@ import { executePublicAnalysisWork } from "../lib/public-analysis-work.js";
 import { saveTaskInput } from "../lib/task-results.js";
 import { publicAnalysisFingerprint } from "../lib/public-analysis.js";
 
-process.env.AI_GATEWAY_API_KEY = "test";
+process.env.TYPESAFE_API_KEY = "test";
 process.env.ANTHROPIC_API_KEY = "test";
 let calls = 0, writing = 0, confidence = 0.95, broken = false, sentModel;
 globalThis.fetch = async (url, options) => {
   const body = JSON.parse(options.body);
-  if (String(url).includes("/evaluate")) {
+  if (String(url).includes("/systemone")) {
     calls++;
     if (broken) return { ok: false, status: 503 };
     const choice = body.state.description.includes("complex") ? "gpt-6-astra" : "claude-sonnet-5";
-    return { ok: true, status: 200, json: async () => ({ answers: { model: {
+    return { ok: true, status: 200, json: async () => ({ model: "jev-1.13.0", answers: { model: {
       type: "choice", choice, confidence,
       probabilities: Object.fromEntries(Object.keys(body.questions.model.criteria).map(k => [k, k === choice ? 1 : 0])),
     } } }) };

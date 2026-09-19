@@ -11,48 +11,78 @@ import { applyAnalysisToOwners } from "../lib/analysis-completion.js";
 import { readUsage } from "../lib/usage.js";
 import handler from "../api/admin/cover.js";
 process.env.ADMIN_SECRET = "jev-test";
-process.env.AI_GATEWAY_API_KEY = "synthetic-key";
+process.env.TYPESAFE_API_KEY = "synthetic-key";
 let passed = 0, failed = 0, calls = 0;
 async function test(name, fn) {
   try { await fn(); passed++; console.log("  ok   " + name); }
   catch (e) { failed++; console.error("  FAIL " + name, e); }
 }
 function fixture(questions) {
-  return { answers: Object.fromEntries(Object.entries(questions).map(([key, q]) => [key, q.type === "boolean"
-    ? { type: "boolean", probability: 0.99 } : q.type === "score"
+  return { model: "jev-1.13.0", answers: Object.fromEntries(Object.entries(questions).map(([key, q]) => [key, ["boolean", "noul"].includes(q.type)
+    ? { type: "noul", noul: 0.99 } : q.type === "score"
     ? { type: "score", score: 3, confidence: 0.9, probabilities: { 0: 0, 1: 0, 2: 0, 3: 1, 4: 0 } }
     : { type: "choice", choice: key === "constraint" ? "clear" : key === "route" ? "routine" : "complete", confidence: 0.95,
       probabilities: Object.fromEntries(Object.keys(q.criteria).map(k => [k, k === (key === "constraint" ? "clear" : key === "route" ? "routine" : "complete") ? 1 : 0])) }])),
-    usage: { inputTokens: 150, outputTokens: 20 } };
+    usage: { input_tokens: 150, output_tokens: 20 } };
 }
 let transform = x => x;
 globalThis.fetch = async (url, options) => {
   calls++;
-  assert.equal(url, "https://ai-gateway.vercel.sh/v1/evaluate");
+  assert.equal(url, "https://api.typesafe.ai/v1/systemone");
   assert.equal(options.headers.Authorization, "Bearer synthetic-key");
   const body = JSON.parse(options.body);
-  assert.equal(body.providerOptions.gateway.zeroDataRetention, true);
+  assert.equal(body.model, "jev-1.13.0");
+  assert.equal(body.providerOptions, undefined);
+  assert.ok(Object.values(body.questions).every(q => q.type !== "boolean"));
   return { ok: true, status: 200, json: async () => transform(fixture(body.questions)) };
 };
 const job = await saveJob({ company: "Example", role: "Engineering Manager", score: 55, jobDescription: "Remote UK engineering leadership role with AI products and developer tools." });
 const basePolicy = answerPolicy({ question: "What attracted you to our opportunity?", model: "gpt-6-astra", economy: true, report: { pitch: "fit" } });
 const routeOptions = { question: "What attracted you to our opportunity?", economy: true, report: { pitch: "fit" }, ref: "route" };
-await test("missing Gateway key makes no calls; key alone enables Jev", async () => {
-  delete process.env.AI_GATEWAY_API_KEY; const before = calls;
+await test("missing TypeSafe key makes no calls; key alone enables Jev", async () => {
+  delete process.env.TYPESAFE_API_KEY; const before = calls;
   assert.equal(jevEnabled(), false);
-  assert.equal(jevEnabled({ AI_GATEWAY_API_KEY: "   " }), false);
-  await assert.rejects(evaluateJev({}), /Configure AI_GATEWAY_API_KEY/);
+  assert.equal(jevEnabled({ TYPESAFE_API_KEY: "   " }), false);
+  await assert.rejects(evaluateJev({}), /Configure TYPESAFE_API_KEY/);
   assert.deepEqual(await routeAnswer(basePolicy, routeOptions), basePolicy);
-  assert.equal(calls, before); process.env.AI_GATEWAY_API_KEY = "synthetic-key";
+  assert.equal(calls, before); process.env.TYPESAFE_API_KEY = "synthetic-key";
   assert.equal(jevEnabled(), true);
 });
 await test("rubrics normalise zero-indexed scores and retain reported confidence", async () => {
   const a = await assessFit(job, "fit"); assert.equal(a.score, 75); assert.equal(a.dimensions.length, 5);
   assert.equal(a.dimensions[0].confidence, 0.9); assert.equal(a.status, "complete");
-  const usage = await readUsage("fit"); assert.equal(usage[0].input, 150); assert.equal(usage[0].estimatedCostMicros, null);
+  assert.deepEqual(a.dimensions[0].probabilities, { 0: 0, 1: 0, 2: 0, 3: 1, 4: 0 });
+  const usage = await readUsage("fit"); assert.equal(usage[0].input, 150); assert.equal(usage[0].estimatedCostMicros, 6);
+});
+await test("direct API retries throttling and overload with bounded backoff", async () => {
+  const original = globalThis.fetch;
+  let attempts = 0;
+  globalThis.fetch = async (...args) => ++attempts < 3
+    ? { ok: false, status: attempts === 1 ? 429 : 529, headers: new Headers({ "retry-after": "0" }) }
+    : original(...args);
+  try {
+    await assessFit(job, "backoff");
+    assert.equal(attempts, 3);
+    assert.deepEqual((await readUsage("backoff")).map(x => x.httpStatus).sort(), [200, 429, 529]);
+    attempts = 0;
+    globalThis.fetch = async () => { attempts++; return { ok: false, status: 529, headers: new Headers({ "retry-after": "60" }) }; };
+    await assert.rejects(assessFit(job, "long-backoff"), e => !e.abort && e.status === 502);
+    assert.equal(attempts, 1, "never retry earlier than a long Retry-After");
+    globalThis.fetch = async () => { attempts++; return { ok: false, status: 422 }; };
+    await assert.rejects(assessFit(job, "bad-input"), e => e.abort && e.status === 422);
+    assert.equal(attempts, 2, "invalid input is not retried");
+  } finally { globalThis.fetch = original; }
+});
+await test("rejects mismatched model and malformed native Noul answers", async () => {
+  try {
+    transform = d => ({ ...d, model: "jev-unexpected" });
+    await assert.rejects(assessFit(job, "model-mismatch"), /invalid assessment/);
+    transform = d => { d.answers.practicalKnown = { type: "noul", noul: 1.5 }; return d; };
+    await assert.rejects(assessFit(job, "invalid-noul"), /invalid assessment/);
+  } finally { transform = x => x; }
 });
 await test("unknown evidence withholds total rather than assigning zero or reweighting", async () => {
-  transform = d => { d.answers.practicalKnown.probability = 0.2; return d; };
+  transform = d => { d.answers.practicalKnown.noul = 0.2; return d; };
   const a = await assessFit(job); assert.equal(a.score, null); assert.equal(a.dimensions[4].score, null);
   assert.equal(a.status, "incomplete"); transform = x => x;
 });
@@ -127,9 +157,9 @@ await test("review and dispatch require auth, a current fingerprint and the fixe
     assert.equal((await call(body, false)).code, 401);
     assert.equal((await call(body)).code, 409);
     const review = (await call({ ...body, action: "review" })).body.review;
-    assert.equal(review.model, "typesafe-ai/jev"); assert.equal(payload, undefined);
+    assert.equal(review.model, "jev-1.13.0"); assert.equal(payload, undefined);
     assert.equal((await call({ ...body, reviewFingerprint: review.fingerprint })).code, 202);
-    assert.equal(payload.model, "typesafe-ai/jev"); assert.equal(payload.jobDescription, undefined);
+    assert.equal(payload.model, "jev-1.13.0"); assert.equal(payload.jobDescription, undefined);
     await mutateJob(job.id, () => ({ instructions: "Changed preferences" }));
     assert.equal((await call({ ...body, requestId: "jev-dispatch-stale", reviewFingerprint: review.fingerprint })).code, 409);
   } finally { tasks.trigger = trigger; idempotencyKeys.create = key; }

@@ -68,7 +68,7 @@ try {
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
       reviews++;
-      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'typesafe-ai/jev' : body.model || 'gpt-5.6-sol',
+      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'jev-1.13.0' : body.model || 'gpt-5.6-sol',
         routing: jevRoutesModels ? { source: 'jev', reason: 'Standard synthesis uses balanced Sol.' } : null,
         submitLabel: 'Generate analysis', steps: ['Generate fixture output'], inputSummary: 'Saved fixture inputs',
         publication: 'Becomes active', costText: 'Estimate unavailable. May incur costs.' } });
