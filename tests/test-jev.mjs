@@ -160,6 +160,7 @@ await test("review and dispatch require auth, a current fingerprint and the fixe
     await handler({ method: "POST", headers: auth ? { "x-admin-secret": "jev-test" } : {}, body }, res); return res;
   }
   try {
+    await mutateJob(job.id, () => ({ jobDescription: "" }));
     const body = { id: job.id, kind: "jev-score", model: "gpt-6-astra", requestId: "jev-dispatch-test" };
     assert.equal((await call(body, false)).code, 401);
     assert.equal((await call(body)).code, 409);

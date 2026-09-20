@@ -26,7 +26,7 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "stageLabel", "stageOptions", "materialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml"];
+  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
 
@@ -70,11 +70,16 @@ const jev = render("overview", { score: null, jevStale: true, jevAssessment: { a
   dimensions: ["Responsibilities", "Evidence", "Scope", "Direction", "Practical"].map(label => ({ label, score: 75, weight: 20, confidence: null })),
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
 check("Jev shows five gauges and stale assessments withhold values", (jev.match(/data-score-gauge=/g) || []).length === 5 && (jev.match(/data-value=""/g) || []).length === 5);
-check("Jev uncertainty and posting quality are visible", jev.includes("Outdated") && jev.includes("Partial description") && jev.includes("Confidence unavailable"));
+check("Jev uncertainty and posting quality are visible", jev.includes("Outdated") && jev.includes("Partial description") && jev.includes("needs updating"));
 const provisional = render("overview", { score: 70, jevAssessment: { assessedAt: "2026-09-20T12:00:00Z", score: 70, provisional: true,
   dimensions: [{ label: "Practical", score: 50, weight: 10, confidence: 0.4, evidenceLimited: true, evidenceNote: "Travel needs clarification <details>" }],
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
 check("provisional ratings remain visible alongside escaped evidence notes", provisional.includes('data-value="50"') && provisional.includes("Provisional score") && provisional.includes("Travel needs clarification &lt;details&gt;"));
+check("provisional pipeline score is labelled", R.pipelineItemHtml({ ...base, jevAssessment: { provisional: true } }).includes('Provisional score'));
+check("stale warning takes precedence", R.pipelineItemHtml({ ...base, jevStale: true, jevAssessment: { provisional: true } }).includes('Needs reassessment'));
+check("constraint conflict is visible in pipeline", R.pipelineItemHtml({ ...base, jevAssessment: { blocked: true, provisional: true } }).includes('Constraint conflict'));
+check("sparse descriptions can be assessed", !/data-act="jevscore" disabled/.test(render("overview", { jobDescription: "", hasDescription: false })));
+check("TypeSafe replaces obsolete Gateway copy", !render("overview", { jevRun: { status: "failed" } }).includes('Gateway'));
 check("engagement and activity shortcut are absent from Overview", !/class="stats"|data-section-link="activity"/.test(overview));
 
 console.log("\n--- materials ---");

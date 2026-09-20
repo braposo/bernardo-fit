@@ -249,7 +249,14 @@ try {
   check('missing practical evidence is visible', await page.getByText('Travel and working arrangements may need clarification.', { exact: false }).isVisible());
   check('limited evidence retains a practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
   check('provisional overall score is explained', await page.getByText('Provisional score:', { exact: false }).isVisible());
-  check('five dimensions fit mobile viewport', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  check('pipeline marks provisional score', await page.locator('[data-select-job="job0"] .assessment-status').textContent() === 'Provisional score');
+  check('role header marks provisional score', await page.locator('.role-header .assessment-status').textContent() === 'Provisional score');
+  for (const width of [360, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    check('five dimensions and warnings fit at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/jev-' + width + '.png', fullPage: true });
+  }
+  await page.setViewportSize({ width: 360, height: 900 });
   await audit('Jev assessment mobile');
   const writingModel = await page.evaluate(() => localStorage.getItem('fit.model'));
   await page.locator('[data-act="jevscore"]').click();
