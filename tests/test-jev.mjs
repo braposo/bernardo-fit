@@ -81,15 +81,22 @@ await test("rejects mismatched model and malformed native Noul answers", async (
     await assert.rejects(assessFit(job, "invalid-noul"), /invalid assessment/);
   } finally { transform = x => x; }
 });
-await test("unknown evidence withholds total rather than assigning zero or reweighting", async () => {
-  transform = d => { d.answers.practicalKnown.noul = 0.2; return d; };
-  const a = await assessFit(job); assert.equal(a.score, null); assert.equal(a.dimensions[4].score, null);
-  assert.equal(a.status, "incomplete"); transform = x => x;
+await test("sparse evidence retains all ratings and weights with visible uncertainty", async () => {
+  try {
+    transform = d => { for (const key of Object.keys(d.answers).filter(k => k.endsWith("Known"))) d.answers[key].noul = 0.2;
+      d.answers.practical.score = 1; d.answers.practical.probabilities = { 0: 0, 1: 1, 2: 0, 3: 0, 4: 0 }; return d; };
+    const a = await assessFit({ ...job, jobDescription: "" });
+    assert.equal(a.score, 70); assert.equal(a.dimensions[4].score, 25);
+    assert.equal(a.status, "provisional"); assert.equal(a.provisional, true);
+    assert.ok(a.dimensions.every(d => Number.isFinite(d.score) && d.evidenceLimited && d.evidenceNote));
+    transform = d => { d.answers.posting.choice = "partial"; d.answers.posting.probabilities = { complete: 0, partial: 1, inaccessible: 0, unrelated: 0 }; return d; };
+    const partial = await assessFit(job); assert.equal(partial.score, 75); assert.equal(partial.provisional, true);
+  } finally { transform = x => x; }
 });
 await test("bad posting and hard constraints remain distinct from capability scores", async () => {
   transform = d => { d.answers.posting.choice = "inaccessible"; d.answers.posting.probabilities = { complete: 0, partial: 0, inaccessible: 1, unrelated: 0 };
     d.answers.constraint.choice = "conflict"; d.answers.constraint.probabilities = { conflict: 1, clear: 0, unknown: 0 }; return d; };
-  const a = await assessFit(job); assert.equal(a.score, null); assert.equal(a.blocked, true); transform = x => x;
+  const a = await assessFit(job); assert.equal(a.score, 75); assert.equal(a.blocked, true); assert.equal(a.provisional, true); transform = x => x;
 });
 await test("missing, malformed and out-of-range answers are rejected", async () => {
   const q = scoringQuestions();

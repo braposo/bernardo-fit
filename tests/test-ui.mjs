@@ -71,6 +71,10 @@ const jev = render("overview", { score: null, jevStale: true, jevAssessment: { a
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
 check("Jev shows five gauges and stale assessments withhold values", (jev.match(/data-score-gauge=/g) || []).length === 5 && (jev.match(/data-value=""/g) || []).length === 5);
 check("Jev uncertainty and posting quality are visible", jev.includes("Outdated") && jev.includes("Partial description") && jev.includes("Confidence unavailable"));
+const provisional = render("overview", { score: 70, jevAssessment: { assessedAt: "2026-09-20T12:00:00Z", score: 70, provisional: true,
+  dimensions: [{ label: "Practical", score: 50, weight: 10, confidence: 0.4, evidenceLimited: true, evidenceNote: "Travel needs clarification <details>" }],
+  posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
+check("provisional ratings remain visible alongside escaped evidence notes", provisional.includes('data-value="50"') && provisional.includes("Provisional score") && provisional.includes("Travel needs clarification &lt;details&gt;"));
 check("engagement and activity shortcut are absent from Overview", !/class="stats"|data-section-link="activity"/.test(overview));
 
 console.log("\n--- materials ---");

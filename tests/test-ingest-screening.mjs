@@ -34,7 +34,7 @@ globalThis.fetch = async (url, options) => {
       return [key, { type: "score", score: rung, confidence: 0.9,
         probabilities: Object.fromEntries(q.criteria.map((_, i) => [i, low === high ? Number(i === low) : i === low ? high - rung : i === high ? rung - low : 0])) }];
     }
-    const choice = key === "posting" ? company.includes("partial") ? "partial" : "complete" : company.includes("conflict") ? "conflict" : "clear";
+    const choice = key === "posting" ? company.includes("inaccessible") ? "inaccessible" : company.includes("unrelated") ? "unrelated" : company.includes("partial") ? "partial" : "complete" : company.includes("conflict") ? "conflict" : "clear";
     return [key, { type: "choice", choice, confidence: 0.95, probabilities: Object.fromEntries(Object.keys(q.criteria).map(k => [k, Number(k === choice)])) }];
   }));
   return { ok: true, status: 200, json: async () => ({ model: "jev-1.13.0", answers, usage: { input_tokens: 200, output_tokens: 20 } }) };
@@ -49,18 +49,20 @@ await test("minimum is inclusive, defaults to 60 and rejects invalid configurati
 });
 await test("only qualifying new jobs enter the pipeline with a fresh five-dimension assessment", async () => {
   const result = await executeIngestBatch([opportunity("good"), opportunity("boundary"), opportunity("below"),
-    opportunity("unknown"), opportunity("partial"), opportunity("conflict"), opportunity("failure"), opportunity("malformed"), null, { company: "missing-id" }], { requestId: "mixed-batch" });
-  assert.deepEqual([result.added, result.filtered, result.needsReview, result.failed, result.skipped], [2, 2, 2, 2, 2]);
+    opportunity("unknown"), opportunity("partial"), opportunity("inaccessible"), opportunity("unrelated"), opportunity("conflict"), opportunity("failure"), opportunity("malformed"), null, { company: "missing-id" }], { requestId: "mixed-batch" });
+  assert.deepEqual([result.added, result.filtered, result.needsReview, result.failed, result.skipped], [4, 2, 2, 2, 2]);
   assert.equal(maxActive, 4);
-  const jobs = await listJobs(); assert.equal(jobs.length, 2);
+  const jobs = await listJobs(); assert.equal(jobs.length, 4);
   for (const job of jobs) {
     const view = jobSummary(job); assert.equal(view.jevStale, false); assert.ok(view.score >= 60);
     assert.equal(job.jevAssessment.dimensions.length, 5); assert.equal(job.fitReportId, "");
   }
   assert.equal(result.screeningRows.find(r => r.company === "below").score, 59);
   assert.equal(result.screeningRows.find(r => r.company === "conflict").decision, "constraint-conflict");
-  assert.deepEqual(result.screeningRows.find(r => r.company === "unknown").missingDimensions, ["Practical compatibility"]);
-  assert.equal(result.screeningRows.find(r => r.company === "partial").postingQuality, "partial");
+  assert.equal(jobs.find(j => j.company === "unknown").jevAssessment.dimensions[4].evidenceLimited, true);
+  assert.equal(jobs.find(j => j.company === "partial").jevAssessment.status, "provisional");
+  assert.equal(result.screeningRows.find(r => r.company === "inaccessible").postingQuality, "inaccessible");
+  assert.equal(admissionDecision({ status: "provisional", score: 59, posting: { choice: "partial" } }, 60), "below-threshold");
 });
 await test("existing and archived jobs refresh without scoring or losing owned state", async () => {
   const job = await saveJob({ ...opportunity("existing"), stage: "applied", notes: "Keep", archived: true, score: 23 });

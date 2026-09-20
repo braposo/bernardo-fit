@@ -1072,9 +1072,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       (j.jevStale ? ' · Outdated: assess again after context changes' : ' · ' + esc(j.tier)) + '</p>' +
       '<div class="score-gauges">' + a.dimensions.map(function (d) {
         return '<div><div data-score-gauge="' + esc(d.label) + '" data-value="' + (j.jevStale || d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div><p class="field-help">' +
-          (d.score == null ? 'Insufficient evidence' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') + '</p></div>';
+          (d.score == null ? 'Not scored' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') +
+          (d.evidenceLimited ? '<br>' + esc(d.evidenceNote || 'Limited evidence; score is an estimate.') : '') + '</p></div>';
       }).join('') + '</div><p>' + esc(postingLabels[a.posting.choice] || 'Posting needs review') + ' · ' + esc(constraintLabels[a.constraint.choice] || 'Constraints need review') + '</p>' +
-      '<p class="field-help">' + (a.score == null ? 'No overall score until all five dimensions and the posting have sufficient evidence. ' : '') +
+      '<p class="field-help">' + (a.provisional ? 'Provisional score: some details need clarification. All five dimensions contribute to the estimate. ' : a.score == null ? 'Reassess to generate scores with the current scoring policy. ' : '') +
       'Confidence describes the assessment, not your chance of an offer.' + (j.legacyScore == null ? '' : ' Previous analysis score: ' + esc(j.legacyScore) + '/100.') + '</p>';
   }
 
