@@ -238,14 +238,17 @@ try {
   }
   await page.locator('[data-act="back"]').click();
   check('mobile back shows pipeline', await page.locator('.pipeline').isVisible());
-  jobs[0].jevAssessment = { assessedAt: '2026-09-19T12:00:00Z', score: null,
-    dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility'].map((label, i) => ({ label, score: i === 4 ? null : 75, weight: [25,25,20,20,10][i], confidence: 0.9 })),
+  jobs[0].jevAssessment = { assessedAt: '2026-09-19T12:00:00Z', score: 73, provisional: true,
+    dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility'].map((label, i) => ({ label, score: i === 4 ? 50 : 75, weight: [25,25,20,20,10][i], confidence: 0.9,
+      evidenceLimited: i === 4, evidenceNote: i === 4 ? 'Travel and working arrangements may need clarification.' : '' })),
     posting: { choice: 'partial' }, constraint: { choice: 'unknown' } };
-  jobs[0].score = null;
+  jobs[0].score = 73;
   await page.goto(origin + '/admin.html?job=job0');
   await page.locator('[data-act="jevscore"]').waitFor();
   check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
-  check('missing practical evidence is visible', await page.getByText('Insufficient evidence', { exact: true }).isVisible());
+  check('missing practical evidence is visible', await page.getByText('Travel and working arrangements may need clarification.', { exact: false }).isVisible());
+  check('limited evidence retains a practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
+  check('provisional overall score is explained', await page.getByText('Provisional score:', { exact: false }).isVisible());
   check('five dimensions fit mobile viewport', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await audit('Jev assessment mobile');
   const writingModel = await page.evaluate(() => localStorage.getItem('fit.model'));
