@@ -82,7 +82,7 @@ const options = {
     }
     if (props.role === 'tabpanel') return <TabsContent {...props} aria-labelledby={props.id.replace('panel-', 'tab-')} value={props.id.replace('panel-', '')}>{children()}</TabsContent>;
     if (node.name === 'button') {
-      const variant = has('generation') ? 'generation' : has('danger') ? 'destructive' :
+      const variant = has('generation-outline') ? 'outline' : has('generation') ? 'generation' : has('danger') ? 'destructive' :
         has('read-link') || has('back-pipeline') ? 'link' : has('ghost') ? 'outline' :
           has('pipeline-item') || props['data-collection'] || props.id === 'usagebtn' ? 'ghost' : 'default';
       return <Button type="button" {...props} variant={variant}>

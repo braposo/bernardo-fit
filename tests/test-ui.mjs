@@ -90,7 +90,8 @@ check("a refreshed assessment cannot display cached prose from another assessmen
 console.log("\n--- materials ---");
 const materials = render("materials", { briefStale: true, researchStale: true });
 for (const label of ["Open fit page", "Open letter", "Open CV + letter", "Open previous brief", "Open research"]) check(label + " is present", materials.includes(label));
-for (const label of ["Generate new version"]) check(label + " is a sparkle action", new RegExp('class="generation"[^>]*>' + label).test(materials), materials.match(new RegExp('.{0,80}' + label)));
+check("saved documents use outline regeneration actions", [...materials.matchAll(/class="generation generation-outline" data-act="(regen|cover|briefrewrite|researchrefresh)"/g)].length === 4);
+check("first-generation actions retain their filled style", /class="generation" data-act="runfit"/.test(render("materials", { fitReportId: "", hasCoverLetter: false, hasBrief: false, hasResearch: false })));
 check("stale brief remains openable", actions(materials).includes("briefopen"));
 check("visible cost legend is removed", !materials.includes("Sparkle actions"));
 check("no repeated Paid AI labels", !/Paid AI/.test(materials));

@@ -123,6 +123,12 @@ components:
     textColor: "{colors.action-text}"
     typography: "{typography.button}"
     rounded: "{rounded.md}"
+  button-regeneration:
+    backgroundColor: "{colors.card}"
+    borderColor: "{colors.action-border}"
+    textColor: "{colors.action-text}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
   button-generation-hover:
     backgroundColor: "{colors.generation-hover}"
     textColor: "{colors.action-text}"
@@ -198,7 +204,7 @@ The YAML is the documented visual baseline, extracted from [admin CSS](src/admin
 
 ## Colors
 
-Use primary purple for links, active navigation and focus; background/card/pipeline tokens define the layered neutral surfaces. Default, secondary and generation buttons share action-background/action-text, with action-border. Primary here names the accent, not a requirement to fill primary buttons purple.
+Use primary purple for links, active navigation and focus; background/card/pipeline tokens define the layered neutral surfaces. Default, secondary and first-generation buttons share action-background/action-text, with action-border. Regenerating an existing document uses the outline button with a card background and action-border/action-text. Primary here names the accent, not a requirement to fill primary buttons purple.
 
 Selected job cards use selected-background, selected-border and an inset selected-indicator. Stages pair named labels with their own surface/text colours; new, expired and not_interested use the neutral stage pair. Assessment uncertainty uses warning colours. Amber is not the current generation-button treatment. Destructive actions retain their separate red treatment.
 
@@ -233,6 +239,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Use Button for actions; labelled Input/Textarea and NativeSelect for forms; Tabs for workspace sections; Dialog for generation review; AlertDialog for destructive confirmation; Card and Collapsible for documents and history; Popover plus NativeSelect for the icon-only status editor; Table for usage.
 - Use explicit action verbs: Open letter, Rewrite letter, Refresh research, Copy link, Publish live. A document name alone is not an action label. Reading, editing, generation and permanent deletion must remain distinguishable without relying on colour.
 - Generation controls use Lucide Sparkles as the visual convention for AI work. Omit visible cost legends, repeated Paid AI labels and generic explanations. Keep a concise accessible description for assistive technology. Use task verbs without model/provider names; automatic routing belongs behind the scenes.
+- Keep button labels on one line unless the available space genuinely requires wrapping. In document cards, put existing document Open actions together in the first row. When a saved document has other actions, put its Generate new version action on a separate full-width row and use the outline variant; retain Sparkles so the action still reads as generation. First-generation actions keep their filled style.
 
 ## Do's and Don'ts
 
@@ -258,7 +265,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Keep company, role, location/work pattern, available salary and status in the header. Preserve title/company editing. Put the real saved posting text link at the bottom of the header; do not invent missing values.
 - Use the four visible tabs: **Overview, Documents, Role details, Activity**. Keep labels consistent across widths and preserve keyboard tab navigation.
 - **Overview:** show the assessment date, five fit dimensions (Responsibilities fit 25%, Evidence of capability 25%, Seniority and scope 20%, Career direction 20%, Practical compatibility 10%), model confidence and an Assess fit button. Omit provider names, tiers, posting-quality prose, repeated uncertainty explanations and historical score comparisons. Keep a brief outdated state and existing header status badges for actionable issues. Follow with Summary: a short description of the position and a written interpretation of the saved scores. No Ready to use section, document shortcuts or analytics; document actions belong in Documents. Unassessed dimensions stay unassessed.
-- **Documents:** show document cards with live version, model and creation time. Place Open and generate actions beside their document. Expand saved versions inline using Collapsible, with separate authenticated Preview and Publish live actions. Expanded history survives publication refresh. Keep application questions and their editing, word limit/count, answer, copy, generation and deletion controls available here.
+- **Documents:** show document cards with live version, model and creation time. Place Open and generate actions beside their document, with the action row order and styles defined above. Expand saved versions inline using Collapsible, with separate authenticated Preview and Publish live actions. Expanded history survives publication refresh. Keep application questions and their editing, word limit/count, answer, copy, generation and deletion controls available here.
 - **Role details:** use a readable main column, labelled description/context editors and distinct headings for private notes and AI instructions. Explain their actual input use; private notes may feed interview preparation. Keep primary editors discoverable rather than hiding them in a general-purpose accordion.
 - **Activity:** show analytics first, then the newest-first audit log, then inline AI activity and usage for this job. Global usage remains aggregate. Analytics uses three columns even on mobile. Audit rows are one line, with exact local date/time first and action name second; long names may truncate visually while remaining fully accessible. Keep supporting detail in the row title, paginate older events and provide Refresh activity.
 - Keep archive/restore/delete management distinct from generation history. Show only recorded or recoverable history and label unknown dates accurately, without migration-era disclaimers. Do not invent events or attribute unrelated historical usage to a job. Opening a print dialog is not proof that a PDF was saved.

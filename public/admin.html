@@ -901,17 +901,17 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var fitActions = fitLink
       ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">Open fit page</a>' +
 
-        '<button class="generation" data-act="regen">Generate new version</button>'
+        '<button class="generation generation-outline" data-act="regen">Generate new version</button>'
       : '<button class="generation" data-act="runfit"' + (hasDescription ? "" : " disabled") + '>Generate analysis</button>';
     var letterActions = (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' +
       '<button class="read-link" data-act="lettercv">Open CV + letter</button>' : '') +
-      '<button class="generation" data-act="cover"' + (coverActive || !coverDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
+      '<button class="generation' + (hasLetter ? ' generation-outline' : '') + '" data-act="cover"' + (coverActive || !coverDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
       (coverActive ? 'Writing…' : hasLetter ? 'Generate new version' : 'Generate letter') + '</button>';
     var briefActions = (j.hasBrief ? '<button class="read-link" data-act="briefopen">Open ' + (j.briefStale ? 'previous ' : '') + 'brief</button>' : '') +
-      '<button class="generation" data-act="briefrewrite"' + (screenActive || !screenDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
+      '<button class="generation' + (j.hasBrief ? ' generation-outline' : '') + '" data-act="briefrewrite"' + (screenActive || !screenDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
       (screenActive ? 'Preparing…' : j.hasBrief ? 'Generate new version' : 'Generate brief') + '</button>';
     var researchActions = (j.hasResearch ? '<button class="read-link" data-act="researchopen">Open research</button>' : '') +
-      '<button class="generation" data-act="researchrefresh"' + (!screenDispatchEnabled || researchActive ? ' disabled' : '') + '>' +
+      '<button class="generation' + (j.hasResearch ? ' generation-outline' : '') + '" data-act="researchrefresh"' + (!screenDispatchEnabled || researchActive ? ' disabled' : '') + '>' +
       (researchActive ? 'Researching…' : j.hasResearch ? 'Generate new version' : 'Generate research') + '</button>';
 
     var panel = '';
