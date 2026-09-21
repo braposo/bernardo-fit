@@ -789,9 +789,13 @@ body {
 .assessment-dimension .field-help { margin:8px 0; font-size:12px; }
 .assessment-warning, .dimension-warning { background:#fff0d4; color:#7a4810; border:1px solid #dfc18c; border-radius:var(--radius); padding:12px; overflow-wrap:anywhere; }
 .assessment-warning { margin:14px 0; font-size:14px; }
+.assessment-warning strong { display:block; margin-bottom:4px; }
+.assessment-warning ul { margin:0; padding-left:20px; }
+.assessment-warning li + li { margin-top:4px; }
 .dimension-warning { margin:8px 0 0; font-size:12px; line-height:1.5; }
 .dimension-warning strong { display:block; margin-bottom:4px; }
 [data-slot="badge"].assessment-status { background:#fff0d4; color:#7a4810; border-color:#dfc18c; white-space:normal; text-align:center; max-width:140px; }
+.assessment-status-icon[data-slot="badge"] { width:22px; height:22px; min-width:22px; padding:0; font-size:14px; line-height:1; justify-content:center; }
 .pipeline-item > .assessment-status { justify-self:start; max-width:100%; }
 @media(max-width:600px) {
  .jev-gauges { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
