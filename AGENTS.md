@@ -4,6 +4,13 @@
 This project has Trigger.dev agent skills installed in `.agents/skills/`. Before writing or changing Trigger.dev code (background tasks, scheduled tasks, realtime, or chat.agent AI agents), load the most relevant skill: `trigger-authoring-chat-agent`, `trigger-authoring-tasks`, `trigger-chat-agent-advanced`, `trigger-cost-savings`, `trigger-getting-started`, `trigger-realtime-and-frontend`.
 <!-- TRIGGER.DEV SKILLS END -->
 
+## UI and design work
+
+- Before reviewing or changing user-facing UI, read root `DESIGN.md` and the references it identifies for the affected surface.
+- Follow its current design decisions, component patterns, interaction contracts, responsive behaviour and accessibility guidance. Older mockups do not override later approved decisions.
+- Verify visual changes in the browser at desktop and mobile sizes, and report any verification that could not be completed.
+- When the user establishes or replaces a reusable design rule, update `DESIGN.md` in the same pull request.
+
 ## Git and pull request workflow
 
 - Make every repository change on a dedicated branch and open a GitHub pull request.
