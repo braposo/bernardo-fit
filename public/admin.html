@@ -708,7 +708,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function versionRow(v, kind, number) {
     var bits = ['Created '+relativeTime(v.at), modelLabel(v.model) || v.model || 'Model not recorded'];
     if (kind === "letter" && v.words) bits.push(v.words + " words");
-    if (kind === "fit" && v.score != null) bits.push("score " + v.score);
     if (kind === "research" && v.sources != null) bits.push(v.sources + " sources" + (v.partial ? " · partial" : ""));
     return '<div class="ver">' +
       '<strong>Version '+number+'</strong><span class="vmeta" title="'+esc(fmtDateTime(v.at))+'">' + esc(bits.join(" · ")) + "</span>" +
@@ -822,9 +821,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function staleHtml(j) {
     if (!j.jd || !j.jd.stale) return "";
     var pct = Math.round(((j.jd.now - j.jd.was) / Math.max(1, j.jd.was)) * 100);
-    return '<div class="stalejd"><b>Analysis is out of date.</b> Scored on ' +
+    return '<div class="stalejd"><b>Analysis is out of date.</b> Written from ' +
       fmtChars(j.jd.was) + ", now " + Number(j.jd.now).toLocaleString() +
-      " (" + (pct > 0 ? "+" : "") + pct + "%). Regenerate to rescore.</div>";
+      " (" + (pct > 0 ? "+" : "") + pct + "%). Generate a new version to update this document.</div>";
   }
 
   function fmtChars(n) {

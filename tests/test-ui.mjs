@@ -108,7 +108,8 @@ check("notes disclose AI use", /notes may be used as context/i.test(context));
 const activity = render("activity");
 check("versions live within document cards", !/Output versions/.test(activity) && (materials.match(/data-act="document-versions"/g)||[]).length === 4);
 check("record management is separate", /Record management/.test(activity));
-const version = R.versionRow({ vid: "v1", at: "2026-09-01", model: "gpt-5.6-sol", active: false }, "fit");
+const version = R.versionRow({ vid: "v1", at: "2026-09-01", model: "gpt-5.6-sol", active: false, score: 88 }, "fit");
+check("version history ignores historical scores", !version.includes("score 88"));
 check("version preview and activation are distinct", /verpreview/.test(version) && /veruse/.test(version));
 
 console.log("\n--- navigation, review and responsive contract ---");

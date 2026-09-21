@@ -22,8 +22,7 @@ import { appendAudit, auditEvent } from "../../lib/job-audit.js";
 // dates would be a large response for nothing.
 function meta(v, kind) {
   const instructions = { versionInstructions: v.versionInstructions || "" };
-  if (kind === "fit") return { ...instructions, vid: v.vid, at: v.createdAt, model: v.model || "", active: !!v.active,
-    score: v.internal ? v.internal.score : null };
+  if (kind === "fit") return { ...instructions, vid: v.vid, at: v.createdAt, model: v.model || "", active: !!v.active };
   if (kind === "letter") return { ...instructions, vid: v.vid, at: v.at, model: v.model || "", active: !!v.active,
     words: v.words || 0, salutation: v.salutation || "" };
   return { ...instructions, vid: v.id, at: v.at, model: v.model || "", active: false,
@@ -78,7 +77,6 @@ export default async function handler(req, res) {
             createdAt: live.regenerated_at || live.created_at || "",
             model: live.model || "",
             active: true,
-            internal: job.score != null ? { score: job.score } : null,
           }];
         }
       }

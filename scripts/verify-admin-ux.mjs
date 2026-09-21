@@ -63,7 +63,7 @@ try {
     if (url.pathname === '/api/admin/versions') {
       if (request.method() === 'POST') { mutations++; return reply({ok:true}); }
       if (url.searchParams.has('kind')) return reply({ content: { opening: 'Synthetic saved version content <script>unsafe()</script>' } });
-      return reply(Object.fromEntries(['fit','letter','research','brief'].map(kind => [kind, [{vid:'v2',at:'2026-09-15T10:00:00Z',model:'gpt-5.6-sol',active:true},{vid:'v1',at:'2026-09-01',model:'claude-sonnet-5',active:false,versionInstructions:'Focus on team leadership <script>unsafe()</script>'}]])));
+      return reply(Object.fromEntries(['fit','letter','research','brief'].map(kind => [kind, [{vid:'v2',at:'2026-09-15T10:00:00Z',model:'gpt-5.6-sol',active:true,score:78},{vid:'v1',at:'2026-09-01',model:'claude-sonnet-5',active:false,score:88,versionInstructions:'Focus on team leadership <script>unsafe()</script>'}]])));
     }
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
@@ -233,6 +233,10 @@ try {
   await page.locator('[data-select-job="job0"]').click();
   for (const width of [1280, 768, 390, 360]) {
     await page.setViewportSize({ width, height: 900 });
+    const fitHistory = page.locator('[data-document="fit"] [data-slot="collapsible"]');
+    if (await fitHistory.getAttribute('data-state') !== 'open') await page.locator('[data-document="fit"] [data-act="versions-toggle"]').click();
+    await page.locator('[data-document="fit"] .ver').first().waitFor();
+    check('fit versions omit historical scores at ' + width, !(await page.locator('[data-document="fit"] .vmeta').allTextContents()).some(t => /score/i.test(t)));
     check('no horizontal overflow at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     if (width === 390) await audit('Mobile materials');
     if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: `${process.env.ADMIN_UX_SCREENSHOTS}/admin-${width}.png`, fullPage: true });

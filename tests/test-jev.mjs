@@ -27,6 +27,16 @@ function fixture(questions) {
     usage: { input_tokens: 150, output_tokens: 20 } };
 }
 let transform = x => x;
+await test("historical scores do not reach job views", () => {
+  const job = { score: 88, tier: "Act now", scoreBreakdown: { fit: 88 }, rationale: "Old scoring explanation" };
+  for (const view of [jobSummary(job), jobDetail(job)]) {
+    assert.equal(view.score, null);
+    assert.equal(view.tier, "");
+    assert.equal(view.scoreBreakdown, null);
+    assert.equal(view.rationale, "");
+    assert.equal("legacyScore" in view, false);
+  }
+});
 let summaryText = JSON.stringify({ position: "Lead the engineering team.", fit: "Strong leadership alignment with practical details to confirm." });
 let summaryCalls = 0;
 globalThis.fetch = async (url, options) => {
