@@ -5,11 +5,12 @@ import { assessFit, scoringQuestions, scoringFingerprint } from "../lib/jev-scor
 import { executeJevWork } from "../lib/jev-work.js";
 import { routeAnswer } from "../lib/jev-routing.js";
 import { answerPolicy } from "../lib/answer-policy.js";
-import { jobSummary } from "../lib/job-view.js";
+import { jobSummary, jobDetail } from "../lib/job-view.js";
 import { saveJob, getJob, mutateJob, saveReportWithId, getReport } from "../lib/store.js";
 import { applyAnalysisToOwners } from "../lib/analysis-completion.js";
 import { readUsage } from "../lib/usage.js";
 import handler from "../api/admin/cover.js";
+process.env.OPENAI_API_KEY = "synthetic-openai";
 process.env.ADMIN_SECRET = "jev-test";
 process.env.TYPESAFE_API_KEY = "synthetic-key";
 let passed = 0, failed = 0, calls = 0;
@@ -26,8 +27,28 @@ function fixture(questions) {
     usage: { input_tokens: 150, output_tokens: 20 } };
 }
 let transform = x => x;
+await test("historical scores do not reach job views", () => {
+  const job = { score: 88, tier: "Act now", scoreBreakdown: { fit: 88 }, rationale: "Old scoring explanation" };
+  for (const view of [jobSummary(job), jobDetail(job)]) {
+    assert.equal(view.score, null);
+    assert.equal(view.tier, "");
+    assert.equal(view.scoreBreakdown, null);
+    assert.equal(view.rationale, "");
+    assert.equal("legacyScore" in view, false);
+  }
+});
+let summaryText = JSON.stringify({ position: "Lead the engineering team.", fit: "Strong leadership alignment with practical details to confirm." });
+let summaryCalls = 0;
 globalThis.fetch = async (url, options) => {
   calls++;
+  if (url === "https://api.openai.com/v1/responses") {
+    summaryCalls++;
+    const body = JSON.parse(options.body);
+    assert.equal(body.model, "gpt-5.6-sol"); assert.equal(body.store, false);
+    assert.equal(body.reasoning.effort, "low");
+    assert.ok(body.instructions.includes("Do not recompute or change scores"));
+    return { ok: true, status: 200, json: async () => ({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: summaryText }] }], usage: { input_tokens: 100, output_tokens: 30 } }) };
+  }
   assert.equal(url, "https://api.typesafe.ai/v1/systemone");
   assert.equal(options.headers.Authorization, "Bearer synthetic-key");
   const body = JSON.parse(options.body);
@@ -134,7 +155,10 @@ await test("worker persists assessment once, retains legacy score, and keeps rep
   const payload = await claim(job.id, "jev-work-one");
   assert.equal((await executeJevWork(payload)).outcome, "completed"); const before = calls;
   await executeJevWork(payload); assert.equal(calls, before);
-  const saved = await getJob(job.id); assert.equal(saved.score, 55); assert.equal(jobSummary(saved).score, 75);
+  const saved = await getJob(job.id); assert.equal(saved.overviewSummary.position, "Lead the engineering team.");
+  assert.equal(jobSummary(saved).overviewSummary, undefined);
+  assert.equal(jobDetail(saved).overviewSummary.fit, "Strong leadership alignment with practical details to confirm.");
+  assert.equal(saved.score, 55); assert.equal(jobSummary(saved).score, 75);
   await saveReportWithId("jev-public", { company: "Example", pitch: "Public prose" }, null);
   await mutateJob(job.id, () => ({ fitReportId: "jev-public" }));
   await applyAnalysisToOwners("jev-public", { score: 95, tier: "Act now", breakdown: {}, reasoning: "Legacy" });
@@ -145,11 +169,39 @@ await test("worker persists assessment once, retains legacy score, and keeps rep
 await test("edits invalidate scores and stale in-flight results cannot attach", async () => {
   await mutateJob(job.id, () => ({ salary: "New salary" }));
   const summary = jobSummary(await getJob(job.id)); assert.equal(summary.jevStale, true); assert.equal(summary.score, null);
+  assert.equal(jobDetail(await getJob(job.id)).overviewSummary, null);
   const payload = await claim(job.id, "jev-work-two");
   const fetch = globalThis.fetch;
   globalThis.fetch = async (...args) => { await mutateJob(job.id, () => ({ location: "Changed mid-flight" })); return fetch(...args); };
   assert.equal((await executeJevWork(payload)).outcome, "superseded"); globalThis.fetch = fetch;
   assert.equal(jobSummary(await getJob(job.id)).jevStale, true);
+});
+await test("summary failures retry without paying for scoring again", async () => {
+  const payload = await claim(job.id, "summary-retry");
+  const originalText = summaryText;
+  summaryText = "not valid JSON";
+  const before = calls, beforeSummary = summaryCalls;
+  const previousAssessment = (await getJob(job.id)).jevAssessment;
+  await assert.rejects(executeJevWork(payload), /overview summary/);
+  assert.equal(calls - before, 2);
+  assert.deepEqual((await getJob(job.id)).jevAssessment, previousAssessment, "failed summary preserves the previous assessment");
+  summaryText = originalText;
+  await executeJevWork(payload);
+  assert.equal(calls - before, 3, "only the summary is retried");
+  assert.equal(summaryCalls - beforeSummary, 2);
+  assert.equal(jobDetail(await getJob(job.id)).overviewSummary.position, "Lead the engineering team.");
+});
+await test("summary completion cannot overwrite edited job context", async () => {
+  const payload = await claim(job.id, "summary-race");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (...args) => {
+    const response = await originalFetch(...args);
+    if (args[0].includes("openai.com")) await mutateJob(job.id, () => ({ salary: "Edited during summary" }));
+    return response;
+  };
+  try { assert.equal((await executeJevWork(payload)).outcome, "superseded");
+    assert.equal(jobDetail(await getJob(job.id)).overviewSummary, null);
+  } finally { globalThis.fetch = originalFetch; }
 });
 await test("review and dispatch require auth, a current fingerprint and the fixed Jev model", async () => {
   const trigger = tasks.trigger, key = idempotencyKeys.create; let payload;

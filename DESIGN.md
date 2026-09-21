@@ -228,15 +228,17 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 ## Components
 
+- Put alert text and inline actions inside AlertDescription so they share the content column. Bare text must not occupy the Alert icon column; notices should wrap naturally at narrow widths.
 - Use the actual shadcn components under [src/admin/components/ui](src/admin/components/ui), not raw HTML decorated to resemble them. Keep the existing Radix implementation; the free AdminCN template provides composition inspiration, not a Base UI migration.
 - Use Button for actions; labelled Input/Textarea and NativeSelect for forms; Tabs for workspace sections; Dialog for generation review; AlertDialog for destructive confirmation; Card and Collapsible for documents and history; Popover plus NativeSelect for the icon-only status editor; Table for usage.
 - Use explicit action verbs: Open letter, Rewrite letter, Refresh research, Copy link, Publish live. A document name alone is not an action label. Reading, editing, generation and permanent deletion must remain distinguishable without relying on colour.
-- Generation controls retain the consistent Lucide Sparkles icon and a nearby explanation: "Sparkle actions run AI and may incur costs." Do not repeat Paid AI on every button. Keep accessible descriptions and hide decorative icons from assistive technology.
+- Generation controls use Lucide Sparkles as the visual convention for AI work. Omit visible cost legends, repeated Paid AI labels and generic explanations. Keep a concise accessible description for assistive technology. Use task verbs without model/provider names; automatic routing belongs behind the scenes.
 
 ## Do's and Don'ts
 
+- Describe the current experience. Keep migration notes, previous implementation details and explanations of when tracking began out of product copy. Preserve useful current-state labels such as estimated costs, stale content and unsaved edits; keep implementation history in documentation.
 - Reuse the current tokens and Radix-based shadcn components; preserve descriptive labels, keyboard access and visible focus.
-- Keep Open and generation as separate actions. Keep Sparkles and the nearby AI-cost explanation; do not repeat Paid AI on every button.
+- Keep Open and generation as separate actions. Keep Sparkles as the AI indicator without visible explanatory boilerplate.
 - Preserve drafts, current selection and previous outputs during background work.
 - Do not restore superseded amber generation styling, old section names or version-history placement from earlier wireframes.
 - Do not turn sample data, mockup annotations or missing backend capabilities into product content.
@@ -255,13 +257,18 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 - Keep company, role, location/work pattern, available salary and status in the header. Preserve title/company editing. Put the real saved posting text link at the bottom of the header; do not invent missing values.
 - Use the four visible tabs: **Overview, Documents, Role details, Activity**. Keep labels consistent across widths and preserve keyboard tab navigation.
-- **Overview:** focus on evaluating the opportunity, accessible fit explanation, rationale/concerns, relevant notices and opening existing work. Routine generation belongs beside its document. Show Location, AI / Developer experience and Leadership as shadcn Card + ChartContainer radial gauges, using stored 0–100 ratings and 35% / 35% / 30% weights. Missing assessments are unassessed, not zero. Keep analytics in Activity.
+- **Overview:** show the assessment date, five fit dimensions (Responsibilities fit 25%, Evidence of capability 25%, Seniority and scope 20%, Career direction 20%, Practical compatibility 10%), model confidence and an Assess fit button. Omit provider names, tiers, posting-quality prose, repeated uncertainty explanations and historical score comparisons. Keep a brief outdated state and existing header status badges for actionable issues. Follow with Summary: a short description of the position and a written interpretation of the saved scores. No Ready to use section, document shortcuts or analytics; document actions belong in Documents. Unassessed dimensions stay unassessed.
 - **Documents:** show document cards with live version, model and creation time. Place Open and generate actions beside their document. Expand saved versions inline using Collapsible, with separate authenticated Preview and Publish live actions. Expanded history survives publication refresh. Keep application questions and their editing, word limit/count, answer, copy, generation and deletion controls available here.
 - **Role details:** use a readable main column, labelled description/context editors and distinct headings for private notes and AI instructions. Explain their actual input use; private notes may feed interview preparation. Keep primary editors discoverable rather than hiding them in a general-purpose accordion.
 - **Activity:** show analytics first, then the newest-first audit log, then inline AI activity and usage for this job. Global usage remains aggregate. Analytics uses three columns even on mobile. Audit rows are one line, with exact local date/time first and action name second; long names may truncate visually while remaining fully accessible. Keep supporting detail in the row title, paginate older events and provide Refresh activity.
-- Keep archive/restore/delete management distinct from generation history. Show only recorded or recoverable history; disclose gaps and unknown dates. Do not invent events or attribute unrelated historical usage to a job. Opening a print dialog is not proof that a PDF was saved.
+- Keep archive/restore/delete management distinct from generation history. Show only recorded or recoverable history and label unknown dates accurately, without migration-era disclaimers. Do not invent events or attribute unrelated historical usage to a job. Opening a print dialog is not proof that a PDF was saved.
 
 ## Reading, generation and versions
+
+- Only the current five-dimension fit assessment supplies visible scores. Do not show historical report scores in document versions or use them as a fallback in the pipeline or role header. Generating or publishing a document does not rescore the role.
+- Introduce generation reviews with one short, natural explanation of what the user will receive. Omit headings such as Work to run and procedural task lists. Mention meaningful scope, such as refreshing company research before writing a brief, in plain language.
+- Assess fit also writes the private Overview summary using Sol behind the scenes. Save it with the exact assessment/input snapshot; hide outdated prose after context changes. Loading Overview never generates. Existing assessments acquire summaries on explicit reassessment. Keep summaries concise, grounded in the description and scores, and reflect material uncertainty without boilerplate.
+
 
 - Opening existing output, including stale output, must never start generation. Preview never publishes. Saving inputs, searching/filtering, opening a review, Cancel and Escape must also have no generation side effects.
 - Retain explicit review and submission for all generation, including bulk and question answers. The reviewed operation, model, job set and any extra research must match what is dispatched. Changed inputs or broader scope require refreshed review, never silent expansion.
@@ -274,7 +281,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 - Use persistent field labels and local Saving, Saved and Couldn't save feedback. Retain drafts on failures, section/role changes and background updates. Preserve focus, cursor/selection and scroll; late saves must not overwrite newer edits or another job.
 - Keep keyboard access, visible focus, semantic controls, accessible score explanations, dialog focus trapping, Escape/Cancel and focus return. Avoid hover-only explanations or essential actions. Announce meaningful save/run changes without announcing every poll or stealing focus.
-- Verify contrast for text, controls and focus. Colour alone must not communicate stage, generation, errors or availability. Retain privacy labels and stale-output warnings.
+- Verify contrast for text, controls and focus. Colour alone must not communicate stage, generation, errors or availability. Retain useful privacy labels and concise stale-output states; avoid repeating generic explanations.
 - Collapse to one pane when the desktop columns no longer fit; use actual content fit around the existing 900 px breakpoint. Stack actions before labels become cramped and keep section navigation discoverable. Avoid horizontal action overflow.
 - Provide at least 44 px mobile touch targets. Mobile review surfaces need a scrollable body and reachable actions; sticky controls must not cover content or keyboard focus.
 - Preserve authentication, private document access, safe source links and escaped output. Use synthetic data in screenshots and fixtures; do not expose private content or tokens.

@@ -512,7 +512,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       renderAdmin(target, '<p><strong>Estimated $' + usage.estimatedUsd.toFixed(2) + ' USD</strong> across ' + usage.pricedCalls + ' priced calls. ' +
         usage.savedCalls + ' answers used profile facts without a model call.</p>' +
         '<p>' + usage.input.toLocaleString() + ' input tokens · ' + usage.output.toLocaleString() + ' output tokens · ' + usage.cachePercent.toFixed(1) + '% of input read from cache.</p>' +
-        '<p>Estimates cover calls with recorded prices (' + usage.pricedCalls + ' of ' + usage.calls + '). Earlier calls and missing usage are excluded from cost. Provider billing remains authoritative.</p>' +
+        '<p>Estimated costs · ' + usage.pricedCalls + ' of ' + usage.calls + ' calls priced.</p>' +
         '<div class="usage-scroll"><table><thead><tr><th>Task</th><th>Model</th><th>Effort</th><th>Calls</th><th>Output tokens</th><th>Errors</th><th>Estimated USD</th></tr></thead><tbody>' +
         usage.groups.map(function (row) { return '<tr><td>' + esc(row.kind) + '</td><td>' + esc(row.source === "profile" ? "Profile facts" : modelLabel(row.model) || row.model) +
           '</td><td>' + esc(row.effort) + '</td><td>' + row.calls + '</td><td>' + row.output.toLocaleString() + '</td><td>' + row.errors + '</td><td>$' + (row.estimatedCostMicros / 1e6).toFixed(3) + '</td></tr>'; }).join("") +
@@ -708,7 +708,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function versionRow(v, kind, number) {
     var bits = ['Created '+relativeTime(v.at), modelLabel(v.model) || v.model || 'Model not recorded'];
     if (kind === "letter" && v.words) bits.push(v.words + " words");
-    if (kind === "fit" && v.score != null) bits.push("score " + v.score);
     if (kind === "research" && v.sources != null) bits.push(v.sources + " sources" + (v.partial ? " · partial" : ""));
     return '<div class="ver">' +
       '<strong>Version '+number+'</strong><span class="vmeta" title="'+esc(fmtDateTime(v.at))+'">' + esc(bits.join(" · ")) + "</span>" +
@@ -756,7 +755,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       : "Application questions";
     return '<section class="question-list qabox" aria-labelledby="questions-heading">' +
       '<h2 id="questions-heading">' + label + '</h2>' +
-      '<p class="field-help">Edit and save questions locally. Sparkle actions draft answers after review.</p>' + body +
+      body +
       '<div class="qa-bar"><button class="ghost" data-act="qadd">Add a question</button></div>' +
     '</section>';
   }
@@ -770,7 +769,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
   function jobUsageHtml(data) {
     var usage = summariseUsage(data || {});
-    return '<section class="job-usage"><h2>AI activity &amp; usage</h2><p class="field-help">For this job, since per-job usage recording began. Earlier calls are not included. Costs are estimates; provider billing remains authoritative.</p>' +
+    return '<section class="job-usage"><h2>AI activity &amp; usage</h2>' +
       '<div class="analytics-summary"><div><strong>$'+usage.estimatedUsd.toFixed(3)+'</strong><span>Estimated USD</span></div><div><strong>'+usage.calls+'</strong><span>AI calls</span></div><div><strong>'+usage.input.toLocaleString()+'</strong><span>Input tokens</span></div><div><strong>'+usage.output.toLocaleString()+'</strong><span>Output tokens</span></div></div>' +
       '<p class="field-help">'+usage.pricedCalls+' of '+usage.calls+' calls priced · '+usage.cachePercent.toFixed(1)+'% input cached · '+usage.savedCalls+' answers from profile facts</p>' +
       (usage.groups.length ? '<div class="usage-scroll" role="region" aria-label="AI usage by task and model" tabindex="0"><table><thead><tr><th>Task</th><th>Model</th><th>Effort</th><th>Calls</th><th>Output tokens</th><th>Errors</th><th>Estimated USD</th></tr></thead><tbody>' +
@@ -791,7 +790,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       state.events=state.events.concat(data.events || []); state.snapshot=data.snapshot;
       renderAdmin(target, '<h2>Analytics summary</h2><div class="analytics-summary engagement-summary">'+[[stats.view || 0,'Fit page views'],[stats.copy_link || 0,'Link copies'],[stats.cv_download || 0,'CV downloads']].map(function(item) { return '<div><strong>'+item[0]+'</strong><span>'+item[1]+'</span></div>'; }).join('')+'</div>' +
         '<section class="job-audit"><div class="audit-heading"><h2>Audit log</h2><button class="ghost" data-activity-refresh>Refresh activity</button></div><p class="field-help">Newest first · timestamps in your local time. Views and downloads are anonymous client-reported events.</p>' +
-        (data.historyNote ? '<p class="field-help">'+esc(data.historyNote)+'</p>' : '') +
         '<ol class="audit-log">'+state.events.map(function(event) { return '<li><time datetime="'+esc(event.at)+'" title="'+esc(event.at)+'">'+esc(new Date(event.at).toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}))+'</time><strong title="'+esc(event.title+(event.detail ? ' — '+event.detail : ''))+'">'+esc(event.title)+'</strong></li>'; }).join('')+'</ol>' +
         (!state.events.length ? '<p>No recorded actions yet.</p>' : '') + (data.hasMore ? '<button class="ghost" data-activity-more>Load older actions</button>' : '') + '</section>' + jobUsageHtml(data.usage));
       target.querySelector('[data-activity-refresh]').onclick=function(){loadJobActivity(target,id);};
@@ -823,9 +821,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function staleHtml(j) {
     if (!j.jd || !j.jd.stale) return "";
     var pct = Math.round(((j.jd.now - j.jd.was) / Math.max(1, j.jd.was)) * 100);
-    return '<div class="stalejd"><b>Analysis is out of date.</b> Scored on ' +
+    return '<div class="stalejd"><b>Analysis is out of date.</b> Written from ' +
       fmtChars(j.jd.was) + ", now " + Number(j.jd.now).toLocaleString() +
-      " (" + (pct > 0 ? "+" : "") + pct + "%). Regenerate to rescore.</div>";
+      " (" + (pct > 0 ? "+" : "") + pct + "%). Generate a new version to update this document.</div>";
   }
 
   function fmtChars(n) {
@@ -920,23 +918,17 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       panel = '<div class="workspace-panel"><p aria-live="polite">Loading role details…</p></div>';
     } else if (workspaceSection === "overview") {
       panel = '<section class="workspace-panel" id="panel-overview" role="tabpanel">' +
-        (j.jevAssessment ? jevAssessmentHtml(j) : j.score != null ? '<h2>Previous fit assessment</h2><p class="field-help">Historical three-dimension score. Assess with Jev for the current five-dimension rating.</p>' +
-          '<div class="score-gauges">' + [['location','Location',35],['aiDx','AI / Developer experience',35],['leadership','Leadership',30]].map(function (dimension) {
-            var value = j.scoreBreakdown && j.scoreBreakdown[dimension[0]];
-            return '<div data-score-gauge="'+dimension[1]+'" data-value="'+esc(value == null ? '' : value)+'" data-weight="'+dimension[2]+'"></div>';
-          }).join('') + '</div>'  :
-          '<p>No fit assessment has been generated yet.</p>') +
-        '<button class="generation" data-act="jevscore"' + (!jevEnabled || j.archived || (j.jevRun && ["dispatching", "queued"].indexOf(j.jevRun.status) !== -1) ? ' disabled' : '') + '>Assess fit with Jev</button>' +
-        '<p class="field-help">' + (jevEnabled ? 'Private five-dimension scoring with uncertainty flags. Uses AI credits.' + (!hasDescription ? ' No description is saved; scores will use the available role details and may be provisional.' : '') : 'Configure the TypeSafe API key in Vercel and Trigger.dev to use Jev.') + '</p>' +
-        (j.jevRun && j.jevRun.status === 'failed' ? '<p class="notice error">The last fit assessment failed. Check TypeSafe access and retry. Any previous assessment is retained.</p>' : '') +
-        (j.rationale ? '<p class="rationale">' + esc(j.rationale) + '</p>' : '') + owed + staleHtml(j) +
-        '<h2>Ready to use</h2><div class="overview-actions">' + (fitLink?'<button class="ghost" data-act="copyfit" data-link="'+esc(fitLink)+'">Copy fit link</button>':'') +
-          (j.hasBrief ? '<button class="primary-link" data-act="briefopen">Open interview brief</button>' : '') +
-          (fitLink ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">View fit page ↗</a>' : '') +
-          (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' : '') + '</div>' +
+        jevAssessmentHtml(j) +
+        '<button class="generation" data-act="jevscore"' + (!jevEnabled || j.archived || (j.jevRun && ["dispatching", "queued"].indexOf(j.jevRun.status) !== -1) ? ' disabled' : '') + '>Assess fit</button>' +
+        (!jevEnabled ? '<p class="field-help">Fit assessment is unavailable.</p>' : '') +
+        (j.jevRun && j.jevRun.status === 'failed' ? '<p class="notice error">Assessment failed. Try again.</p>' : '') +
+        '<section class="overview-summary"><h2>Summary</h2>' +
+          (j.overviewSummary && !j.jevStale && j.jevAssessment && j.overviewSummary.fingerprint === j.jevAssessment.fingerprint && j.overviewSummary.assessedAt === j.jevAssessment.assessedAt ? '<h3>The position</h3><p>' + esc(j.overviewSummary.position) + '</p><h3>Your fit</h3><p>' + esc(j.overviewSummary.fit) + '</p>' :
+            '<p class="field-help">' + (j.jevRun && ['dispatching', 'queued'].indexOf(j.jevRun.status) !== -1 ? 'Preparing summary…' : j.jevStale ? 'Reassess fit to update the summary.' : 'Assess fit to add a summary.') + '</p>') + '</section>' +
+        owed +
         '</section>';
     } else if (workspaceSection === "materials") {
-      panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><h2>Documents</h2><p class="generation-legend" id="generation-legend">✦ Sparkle actions run AI and may incur costs.</p>' +
+      panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><h2>Documents</h2>' +
         '<div class="material-list" data-act="verbox">' +
           materialRow('Fit analysis', j.fitReportId ? 'Shareable page' + (j.jd && j.jd.stale ? ' · Outdated after description change' : ' · Current') : 'Not generated', fitActions, 'fit', j) +
           materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), letterActions, 'letter', j) +
@@ -1071,22 +1063,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
 
   function jevAssessmentHtml(j) {
-    var a = j.jevAssessment;
-    var postingLabels = { complete: 'Substantive posting', partial: 'Partial description', inaccessible: 'Posting inaccessible or expired', unrelated: 'Not a job description' };
-    var constraintLabels = { conflict: a.blocked ? 'Hard-constraint conflict identified: review the requirements' : 'Possible hard-constraint conflict: review the requirements', clear: 'No hard-constraint conflict identified', unknown: 'Practical constraints need clarification' };
-    var warning = j.jevStale ? 'This assessment is outdated. Assess again to update scores and clarification notes.' :
-      a.blocked ? 'A stated requirement conflicts with a firm constraint. The fit score is retained, but this role needs review.' :
-      a.provisional ? 'Provisional score: some details need clarification. All five dimensions still contribute to the estimate.' : '';
-    return '<h2>Fit assessment</h2><p class="field-help">Jev · ' + esc(fmtDateTime(a.assessedAt)) +
-      (j.jevStale ? ' · Outdated: assess again after context changes' : ' · ' + esc(j.tier)) + '</p>' +
-      (warning ? '<p class="assessment-warning">' + esc(warning) + '</p>' : '') +
+    var a = j.jevAssessment || { dimensions: [['Responsibilities fit',25],['Evidence of capability',25],['Seniority and scope',20],['Career direction',20],['Practical compatibility',10]].map(function (d) { return { label: d[0], weight: d[1], score: null, confidence: null }; }) };
+    return '<h2>Fit assessment</h2>' + (a.assessedAt ? '<p class="field-help">' + esc(fmtDateTime(a.assessedAt)) + '</p>' : '') +
+      (j.jevStale ? '<p class="field-help">Outdated · reassess fit</p>' : '') +
       '<div class="score-gauges jev-gauges">' + a.dimensions.map(function (d) {
-        return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-value="' + (j.jevStale || d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div><p class="field-help">' +
-          (j.jevStale ? 'Previous assessment · needs updating' : d.score == null ? 'Not scored' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') + '</p>' +
-          (!j.jevStale && d.evidenceLimited ? '<p class="dimension-warning"><strong>Limited evidence</strong> ' + esc(d.evidenceNote || 'Score is an estimate; confirm the relevant role details.') + '</p>' : '') + '</div>';
-      }).join('') + '</div><p class="posting-quality">' + esc(postingLabels[a.posting.choice] || 'Posting needs review') + ' · ' + esc(constraintLabels[a.constraint.choice] || 'Constraints need review') + '</p>' +
-      '<p class="field-help">' + (a.score == null ? 'Reassess to generate scores with the current scoring policy. ' : '') +
-      'Confidence describes the assessment, not your chance of an offer.' + (j.legacyScore == null ? '' : ' Previous analysis score: ' + esc(j.legacyScore) + '/100.') + '</p>';
+        return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-value="' + (j.jevStale || d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div>' + (j.jevAssessment ? '<p class="field-help" title="Confidence in the assessment, not the chance of an offer">' +
+          (j.jevStale ? 'Outdated' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') + '</p>' : '') + '</div>';
+      }).join('') + '</div>';
   }
 
   function openGenerationReview(options) {
@@ -1096,7 +1079,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       return;
     }
     var dialog = createAdminDialog({
-      title: 'Review generation', description: options.subject || 'Review the exact work and costs before starting.', className: 'review-dialog',
+      title: 'Review generation', description: options.subject || 'Confirm what to generate.', className: 'review-dialog',
       content: '<div class="review-body" data-review-body aria-live="polite">Checking current inputs and scope…</div>' +
         '<div class="review-actions"><button class="ghost" type="button" data-review-cancel>Cancel</button><button class="generation" type="button" data-review-submit disabled>Reviewing…</button></div>'
     });
@@ -1126,9 +1109,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (options.kind !== 'jev-score') { model = review.model; localStorage.setItem(MODEL_KEY, model); }
       var models = MODELS.map(function (item) { return '<option value="' + esc(item.id) + '"' + (item.id === review.model ? ' selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
       var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
-        return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + (item.model ? ' · ' + esc(modelLabel(item.model) || item.model) : '') + '</div>'; }).join('') + '</div>' : '';
-      renderAdmin(bodyEl, '<h3>Work to run</h3><ol>' + (review.steps || []).map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>' +
-        jobsHtml + (options.kind === 'jev-score' ? '<p>Jev · Private assessment · Uses AI credits</p>' : review.routing && review.routing.source === 'jev' ? '<h3>Model selected by Jev</h3><p>' + (review.jobs ? '' : esc(modelLabel(review.model) || review.model) + ' · ') + esc(review.routing.reason) + '</p>' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
+        return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
+      renderAdmin(bodyEl, '<p class="review-description">' + esc(review.description || 'We’ll generate the requested content using your saved details.') + '</p>' +
+        jobsHtml + (options.kind === 'jev-score' || review.routing && review.routing.source === 'jev' ? '' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
         (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="Add to this job’s generic instructions for this version only…">'+esc(versionInstructions)+'</textarea>' : ''));
       var instructionsEl = dialog.querySelector('[data-version-instructions]');
@@ -1267,7 +1250,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select></div></div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
       (!showArchived && pendingAnalysis ? '<div class="bulkbar"><button class="generation" id="analyseall"' + (activeRuns['analyse-all'] ? ' disabled' : '') + '>' +
-        (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse ready roles (' + pendingAnalysis + ')') + '</button><p class="field-help">Sparkle actions run AI and may incur costs.</p></div>' : '') +
+        (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse ready roles (' + pendingAnalysis + ')') + '</button></div>' : '') +
       '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
 
     renderedRole = selectedId; renderedSection = workspaceSection;

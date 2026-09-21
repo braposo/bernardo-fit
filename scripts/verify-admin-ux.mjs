@@ -63,14 +63,14 @@ try {
     if (url.pathname === '/api/admin/versions') {
       if (request.method() === 'POST') { mutations++; return reply({ok:true}); }
       if (url.searchParams.has('kind')) return reply({ content: { opening: 'Synthetic saved version content <script>unsafe()</script>' } });
-      return reply(Object.fromEntries(['fit','letter','research','brief'].map(kind => [kind, [{vid:'v2',at:'2026-09-15T10:00:00Z',model:'gpt-5.6-sol',active:true},{vid:'v1',at:'2026-09-01',model:'claude-sonnet-5',active:false,versionInstructions:'Focus on team leadership <script>unsafe()</script>'}]])));
+      return reply(Object.fromEntries(['fit','letter','research','brief'].map(kind => [kind, [{vid:'v2',at:'2026-09-15T10:00:00Z',model:'gpt-5.6-sol',active:true,score:78},{vid:'v1',at:'2026-09-01',model:'claude-sonnet-5',active:false,score:88,versionInstructions:'Focus on team leadership <script>unsafe()</script>'}]])));
     }
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
       reviews++;
       return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'jev-1.13.0' : body.model || 'gpt-5.6-sol',
         routing: jevRoutesModels ? { source: 'jev', reason: 'Standard synthesis uses balanced Sol.' } : null,
-        submitLabel: 'Generate analysis', steps: ['Generate fixture output'], inputSummary: 'Saved fixture inputs',
+        submitLabel: 'Generate analysis', description: 'We’ll write a cover letter tailored to this role and your experience.', inputSummary: 'Saved fixture inputs',
         publication: 'Becomes active', costText: 'Estimate unavailable. May incur costs.' } });
     }
     if (url.pathname === '/api/admin/cover' && request.method() === 'POST') {
@@ -98,8 +98,8 @@ try {
   await page.locator('[data-act="stage"]').selectOption('reviewing');
   await page.waitForFunction(() => document.querySelector('.role-stage .pipeline-stage')?.textContent === 'Reviewing');
   check('icon status control saves the stage', jobs[0].stage === 'reviewing');
-  check('three accessible shadcn rating gauges', await page.getByRole('meter').count() === 3 && await page.locator('.score-gauge[data-slot="card"]').count() === 3);
-  check('gauge uses the stored score on a 100 point scale', await page.getByRole('meter', {name:'Location',exact:true}).getAttribute('aria-valuenow') === '100');
+  check('five unassessed shadcn gauges', await page.getByRole('meter').count() === 0 && await page.locator('.score-gauge[data-slot="card"]').count() === 5);
+  check('legacy scores are not presented as current dimensions', await page.getByRole('img', {name:'Responsibilities fit: not assessed',exact:true}).count() === 1);
   check('Overview has no analytics or activity shortcut', await page.locator('#panel-overview .stats, #panel-overview [data-section-link="activity"]').count() === 0);
   await audit('Overview');
   if(process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path:process.env.ADMIN_UX_SCREENSHOTS+'/admin-gauges.png'});
@@ -160,6 +160,7 @@ try {
   await page.locator('[data-review-submit]:enabled').waitFor();
   check('review uses the shadcn Dialog', await page.locator('[role="dialog"]').getAttribute('data-slot') === 'dialog-content');
   check('dialog removes verbose copy below model', await page.locator('[data-review-body]').textContent().then(t => !t.includes('Output and versions') && !t.includes('Cost estimate unavailable')));
+  check('review explains the result in a natural paragraph', await page.locator('.review-description').textContent() === 'We’ll write a cover letter tailored to this role and your experience.' && await page.locator('[data-review-body] ol').count() === 0 && !(await page.locator('[data-review-body]').textContent()).includes('Work to run'));
   await page.locator('[data-version-instructions]').fill('Highlight mentoring and platform ownership');
   await page.locator('[data-review-submit]:enabled').waitFor();
   await page.locator('[data-review-model]').selectOption('claude-sonnet-5');
@@ -232,6 +233,10 @@ try {
   await page.locator('[data-select-job="job0"]').click();
   for (const width of [1280, 768, 390, 360]) {
     await page.setViewportSize({ width, height: 900 });
+    const fitHistory = page.locator('[data-document="fit"] [data-slot="collapsible"]');
+    if (await fitHistory.getAttribute('data-state') !== 'open') await page.locator('[data-document="fit"] [data-act="versions-toggle"]').click();
+    await page.locator('[data-document="fit"] .ver').first().waitFor();
+    check('fit versions omit historical scores at ' + width, !(await page.locator('[data-document="fit"] .vmeta').allTextContents()).some(t => /score/i.test(t)));
     check('no horizontal overflow at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     if (width === 390) await audit('Mobile materials');
     if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: `${process.env.ADMIN_UX_SCREENSHOTS}/admin-${width}.png`, fullPage: true });
@@ -243,18 +248,28 @@ try {
       evidenceLimited: i === 4, evidenceNote: i === 4 ? 'Travel and working arrangements may need clarification.' : '' })),
     posting: { choice: 'partial' }, constraint: { choice: 'unknown' } };
   jobs[0].score = 73;
+  jobs[0].overviewSummary = {assessedAt: jobs[0].jevAssessment.assessedAt, position: 'Lead the engineering team building a content platform. Partner with product and design on developer workflows.', fit: 'Leadership and developer experience align well. Confirm travel expectations before proceeding; practical compatibility is the main trade-off.'};
   await page.goto(origin + '/admin.html?job=job0');
   await page.locator('[data-act="jevscore"]').waitFor();
+  check('saved overview summary is visible', await page.locator('.overview-summary').textContent().then(t => t.includes('Lead the engineering team') && t.includes('Confirm travel expectations')));
+  check('Overview is free of shortcuts and cost legends', await page.locator('.overview-actions, .generation-legend').count() === 0 && !(await page.locator('#panel-overview').textContent()).includes('Jev'));
+  check('Assess fit has an AI icon and neutral label', await page.locator('[data-act="jevscore"] svg').count() === 1 && (await page.locator('[data-act="jevscore"]').textContent()).trim() === 'Assess fit');
   check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
-  check('missing practical evidence is visible', await page.getByText('Travel and working arrangements may need clarification.', { exact: false }).isVisible());
+  check('repeated evidence explanation is absent', await page.locator('.dimension-warning').count() === 0);
   check('limited evidence retains a practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
-  check('provisional overall score is explained', await page.getByText('Provisional score:', { exact: false }).isVisible());
+  check('confidence remains visible without assessment boilerplate', await page.getByText('Model confidence: 90%', {exact:true}).count() === 5 && await page.locator('.posting-quality, .assessment-warning').count() === 0);
   check('pipeline marks provisional score', await page.locator('[data-select-job="job0"] .assessment-status').textContent() === 'Provisional score');
   check('role header marks provisional score', await page.locator('.role-header .assessment-status').textContent() === 'Provisional score');
   for (const width of [360, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     check('five dimensions and warnings fit at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/jev-' + width + '.png', fullPage: true });
+    if (process.env.ADMIN_UX_SCREENSHOTS) {
+      await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/jev-' + width + '.png', fullPage: true });
+      if (width === 1280) {
+        await page.locator('.overview-summary').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/overview-summary-desktop.png' });
+      }
+    }
   }
   await page.setViewportSize({ width: 360, height: 900 });
   await audit('Jev assessment mobile');
@@ -271,10 +286,32 @@ try {
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-act="runfit"]').click();
   await page.locator('[data-review-submit]:enabled').waitFor();
-  check('writing review identifies Jev routing', await page.getByText('Model selected by Jev', { exact: true }).isVisible());
+  check('automatic writing routing stays behind the scenes', !(await page.locator('[role="dialog"]').textContent()).includes('Jev'));
   check('Jev selected writer is fixed in review', await page.locator('[data-review-model]').count() === 0);
   await audit('Jev model selection');
   await page.keyboard.press('Escape');
+  const beforeNotice = { dispatches, mutations };
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(origin + '/admin.html?job=job0&stage=interviewing');
+    const notice = page.locator('.workspace > .notice');
+    await notice.waitFor();
+    check('filtered-out notice uses the content column at ' + width, await notice.evaluate(el => {
+      const description = el.querySelector('[data-slot="alert-description"]');
+      if (!description) return false;
+      const range = document.createRange();
+      range.selectNodeContents(description.firstChild);
+      return description.getBoundingClientRect().width > el.getBoundingClientRect().width * 0.8 &&
+        range.getBoundingClientRect().height < 70 && el.getBoundingClientRect().height < 150;
+    }));
+    check('filtered-out role stays open at ' + width, await page.locator('.role-header').isVisible());
+    check('notice stays within the viewport at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await audit('Filtered-out role ' + width);
+    if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/notice-' + width + '.png' });
+    await notice.getByRole('button', { name: 'Return to the list' }).click();
+    check('notice return action restores the list at ' + width, await page.locator('.pipeline').isVisible() && await page.locator('.workspace > .notice').count() === 0);
+  }
+  check('notice navigation does not generate or mutate', dispatches === beforeNotice.dispatches && mutations === beforeNotice.mutations);
   check('no browser errors', errors.length === 0);
   console.log(`passed ${passed}, failed 0`);
 } finally {

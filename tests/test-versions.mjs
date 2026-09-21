@@ -68,8 +68,13 @@ check("listed", res.statusCode === 200, res.body);
 check("one fit version", res.body.fit.length === 1, res.body.fit);
 check("it is live", res.body.fit[0].active === true);
 check("model recorded", res.body.fit[0].model === "claude-opus-5", res.body.fit[0]);
-check("no writer score snapshotted", res.body.fit[0].score === null, res.body.fit[0]);
+check("version metadata excludes scores", !("score" in res.body.fit[0]), res.body.fit[0]);
 check("no letter versions yet", res.body.letter.length === 0);
+
+const historicalReportId = await store.saveReport({ job_title: "Historical report", model: "old-model" }, { score: 88 });
+const historicalJob = await store.saveJob({ company: "Historical", role: "Role", fitReportId: historicalReportId, score: 88 });
+const historicalVersions = await call(versions, { method: "GET", headers: auth, query: { id: historicalJob.id } });
+check("stored historical score omitted from metadata", historicalVersions.body.fit.length === 1 && !("score" in historicalVersions.body.fit[0]), historicalVersions.body);
 
 console.log("\n--- regenerating keeps the old one ---");
 const jevAssessment = { score: 73, model: "typesafe-ai/jev", fingerprint: "preserved" };

@@ -4,7 +4,7 @@ import { executeJevWork } from "../../lib/jev-work.js";
 import { hasKV } from "../../lib/kv.js";
 
 export const jevScoreTask = task({
-  id: "jev-score", maxDuration: 120,
+  id: "jev-score", maxDuration: 180,
   retry: { maxAttempts: 3, factor: 2, minTimeoutInMs: 2000, maxTimeoutInMs: 15000, randomize: true },
   queue: { concurrencyLimit: 2 },
   run: async (payload: { jobId: string; requestId: string; fingerprint: string }, { ctx }) =>
