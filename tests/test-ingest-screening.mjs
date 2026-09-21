@@ -30,7 +30,10 @@ globalThis.fetch = async (url, options) => {
   const answers = Object.fromEntries(Object.entries(questions).map(([key, q]) => {
     if (q.type === "noul") return [key, { type: "noul", noul: company.includes("unknown") && key === "practicalKnown" ? 0.1 : 0.99 }];
     if (q.type === "score") {
-      const rung = score / 25, low = Math.floor(rung), high = Math.ceil(rung);
+      const points = [0, 20, 40, 65, 100];
+      const low = points.findIndex((point, i) => i < 4 && point <= score && score <= points[i + 1]);
+      const rung = low + (score - points[low]) / (points[low + 1] - points[low]);
+      const high = Math.ceil(rung);
       return [key, { type: "score", score: rung, confidence: 0.9,
         probabilities: Object.fromEntries(q.criteria.map((_, i) => [i, low === high ? Number(i === low) : i === low ? high - rung : i === high ? rung - low : 0])) }];
     }
