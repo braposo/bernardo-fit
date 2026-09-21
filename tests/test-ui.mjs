@@ -63,18 +63,18 @@ check("row has no editors or generation toolbar", !/textarea|data-act="cover"|da
 
 console.log("\n--- overview ---");
 const overview = render("overview");
-check("score has three rating gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 3);
-check("existing material shortcuts are read actions", actions(overview).includes("briefopen") && actions(overview).includes("letteropen"));
+check("unassessed overview has five empty gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 5 && (overview.match(/data-value=""/g) || []).length === 5);
+check("document shortcuts stay out of Overview", !actions(overview).some(a => ["briefopen","letteropen","copyfit"].includes(a)) && !overview.includes("Ready to use"));
 check("overview offers the standalone Jev assessment", /class="generation" data-act="jevscore"/.test(overview));
 const jev = render("overview", { score: null, jevStale: true, jevAssessment: { assessedAt: "2026-09-19T12:00:00Z", score: null,
   dimensions: ["Responsibilities", "Evidence", "Scope", "Direction", "Practical"].map(label => ({ label, score: 75, weight: 20, confidence: null })),
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
 check("Jev shows five gauges and stale assessments withhold values", (jev.match(/data-score-gauge=/g) || []).length === 5 && (jev.match(/data-value=""/g) || []).length === 5);
-check("Jev uncertainty and posting quality are visible", jev.includes("Outdated") && jev.includes("Partial description") && jev.includes("needs updating"));
+check("stale assessment is concise", jev.includes("Outdated") && !jev.includes("Partial description") && !jev.includes("Previous analysis score"));
 const provisional = render("overview", { score: 70, jevAssessment: { assessedAt: "2026-09-20T12:00:00Z", score: 70, provisional: true,
   dimensions: [{ label: "Practical", score: 50, weight: 10, confidence: 0.4, evidenceLimited: true, evidenceNote: "Travel needs clarification <details>" }],
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
-check("provisional ratings remain visible alongside escaped evidence notes", provisional.includes('data-value="50"') && provisional.includes("Provisional score") && provisional.includes("Travel needs clarification &lt;details&gt;"));
+check("provisional ratings retain confidence and header status without repeated prose", provisional.includes('data-value="50"') && provisional.includes("Provisional score") && provisional.includes("Model confidence: 40%") && !provisional.includes("Travel needs clarification"));
 check("provisional pipeline score is labelled", R.pipelineItemHtml({ ...base, jevAssessment: { provisional: true } }).includes('Provisional score'));
 check("stale warning takes precedence", R.pipelineItemHtml({ ...base, jevStale: true, jevAssessment: { provisional: true } }).includes('Needs reassessment'));
 check("constraint conflict is visible in pipeline", R.pipelineItemHtml({ ...base, jevAssessment: { blocked: true, provisional: true } }).includes('Constraint conflict'));
@@ -82,12 +82,17 @@ check("sparse descriptions can be assessed", !/data-act="jevscore" disabled/.tes
 check("TypeSafe replaces obsolete Gateway copy", !render("overview", { jevRun: { status: "failed" } }).includes('Gateway'));
 check("engagement and activity shortcut are absent from Overview", !/class="stats"|data-section-link="activity"/.test(overview));
 
+const withSummary = render("overview", { jevAssessment: { dimensions: [], assessedAt: "2026-09-21" }, overviewSummary: { assessedAt: "2026-09-21", position: "Lead a team <script>unsafe()</script>", fit: "Strong leadership fit." } });
+check("summary renders escaped role and score interpretation", withSummary.includes("Lead a team &lt;script&gt;") && withSummary.includes("Strong leadership fit."));
+check("overview uses model-neutral action copy", overview.includes('>Assess fit</button>') && !overview.includes('with Jev') && !overview.includes('Uses AI credits'));
+check("stale summary is withheld", !render("overview", { jevStale: true, overviewSummary: { position: "Old summary", fit: "Old fit" } }).includes("Old summary"));
+check("a refreshed assessment cannot display cached prose from another assessment", !render("overview", { jevAssessment: { dimensions: [], assessedAt: "2026-09-22" }, overviewSummary: { assessedAt: "2026-09-21", position: "Old summary", fit: "Old fit" } }).includes("Old summary"));
 console.log("\n--- materials ---");
 const materials = render("materials", { briefStale: true, researchStale: true });
 for (const label of ["Open fit page", "Open letter", "Open previous brief", "Open research"]) check(label + " is present", materials.includes(label));
 for (const label of ["Generate new version"]) check(label + " is a sparkle action", new RegExp('class="generation"[^>]*>' + label).test(materials), materials.match(new RegExp('.{0,80}' + label)));
 check("stale brief remains openable", actions(materials).includes("briefopen"));
-check("one nearby cost explanation is used", (materials.match(/Sparkle actions run AI and may incur costs/g) || []).length === 1);
+check("visible cost legend is removed", !materials.includes("Sparkle actions"));
 check("no repeated Paid AI labels", !/Paid AI/.test(materials));
 
 console.log("\n--- questions ---");

@@ -21,3 +21,7 @@ Later approved decisions supersede these older proposals:
 | Input/publication/cost paragraphs in the generation dialog | Optional per-version instructions beneath the model selector, as recorded in the later approved decision |
 
 Older wireframes illustrate intent, not current pixel specifications. Their sample companies, counts, models and annotations must not become production data or copy.
+
+## Cleaner Overview (21 September 2026)
+
+The user replaced visible AI-cost legends with the Sparkles convention and requested task labels without model names. Overview retains the assessment date, five dimensions, confidence and Assess fit; explanatory assessment prose and Ready to use shortcuts are removed. A concise position summary and interpretation of the scores follow the assessment. Sol writes this private summary during explicit reassessment. These decisions supersede the earlier three-gauge/shortcut composition and visible legend requirement.

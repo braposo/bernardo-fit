@@ -98,8 +98,8 @@ try {
   await page.locator('[data-act="stage"]').selectOption('reviewing');
   await page.waitForFunction(() => document.querySelector('.role-stage .pipeline-stage')?.textContent === 'Reviewing');
   check('icon status control saves the stage', jobs[0].stage === 'reviewing');
-  check('three accessible shadcn rating gauges', await page.getByRole('meter').count() === 3 && await page.locator('.score-gauge[data-slot="card"]').count() === 3);
-  check('gauge uses the stored score on a 100 point scale', await page.getByRole('meter', {name:'Location',exact:true}).getAttribute('aria-valuenow') === '100');
+  check('five unassessed shadcn gauges', await page.getByRole('meter').count() === 0 && await page.locator('.score-gauge[data-slot="card"]').count() === 5);
+  check('legacy scores are not presented as current dimensions', await page.getByRole('img', {name:'Responsibilities fit: not assessed',exact:true}).count() === 1);
   check('Overview has no analytics or activity shortcut', await page.locator('#panel-overview .stats, #panel-overview [data-section-link="activity"]').count() === 0);
   await audit('Overview');
   if(process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path:process.env.ADMIN_UX_SCREENSHOTS+'/admin-gauges.png'});
@@ -243,18 +243,28 @@ try {
       evidenceLimited: i === 4, evidenceNote: i === 4 ? 'Travel and working arrangements may need clarification.' : '' })),
     posting: { choice: 'partial' }, constraint: { choice: 'unknown' } };
   jobs[0].score = 73;
+  jobs[0].overviewSummary = {assessedAt: jobs[0].jevAssessment.assessedAt, position: 'Lead the engineering team building a content platform. Partner with product and design on developer workflows.', fit: 'Leadership and developer experience align well. Confirm travel expectations before proceeding; practical compatibility is the main trade-off.'};
   await page.goto(origin + '/admin.html?job=job0');
   await page.locator('[data-act="jevscore"]').waitFor();
+  check('saved overview summary is visible', await page.locator('.overview-summary').textContent().then(t => t.includes('Lead the engineering team') && t.includes('Confirm travel expectations')));
+  check('Overview is free of shortcuts and cost legends', await page.locator('.overview-actions, .generation-legend').count() === 0 && !(await page.locator('#panel-overview').textContent()).includes('Jev'));
+  check('Assess fit has an AI icon and neutral label', await page.locator('[data-act="jevscore"] svg').count() === 1 && (await page.locator('[data-act="jevscore"]').textContent()).trim() === 'Assess fit');
   check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
-  check('missing practical evidence is visible', await page.getByText('Travel and working arrangements may need clarification.', { exact: false }).isVisible());
+  check('repeated evidence explanation is absent', await page.locator('.dimension-warning').count() === 0);
   check('limited evidence retains a practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
-  check('provisional overall score is explained', await page.getByText('Provisional score:', { exact: false }).isVisible());
+  check('confidence remains visible without assessment boilerplate', await page.getByText('Model confidence: 90%', {exact:true}).count() === 5 && await page.locator('.posting-quality, .assessment-warning').count() === 0);
   check('pipeline marks provisional score', await page.locator('[data-select-job="job0"] .assessment-status').textContent() === 'Provisional score');
   check('role header marks provisional score', await page.locator('.role-header .assessment-status').textContent() === 'Provisional score');
   for (const width of [360, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     check('five dimensions and warnings fit at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/jev-' + width + '.png', fullPage: true });
+    if (process.env.ADMIN_UX_SCREENSHOTS) {
+      await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/jev-' + width + '.png', fullPage: true });
+      if (width === 1280) {
+        await page.locator('.overview-summary').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/overview-summary-desktop.png' });
+      }
+    }
   }
   await page.setViewportSize({ width: 360, height: 900 });
   await audit('Jev assessment mobile');
@@ -271,7 +281,7 @@ try {
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-act="runfit"]').click();
   await page.locator('[data-review-submit]:enabled').waitFor();
-  check('writing review identifies Jev routing', await page.getByText('Model selected by Jev', { exact: true }).isVisible());
+  check('automatic writing routing stays behind the scenes', !(await page.locator('[role="dialog"]').textContent()).includes('Jev'));
   check('Jev selected writer is fixed in review', await page.locator('[data-review-model]').count() === 0);
   await audit('Jev model selection');
   await page.keyboard.press('Escape');

@@ -773,6 +773,9 @@ body {
 /* Fit estimates keep uncertainty adjacent to each score at every viewport. */
 .jev-gauges { grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); align-items:start; }
 .assessment-dimension { min-width:0; }
+.overview-summary { margin-top:32px; max-width:76ch; }
+.overview-summary h3 { font-size:14px; font-weight:600; margin:20px 0 6px; }
+.overview-summary p { font-size:15px; line-height:1.7; margin:0 0 16px; overflow-wrap:anywhere; }
 .assessment-dimension .field-help { margin:8px 0; font-size:12px; }
 .assessment-warning, .dimension-warning { background:#fff0d4; color:#7a4810; border:1px solid #dfc18c; border-radius:var(--radius); padding:12px; overflow-wrap:anywhere; }
 .assessment-warning { margin:14px 0; font-size:14px; }
