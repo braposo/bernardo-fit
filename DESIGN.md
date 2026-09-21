@@ -1,39 +1,245 @@
-# Design guidance
+---
+version: "alpha"
+name: "Bernardo Fit Admin"
+description: "Current AdminCN-inspired light admin workspace; extracted from the existing CSS cascade."
+colors:
+  primary: "#6055a6"
+  background: "#f6f7f9"
+  foreground: "#252631"
+  card: "#ffffff"
+  secondary: "#efedf5"
+  muted-foreground: "#666d7b"
+  border: "#e0e3eb"
+  input: "#c8ccd7"
+  destructive: "#a02929"
+  on-destructive: "#ffffff"
+  pipeline: "#f8f9fc"
+  selected-background: "#f8f7ff"
+  selected-border: "#9487ce"
+  selected-indicator: "#8576c2"
+  action-background: "#eeedf4"
+  action-text: "#514d65"
+  action-border: "#dddbe7"
+  generation-hover: "#e4e1ed"
+  score-background: "#f3f1f9"
+  score-text: "#514779"
+  score-border: "#e3dff1"
+  warning-background: "#fff0d4"
+  warning-text: "#7a4810"
+  warning-border: "#dfc18c"
+  stage-interviewing-background: "#efebff"
+  stage-interviewing-text: "#6b45ac"
+  stage-applied-background: "#e9f0ff"
+  stage-applied-text: "#3265b6"
+  stage-reviewing-background: "#e6f3f3"
+  stage-reviewing-text: "#267773"
+  stage-offer-background: "#e5f4e9"
+  stage-offer-text: "#367b4c"
+  stage-rejected-background: "#fcebec"
+  stage-rejected-text: "#ae4554"
+  stage-neutral-background: "#eceef2"
+  stage-neutral-text: "#626a7b"
+typography:
+  role-heading:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "24px"
+  role-heading-mobile:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "20px"
+  section-heading:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "18px"
+  dialog-heading:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "24px"
+    fontWeight: 600
+    lineHeight: 1.25
+  body-rationale:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.7
+  company:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "15px"
+    fontWeight: 600
+    lineHeight: 1.4
+  role-list:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "13px"
+    lineHeight: 1.5
+  metadata:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "12px"
+  timestamp:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "11px"
+  button:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "14px"
+    fontWeight: 500
+    lineHeight: 1.4
+  document-action:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "12px"
+    fontWeight: 500
+    lineHeight: 1.4
+  score:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "30px"
+    fontWeight: 600
+    lineHeight: 1
+    letterSpacing: "-1px"
+rounded:
+  sm: "8px"
+  md: "10px"
+  lg: "12px"
+  xl: "16px"
+  pipeline-card: "13px"
+  score-tile: "11px"
+  version-card: "9px"
+  document-open: "6px"
+  model-label: "4px"
+spacing:
+  action-gap: "8px"
+  pipeline-gap: "12px"
+  document-gap: "14px"
+  pipeline-card-padding: "16px"
+  document-card-padding: "20px"
+  role-card-padding: "24px"
+  workspace-top: "28px"
+  workspace-inline: "32px"
+  workspace-bottom: "48px"
+  mobile-shell-inline: "17px"
+  mobile-workspace-top: "22px"
+components:
+  button-primary:
+    backgroundColor: "{colors.action-background}"
+    textColor: "{colors.action-text}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
+  button-generation:
+    backgroundColor: "{colors.action-background}"
+    textColor: "{colors.action-text}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
+  button-generation-hover:
+    backgroundColor: "{colors.generation-hover}"
+    textColor: "{colors.action-text}"
+  button-destructive:
+    backgroundColor: "{colors.destructive}"
+    textColor: "{colors.on-destructive}"
+    rounded: "{rounded.md}"
+  document-open:
+    backgroundColor: "{colors.action-background}"
+    textColor: "{colors.action-text}"
+    typography: "{typography.document-action}"
+    rounded: "{rounded.document-open}"
+  pipeline-card:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.foreground}"
+    rounded: "{rounded.pipeline-card}"
+    padding: "{spacing.pipeline-card-padding}"
+  pipeline-card-selected:
+    backgroundColor: "{colors.selected-background}"
+    textColor: "{colors.foreground}"
+    rounded: "{rounded.pipeline-card}"
+  document-card:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.foreground}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.document-card-padding}"
+  role-card:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.foreground}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.role-card-padding}"
+  score-tile:
+    backgroundColor: "{colors.score-background}"
+    textColor: "{colors.score-text}"
+    typography: "{typography.score}"
+    rounded: "{rounded.score-tile}"
+    width: "58px"
+    height: "68px"
+  assessment-warning:
+    backgroundColor: "{colors.warning-background}"
+    textColor: "{colors.warning-text}"
+    rounded: "{rounded.lg}"
+    padding: "12px"
+  stage-interviewing:
+    backgroundColor: "{colors.stage-interviewing-background}"
+    textColor: "{colors.stage-interviewing-text}"
+  stage-applied:
+    backgroundColor: "{colors.stage-applied-background}"
+    textColor: "{colors.stage-applied-text}"
+  stage-reviewing:
+    backgroundColor: "{colors.stage-reviewing-background}"
+    textColor: "{colors.stage-reviewing-text}"
+  stage-offer:
+    backgroundColor: "{colors.stage-offer-background}"
+    textColor: "{colors.stage-offer-text}"
+  stage-rejected:
+    backgroundColor: "{colors.stage-rejected-background}"
+    textColor: "{colors.stage-rejected-text}"
+  stage-neutral:
+    backgroundColor: "{colors.stage-neutral-background}"
+    textColor: "{colors.stage-neutral-text}"
+---
 
-This file consolidates the saved, agreed design decisions for future UI reviews and changes. Update it when a review establishes or replaces a reusable rule. It is guidance, not a claim that every existing screen already complies.
+# Bernardo Fit admin design
 
-## Scope and decision history
+## Overview
 
-The detailed rules below cover the admin pipeline and selected-job workspace. Public fit pages and document readers retain their existing design and implementation unless a task explicitly changes them; do not apply the admin redesign to them by default.
+A calm, compact job-management workspace with grey-white surfaces, restrained purple accents, separated cards and clear metric hierarchy. Keep reading, editing and AI generation easy to distinguish. The detailed guidance applies to the admin; public fit pages and document readers retain their own design unless explicitly in scope.
 
-Use the latest explicit user decision. This file summarizes the current baseline from these saved sources:
+This file follows the [Google Labs DESIGN.md format](https://github.com/google-labs-code/design.md/blob/main/docs/spec.md), with project-specific interaction sections after the standard visual sections. [Decision history and original sources](docs/design-decisions.md) record superseded proposals; the latest explicit user decision takes precedence.
 
-- [Approved design and subsequent decisions](docs/admin-ux/approved-design-implementation.md): current layout, document cards, publication, per-version instructions, score gauges and Activity.
-- [Component guidance](docs/admin-ux/shadcn-components.md): actual Radix-based shadcn components and rendering boundaries.
-- [Original implementation plan](docs/admin-ux-implementation-plan.md): navigation, editing, generation safety and accessibility contracts that still apply.
-- [Visual guide](docs/admin-ux/README.md) and [implementation review](docs/admin-ux/pr-6-review.md): earlier illustrations, interaction details and verification scenarios.
+The YAML is the documented visual baseline, extracted from [admin CSS](src/admin/styles.css), [the HTML shell](public/admin.html) and [shadcn component sources](src/admin/components/ui). These descriptive token names are not all existing CSS variables. This is a source-based extraction, not a new theme or a claim that every screen complies. The application still consumes CSS, not this file; update documentation and implementation together when changing a token. Do not generate or replace the stylesheet from this partial inventory.
 
-Later approved decisions supersede these older proposals:
+## Colors
 
-| Earlier proposal | Current agreed direction |
-| --- | --- |
-| Plain HTML only for admin controls | React/shadcn component layer using existing Radix primitives |
-| Warm paper palette, blue opening actions and amber generation buttons | AdminCN-inspired light palette and shared muted primary actions; retain Sparkles and the nearby AI-cost explanation |
-| Materials and Role & context section names | Documents and Role details; preserve existing materials/context URL compatibility |
-| Version groups in Activity | Expandable history beside each document |
-| Analytics and an Activity shortcut on Overview | Analytics in Activity, followed by audit history and per-job AI usage |
-| Input/publication/cost paragraphs in the generation dialog | Optional per-version instructions beneath the model selector, as recorded in the later approved decision |
+Use primary purple for links, active navigation and focus; background/card/pipeline tokens define the layered neutral surfaces. Default, secondary and generation buttons share action-background/action-text, with action-border. Primary here names the accent, not a requirement to fill primary buttons purple.
 
-Older wireframes illustrate intent, not current pixel specifications. Their sample companies, counts, models and annotations must not become production data or copy.
+Selected job cards use selected-background, selected-border and an inset selected-indicator. Stages pair named labels with their own surface/text colours; new, expired and not_interested use the neutral stage pair. Assessment uncertainty uses warning colours. Amber is not the current generation-button treatment. Destructive actions retain their separate red treatment.
 
-## Visual language and components
+The later approved-theme declarations and component overrides win over the initial warm palette in styles.css. In particular, the old generation theme variables still exist but do not describe the visible generation buttons. Border-only and semantic tokens remain useful even when not referenced by a YAML component entry.
 
-- Use the approved AdminCN-inspired light workspace: top navigation, separated job and document cards, clear metric hierarchy, restrained borders and muted primary actions. Use whitespace, headings and dividers rather than putting every sentence in a card.
-- Reuse the shared tokens and existing component styles in [src/admin/styles.css](src/admin/styles.css). Its later approved-theme rules override the earlier warm-palette declarations; do not copy the old values from the wireframes. Preserve existing font assets and the current admin IBM Plex Sans typography rather than reintroducing the earlier heading-font proposal.
+## Typography
+
+Use IBM Plex Sans for the current admin display and body roles. The existing font assets also include IBM Plex Mono for remaining technical shell text; loading Schibsted Grotesk does not make it the current admin heading font. Preserve existing font assets.
+
+Typography entries name concrete roles rather than imposing a new global scale. Properties omitted from an entry continue to inherit from the relevant component/shell. Role headings reduce from 24px to 20px on mobile; document actions use 12px rather than the base 14px button text. Timestamp text is currently 11px, reducing to 10px in narrow audit rows. These small sizes describe the baseline and remain review candidates, not accessibility endorsements.
+
+## Layout
+
+The desktop shell fills the viewport width, with a 74px masthead and a 370px pipeline beside a flexible workspace. At 901–1100px the pipeline is 330px and workspace padding is 24px 20px. At 900px and below, use list/detail navigation and 17px shell side padding; the workspace has 22px top and 48px bottom padding.
+
+Document cards form two columns on wide desktop and one at 1100px and below. Desktop workspace padding is 28px 32px 48px. Spacing tokens capture actual recurring gaps and padding, not an invented uniform spacing scale. Preserve component-specific values where they differ.
+
+Keep at least 44px mobile touch targets as the design goal. Base controls use a 44px minimum height; some existing exceptions (the 40px-wide status editor and 30px-high posting link) still require review rather than being presented as compliant. Preserve independently scrolling desktop panes and sticky search/filter controls.
+
+## Elevation & Depth
+
+Use surface contrast and 1px borders for most hierarchy. Job cards have a subtle 0 2px 3px #25263108 shadow; selected cards replace it with an inset 3px left indicator. Role/document cards and muted action buttons explicitly have no shadow. Preserve the existing dialog/popover component elevation rather than applying card shadows globally.
+
+## Shapes
+
+The shared radius is 0.75rem. At the default 16px root size, the existing Tailwind radius mapping resolves sm/md/lg/xl to 8/10/12/16px. Card primitives use xl; dialogs use the base 12px radius. Job cards override this to 13px, score tiles to 11px, version cards to 9px and document Open actions to 6px. The YAML preserves these differences. Navigation controls remain square with an active underline.
+
+## Components
+
 - Use the actual shadcn components under [src/admin/components/ui](src/admin/components/ui), not raw HTML decorated to resemble them. Keep the existing Radix implementation; the free AdminCN template provides composition inspiration, not a Base UI migration.
 - Use Button for actions; labelled Input/Textarea and NativeSelect for forms; Tabs for workspace sections; Dialog for generation review; AlertDialog for destructive confirmation; Card and Collapsible for documents and history; Popover plus NativeSelect for the icon-only status editor; Table for usage.
 - Use explicit action verbs: Open letter, Rewrite letter, Refresh research, Copy link, Publish live. A document name alone is not an action label. Reading, editing, generation and permanent deletion must remain distinguishable without relying on colour.
 - Generation controls retain the consistent Lucide Sparkles icon and a nearby explanation: "Sparkle actions run AI and may incur costs." Do not repeat Paid AI on every button. Keep accessible descriptions and hide decorative icons from assistive technology.
+
+## Do's and Don'ts
+
+- Reuse the current tokens and Radix-based shadcn components; preserve descriptive labels, keyboard access and visible focus.
+- Keep Open and generation as separate actions. Keep Sparkles and the nearby AI-cost explanation; do not repeat Paid AI on every button.
+- Preserve drafts, current selection and previous outputs during background work.
+- Do not restore superseded amber generation styling, old section names or version-history placement from earlier wireframes.
+- Do not turn sample data, mockup annotations or missing backend capabilities into product content.
 
 ## Pipeline and navigation
 
