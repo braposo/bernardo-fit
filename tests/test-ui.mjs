@@ -89,7 +89,7 @@ check("stale summary is withheld", !render("overview", { jevStale: true, overvie
 check("a refreshed assessment cannot display cached prose from another assessment", !render("overview", { jevAssessment: { dimensions: [], assessedAt: "2026-09-22" }, overviewSummary: { assessedAt: "2026-09-21", position: "Old summary", fit: "Old fit" } }).includes("Old summary"));
 console.log("\n--- materials ---");
 const materials = render("materials", { briefStale: true, researchStale: true });
-for (const label of ["Open fit page", "Open letter", "Open previous brief", "Open research"]) check(label + " is present", materials.includes(label));
+for (const label of ["Open fit page", "Open letter", "Open CV + letter", "Open previous brief", "Open research"]) check(label + " is present", materials.includes(label));
 for (const label of ["Generate new version"]) check(label + " is a sparkle action", new RegExp('class="generation"[^>]*>' + label).test(materials), materials.match(new RegExp('.{0,80}' + label)));
 check("stale brief remains openable", actions(materials).includes("briefopen"));
 check("visible cost legend is removed", !materials.includes("Sparkle actions"));

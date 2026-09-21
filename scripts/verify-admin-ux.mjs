@@ -150,9 +150,11 @@ try {
   await page.locator('[data-document="letter"] .version-summary').waitFor();
   check('document cards use shadcn Card', await page.locator('.material-row[data-slot="card"]').count() === 4);
   check('live version model and created time shown', (await page.locator('[data-document="letter"] .document-summary').textContent()).includes('Sol'));
+  check('combined CV and letter action is available', await page.locator('[data-document="letter"] [data-act="lettercv"]').isVisible());
   check('versions use shadcn Collapsible', await page.locator('[data-slot="collapsible"]').count() === 4);
   await audit('Documents');
   await page.locator('[data-act="letteropen"]').click();
+  await page.locator('[data-act="lettercv"]').click();
   await page.locator('[data-act="briefopen"]').click();
   await page.locator('[data-act="researchopen"]').click();
   check('opening stale outputs dispatches nothing', dispatches === 0 && reviews === 0);
@@ -237,6 +239,7 @@ try {
     if (await fitHistory.getAttribute('data-state') !== 'open') await page.locator('[data-document="fit"] [data-act="versions-toggle"]').click();
     await page.locator('[data-document="fit"] .ver').first().waitFor();
     check('fit versions omit historical scores at ' + width, !(await page.locator('[data-document="fit"] .vmeta').allTextContents()).some(t => /score/i.test(t)));
+    check('combined document action fits at ' + width, await page.locator('[data-document="letter"] [data-act="lettercv"]').isVisible());
     check('no horizontal overflow at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     if (width === 390) await audit('Mobile materials');
     if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: `${process.env.ADMIN_UX_SCREENSHOTS}/admin-${width}.png`, fullPage: true });
