@@ -236,6 +236,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 ## Do's and Don'ts
 
+- Describe the current experience. Keep migration notes, previous implementation details and explanations of when tracking began out of product copy. Preserve useful current-state labels such as estimated costs, stale content and unsaved edits; keep implementation history in documentation.
 - Reuse the current tokens and Radix-based shadcn components; preserve descriptive labels, keyboard access and visible focus.
 - Keep Open and generation as separate actions. Keep Sparkles as the AI indicator without visible explanatory boilerplate.
 - Preserve drafts, current selection and previous outputs during background work.
@@ -260,7 +261,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - **Documents:** show document cards with live version, model and creation time. Place Open and generate actions beside their document. Expand saved versions inline using Collapsible, with separate authenticated Preview and Publish live actions. Expanded history survives publication refresh. Keep application questions and their editing, word limit/count, answer, copy, generation and deletion controls available here.
 - **Role details:** use a readable main column, labelled description/context editors and distinct headings for private notes and AI instructions. Explain their actual input use; private notes may feed interview preparation. Keep primary editors discoverable rather than hiding them in a general-purpose accordion.
 - **Activity:** show analytics first, then the newest-first audit log, then inline AI activity and usage for this job. Global usage remains aggregate. Analytics uses three columns even on mobile. Audit rows are one line, with exact local date/time first and action name second; long names may truncate visually while remaining fully accessible. Keep supporting detail in the row title, paginate older events and provide Refresh activity.
-- Keep archive/restore/delete management distinct from generation history. Show only recorded or recoverable history; disclose gaps and unknown dates. Do not invent events or attribute unrelated historical usage to a job. Opening a print dialog is not proof that a PDF was saved.
+- Keep archive/restore/delete management distinct from generation history. Show only recorded or recoverable history and label unknown dates accurately, without migration-era disclaimers. Do not invent events or attribute unrelated historical usage to a job. Opening a print dialog is not proof that a PDF was saved.
 
 ## Reading, generation and versions
 
