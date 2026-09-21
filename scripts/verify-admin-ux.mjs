@@ -285,6 +285,28 @@ try {
   check('Jev selected writer is fixed in review', await page.locator('[data-review-model]').count() === 0);
   await audit('Jev model selection');
   await page.keyboard.press('Escape');
+  const beforeNotice = { dispatches, mutations };
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(origin + '/admin.html?job=job0&stage=interviewing');
+    const notice = page.locator('.workspace > .notice');
+    await notice.waitFor();
+    check('filtered-out notice uses the content column at ' + width, await notice.evaluate(el => {
+      const description = el.querySelector('[data-slot="alert-description"]');
+      if (!description) return false;
+      const range = document.createRange();
+      range.selectNodeContents(description.firstChild);
+      return description.getBoundingClientRect().width > el.getBoundingClientRect().width * 0.8 &&
+        range.getBoundingClientRect().height < 70 && el.getBoundingClientRect().height < 150;
+    }));
+    check('filtered-out role stays open at ' + width, await page.locator('.role-header').isVisible());
+    check('notice stays within the viewport at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await audit('Filtered-out role ' + width);
+    if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/notice-' + width + '.png' });
+    await notice.getByRole('button', { name: 'Return to the list' }).click();
+    check('notice return action restores the list at ' + width, await page.locator('.pipeline').isVisible() && await page.locator('.workspace > .notice').count() === 0);
+  }
+  check('notice navigation does not generate or mutate', dispatches === beforeNotice.dispatches && mutations === beforeNotice.mutations);
   check('no browser errors', errors.length === 0);
   console.log(`passed ${passed}, failed 0`);
 } finally {

@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Alert } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card } from '@/components/ui/card';
 import { ScoreGauge } from '@/components/score-gauge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -109,7 +109,9 @@ const options = {
     if (node.name === 'option') { delete props.selected; return <NativeSelectOption {...props}>{children()}</NativeSelectOption>; }
     if (node.name === 'label') return <Label {...props}>{children()}</Label>;
     if (has('pipeline-signal') || has('vlive')) return <Badge {...props} variant="secondary">{children()}</Badge>;
-    if (has('notice') || has('stalejd') || has('owed')) return <Alert {...props} role="status" variant={has('error') ? 'destructive' : 'default'}>{children()}</Alert>;
+    if (has('notice') || has('stalejd') || has('owed')) return <Alert {...props} role="status" variant={has('error') ? 'destructive' : 'default'}>
+      <AlertDescription className="block min-w-0 text-inherit">{children()}</AlertDescription>
+    </Alert>;
     if (has('gate')) return <Card {...props}>{children()}</Card>;
     if (node.name === 'p' && node.children.some(child => child.data === 'Loading role details…')) {
       return <div role="status"><span className="sr-only">Loading role details…</span><Skeleton className="h-6 w-2/3 mb-4" /><Skeleton className="h-24 w-full" /></div>;

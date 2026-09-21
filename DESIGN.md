@@ -228,6 +228,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 ## Components
 
+- Put alert text and inline actions inside AlertDescription so they share the content column. Bare text must not occupy the Alert icon column; notices should wrap naturally at narrow widths.
 - Use the actual shadcn components under [src/admin/components/ui](src/admin/components/ui), not raw HTML decorated to resemble them. Keep the existing Radix implementation; the free AdminCN template provides composition inspiration, not a Base UI migration.
 - Use Button for actions; labelled Input/Textarea and NativeSelect for forms; Tabs for workspace sections; Dialog for generation review; AlertDialog for destructive confirmation; Card and Collapsible for documents and history; Popover plus NativeSelect for the icon-only status editor; Table for usage.
 - Use explicit action verbs: Open letter, Rewrite letter, Refresh research, Copy link, Publish live. A document name alone is not an action label. Reading, editing, generation and permanent deletion must remain distinguishable without relying on colour.
