@@ -3,6 +3,7 @@ import { analysisFingerprint, answerFingerprint } from "../lib/generation-finger
 import { executeAnalysisWork } from "../lib/analysis-work.js";
 import { executeAnswerWork } from "../lib/answer-work.js";
 import { executeIngestBatch } from "../lib/ingest-work.js";
+import { passingScreen } from "./ingest-fixture.mjs";
 import { getJob, getReport, listJobs, mutateJob } from "../lib/store.js";
 import { resolveModel } from "../lib/models.js";
 
@@ -20,7 +21,7 @@ async function runAnalysis(job, model, mode = "create", reportId = "") {
     status: "queued", startedAt: new Date().toISOString(), finishedAt: "" } }));
   const result = await executeAnalysisWork({ jobId: job.id, reportId, requestId: rid, fingerprint, model: wanted, mode });
   return { ...result, model: wanted, ...(result.reportId ? { report: await getReport(result.reportId) } : {}),
-    ...(mode === "replace" ? { rescored: true } : {}) };
+    ...(mode === "replace" ? { rescored: false } : {}) };
 }
 
 export async function analyseHandler(req, res) {
@@ -94,6 +95,6 @@ export async function ingestHandler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!Array.isArray(req.body?.opportunities)) return res.status(400).json({ error: "Expected an opportunities array." });
   if (req.body.opportunities.length > 200) return res.status(400).json({ error: "Too many at once; send 200 or fewer." });
-  try { return res.status(200).json(await executeIngestBatch(req.body.opportunities)); }
+  try { return res.status(200).json(await executeIngestBatch(req.body.opportunities, { screen: passingScreen })); }
   catch (error) { return fail(res, error); }
 }

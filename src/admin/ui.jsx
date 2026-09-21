@@ -66,7 +66,7 @@ const options = {
     if (has('status-edit')) return <PopoverTrigger asChild><Button {...props} variant="ghost">{children()}</Button></PopoverTrigger>;
     if (has('stage-popover')) return <PopoverContent {...props} align="start">{children()}</PopoverContent>;
     if (has('material-row') || has('role-header')) return <Card {...props}>{children()}</Card>;
-    if (has('pipeline-stage') || has('document-live')) return <Badge {...props} variant="secondary">{children()}</Badge>;
+    if (has('pipeline-stage') || has('document-live') || has('assessment-status')) return <Badge {...props} variant="secondary">{children()}</Badge>;
     if (node.name === 'a' && has('listing-link')) return <Button asChild variant="link"><a {...props}>{children()}</a></Button>;
     if (node.name === 'article' && has('row-item')) {
       const nav = node.children.find(child => child instanceof Element && child.attribs.role === 'tablist');

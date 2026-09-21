@@ -163,9 +163,16 @@ if (!completed) {
   process.exit(1);
 }
 console.log(`Added ${completed.added}, refreshed ${completed.updated}, skipped ${completed.skipped}.`);
+console.log(`Jev threshold: ${completed.minimumScore ?? "not recorded"}/100. Filtered ${completed.filtered || 0}, needs review ${completed.needsReview || 0}, evaluation failures ${completed.failed || 0}.`);
 for (const r of completed.addedRows || []) {
-  console.log("  new: " + r.role + (r.company ? " at " + r.company : ""));
+  console.log("  new: " + r.role + (r.company ? " at " + r.company : "") + (r.score == null ? "" : ` (${r.score}/100)`));
 }
+for (const r of completed.screeningRows || []) {
+  console.log(`  ${r.decision}: ${r.role}${r.company ? " at " + r.company : ""}${r.score == null ? "" : ` (${r.score}/100)`}${r.error ? " — " + r.error : ""}`);
+  if (r.missingDimensions?.length) console.log("    Missing evidence: " + r.missingDimensions.join(", "));
+  if (r.postingQuality && r.postingQuality !== "complete") console.log("    Posting: " + r.postingQuality);
+}
+if (completed.failed) process.exitCode = 1;
 // Sent as new, folded into a row that already existed. Worth reading: it means
 // the externalId composed for this role does not match the one composed for it
 // last time, which is how duplicates used to get in.

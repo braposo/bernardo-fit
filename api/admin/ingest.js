@@ -5,6 +5,7 @@ import { digest } from "../../lib/generation-fingerprint.js";
 import { getReceiptForRequest, saveRunReceipt } from "../../lib/run-receipts.js";
 import { saveTaskInput } from "../../lib/task-results.js";
 import { INGEST_TASK_ID } from "../../lib/task-policy.js";
+import { ingestMinimumScore } from "../../lib/ingest-screening.js";
 
 const validRequestId = (value) => /^[a-zA-Z0-9_-]{8,100}$/.test(String(value || "")) ? String(value) : "";
 
@@ -21,6 +22,7 @@ export default async function handler(req, res) {
     const cleaned = list.map((row) => row && typeof row === "object" ? cleanOpportunity(row) : row);
     const recovered = await getReceiptForRequest("ingest", "batch", requestId);
     if (recovered) return res.status(202).json({ runId: recovered.runId, requestId, kind: "ingest", recovered: true });
+    await saveTaskInput("ingest-policy", requestId, { minimumScore: ingestMinimumScore() });
     await saveTaskInput("ingest", requestId, cleaned);
     const key = await idempotencyKeys.create(`ingest:batch:${requestId}`, { scope: "global" });
     const handle = await tasks.trigger(INGEST_TASK_ID, { requestId }, {

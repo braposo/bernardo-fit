@@ -153,9 +153,9 @@ console.log("\n--- the public endpoint cannot be steered ---");
 const publicSrc = fs.readFileSync(root + "api/analyze.js", "utf8");
 const publicWorkSrc = fs.readFileSync(root + "lib/public-analysis-work.js", "utf8");
 check("takes no model from the body", !/req\.body[\s\S]{0,120}model/.test(publicSrc));
-check("worker forwards the pinned model", /runAnalysis\(jd, \{ model: PUBLIC_MODEL,/.test(publicWorkSrc));
+check("worker forwards the Jev-selected model", /runAnalysis\(jd, \{ model,/.test(publicWorkSrc));
 check("and that model is the cheap one", M.PUBLIC_MODEL === SONNET, M.PUBLIC_MODEL);
-check("and records it, so admin dedup does not mistake it for the default", /report.model = PUBLIC_MODEL/.test(publicWorkSrc));
+check("and records it, so admin dedup does not mistake it for the default", /report.model = model/.test(publicWorkSrc));
 check("the task payload cannot steer the model", !/payload\.model|model:\s*payload/.test(publicWorkSrc));
 
 console.log("\n--- the page ---");

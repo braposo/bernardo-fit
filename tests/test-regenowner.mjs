@@ -73,8 +73,8 @@ await regen({ method: "POST", headers: auth, body: { id: reportId } }, res);
 check("falls back to the row that has instructions", sentPrompts[0].includes(STEER));
 
 console.log("\n--- rescoring reaches every row sharing the report ---");
-check("steered row scored", (await store.getJob(steered.id)).score === 81);
-check("bare row scored too", (await store.getJob(bare.id)).score === 81, await store.getJob(bare.id));
+check("steered row not scored", (await store.getJob(steered.id)).score === null);
+check("bare row not scored", (await store.getJob(bare.id)).score === null, await store.getJob(bare.id));
 
 console.log("\n--- a report nobody owns still regenerates ---");
 const orphan = await store.saveReport({ job_title: "T", company: "C", job_description: JD, created_at: new Date().toISOString() });

@@ -534,6 +534,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var activeRuns = {};
   var coverDispatchEnabled = true;
   var screenDispatchEnabled = true;
+  var jevEnabled = false;
   var selectedId = "";
   var workspaceSection = "overview";
   var detailSequence = 0;
@@ -835,6 +836,12 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     return "tier-" + String(t || "").toLowerCase().replace(/[^a-z]/g, "");
   }
 
+  function assessmentStatusHtml(j) {
+    if (!j.jevAssessment) return '';
+    var label = j.jevStale ? 'Needs reassessment' : j.jevAssessment.blocked ? 'Constraint conflict' : j.jevAssessment.provisional ? 'Provisional score' : '';
+    return label ? '<span class="assessment-status">' + esc(label) + '</span>' : '';
+  }
+
   function stageLabel(value) {
     return String(value || "new").replace(/_/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
@@ -862,7 +869,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   function runStateHtml(j) {
     var rows = [
-      ["Fit analysis", j.analysisRun], ["Cover letter", j.coverRun], ["Research", j.researchRun],
+      ["Fit assessment", j.jevRun], ["Fit analysis", j.analysisRun], ["Cover letter", j.coverRun], ["Research", j.researchRun],
       ["Interview preparation", j.prepareRun || j.briefRun],
     ].filter(function (pair) { return pair[1] && pair[1].status; });
     if (!rows.length) return '<p class="run-state">No recorded role-level run state is available.</p>';
@@ -913,12 +920,15 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       panel = '<div class="workspace-panel"><p aria-live="polite">Loading role details…</p></div>';
     } else if (workspaceSection === "overview") {
       panel = '<section class="workspace-panel" id="panel-overview" role="tabpanel">' +
-        (j.score != null ? '<h2>Why this role</h2>' +
+        (j.jevAssessment ? jevAssessmentHtml(j) : j.score != null ? '<h2>Previous fit assessment</h2><p class="field-help">Historical three-dimension score. Assess with Jev for the current five-dimension rating.</p>' +
           '<div class="score-gauges">' + [['location','Location',35],['aiDx','AI / Developer experience',35],['leadership','Leadership',30]].map(function (dimension) {
             var value = j.scoreBreakdown && j.scoreBreakdown[dimension[0]];
             return '<div data-score-gauge="'+dimension[1]+'" data-value="'+esc(value == null ? '' : value)+'" data-weight="'+dimension[2]+'"></div>';
           }).join('') + '</div>'  :
-          '<p>No fit analysis has been generated yet.</p>') +
+          '<p>No fit assessment has been generated yet.</p>') +
+        '<button class="generation" data-act="jevscore"' + (!jevEnabled || j.archived || (j.jevRun && ["dispatching", "queued"].indexOf(j.jevRun.status) !== -1) ? ' disabled' : '') + '>Assess fit with Jev</button>' +
+        '<p class="field-help">' + (jevEnabled ? 'Private five-dimension scoring with uncertainty flags. Uses AI credits.' + (!hasDescription ? ' No description is saved; scores will use the available role details and may be provisional.' : '') : 'Configure the TypeSafe API key in Vercel and Trigger.dev to use Jev.') + '</p>' +
+        (j.jevRun && j.jevRun.status === 'failed' ? '<p class="notice error">The last fit assessment failed. Check TypeSafe access and retry. Any previous assessment is retained.</p>' : '') +
         (j.rationale ? '<p class="rationale">' + esc(j.rationale) + '</p>' : '') + owed + staleHtml(j) +
         '<h2>Ready to use</h2><div class="overview-actions">' + (fitLink?'<button class="ghost" data-act="copyfit" data-link="'+esc(fitLink)+'">Copy fit link</button>':'') +
           (j.hasBrief ? '<button class="primary-link" data-act="briefopen">Open interview brief</button>' : '') +
@@ -956,7 +966,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<header class="role-header"><div class="role-identity"><div class="role-kicker">' + esc(j.company || 'No company') + '</div><h1>' + esc(j.role || 'Untitled role') +
       '</h1><div class="role-sub">' + headerMeta + (j.closed ? ' · Posting closed' : '') + '</div><div class="role-added">'+timeHtml(j.createdAt,'Added ')+'</div>' +
       '<div class="role-stage"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><div class="stage-control"><button class="ghost status-edit" aria-label="Change status" title="Change status"><span data-icon="settings"></span></button><div class="stage-popover"><label for="job-stage">Change status</label><select id="job-stage" data-act="stage" aria-label="Stage for ' + esc(j.role || 'role') + '">' + stageOptions(j) + '</select></div></div></div></div>' +
-      '<div class="score-actions"><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></div>'+ (safeSourceUrl(j.sourceUrl)?'<a class="listing-link" href="'+esc(safeSourceUrl(j.sourceUrl))+'" target="_blank" rel="noopener">View original listing <span data-icon="external"></span></a>':'<span class="listing-unavailable field-help">No listing URL</span>')+'</header>' +
+      '<div class="score-actions"><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span>'+assessmentStatusHtml(j)+'</div>'+ (safeSourceUrl(j.sourceUrl)?'<a class="listing-link" href="'+esc(safeSourceUrl(j.sourceUrl))+'" target="_blank" rel="noopener">View original listing <span data-icon="external"></span></a>':'<span class="listing-unavailable field-help">No listing URL</span>')+'</header>' +
       '<nav class="workspace-tabs" role="tablist" aria-label="Role sections">' +
       [["overview","Overview"],["materials","Documents"],["context","Role details"],["activity","Activity"]].map(function (item) {
         return '<button class="workspace-tab" role="tab" data-section="' + item[0] + '" aria-selected="' + (workspaceSection === item[0]) + '">' + item[1] + '</button>';
@@ -1060,6 +1070,25 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     });
   }
 
+  function jevAssessmentHtml(j) {
+    var a = j.jevAssessment;
+    var postingLabels = { complete: 'Substantive posting', partial: 'Partial description', inaccessible: 'Posting inaccessible or expired', unrelated: 'Not a job description' };
+    var constraintLabels = { conflict: a.blocked ? 'Hard-constraint conflict identified: review the requirements' : 'Possible hard-constraint conflict: review the requirements', clear: 'No hard-constraint conflict identified', unknown: 'Practical constraints need clarification' };
+    var warning = j.jevStale ? 'This assessment is outdated. Assess again to update scores and clarification notes.' :
+      a.blocked ? 'A stated requirement conflicts with a firm constraint. The fit score is retained, but this role needs review.' :
+      a.provisional ? 'Provisional score: some details need clarification. All five dimensions still contribute to the estimate.' : '';
+    return '<h2>Fit assessment</h2><p class="field-help">Jev · ' + esc(fmtDateTime(a.assessedAt)) +
+      (j.jevStale ? ' · Outdated: assess again after context changes' : ' · ' + esc(j.tier)) + '</p>' +
+      (warning ? '<p class="assessment-warning">' + esc(warning) + '</p>' : '') +
+      '<div class="score-gauges jev-gauges">' + a.dimensions.map(function (d) {
+        return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-value="' + (j.jevStale || d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div><p class="field-help">' +
+          (j.jevStale ? 'Previous assessment · needs updating' : d.score == null ? 'Not scored' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') + '</p>' +
+          (!j.jevStale && d.evidenceLimited ? '<p class="dimension-warning"><strong>Limited evidence</strong> ' + esc(d.evidenceNote || 'Score is an estimate; confirm the relevant role details.') + '</p>' : '') + '</div>';
+      }).join('') + '</div><p class="posting-quality">' + esc(postingLabels[a.posting.choice] || 'Posting needs review') + ' · ' + esc(constraintLabels[a.constraint.choice] || 'Constraints need review') + '</p>' +
+      '<p class="field-help">' + (a.score == null ? 'Reassess to generate scores with the current scoring policy. ' : '') +
+      'Confidence describes the assessment, not your chance of an offer.' + (j.legacyScore == null ? '' : ' Previous analysis score: ' + esc(j.legacyScore) + '/100.') + '</p>';
+  }
+
   function openGenerationReview(options) {
     options = options || {};
     if (hasPendingEdits(options.id)) {
@@ -1094,13 +1123,12 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var restoreInstructions = active && active.hasAttribute('data-version-instructions');
       var caret = restoreInstructions ? [active.selectionStart, active.selectionEnd] : null;
       currentReview = review;
-      model = review.model;
-      localStorage.setItem(MODEL_KEY, model);
+      if (options.kind !== 'jev-score') { model = review.model; localStorage.setItem(MODEL_KEY, model); }
       var models = MODELS.map(function (item) { return '<option value="' + esc(item.id) + '"' + (item.id === review.model ? ' selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
       var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
-        return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
+        return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + (item.model ? ' · ' + esc(modelLabel(item.model) || item.model) : '') + '</div>'; }).join('') + '</div>' : '';
       renderAdmin(bodyEl, '<h3>Work to run</h3><ol>' + (review.steps || []).map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>' +
-        jobsHtml + '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>' +
+        jobsHtml + (options.kind === 'jev-score' ? '<p>Jev · Private assessment · Uses AI credits</p>' : review.routing && review.routing.source === 'jev' ? '<h3>Model selected by Jev</h3><p>' + (review.jobs ? '' : esc(modelLabel(review.model) || review.model) + ' · ') + esc(review.routing.reason) + '</p>' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
         (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="Add to this job’s generic instructions for this version only…">'+esc(versionInstructions)+'</textarea>' : ''));
       var instructionsEl = dialog.querySelector('[data-version-instructions]');
@@ -1172,7 +1200,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
 
   function pipelineItemHtml(j) {
-    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span><span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
+    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score':'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span>'+assessmentStatusHtml(j)+'<span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
   }
 
   function loadSelectedDetail(id) {
@@ -1422,7 +1450,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           if (onDone) onDone(out.d.job);
         });
       }
-      [['researchRun', 'research'], ['briefRun', 'brief']].forEach(function (entry) {
+      [['researchRun', 'research'], ['briefRun', 'brief'], ['jevRun', 'jev-score']].forEach(function (entry) {
         var run = job[entry[0]];
         if (!run || !run.runId || ['dispatching', 'queued'].indexOf(run.status) === -1 || attachedCoverWatches[run.runId]) return;
         attachedCoverWatches[run.runId] = true;
@@ -1774,6 +1802,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         });
       });
 
+      var scoreFit = rowEl.querySelector('[data-act="jevscore"]');
+      if (scoreFit) scoreFit.addEventListener('click', function () {
+        openGenerationReview({ id: id, kind: 'jev-score', trigger: scoreFit, status: status });
+      });
       var runFit = rowEl.querySelector('[data-act="runfit"]');
       if (runFit) {
         runFit.addEventListener("click", function () {
@@ -1870,6 +1902,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (out.d.archiveOnStage) ARCHIVE_ON_STAGE = out.d.archiveOnStage;
       coverDispatchEnabled = !out.d.features || out.d.features.coverDispatchEnabled !== false;
       screenDispatchEnabled = !out.d.features || out.d.features.screenDispatchEnabled !== false;
+      jevEnabled = !!(out.d.features && out.d.features.jevEnabled);
       if (!MODELS.some(function (m) { return m.id === model; })) model = MODELS[0].id;
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;

@@ -68,17 +68,20 @@ check("listed", res.statusCode === 200, res.body);
 check("one fit version", res.body.fit.length === 1, res.body.fit);
 check("it is live", res.body.fit[0].active === true);
 check("model recorded", res.body.fit[0].model === "claude-opus-5", res.body.fit[0]);
-check("score snapshotted", res.body.fit[0].score === 51, res.body.fit[0]);
+check("no writer score snapshotted", res.body.fit[0].score === null, res.body.fit[0]);
 check("no letter versions yet", res.body.letter.length === 0);
 
 console.log("\n--- regenerating keeps the old one ---");
+const jevAssessment = { score: 73, model: "typesafe-ai/jev", fingerprint: "preserved" };
+await store.updateJob(job.id, { jevAssessment });
 variant = 2;
 await call(regen, { method: "POST", headers: auth, body: { id: rid, jobId: job.id } });
 res = await call(versions, { method: "GET", headers: auth, query: { id: job.id } });
 check("two versions now", res.body.fit.length === 2, res.body.fit);
 check("newest first and live", res.body.fit[0].active === true && res.body.fit[1].active === false);
 check("live report is the new one", (await store.getReport(rid)).job_title === "Role v2");
-check("row scored from the new one", (await store.getJob(job.id)).score === 52);
+check("new version does not score row", (await store.getJob(job.id)).score === null);
+check("new version preserves Jev assessment", JSON.stringify((await store.getJob(job.id)).jevAssessment) === JSON.stringify(jevAssessment));
 
 console.log("\n--- switching back ---");
 const olderVid = res.body.fit[1].vid;
@@ -86,7 +89,8 @@ res = await call(versions, { method: "POST", headers: auth, body: { id: job.id, 
 check("switch accepted", res.statusCode === 200, res.body);
 check("live report reverted", (await store.getReport(rid)).job_title === "Role v1");
 check("permalink unchanged", (await store.getJob(job.id)).fitReportId === rid);
-check("score followed the version", (await store.getJob(job.id)).score === 51, (await store.getJob(job.id)).score);
+check("restoring version does not score row", (await store.getJob(job.id)).score === null, (await store.getJob(job.id)).score);
+check("restoring version preserves Jev assessment", JSON.stringify((await store.getJob(job.id)).jevAssessment) === JSON.stringify(jevAssessment));
 res = await call(versions, { method: "GET", headers: auth, query: { id: job.id } });
 check("active flag moved", res.body.fit.find((v) => v.vid === olderVid).active === true);
 check("and only one is live", res.body.fit.filter((v) => v.active).length === 1);

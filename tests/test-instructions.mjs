@@ -125,7 +125,7 @@ res = mockRes();
 await regenHandler({ method: "POST", headers: auth, body: { id: (await store.getJob(steered.id)).fitReportId } }, res);
 check("regenerated", res.statusCode === 200, res.body);
 check("regenerate carried them", sentPrompts[0].includes(STEER));
-check("row rescored", (await store.getJob(steered.id)).score === 70);
+check("writer leaves scoring to Jev", (await store.getJob(steered.id)).score === null);
 
 console.log("\n--- editing instructions then regenerating changes the result ---");
 await store.updateJob(steered.id, { instructions: "Completely different steer about design systems." });

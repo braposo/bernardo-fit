@@ -1,6 +1,7 @@
 import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
 import { analysisContext } from "../lib/analyze.js";
 import { PUBLIC_MODEL } from "../lib/models.js";
+import { jevEnabled } from "../lib/jev.js";
 import {
   admitPublicAnalysis, createPublicRunToken, getPublicRunReceipt, publicAnalysisFingerprint,
   publicAnalysisLimits, publicClientKey, releasePublicAnalysisClaim, savePublicRunReceipt,
@@ -56,7 +57,8 @@ async function start(req, res) {
   if (jd.length > limits.maxCharacters) {
     return res.status(413).json({ error: `Please keep the job description under ${limits.maxCharacters.toLocaleString()} characters.` });
   }
-  const existing = await findReportByHash(jd, { model: PUBLIC_MODEL, generation: analysisContext() });
+  // With Jev, the worker resolves the writer before looking up a model-specific cache.
+  const existing = jevEnabled() ? null : await findReportByHash(jd, { model: PUBLIC_MODEL, generation: analysisContext() });
   if (existing) {
     await linkPublicAnalysisToPipeline(existing.id, existing.report, jd, null);
     return res.status(200).json({ id: existing.id, report: publicReport(existing.report), cached: true });

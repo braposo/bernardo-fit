@@ -32,7 +32,7 @@ try {
     hasResearch: i !== 1, researchStale: true, briefStale: true,
     questions: i ? [] : [{ id: 'q1', q: 'Why this role?', limit: 120, a: 'A synthetic saved answer.' }],
   }));
-  let failSave = false, dispatches = 0, reviews = 0, mutations = 0;
+  let failSave = false, dispatches = 0, reviews = 0, mutations = 0, jevRoutesModels = false;
   const errors = [];
   const page = await context.newPage();
   page.on('pageerror', e => { errors.push(e.message); console.error(e.message); });
@@ -58,7 +58,7 @@ try {
         stats: {view:12,copy_link:2,cv_download:3}, usage:{days:[{calls:1,pricedCalls:1,input:100,output:50,estimatedCostMicros:1000}],breakdown:[{kind:'analysis',model:'gpt-5.6-sol',effort:'high',calls:1,output:50,estimatedCostMicros:1000}]}
       });
       if (url.searchParams.has('id')) return reply({ job: jobs.find(j => j.id === url.searchParams.get('id')) });
-      return reply({ jobs, stages: ['new', 'reviewing', 'interviewing', 'expired'], archiveOnStage: ['expired'], archivedCount: 0 });
+      return reply({ jobs, stages: ['new', 'reviewing', 'interviewing', 'expired'], archiveOnStage: ['expired'], archivedCount: 0, features: { jevEnabled: true } });
     }
     if (url.pathname === '/api/admin/versions') {
       if (request.method() === 'POST') { mutations++; return reply({ok:true}); }
@@ -68,7 +68,8 @@ try {
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
       reviews++;
-      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.model || 'gpt-5.6-sol',
+      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'jev-1.13.0' : body.model || 'gpt-5.6-sol',
+        routing: jevRoutesModels ? { source: 'jev', reason: 'Standard synthesis uses balanced Sol.' } : null,
         submitLabel: 'Generate analysis', steps: ['Generate fixture output'], inputSummary: 'Saved fixture inputs',
         publication: 'Becomes active', costText: 'Estimate unavailable. May incur costs.' } });
     }
@@ -237,6 +238,43 @@ try {
   }
   await page.locator('[data-act="back"]').click();
   check('mobile back shows pipeline', await page.locator('.pipeline').isVisible());
+  jobs[0].jevAssessment = { assessedAt: '2026-09-19T12:00:00Z', score: 73, provisional: true,
+    dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility'].map((label, i) => ({ label, score: i === 4 ? 50 : 75, weight: [25,25,20,20,10][i], confidence: 0.9,
+      evidenceLimited: i === 4, evidenceNote: i === 4 ? 'Travel and working arrangements may need clarification.' : '' })),
+    posting: { choice: 'partial' }, constraint: { choice: 'unknown' } };
+  jobs[0].score = 73;
+  await page.goto(origin + '/admin.html?job=job0');
+  await page.locator('[data-act="jevscore"]').waitFor();
+  check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
+  check('missing practical evidence is visible', await page.getByText('Travel and working arrangements may need clarification.', { exact: false }).isVisible());
+  check('limited evidence retains a practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
+  check('provisional overall score is explained', await page.getByText('Provisional score:', { exact: false }).isVisible());
+  check('pipeline marks provisional score', await page.locator('[data-select-job="job0"] .assessment-status').textContent() === 'Provisional score');
+  check('role header marks provisional score', await page.locator('.role-header .assessment-status').textContent() === 'Provisional score');
+  for (const width of [360, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    check('five dimensions and warnings fit at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/jev-' + width + '.png', fullPage: true });
+  }
+  await page.setViewportSize({ width: 360, height: 900 });
+  await audit('Jev assessment mobile');
+  const writingModel = await page.evaluate(() => localStorage.getItem('fit.model'));
+  await page.locator('[data-act="jevscore"]').click();
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  check('Jev review has a fixed model', await page.locator('[data-review-model]').count() === 0);
+  check('Jev preserves writing-model preference', await page.evaluate(() => localStorage.getItem('fit.model')) === writingModel);
+  await audit('Jev review');
+  await page.keyboard.press('Escape');
+  jevRoutesModels = true;
+  await page.goto(origin + '/admin.html?job=job1');
+  await page.locator('[data-section="materials"]').waitFor();
+  await page.locator('[data-section="materials"]').click();
+  await page.locator('[data-act="runfit"]').click();
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  check('writing review identifies Jev routing', await page.getByText('Model selected by Jev', { exact: true }).isVisible());
+  check('Jev selected writer is fixed in review', await page.locator('[data-review-model]').count() === 0);
+  await audit('Jev model selection');
+  await page.keyboard.press('Escape');
   check('no browser errors', errors.length === 0);
   console.log(`passed ${passed}, failed 0`);
 } finally {

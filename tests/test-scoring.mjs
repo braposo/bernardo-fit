@@ -73,13 +73,13 @@ const saved = await store.getReport(rid);
 check("saved report has no internal", !("internal" in saved));
 check("no score field persisted", !["score", "tier", "scoreBreakdown", "rationale"].some((key) => key in saved));
 
-console.log("\n--- the score landed on the pipeline row instead ---");
+console.log("\n--- page generation does not score the pipeline row ---");
 let row = (await store.listJobs()).find((j) => j.fitReportId === rid);
 check("row exists", !!row);
-check("row carries the score", row.score === 91, row.score);
-check("row carries the tier", row.tier === "Act now");
-check("row carries the breakdown", row.scoreBreakdown && row.scoreBreakdown.location === 100);
-check("row carries the reasoning", /Worth chasing/.test(row.rationale));
+check("row has no writer score", row.score === null, row.score);
+check("row has no writer tier", !row.tier);
+check("row has no writer breakdown", !row.scoreBreakdown);
+check("row has no writer rationale", !row.rationale);
 
 console.log("\n--- /api/report is clean, including for a poisoned old report ---");
 res = mockRes();
@@ -96,21 +96,21 @@ check("legacy inline block stripped on read", !("internal" in res.body.report));
 const leaked = JSON.stringify(res.body).match(/"(score|tier|breakdown|reasoning|internal)"/g);
 check("no scoring fields anywhere in the payload", !leaked, leaked);
 
-console.log("\n--- admin analyse scores the row ---");
+console.log("\n--- admin analysis leaves scoring to Jev ---");
 const j2 = await store.saveJob({ company: "Solo", role: "R", jobDescription: "A distinct description long enough to be analysed on its own merits." });
 res = mockRes();
 await adminAnalyse({ method: "POST", headers: auth, body: { id: j2.id } }, res);
-check("returns scored", res.body.scored === true, res.body);
+check("returns unscored", res.body.scored === false, res.body);
 const j2after = await store.getJob(j2.id);
-check("row scored", j2after.score === 91, j2after.score);
+check("row remains unscored", j2after.score === null, j2after.score);
 check("its report is clean", !("internal" in (await store.getReport(j2after.fitReportId))));
 
-console.log("\n--- regenerate rescores the owning row ---");
+console.log("\n--- regenerate preserves scoring ---");
 await store.updateJob(j2.id, { score: 10, tier: "Off-target" });
 res = mockRes();
 await regenerate({ method: "POST", headers: auth, body: { id: j2after.fitReportId } }, res);
-check("reports rescored", res.body.rescored === true, res.body);
-check("row score refreshed", (await store.getJob(j2.id)).score === 91);
+check("reports not rescored", res.body.rescored === false, res.body);
+check("row score preserved", (await store.getJob(j2.id)).score === 10);
 check("regenerated report still clean", !("internal" in res.body.report));
 
 console.log("\n--- delete only after archiving ---");
@@ -161,7 +161,7 @@ await ingestHandler({ method: "POST", headers: auth, body: { opportunities: [
 check("added the two valid rows", res.body.added === 2, res.body);
 check("skipped the invalid ones", res.body.skipped === 3, res.body);
 check("returns what it added", res.body.addedRows.length === 2 && res.body.addedRows[0].company === "NewCo");
-check("new rows arrive unscored", (await store.listJobs()).find((j) => j.externalId === "ing-1").score === null);
+check("new rows retain a separate Jev assessment without inventing a legacy score", (await store.listJobs()).find((j) => j.externalId === "ing-1").score === null && (await store.listJobs()).find((j) => j.externalId === "ing-1").jevAssessment.score === 75);
 
 console.log("\n--- ingest is an upsert that respects your edits ---");
 const ing1 = (await store.listJobs()).find((j) => j.externalId === "ing-1");
