@@ -1111,7 +1111,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var models = MODELS.map(function (item) { return '<option value="' + esc(item.id) + '"' + (item.id === review.model ? ' selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
       var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
         return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
-      renderAdmin(bodyEl, '<h3>Work to run</h3><ol>' + (review.steps || []).map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>' +
+      renderAdmin(bodyEl, '<p class="review-description">' + esc(review.description || 'We’ll generate the requested content using your saved details.') + '</p>' +
         jobsHtml + (options.kind === 'jev-score' || review.routing && review.routing.source === 'jev' ? '' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
         (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="Add to this job’s generic instructions for this version only…">'+esc(versionInstructions)+'</textarea>' : ''));

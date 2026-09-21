@@ -70,7 +70,7 @@ try {
       reviews++;
       return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'jev-1.13.0' : body.model || 'gpt-5.6-sol',
         routing: jevRoutesModels ? { source: 'jev', reason: 'Standard synthesis uses balanced Sol.' } : null,
-        submitLabel: 'Generate analysis', steps: ['Generate fixture output'], inputSummary: 'Saved fixture inputs',
+        submitLabel: 'Generate analysis', description: 'We’ll write a cover letter tailored to this role and your experience.', inputSummary: 'Saved fixture inputs',
         publication: 'Becomes active', costText: 'Estimate unavailable. May incur costs.' } });
     }
     if (url.pathname === '/api/admin/cover' && request.method() === 'POST') {
@@ -160,6 +160,7 @@ try {
   await page.locator('[data-review-submit]:enabled').waitFor();
   check('review uses the shadcn Dialog', await page.locator('[role="dialog"]').getAttribute('data-slot') === 'dialog-content');
   check('dialog removes verbose copy below model', await page.locator('[data-review-body]').textContent().then(t => !t.includes('Output and versions') && !t.includes('Cost estimate unavailable')));
+  check('review explains the result in a natural paragraph', await page.locator('.review-description').textContent() === 'We’ll write a cover letter tailored to this role and your experience.' && await page.locator('[data-review-body] ol').count() === 0 && !(await page.locator('[data-review-body]').textContent()).includes('Work to run'));
   await page.locator('[data-version-instructions]').fill('Highlight mentoring and platform ownership');
   await page.locator('[data-review-submit]:enabled').waitFor();
   await page.locator('[data-review-model]').selectOption('claude-sonnet-5');

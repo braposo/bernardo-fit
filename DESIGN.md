@@ -265,6 +265,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 ## Reading, generation and versions
 
+- Introduce generation reviews with one short, natural explanation of what the user will receive. Omit headings such as Work to run and procedural task lists. Mention meaningful scope, such as refreshing company research before writing a brief, in plain language.
 - Assess fit also writes the private Overview summary using Sol behind the scenes. Save it with the exact assessment/input snapshot; hide outdated prose after context changes. Loading Overview never generates. Existing assessments acquire summaries on explicit reassessment. Keep summaries concise, grounded in the description and scores, and reflect material uncertainty without boilerplate.
 
 
