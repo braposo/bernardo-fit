@@ -5,11 +5,13 @@
   "type": "module",
   "private": true,
   "dependencies": {
+    "@sanity/client": "^8.6.2",
     "@trigger.dev/sdk": "4.5.16",
     "@vercel/kv": "^2.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.3.0",
+    "groq": "^6.16.0",
     "html-react-parser": "^6.1.8",
     "lucide-react": "^1.47.0",
     "radix-ui": "^1.6.7",
@@ -26,7 +28,8 @@
     "trigger:dev": "trigger dev --skip-update-check",
     "trigger:check": "trigger deploy --dry-run --skip-update-check",
     "trigger:deploy": "trigger deploy --skip-update-check",
-    "trigger:health": "trigger report health --env prod --period 24h"
+    "trigger:health": "trigger report health --env prod --period 24h",
+    "sanity:check": "node --env-file-if-exists=.env.local scripts/check-sanity.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -157,6 +157,8 @@ The letter page is reached with a short-lived signed token rather than the admin
 
 The main source of truth for candidate evidence used in generation is `PROFILE_CONTEXT` in `lib/profile.js`. Update it there and every future analysis, letter and application answer reflects it. Public CV copy, demo content, role-specific instructions and operational configuration remain separate.
 
+Sanity is prepared as the future content backend, with a standalone sibling Studio and a private read connection. Existing app content remains active until content is added and cutover is implemented. See [Sanity content setup](docs/sanity-content.md) for the model, connection check and cutover requirements.
+
 ## Model
 
 Admin generation defaults to `gpt-5.6-sol`. The picker also offers `gpt-6-astra`, `claude-opus-5` and `claude-sonnet-5`. Saved picker choices are preserved. Alternatives are selected manually; provider errors do not switch models automatically. Set `OPENAI_API_KEY` in both Vercel and Trigger.dev (Production and any Preview/Development environments you use), then deploy both the web app and workers. Keep `ANTHROPIC_API_KEY` for Claude and public generation. Public analysis is pinned to Sonnet. Model policy lives in `lib/models.js`.
