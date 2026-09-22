@@ -70,10 +70,39 @@ await test("missing TypeSafe key makes no calls; key alone enables Jev", async (
   assert.equal(jevEnabled(), true);
 });
 await test("rubrics normalise zero-indexed scores and retain reported confidence", async () => {
-  const a = await assessFit(job, "fit"); assert.equal(a.score, 75); assert.equal(a.dimensions.length, 5);
+  const a = await assessFit(job, "fit"); assert.equal(a.score, 65); assert.equal(a.dimensions.length, 5);
   assert.equal(a.dimensions[0].confidence, 0.9); assert.equal(a.status, "complete");
   assert.deepEqual(a.dimensions[0].probabilities, { 0: 0, 1: 0, 2: 0, 3: 1, 4: 0 });
+  assert.match(scoringQuestions().responsibilities.instructions, /level 3 requires clear evidence/);
   const usage = await readUsage("fit"); assert.equal(usage[0].input, 150); assert.equal(usage[0].estimatedCostMicros, 6);
+});
+await test("strong matches can still score highly, while plausible matches stay below screening threshold", async () => {
+  try {
+    transform = d => { for (const key of Object.keys(d.answers).filter(k => d.answers[k].type === "score")) {
+      d.answers[key].score = 4; d.answers[key].probabilities = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 1 };
+    } return d; };
+    assert.equal((await assessFit(job)).score, 100);
+    transform = d => { for (const key of Object.keys(d.answers).filter(k => d.answers[k].type === "score")) {
+      d.answers[key].score = 2; d.answers[key].probabilities = { 0: 0, 1: 0, 2: 1, 3: 0, 4: 0 };
+    } return d; };
+    assert.equal((await assessFit(job)).score, 40);
+  } finally { transform = x => x; }
+});
+await test("a weak central match cannot be hidden by high scores elsewhere", async () => {
+  try {
+    transform = d => { for (const key of Object.keys(d.answers).filter(k => d.answers[k].type === "score")) {
+      const rung = key === "responsibilities" ? 1 : 4;
+      d.answers[key].score = rung;
+      d.answers[key].probabilities = Object.fromEntries([0, 1, 2, 3, 4].map(i => [i, Number(i === rung)]));
+    } return d; };
+    assert.equal((await assessFit(job)).score, 55, "poor daily work fit stays below the default ingest threshold");
+    transform = d => { for (const key of Object.keys(d.answers).filter(k => d.answers[k].type === "score")) {
+      const rung = key === "evidence" ? 2 : 4;
+      d.answers[key].score = rung;
+      d.answers[key].probabilities = Object.fromEntries([0, 1, 2, 3, 4].map(i => [i, Number(i === rung)]));
+    } return d; };
+    assert.equal((await assessFit(job)).score, 70, "unproven essential capabilities cannot yield a top score");
+  } finally { transform = x => x; }
 });
 await test("direct API retries throttling and overload with bounded backoff", async () => {
   const original = globalThis.fetch;
@@ -107,17 +136,21 @@ await test("sparse evidence retains all ratings and weights with visible uncerta
     transform = d => { for (const key of Object.keys(d.answers).filter(k => k.endsWith("Known"))) d.answers[key].noul = 0.2;
       d.answers.practical.score = 1; d.answers.practical.probabilities = { 0: 0, 1: 1, 2: 0, 3: 0, 4: 0 }; return d; };
     const a = await assessFit({ ...job, jobDescription: "" });
-    assert.equal(a.score, 70); assert.equal(a.dimensions[4].score, 25);
+    assert.equal(a.score, 38); assert.equal(a.dimensions[4].score, 20);
     assert.equal(a.status, "provisional"); assert.equal(a.provisional, true);
     assert.ok(a.dimensions.every(d => Number.isFinite(d.score) && d.evidenceLimited && d.evidenceNote));
     transform = d => { d.answers.posting.choice = "partial"; d.answers.posting.probabilities = { complete: 0, partial: 1, inaccessible: 0, unrelated: 0 }; return d; };
-    const partial = await assessFit(job); assert.equal(partial.score, 75); assert.equal(partial.provisional, true);
+    const partial = await assessFit(job); assert.equal(partial.score, 65); assert.equal(partial.provisional, true);
+    transform = d => { for (const key of Object.keys(d.answers).filter(k => d.answers[k].type === "score")) {
+      d.answers[key].score = 4; d.answers[key].probabilities = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 1 };
+    } d.answers.posting.choice = "partial"; d.answers.posting.probabilities = { complete: 0, partial: 1, inaccessible: 0, unrelated: 0 }; return d; };
+    assert.equal((await assessFit(job)).score, 70, "a partial posting cannot claim a near-certain overall fit");
   } finally { transform = x => x; }
 });
 await test("bad posting and hard constraints remain distinct from capability scores", async () => {
   transform = d => { d.answers.posting.choice = "inaccessible"; d.answers.posting.probabilities = { complete: 0, partial: 0, inaccessible: 1, unrelated: 0 };
     d.answers.constraint.choice = "conflict"; d.answers.constraint.probabilities = { conflict: 1, clear: 0, unknown: 0 }; return d; };
-  const a = await assessFit(job); assert.equal(a.score, 75); assert.equal(a.blocked, true); assert.equal(a.provisional, true); transform = x => x;
+  const a = await assessFit(job); assert.equal(a.score, 65); assert.equal(a.blocked, true); assert.equal(a.provisional, true); transform = x => x;
 });
 await test("missing, malformed and out-of-range answers are rejected", async () => {
   const q = scoringQuestions();
@@ -158,11 +191,11 @@ await test("worker persists assessment once, retains legacy score, and keeps rep
   const saved = await getJob(job.id); assert.equal(saved.overviewSummary.position, "Lead the engineering team.");
   assert.equal(jobSummary(saved).overviewSummary, undefined);
   assert.equal(jobDetail(saved).overviewSummary.fit, "Strong leadership alignment with practical details to confirm.");
-  assert.equal(saved.score, 55); assert.equal(jobSummary(saved).score, 75);
+  assert.equal(saved.score, 55); assert.equal(jobSummary(saved).score, 65);
   await saveReportWithId("jev-public", { company: "Example", pitch: "Public prose" }, null);
   await mutateJob(job.id, () => ({ fitReportId: "jev-public" }));
   await applyAnalysisToOwners("jev-public", { score: 95, tier: "Act now", breakdown: {}, reasoning: "Legacy" });
-  assert.equal(jobSummary(await getJob(job.id)).score, 75);
+  assert.equal(jobSummary(await getJob(job.id)).score, 65);
   assert.equal((await getJob(job.id)).score, 55, "page completion also preserves historical scores");
   assert.equal(JSON.stringify(await getReport("jev-public")).includes("jev"), false);
 });
