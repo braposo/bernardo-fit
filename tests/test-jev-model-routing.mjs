@@ -42,8 +42,8 @@ await updateJob(job.id, { jobDescription: "A complex engineering management oppo
 const changed = await resolveGenerationReview(body);
 assert.equal(changed.model, "gpt-6-astra");
 assert.throws(() => assertReviewedScope({ ...body, reviewFingerprint: first.fingerprint }, changed));
-await saveJob({ company: "Simple", role: "EM", jobDescription: "A straightforward second management opportunity." });
-const batch = await resolveGenerationReview({ kind: "analyse-all" });
+const simple = await saveJob({ company: "Simple", role: "EM", jobDescription: "A straightforward second management opportunity." });
+const batch = await resolveGenerationReview({ kind: "analyse-all", jobIds: [job.id, simple.id] });
 assert.deepEqual(new Set(batch.payload.jobs.map(j => j.model)), new Set(["gpt-6-astra", "claude-sonnet-5"]));
 confidence = null;
 assert.equal((await selectWritingModel({ kind: "cover", job })).model, "gpt-5.6-sol");
