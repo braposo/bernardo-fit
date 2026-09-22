@@ -255,6 +255,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Desktop has an independently scrolling job list and reading pane. Mobile uses list/detail navigation, with Back to pipeline and browser Back restoring search, stage and list position.
 - Keep full-width search and one compact stage dropdown in two sticky control rows. The dropdown includes the selected count; do not add wrapping stage chips, a duplicate matching-count line or an extra Filters button.
 - Search and stage combine. Counts reflect the current active/archive collection and search before stage filtering, using the real data contract. Distinguish loading, empty pipeline, empty stage and no search matches.
+- Bulk analysis uses the roles currently displayed after search, stage and collection filtering. Show the exact eligible role count, review that fixed set, and include existing fit pages for updates. Wait for search results before offering the action.
 - Job cards are fully selectable, with company/title hierarchy, a right-aligned score tile, named colour-coded stage metadata, document availability and relative added time with an exact-date title. Allow long company and role names to wrap. Keep generation toolbars and long rationales out of the list.
 - Keep stage filtering separate from editing a job's status. Filtering never mutates a job; status editing never silently changes the filter. Use the application's stages and archive rules.
 - Preserve selected job, collection, stage, search and section across navigation/reload. Use stable job IDs and prevent late responses from replacing the current selection. Keep private content and credentials out of URLs.
@@ -275,6 +276,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Only the current five-dimension fit assessment supplies visible scores. Do not show historical report scores in document versions or use them as a fallback in the pipeline or role header. Generating or publishing a document does not rescore the role.
 - Introduce generation reviews with one short, natural explanation of what the user will receive. Omit headings such as Work to run and procedural task lists. Mention meaningful scope, such as refreshing company research before writing a brief, in plain language.
 - Assess fit also writes the private Overview summary using Sol behind the scenes. Save it with the exact assessment/input snapshot; hide outdated prose after context changes. Loading Overview never generates. Existing assessments acquire summaries on explicit reassessment. Keep summaries concise, grounded in the description and scores, and reflect material uncertainty without boilerplate.
+- Refresh the selected role's detail when a fit assessment completes so its private Overview summary appears alongside the updated scores without a page reload.
 
 
 - Opening existing output, including stale output, must never start generation. Preview never publishes. Saving inputs, searching/filtering, opening a review, Cancel and Escape must also have no generation side effects.

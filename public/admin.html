@@ -653,6 +653,15 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       status.textContent = done.text;
       if (status.classList.contains("row-status")) status.className = "row-status" + (done.tone ? " " + done.tone : "");
       if (kind !== "answer") loadJobs(false);
+      if (kind === "jev-score" && out.ok && out.d.status === "COMPLETED") {
+        api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (detail) {
+          if (unauthorised(detail) || !detail.ok) return;
+          var index = jobs.findIndex(function (job) { return job.id === id; });
+          if (index === -1 || (jobs[index].revision || 0) > (detail.d.job.revision || 0)) return;
+          jobs[index] = Object.assign({}, jobs[index], detail.d.job);
+          renderJobs();
+        });
+      }
       if (done.open && openWhenDone) openArtifact(id, kind === "research" ? "research" : "brief");
       return out;
     });
@@ -1114,6 +1123,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var modelEl = dialog.querySelector('[data-review-model]');
       var economyEl = dialog.querySelector('[data-review-economy]');
       return { action: 'review', id: options.id, kind: options.kind, reportId: options.reportId,
+        jobIds: options.jobIds,
         questionId: options.questionId, forceResearch: options.forceResearch === true,
         versionInstructions: supportsVersionInstructions ? versionInstructions : undefined,
         model: modelEl ? modelEl.value : model, economy: economyEl ? economyEl.checked : economyAnswers };
@@ -1238,7 +1248,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     searched.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
     var shown = searched.filter(function (j) { return !stageFilter || j.stage === stageFilter; });
     shown.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
-    var pendingAnalysis = collectionJobs.filter(function (j) { return !j.fitReportId && j.hasDescription; }).length;
+    var analysisIds = shown.filter(function (j) { return j.analysisReady; }).map(function (j) { return j.id; });
 
     if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) {
       selectedId = shown[0].id;
@@ -1266,8 +1276,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
       '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select></div></div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
-      (!showArchived && pendingAnalysis ? '<div class="bulkbar"><button class="generation" id="analyseall"' + (activeRuns['analyse-all'] ? ' disabled' : '') + '>' +
-        (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse ready roles (' + pendingAnalysis + ')') + '</button></div>' : '') +
+      ((analysisIds.length && !searchLoading || activeRuns['analyse-all']) ? '<div class="bulkbar"><button class="generation" id="analyseall"' + (activeRuns['analyse-all'] ? ' disabled' : '') + '>' +
+        (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse listed roles (' + analysisIds.length + ')') + '</button></div>' : '') +
       '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
 
     renderedRole = selectedId; renderedSection = workspaceSection;
@@ -1307,7 +1317,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     if (analyseAllBtn) {
       analyseAllBtn.disabled = !!activeRuns["analyse-all"];
       analyseAllBtn.addEventListener("click", function () {
-        openGenerationReview({ kind: 'analyse-all', trigger: analyseAllBtn, status: analyseAllBtn });
+        openGenerationReview({ kind: 'analyse-all', jobIds: analysisIds, trigger: analyseAllBtn, status: analyseAllBtn });
       });
     }
 
