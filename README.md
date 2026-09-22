@@ -155,9 +155,9 @@ The letter page is reached with a short-lived signed token rather than the admin
 
 ## Editing what it says about you
 
-Candidate evidence and generation instructions are editable in the standalone Sanity Studio under **Analysis settings**. With `SANITY_ANALYSIS_ENABLED=1`, published settings drive Jev assessments/routing and every writing task. Drafts have no effect; settings changes invalidate relevant reviews and cached results. The preserved baseline in `lib/sanity/analysis-defaults.js` is used while the feature is disabled. See [editing analysis settings](docs/analysis-settings.md) for the coordinated web/worker activation steps. Public CV copy, job content and generated artifacts remain in their existing stores.
+Generation instructions are editable in the standalone Sanity Studio under **Analysis settings**. With `SANITY_ANALYSIS_ENABLED=1`, published settings drive Jev assessments/routing and every writing task. With content storage enabled, **Candidate profile** and referenced evidence supply candidate context and confirmed facts. Drafts have no effect; published changes invalidate relevant reviews and cached results. The preserved baseline in `lib/sanity/analysis-defaults.js` is used while the feature is disabled. See [editing analysis settings](docs/analysis-settings.md) for coordinated web/worker activation.
 
-Sanity is prepared as the future content backend, with a standalone sibling Studio and a private read connection. Existing app content remains active until content is added and cutover is implemented. See [Sanity content setup](docs/sanity-content.md) for the model, connection check and cutover requirements.
+The initial content is already imported. `SANITY_CONTENT_ENABLED=1` connects app and worker reads/writes for jobs, questions, assessments, reports, covers, research and briefs to Sanity using a server-only editor token. The branch preview enables this connection; production activation remains separate from merge. Redis retains operational coordination and telemetry. Public home/CV renderers still use static files. See [Sanity content storage](docs/sanity-content.md) for verification commands, branch worker setup and remaining migration scope.
 
 ## Model
 
