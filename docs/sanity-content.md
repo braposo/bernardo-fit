@@ -31,9 +31,18 @@ made there are persistent and visible in Studio.
 
 ## Branch workers
 
-Deploy Trigger's matching Preview branch before enabling generation in the app.
-The web preview needs the Preview environment's `TRIGGER_SECRET_KEY`, matching
-`TRIGGER_PREVIEW_BRANCH`, and `SANITY_WORKERS_READY=1`. Until verified, keep
+The app preview can target either a hosted Preview worker or a named Development
+worker. Development testing uses `SANITY_WORKER_ENV=development`, the existing
+development `TRIGGER_SECRET_KEY`, and `TRIGGER_PREVIEW_BRANCH=codex/sanity-content-setup`.
+Run `npm run trigger:dev:sanity` on this computer; it starts that isolated dev
+branch with `KV_NAMESPACE=sanity-preview`. The computer must remain awake and
+the process running. This does not require enabling hosted Preview branches.
+The CLI uses Development environment credentials and ignored local env files;
+add missing development provider keys to `.env.development.local`.
+
+A hosted Preview worker instead uses its Preview key with
+`SANITY_WORKER_ENV=preview` and the matching `TRIGGER_PREVIEW_BRANCH`.
+Both modes require `SANITY_WORKERS_READY=1` in the app after verification. Until ready, keep
 `SANITY_WORKERS_READY=0`: jobs remain editable but task dispatch returns an
 explicit setup error, avoiding accidental dispatch to the production workers.
 

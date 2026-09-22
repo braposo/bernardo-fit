@@ -13,6 +13,9 @@ test(()=>assert.notEqual(reportRevision({pitch:'old'}),reportRevision({pitch:'ne
 test(()=>assert.throws(()=>assertStorageDispatch({SANITY_CONTENT_ENABLED:'1'}),/workers/));
 test(()=>assert.throws(()=>assertStorageDispatch({SANITY_CONTENT_ENABLED:'1',SANITY_WORKERS_READY:'1',VERCEL_ENV:'preview',TRIGGER_SECRET_KEY:'tr_prod_test'}),/workers/));
 test(()=>assert.doesNotThrow(()=>assertStorageDispatch({SANITY_CONTENT_ENABLED:'1',SANITY_WORKERS_READY:'1',VERCEL_ENV:'preview',TRIGGER_SECRET_KEY:'tr_preview_test',TRIGGER_PREVIEW_BRANCH:'branch'})));
+test(()=>assert.doesNotThrow(()=>assertStorageDispatch({SANITY_CONTENT_ENABLED:'1',SANITY_WORKERS_READY:'1',SANITY_WORKER_ENV:'development',VERCEL_ENV:'preview',TRIGGER_SECRET_KEY:'tr_dev_test',TRIGGER_PREVIEW_BRANCH:'branch'})));
+test(()=>assert.throws(()=>assertStorageDispatch({SANITY_CONTENT_ENABLED:'1',SANITY_WORKERS_READY:'1',VERCEL_ENV:'preview',TRIGGER_SECRET_KEY:'tr_dev_test',TRIGGER_PREVIEW_BRANCH:'branch'}),/workers/));
+test(()=>assert.throws(()=>assertStorageDispatch({SANITY_CONTENT_ENABLED:'1',SANITY_WORKERS_READY:'1',SANITY_WORKER_ENV:'development',VERCEL_ENV:'production',TRIGGER_SECRET_KEY:'tr_dev_test',TRIGGER_PREVIEW_BRANCH:'branch'}),/workers/));
 const calls=[];const fake={get:(...a)=>calls.push(a),mget:(...a)=>calls.push(a),eval:(...a)=>calls.push(a),pipeline(){return {set(...a){calls.push(a);return this;},exec(){return 'done';}};}};
 const scoped=namespaceKV(fake,'preview');
 test(()=>{scoped.get('job:a');assert.deepEqual(calls.pop(),['preview:job:a']);});

@@ -44,8 +44,10 @@ together after the PR is merged. For full content storage both environments need
 `SANITY_WRITE_TOKEN` for project `quli96gc`, dataset `production`. A viewer token
 alone is sufficient only for the legacy analysis-settings-only mode.
 Branch-specific Vercel Preview settings enable the new content backend; production
-settings and workers remain unchanged. Trigger Preview must be enabled and its
-matching worker verified before setting `SANITY_WORKERS_READY=1` in the app.
+settings and workers remain unchanged. A matching named Development worker can
+serve branch tests while this computer stays awake, or a hosted Preview worker
+can serve them independently. Verify the chosen worker before setting
+`SANITY_WORKERS_READY=1` in the app; see the content storage guide.
 The flag defaults off until that coordinated activation; when off, the preserved
 code baseline is used. When on, a failed fetch or invalid/missing published settings
 returns an error rather than silently using obsolete instructions.
