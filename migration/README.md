@@ -104,6 +104,6 @@ The Studio has a separate local Git repository without a remote.
 configuration and migration changes from bootstrap commit `ec51460` through
 `4b18e8f`. The actual Studio remains exclusively in `../studio-fit-app`; no Studio
 directory is embedded in this app. The sibling changes are already committed.
-For a matching bootstrap checkout on another machine, run `git apply --check`
-against this patch before applying it there, then `npm ci`. Do not apply the
+For a matching bootstrap checkout on another machine, run `git apply --check --unidiff-zero`
+against this patch before applying it there with `git apply --unidiff-zero`, then `npm ci`. Do not apply the
 patch to the app repository or reapply it to the already updated sibling.
