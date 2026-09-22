@@ -270,9 +270,10 @@ try {
   check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
   check('repeated evidence explanation is absent', await page.locator('.dimension-warning').count() === 0);
   check('limited evidence retains a practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
-  check('confidence remains visible without assessment boilerplate', await page.getByText('Model confidence: 90%', {exact:true}).count() === 5 && await page.locator('.posting-quality, .assessment-warning').count() === 0);
-  check('pipeline marks provisional score', await page.locator('[data-select-job="job0"] .assessment-status').textContent() === 'Provisional score');
-  check('role header marks provisional score', await page.locator('.role-header .assessment-status').textContent() === 'Provisional score');
+  check('confidence remains visible', await page.getByText('Model confidence: 90%', {exact:true}).count() === 5);
+  check('provisional reasons appear in Fit assessment', await page.locator('#panel-overview .assessment-warning').textContent().then(t => t.includes('Why this score is provisional') && t.includes('The job description has too little detail') && t.includes('Travel and working arrangements may need clarification')));
+  check('pipeline shows a compact accessible warning', await page.locator('[data-select-job="job0"] .assessment-status').getAttribute('aria-label') === 'Provisional score; see Fit assessment for details' && await page.locator('[data-select-job="job0"] .assessment-status').textContent() === '⚠');
+  check('role header shows a compact accessible warning', await page.locator('.role-header .assessment-status').getAttribute('aria-label') === 'Provisional score; see Fit assessment for details' && await page.locator('.role-header .assessment-status').textContent() === '⚠');
   for (const width of [360, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     check('five dimensions and warnings fit at ' + width, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

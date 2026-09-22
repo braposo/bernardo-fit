@@ -74,8 +74,8 @@ check("stale assessment is concise", jev.includes("Outdated") && !jev.includes("
 const provisional = render("overview", { score: 70, jevAssessment: { assessedAt: "2026-09-20T12:00:00Z", score: 70, provisional: true,
   dimensions: [{ label: "Practical", score: 50, weight: 10, confidence: 0.4, evidenceLimited: true, evidenceNote: "Travel needs clarification <details>" }],
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
-check("provisional ratings retain confidence and header status without repeated prose", provisional.includes('data-value="50"') && provisional.includes("Provisional score") && provisional.includes("Model confidence: 40%") && !provisional.includes("Travel needs clarification"));
-check("provisional pipeline score is labelled", R.pipelineItemHtml({ ...base, jevAssessment: { provisional: true } }).includes('Provisional score'));
+check("provisional reasons appear in Fit assessment with escaped evidence notes", provisional.includes('data-value="50"') && provisional.includes("Why this score is provisional") && provisional.includes("The job description has too little detail") && provisional.includes("Practical: Travel needs clarification &lt;details&gt;") && provisional.includes("Model confidence: 40%"));
+check("provisional pipeline score uses an accessible warning icon", R.pipelineItemHtml({ ...base, jevAssessment: { provisional: true } }).includes('aria-label="Provisional score; see Fit assessment for details"') && R.pipelineItemHtml({ ...base, jevAssessment: { provisional: true } }).includes('>⚠</span>'));
 check("stale warning takes precedence", R.pipelineItemHtml({ ...base, jevStale: true, jevAssessment: { provisional: true } }).includes('Needs reassessment'));
 check("constraint conflict is visible in pipeline", R.pipelineItemHtml({ ...base, jevAssessment: { blocked: true, provisional: true } }).includes('Constraint conflict'));
 check("sparse descriptions can be assessed", !/data-act="jevscore" disabled/.test(render("overview", { jobDescription: "", hasDescription: false })));
