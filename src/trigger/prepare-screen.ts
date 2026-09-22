@@ -1,3 +1,4 @@
+import { withAnalysisSettings } from "../../lib/sanity/analysis-settings.js";
 import { withVersionInstructions } from "../../lib/version-instructions.js";
 import { AbortTaskRunError, idempotencyKeys, metadata, task } from "@trigger.dev/sdk";
 import { screenBriefTask } from "./brief.js";
@@ -16,7 +17,7 @@ const childId = (requestId: string, suffix: string) => `${requestId.slice(0, 90)
 export const prepareScreenTask = task({
   id: "prepare-screen", maxDuration: SCREEN_TASK_POLICY.maxDuration, retry: SCREEN_TASK_POLICY.retry,
   queue: { concurrencyLimit: SCREEN_TASK_POLICY.concurrencyLimit },
-  run: async (payload: PreparePayload) => {
+  run: async (payload: PreparePayload) => withAnalysisSettings(async () => {
     metadata.set("phase", "loading").set("jobId", payload.jobId).set("requestId", payload.requestId);
     let job = withVersionInstructions(await getJob(payload.jobId), payload.versionInstructions);
     if (!job || job.prepareRun?.requestId !== payload.requestId || job.prepareRun?.fingerprint !== payload.fingerprint) {
@@ -72,5 +73,5 @@ export const prepareScreenTask = task({
       ? { prepareRun: { ...current.prepareRun, status: result.output.outcome, finishedAt: new Date().toISOString() } } : undefined);
     metadata.set("phase", result.output.outcome);
     return { ...result.output, requestId: payload.requestId };
-  },
+  }),
 });

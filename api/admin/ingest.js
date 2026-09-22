@@ -1,3 +1,4 @@
+import { withSettingsHandler } from "../../lib/sanity/settings-handler.js";
 import { idempotencyKeys, tasks } from "@trigger.dev/sdk";
 import { requireAdmin } from "../../lib/admin.js";
 import { cleanOpportunity } from "../../lib/ingest-work.js";
@@ -9,7 +10,7 @@ import { ingestMinimumScore } from "../../lib/ingest-screening.js";
 
 const validRequestId = (value) => /^[a-zA-Z0-9_-]{8,100}$/.test(String(value || "")) ? String(value) : "";
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
   res.setHeader("Cache-Control", "private, no-store");
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -34,3 +35,5 @@ export default async function handler(req, res) {
     return res.status(error.status || 500).json({ error: error.message || "Unexpected error", detail: String(error).slice(0, 300) });
   }
 }
+
+export default withSettingsHandler(handler);

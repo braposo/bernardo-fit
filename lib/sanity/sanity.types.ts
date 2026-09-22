@@ -15,6 +15,56 @@
 export declare const internalGroqTypeReferenceTo: unique symbol;
 
 // Source: schema.json
+export type AnalysisSettings = {
+  _id: string;
+  _type: "analysisSettings";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title?: string;
+  texts?: Array<{
+    key?: string;
+    title?: string;
+    text?: string;
+    _type: "promptText";
+    _key: string;
+  }>;
+  questions?: Array<{
+    key?: string;
+    type?: string;
+    instructions?: string;
+    criteria?: Array<string>;
+    options?: Array<{
+      key?: string;
+      text?: string;
+      _type: "jevOption";
+      _key: string;
+    }>;
+    _type: "jevQuestion";
+    _key: string;
+  }>;
+  dimensions?: Array<{
+    id?: string;
+    label?: string;
+    weight?: number;
+    gap?: string;
+    _type: "fitDimension";
+    _key: string;
+  }>;
+  facts?: Array<{
+    question?: string;
+    answer?: string;
+    _type: "factualAnswer";
+    _key: string;
+  }>;
+  routineQuestions?: Array<string>;
+  personalFacts?: {
+    availability?: string;
+    location?: string;
+    sponsorship?: string;
+  };
+};
+
 export type WritingGuidance = {
   _id: string;
   _type: "writingGuidance";
@@ -673,6 +723,7 @@ export type Geopoint = {
 };
 
 export type AllSanitySchemaTypes =
+  | AnalysisSettings
   | WritingGuidance
   | CandidateProfileReference
   | SitePage
@@ -706,10 +757,49 @@ export type AllSanitySchemaTypes =
   | SanityImageAsset
   | Geopoint;
 
+// Source: ../fit-app/lib/sanity/analysis-settings.js
+// Variable: ANALYSIS_SETTINGS_QUERY
+// Query: *[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{  _id, _rev, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,  personalFacts{availability, location, sponsorship}}
+export type ANALYSIS_SETTINGS_QUERY_RESULT = {
+  _id: "fit-analysis-settings";
+  _rev: string;
+  texts: Array<{
+    key: string | null;
+    text: string | null;
+  }> | null;
+  questions: Array<{
+    key: string | null;
+    type: string | null;
+    instructions: string | null;
+    criteria: Array<string> | null;
+    options: Array<{
+      key: string | null;
+      text: string | null;
+    }> | null;
+  }> | null;
+  dimensions: Array<{
+    id: string | null;
+    label: string | null;
+    weight: number | null;
+    gap: string | null;
+  }> | null;
+  facts: Array<{
+    question: string | null;
+    answer: string | null;
+  }> | null;
+  routineQuestions: Array<string> | null;
+  personalFacts: {
+    availability: string | null;
+    location: string | null;
+    sponsorship: string | null;
+  } | null;
+} | null;
+
 // Source: ../fit-app/lib/sanity/queries.js
 // Variable: CONTENT_COUNTS_QUERY
-// Query: {  "candidateProfile": count(*[_type == "candidateProfile"]),  "candidateEvidence": count(*[_type == "candidateEvidence"]),  "job": count(*[_type == "job"]),  "applicationQuestion": count(*[_type == "applicationQuestion"]),  "fitReport": count(*[_type == "fitReport"]),  "coverLetter": count(*[_type == "coverLetter"]),  "companyResearch": count(*[_type == "companyResearch"]),  "interviewBrief": count(*[_type == "interviewBrief"]),  "fitAssessment": count(*[_type == "fitAssessment"]),  "sitePage": count(*[_type == "sitePage"]),  "writingGuidance": count(*[_type == "writingGuidance"])}
+// Query: {  "analysisSettings": count(*[_type == "analysisSettings"]),  "candidateProfile": count(*[_type == "candidateProfile"]),  "candidateEvidence": count(*[_type == "candidateEvidence"]),  "job": count(*[_type == "job"]),  "applicationQuestion": count(*[_type == "applicationQuestion"]),  "fitReport": count(*[_type == "fitReport"]),  "coverLetter": count(*[_type == "coverLetter"]),  "companyResearch": count(*[_type == "companyResearch"]),  "interviewBrief": count(*[_type == "interviewBrief"]),  "fitAssessment": count(*[_type == "fitAssessment"]),  "sitePage": count(*[_type == "sitePage"]),  "writingGuidance": count(*[_type == "writingGuidance"])}
 export type CONTENT_COUNTS_QUERY_RESULT = {
+  analysisSettings: number;
   candidateProfile: number;
   candidateEvidence: number;
   job: number;
@@ -1141,6 +1231,20 @@ export type JOB_CONTENT_QUERY_RESULT = {
 export type CONTENT_LIST_QUERY_RESULT = Array<
   | {
       _id: string;
+      _type: "analysisSettings";
+      _rev: string;
+      _updatedAt: string;
+      title: string | null;
+      name: null;
+      role: null;
+      company: null;
+      question: null;
+      headline: null;
+      stage: null;
+      slug: null;
+    }
+  | {
+      _id: string;
       _type: "applicationQuestion";
       _rev: string;
       _updatedAt: string;
@@ -1336,6 +1440,55 @@ export type CONTENT_LIST_QUERY_RESULT = Array<
 // Variable: CONTENT_DOCUMENT_QUERY
 // Query: *[_type == $type && _id == $id][0]
 export type CONTENT_DOCUMENT_QUERY_RESULT =
+  | {
+      _id: string;
+      _type: "analysisSettings";
+      _createdAt: string;
+      _updatedAt: string;
+      _rev: string;
+      title?: string;
+      texts?: Array<{
+        key?: string;
+        title?: string;
+        text?: string;
+        _type: "promptText";
+        _key: string;
+      }>;
+      questions?: Array<{
+        key?: string;
+        type?: string;
+        instructions?: string;
+        criteria?: Array<string>;
+        options?: Array<{
+          key?: string;
+          text?: string;
+          _type: "jevOption";
+          _key: string;
+        }>;
+        _type: "jevQuestion";
+        _key: string;
+      }>;
+      dimensions?: Array<{
+        id?: string;
+        label?: string;
+        weight?: number;
+        gap?: string;
+        _type: "fitDimension";
+        _key: string;
+      }>;
+      facts?: Array<{
+        question?: string;
+        answer?: string;
+        _type: "factualAnswer";
+        _key: string;
+      }>;
+      routineQuestions?: Array<string>;
+      personalFacts?: {
+        availability?: string;
+        location?: string;
+        sponsorship?: string;
+      };
+    }
   | {
       _id: string;
       _type: "applicationQuestion";
@@ -1847,7 +2000,8 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
 // Query TypeMap
 declare global {
   interface SanityQueries {
-    '{\n  "candidateProfile": count(*[_type == "candidateProfile"]),\n  "candidateEvidence": count(*[_type == "candidateEvidence"]),\n  "job": count(*[_type == "job"]),\n  "applicationQuestion": count(*[_type == "applicationQuestion"]),\n  "fitReport": count(*[_type == "fitReport"]),\n  "coverLetter": count(*[_type == "coverLetter"]),\n  "companyResearch": count(*[_type == "companyResearch"]),\n  "interviewBrief": count(*[_type == "interviewBrief"]),\n  "fitAssessment": count(*[_type == "fitAssessment"]),\n  "sitePage": count(*[_type == "sitePage"]),\n  "writingGuidance": count(*[_type == "writingGuidance"])\n}': CONTENT_COUNTS_QUERY_RESULT;
+    '*[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{\n  _id, _rev, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},\n  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,\n  personalFacts{availability, location, sponsorship}\n}': ANALYSIS_SETTINGS_QUERY_RESULT;
+    '{\n  "analysisSettings": count(*[_type == "analysisSettings"]),\n  "candidateProfile": count(*[_type == "candidateProfile"]),\n  "candidateEvidence": count(*[_type == "candidateEvidence"]),\n  "job": count(*[_type == "job"]),\n  "applicationQuestion": count(*[_type == "applicationQuestion"]),\n  "fitReport": count(*[_type == "fitReport"]),\n  "coverLetter": count(*[_type == "coverLetter"]),\n  "companyResearch": count(*[_type == "companyResearch"]),\n  "interviewBrief": count(*[_type == "interviewBrief"]),\n  "fitAssessment": count(*[_type == "fitAssessment"]),\n  "sitePage": count(*[_type == "sitePage"]),\n  "writingGuidance": count(*[_type == "writingGuidance"])\n}': CONTENT_COUNTS_QUERY_RESULT;
     '*[_type == "candidateProfile" && _id == $id][0]{\n  _id, _rev, name, headline, summary, motivationSummary, interviewSummary,\n  location, availability, workEligibility, noticePeriod, careerDirection,\n  workingPreferences, salaryPreferences, constraints, confirmedAnswers, reviewedAt,\n  evidence[]->{_id, _rev, title, kind, organisation, period, body, sources, reviewedAt}\n}': CANDIDATE_QUERY_RESULT;
     '*[_type == "job" && _id == $id][0]{\n  ...,\n  candidate->{_id, name}, activeReport->, activeCoverLetter->, activeResearch->,\n  activeBrief->, activeAssessment->,\n  "questions": *[_type == "applicationQuestion" && job._ref == ^._id] | order(order asc, _createdAt asc),\n  "reportVersions": *[_type == "fitReport" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "coverVersions": *[_type == "coverLetter" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "researchVersions": *[_type == "companyResearch" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "briefVersions": *[_type == "interviewBrief" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model}\n}': JOB_CONTENT_QUERY_RESULT;
     '*[_type == $type] | order(_updatedAt desc, _id asc)[$start...$end]{\n  _id, _type, _rev, _updatedAt, title, name, role, company, question, headline, stage,\n  "slug": slug.current\n}': CONTENT_LIST_QUERY_RESULT;

@@ -1,3 +1,4 @@
+import { withSettingsHandler } from "../lib/sanity/settings-handler.js";
 import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
 import { analysisContext } from "../lib/analyze.js";
 import { PUBLIC_MODEL } from "../lib/models.js";
@@ -97,7 +98,7 @@ async function start(req, res) {
   }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   try {
     if (req.method === "GET") return await status(req, res);
@@ -107,3 +108,5 @@ export default async function handler(req, res) {
     return res.status(error.status || 500).json({ error: error.message || "Unexpected error" });
   }
 }
+
+export default withSettingsHandler(handler, { admin: false });

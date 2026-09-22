@@ -6,9 +6,11 @@ It is not embedded in this app and the app does not need Studio files to build.
 
 ## Current behavior
 
-This is the preparation stage, not a storage cutover. Sanity starts empty at the
-owner's request. Existing profile constants, Redis content, generation, workers,
-public links and static site copy remain active. Nothing is imported or synced.
+Jobs, artifacts and site content remain in the preparation stage. The owner
+subsequently requested importing and wiring analysis instructions: the published
+**Analysis settings** document now contains the current prompts, candidate context,
+Jev rubric, routing and factual shortcuts. See [editing analysis settings](analysis-settings.md)
+for publishing and coordinated web/worker activation. No jobs or artifacts were imported.
 
 The app now has a server-only, published-content reader and an authenticated
 `GET /api/admin/content` endpoint. The endpoint uses the existing `x-admin-secret`
@@ -96,5 +98,6 @@ editorial content. This setup does not replace transactional worker coordination
    Freeze content writes briefly for a final delta sync before changing the
    active storage path. Retain the original snapshot for rollback.
 
-Until that cutover is implemented and verified, editing Sanity does not change
-the live app's content. The prepared endpoint is available for integration work.
+Until content storage cutover is implemented and verified, editing the prepared
+content types does not change the live app's jobs or artifacts. Analysis settings
+are separately wired to generation when enabled; see the activation guide above.

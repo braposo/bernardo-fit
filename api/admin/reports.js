@@ -1,3 +1,4 @@
+import { withSettingsHandler } from "../../lib/sanity/settings-handler.js";
 import { requireAdmin } from "../../lib/admin.js";
 import { listReports, deleteReport, listJobs, listReportVersions } from "../../lib/store.js";
 import { recentRollups, recentBreakdowns } from "../../lib/usage.js";
@@ -11,7 +12,7 @@ import { recentRollups, recentBreakdowns } from "../../lib/usage.js";
 // twelve. A thirteenth built fine and then failed to deploy. This endpoint
 // was already unreachable from the admin page, so it had room.
 // DELETE /api/admin/reports?id=abc123        -> { ok: true }
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
 
   if (req.method === "GET" && req.query && req.query.usage === "1") {
@@ -97,3 +98,5 @@ export default async function handler(req, res) {
 
   res.status(405).json({ error: "Method not allowed" });
 }
+
+export default withSettingsHandler(handler);

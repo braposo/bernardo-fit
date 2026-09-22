@@ -1,3 +1,4 @@
+import { withAnalysisSettings } from "../../lib/sanity/analysis-settings.js";
 import { idempotencyKeys, metadata, task } from "@trigger.dev/sdk";
 import { analysisTask, type AnalysisPayload } from "./analysis.js";
 import { analysisChildRequestId, summariseAnalysisBatch } from "../../lib/analyse-all.js";
@@ -12,7 +13,7 @@ export type AnalyseAllPayload = { requestId: string; model: string; jobs: Array<
 export const analyseAllTask = task({
   id: "analyse-all", maxDuration: BATCH_TASK_POLICY.maxDuration, retry: BATCH_TASK_POLICY.retry,
   queue: { concurrencyLimit: BATCH_TASK_POLICY.concurrencyLimit },
-  run: async (payload: AnalyseAllPayload) => {
+  run: async (payload: AnalyseAllPayload) => withAnalysisSettings(async () => {
     const model = resolveModel(payload.model);
     const reviewed = Array.isArray(payload.jobs) ? payload.jobs : [];
     const reviewedById = new Map(reviewed.map((item) => [item.id, item]));
@@ -45,5 +46,5 @@ export const analyseAllTask = task({
     const summary = summariseAnalysisBatch(pending.map(({ job }) => job), result.runs);
     metadata.set("phase", "completed").set("completed", summary.analysed).set("failed", summary.failed);
     return { ...summary, reviewed: reviewed.length, skipped };
-  },
+  }),
 });

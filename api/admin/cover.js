@@ -1,3 +1,4 @@
+import { withSettingsHandler } from "../../lib/sanity/settings-handler.js";
 import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
 import { requireAdmin } from "../../lib/admin.js";
 import { digest } from "../../lib/generation-fingerprint.js";
@@ -82,7 +83,7 @@ async function restoreRunPointer(receipt, spec) {
   });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
   res.setHeader("Cache-Control", "private, no-store");
   try {
@@ -164,3 +165,5 @@ export default async function handler(req, res) {
     res.status(error.status || 500).json({ error: error.message || "Unexpected error", ...(error.code ? { code: error.code } : {}), detail: error.detail });
   }
 }
+
+export default withSettingsHandler(handler);
