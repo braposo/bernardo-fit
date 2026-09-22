@@ -70,6 +70,12 @@ the source of editorial content. The development probe can run without Redis.
   report from the public API, including after regeneration.
 - Structured fields are canonical. Hidden source snapshots exist for recovery;
   clearing an editorial field does not resurrect its imported value.
+- Pre-Sanity assessments remain current only when their original scoring hash
+  still matches the role, the published settings equal the original settings,
+  and the candidate/evidence signature exactly matches the imported snapshot.
+  This preserves saved scores and matching Overview summaries across the
+  migration without rewriting provenance or rerunning models. Real editorial
+  changes still invalidate them. New assessments use the current fingerprint.
 
 ## Inspect and verify
 

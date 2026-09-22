@@ -1020,10 +1020,10 @@ index 0000000..505ea24
 +}
 diff --git a/scripts/transform-content.mjs b/scripts/transform-content.mjs
 new file mode 100644
-index 0000000..8503425
+index 0000000..318f64c
 --- /dev/null
 +++ b/scripts/transform-content.mjs
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,186 @@
 +import {readFile, writeFile, mkdir} from 'node:fs/promises'
 +import {createHash} from 'node:crypto'
 +import {Schema} from '@sanity/schema'
@@ -1116,7 +1116,8 @@ index 0000000..8503425
 +    jobDescription: r.job_description, pitch: r.pitch, categories: keyed(r.categories), differentiators: keyed(r.differentiators),
 +    closing: r.closing, model: r.model, generatedAt: r.regenerated_at || r.created_at, createdAt: r.created_at, regeneratedAt: r.regenerated_at,
 +    generation: r.generation, publiclyShared: true})
-+  add(`report:${report.id}:current`, 'fitReport', report, {...fields(report), active: true})
++  add(`report:${report.id}:current`, 'fitReport', report, {...fields(report), active: true,
++    ...(Array.isArray(snapshot.dismissedReportIds) ? {dismissed:snapshot.dismissedReportIds.includes(report.id)} : {})})
 +  for (const v of snapshot.versions[report.id] || []) add(`report:${report.id}:${v.vid}`, 'fitReport', v, {
 +    ...fields(v.report), versionId: v.vid, generatedAt: v.createdAt, model: v.model, versionInstructions: v.versionInstructions,
 +    active: false, privateReasoning: v.internal?.reasoning,

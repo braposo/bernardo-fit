@@ -1,6 +1,6 @@
 import { withSettingsHandler } from "../../lib/sanity/settings-handler.js";
 import { requireAdmin } from "../../lib/admin.js";
-import { listReports, deleteReport, listJobs, listReportVersions } from "../../lib/store.js";
+import { listReports, deleteReport, listJobs, listReportVersions, dismissedReports } from "../../lib/store.js";
 import { recentRollups, recentBreakdowns } from "../../lib/usage.js";
 
 // GET    /api/admin/reports?offset=&limit=   -> { reports, total }
@@ -27,9 +27,8 @@ async function handler(req, res) {
   }
 
   if (req.method === "GET" && req.query && req.query.export === "1") {
-    // The whole pipeline lives in one Redis instance with no other copy. This
-    // is the way out: rows, reports, and every stored version, in a shape that
-    // can be read without this app existing.
+    // Export the active content backend, including state needed to avoid
+    // resurrecting dismissed reports when the snapshot is imported elsewhere.
     try {
       const jobs = await listJobs({ includeArchived: true });
 
@@ -58,6 +57,7 @@ async function handler(req, res) {
         jobs,
         reports: all,
         versions,
+        dismissedReportIds: [...await dismissedReports()],
       });
     } catch (err) {
       res.status(500).json({ error: "Export failed", detail: String(err).slice(0, 300) });

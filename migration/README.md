@@ -32,6 +32,19 @@ company in the source; their provenance flags this rather than inventing a name.
 
 This verifies the exported content, **not a complete database migration**.
 
+The runtime follow-up restored nine report dismissals omitted by the original
+export, after verifying complete source inventories and zero adoptable reports.
+The repaired branch reports zero unlinked analyses. New exports include
+`dismissedReportIds`, and the transform preserves them. The guarded repair is
+`node --env-file=.env.local migration/scripts/restore-dismissed-reports.mjs`;
+it defaults to a dry run, and `--apply` backs up affected documents before writing.
+
+All 130 assessments and 55 stored Overview summaries were imported. Original
+scoring fingerprints are recognized only for unchanged migrated content and
+unchanged role inputs. This restores the same 39 current active scores and eight
+stale active assessments as the source app, without recomputation or relabeling
+outdated results as current.
+
 ## Missing pieces before cutover
 
 - Production KV credentials are marked sensitive in Vercel, so `env pull` returns
@@ -108,7 +121,7 @@ without making arbitrary JSON the canonical editor.
 The Studio has a separate local Git repository without a remote.
 `standalone-studio.patch` is a reviewable text patch covering its schema,
 configuration and migration changes from bootstrap commit `ec51460` through
-`0405fff`. The actual Studio remains exclusively in `../studio-fit-app`; no Studio
+`fa711dd`. The actual Studio remains exclusively in `../studio-fit-app`; no Studio
 directory is embedded in this app. The sibling changes are already committed.
 For a matching bootstrap checkout on another machine, run `git apply --check --unidiff-zero`
 against this patch before applying it there with `git apply --unidiff-zero`, then `npm ci`. Do not apply the
