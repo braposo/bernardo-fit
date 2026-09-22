@@ -7,6 +7,7 @@ import handler from "../api/admin/cover.js";
 import { resolveGenerationReview } from "../lib/generation-review.js";
 import { researchFingerprint } from "../lib/generation-fingerprint.js";
 import { saveScreenArtifact } from "../lib/screen-artifacts.js";
+import { JEV_MODEL } from "../lib/jev.js";
 import * as store from "../lib/store.js";
 
 let passed = 0, failed = 0;
@@ -70,27 +71,38 @@ try {
     assert.equal(triggers.length, before);
   });
 
-  await test("bulk review dispatches only the listed roles, including an existing analysis", async () => {
-    const one = await store.saveJob({ company: "Bulk one", role: "EM", jobDescription: "A complete engineering leadership role description." });
-    const reportId = await store.saveReport({ company: "Existing", job_title: "Lead", job_description: "An existing complete role description.", created_at: new Date().toISOString() });
-    const existing = await store.saveJob({ company: "Bulk existing", role: "Lead", jobDescription: "An existing complete role description.", fitReportId: reportId });
-    const body = { kind: "analyse-all", model: "gpt-5.6-sol", jobIds: [one.id, existing.id] };
-    const review = (await call({ ...body, action: "review" })).body.review;
-    assert.equal(review.jobs.length, 2);
-    await store.saveJob({ company: "Bulk later", role: "EM", jobDescription: "Another complete engineering leadership role description." });
-    const before = triggers.length;
-    const res = await call({ ...body, model: review.model, reviewFingerprint: review.fingerprint, requestId: "bulkscope001" });
-    assert.equal(res.code, 202);
-    assert.equal(triggers.length, before + 1);
-    assert.deepEqual(new Set(triggers.at(-1).payload.jobs.map((job) => job.id)), new Set(body.jobIds));
-    assert.equal(triggers.at(-1).payload.jobs.find((job) => job.id === existing.id).mode, "replace");
-    const expanded = await call({ ...body, jobIds: [...body.jobIds, "new-role"], reviewFingerprint: review.fingerprint, requestId: "bulkscope002" });
-    assert.equal(expanded.code, 409);
-    assert.equal(triggers.length, before + 1);
-    await store.updateJob(one.id, { instructions: "Changed after the review." });
-    const changed = await call({ ...body, reviewFingerprint: review.fingerprint, requestId: "bulkscope003" });
-    assert.equal(changed.code, 409);
-    assert.equal(triggers.length, before + 1);
+  await test("bulk assessment dispatches only the listed roles without generating fit pages", async () => {
+    process.env.TYPESAFE_API_KEY = "test";
+    try {
+      const one = await store.saveJob({ company: "Bulk one", role: "EM", jobDescription: "A complete engineering leadership role description." });
+      const reportId = await store.saveReport({ company: "Existing", job_title: "Lead", job_description: "An existing complete role description.", created_at: new Date().toISOString() });
+      const existing = await store.saveJob({ company: "Bulk existing", role: "Lead", jobDescription: "", fitReportId: reportId });
+      const body = { kind: "jev-score-all", jobIds: [one.id, existing.id] };
+      const review = (await call({ ...body, action: "review" })).body.review;
+      assert.equal(review.jobs.length, 2);
+      assert.equal(review.model, JEV_MODEL);
+      await store.saveJob({ company: "Bulk later", role: "EM", jobDescription: "Another complete engineering leadership role description." });
+      const before = triggers.length;
+      const res = await call({ ...body, model: review.model, reviewFingerprint: review.fingerprint, requestId: "bulkscope001" });
+      assert.equal(res.code, 202);
+      assert.equal(triggers.length, before + 1);
+      assert.deepEqual(new Set(triggers.at(-1).payload.jobs.map((job) => job.id)), new Set(body.jobIds));
+      assert.equal(triggers.at(-1).taskId, "jev-score-all");
+      assert.equal(triggers.at(-1).payload.jobs.some((job) => "mode" in job || "reportId" in job), false);
+      assert.equal((await store.getJob(existing.id)).fitReportId, reportId);
+      const expanded = await call({ ...body, jobIds: [...body.jobIds, "new-role"], reviewFingerprint: review.fingerprint, requestId: "bulkscope002" });
+      assert.equal(expanded.code, 409);
+      assert.equal(triggers.length, before + 1);
+      await store.updateJob(one.id, { instructions: "Changed after the review." });
+      const changed = await call({ ...body, reviewFingerprint: review.fingerprint, requestId: "bulkscope003" });
+      assert.equal(changed.code, 409);
+      assert.equal(triggers.length, before + 1);
+      const legacy = await call({ kind: "analyse-all", jobIds: body.jobIds, requestId: "legacy-bulk01" });
+      assert.equal(legacy.code, 400);
+      assert.equal(triggers.length, before + 1);
+    } finally {
+      delete process.env.TYPESAFE_API_KEY;
+    }
   });
 
   await test("brief review uses selected-model research reuse truth", async () => {

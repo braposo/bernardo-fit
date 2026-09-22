@@ -31,7 +31,7 @@ Persistent Redis storage is required in production. The in-memory fallback is fo
 
 ## Trigger.dev
 
-Trigger.dev tasks live in `src/trigger` and are configured by `trigger.config.ts`. Durable workers own public and admin fit analysis, regeneration, cover letters, application answers, company research, screen briefs, ingest, adoption, and the analyse-all orchestration. The SDK, build package and CLI are pinned to the same version so local and cloud builds cannot drift.
+Trigger.dev tasks live in `src/trigger` and are configured by `trigger.config.ts`. Durable workers own public and admin fit analysis, regeneration, cover letters, application answers, company research, screen briefs, ingest, adoption, and the listed-role fit assessment batch. The old analyse-all task remains available only to finish existing runs; new bulk actions do not create fit pages. The SDK, build package and CLI are pinned to the same version so local and cloud builds cannot drift.
 
 ```bash
 npm run trigger:dev       # register tasks in the development environment and watch for changes
