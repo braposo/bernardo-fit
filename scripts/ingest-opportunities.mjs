@@ -163,7 +163,7 @@ if (!completed) {
   process.exit(1);
 }
 console.log(`Added ${completed.added}, refreshed ${completed.updated}, skipped ${completed.skipped}.`);
-console.log(`Jev threshold: ${completed.minimumScore ?? "not recorded"}/100. Filtered ${completed.filtered || 0}, needs review ${completed.needsReview || 0}, evaluation failures ${completed.failed || 0}.`);
+console.log(`Jev threshold: ${completed.minimumScore ?? "not recorded"}/100. Filtered ${completed.filtered || 0}, needs review ${completed.needsReview || 0}, screening/summary failures ${completed.failed || 0}.`);
 for (const r of completed.addedRows || []) {
   console.log("  new: " + r.role + (r.company ? " at " + r.company : "") + (r.score == null ? "" : ` (${r.score}/100)`));
 }
