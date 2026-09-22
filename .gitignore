@@ -16,3 +16,8 @@ scripts/.live-check-ledger.json
 
 # Generated shadcn admin bundle (built locally, in CI, and by Vercel)
 public/assets/admin-ui.*
+
+# Private, reproducible migration snapshots and generated payloads
+migration/extracted/
+migration/transformed/
+migration/reports/

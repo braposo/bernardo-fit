@@ -6,11 +6,13 @@ It is not embedded in this app and the app does not need Studio files to build.
 
 ## Current behavior
 
-Jobs, artifacts and site content remain in the preparation stage. The owner
+Jobs, artifacts and site content have an initial import in Sanity; live app
+storage is still Redis. See the [import results and remaining gaps](../migration/README.md).
+The owner
 subsequently requested importing and wiring analysis instructions: the published
 **Analysis settings** document now contains the current prompts, candidate context,
 Jev rubric, routing and factual shortcuts. See [editing analysis settings](analysis-settings.md)
-for publishing and coordinated web/worker activation. No jobs or artifacts were imported.
+for publishing and coordinated web/worker activation.
 
 The app now has a server-only, published-content reader and an authenticated
 `GET /api/admin/content` endpoint. The endpoint uses the existing `x-admin-secret`
@@ -62,12 +64,12 @@ credential; do not widen the viewer token now.
 | Home/CV copy in `public/` | `sitePage` | Slug, metadata, Portable Text and optional candidate reference |
 | Editorial guidance currently in prompt code | `writingGuidance` | Guidance by generation scope; executable output contracts remain code |
 
-Documents use Sanity-generated IDs. `legacyId`/`versionId` retain source identity
-for a future migration; references use actual Sanity IDs, not constructed IDs.
+Ordinary new documents use Sanity-generated IDs. Source-backed migration records
+use stable hashed IDs for safe retries. `legacyId`/`versionId` retain source
+identity; relationships use actual Sanity references.
 Owned arrays use `_key`; research evidence `sourceKey` points to a source object's
 `_key`. Rich editorial bodies use Portable Text. Original job postings remain
-plain source text. No files or images are uploaded; Sanity asset URLs remain
-public even with a private dataset, so private attachments need a separate plan.
+plain source text. The already public CV PDF is uploaded as a Sanity file asset.
 
 Operational counters, admission limits, task locks, run receipts, telemetry,
 usage and audit logs stay in their current operational stores. They are not
@@ -77,10 +79,12 @@ editorial content. This setup does not replace transactional worker coordination
 
 1. Review the model using real examples, including archived jobs, source citations,
    historical versions, recruiter fields, structured assessment details and CV sections.
-   The preparation schemas are not a lossless migration adapter yet.
+   The initial import retains full exported source records for recovery; raw KV
+   reconciliation and runtime read/write adapters remain outstanding.
 2. Decide manual authoring versus import. If importing, export a snapshot first,
    count each source type, retain original IDs in fields, transform Portable Text,
-   create dependencies, then resolve references. No import was run during setup.
+   create dependencies, then resolve references. The initial import is complete;
+   a full database reconciliation and final delta are still required.
 3. Build and test read/write adapters for jobs, questions and artifact versions.
    Preserve compare-and-set behavior, retries, idempotent generation, report
    revision checks, history and active-version selection. Avoid uncoordinated

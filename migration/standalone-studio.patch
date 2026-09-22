@@ -1,0 +1,1338 @@
+diff --git a/.gitignore b/.gitignore
+index aa9909c..ddcd14d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -27,3 +27,6 @@
+ 
+ # Dotenv and similar local-only files
+ *.local
++
++# Regenerated before TypeGen; frontend types are committed in the sibling app.
++/schema.json
+diff --git a/README.md b/README.md
+index 5d1c504..1e0e71d 100644
+--- a/README.md
++++ b/README.md
+@@ -1,9 +1,32 @@
+-# Sanity Clean Content Studio
++# Fit content Studio
+ 
+-Congratulations, you have now installed the Sanity Content Studio, an open-source real-time content editing environment connected to the Sanity backend.
++Standalone Sanity Studio for Fit app (`quli96gc`), private dataset `production`.
++Keep this directory beside `../fit-app`; do not embed it in the app.
+ 
+-Now you can do the following things:
++```sh
++npm install
++npm run dev
++npm run typegen
++npm run build
++npx sanity schemas deploy
++```
+ 
+-- [Read “getting started” in the docs](https://www.sanity.io/docs/introduction/getting-started?utm_source=readme)
+-- [Join the Sanity community](https://www.sanity.io/community/join?utm_source=readme)
+-- [Extend and build plugins](https://www.sanity.io/docs/content-studio/extending?utm_source=readme)
++The Studio models candidate profiles/evidence, job opportunities, application
++questions and answers, fit report versions, cover letters, company research,
++interview briefs, fit assessments, site/CV pages and writing guidance.
++
++Only **Analysis settings** has been populated, using the current code prompts and
++candidate context at the owner's request. Edit its three tabs and Publish to
++change enabled analysis tasks. Other content types remain empty. Do not import
++jobs or artifacts automatically. The app's content storage remains active until
++a later, verified cutover. See `../fit-app/docs/analysis-settings.md` for activation.
++Sanity generates ordinary document IDs; relationships use references. Original
++app IDs have dedicated fields for future migration and permalink preservation.
++
++`npm run typegen` extracts the schema and scans queries in
++`../fit-app/lib/sanity/`, generating types in that app. Commit the generated types
++with app changes so app builds do not require this sibling checkout.
++
++The local Studio uses your Sanity account. The app uses its own read-only token,
++stored in its ignored `.env.local`; no app token belongs in Studio code.
++See `../fit-app/docs/sanity-content.md` for source mapping and the cutover plan.
+diff --git a/package-lock.json b/package-lock.json
+index 367707f..fd9ade7 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,6 +9,7 @@
+       "version": "1.0.0",
+       "license": "UNLICENSED",
+       "dependencies": {
++        "@sanity/icons": "^5.2.2",
+         "@sanity/vision": "^6.16.0",
+         "react": "^19.2.4",
+         "react-dom": "^19.2.4",
+@@ -16,9 +17,12 @@
+         "styled-components": "^6.1.18"
+       },
+       "devDependencies": {
++        "@portabletext/block-tools": "^6.0.2",
++        "@portabletext/markdown": "^2.3.0",
+         "@sanity/eslint-config-studio": "^7",
+         "@types/react": "^19.2.14",
+         "eslint": "^10.8.1",
++        "jsdom": "^30.1.1",
+         "prettier": "^3.5",
+         "typescript": "^5.8"
+       }
+@@ -181,19 +185,29 @@
+       }
+     },
+     "node_modules/@asamuzakjp/dom-selector": {
+-      "version": "7.1.1",
+-      "resolved": "https://registry.npmjs.org/@asamuzakjp/dom-selector/-/dom-selector-7.1.1.tgz",
+-      "integrity": "sha512-67RZDnYRc8H/8MLDgQCDE//zoqVFwajkepHZgmXrbwybzXOEwOWGPYGmALYl9J2DOLfFPPs6kKCqmbzV895hTQ==",
++      "version": "9.2.1",
++      "resolved": "https://registry.npmjs.org/@asamuzakjp/dom-selector/-/dom-selector-9.2.1.tgz",
++      "integrity": "sha512-NT4s3yZLjovPpliRpTvdsdzyPjqRqiCZj9MxnarBihbaY5MbAG7DWAJcrLlhmC7xKTNCXsTELcqB8YsqpLnUFQ==",
++      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@asamuzakjp/generational-cache": "^1.0.1",
+-        "@asamuzakjp/nwsapi": "^2.3.9",
+-        "bidi-js": "^1.0.3",
++        "bidi-js": "^1.1.0",
+         "css-tree": "^3.2.1",
+-        "is-potential-custom-element-name": "^1.0.1"
++        "is-potential-custom-element-name": "^1.0.1",
++        "lru-cache": "^11.5.3"
+       },
+       "engines": {
+-        "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
++        "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
++      }
++    },
++    "node_modules/@asamuzakjp/dom-selector/node_modules/lru-cache": {
++      "version": "11.5.3",
++      "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.3.tgz",
++      "integrity": "sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==",
++      "dev": true,
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": "20 || >=22"
+       }
+     },
+     "node_modules/@asamuzakjp/generational-cache": {
+@@ -3218,6 +3232,45 @@
+       "integrity": "sha512-Wy0V7+SGUjnF9/TkiM1hKVDPj7jKXduPNboMVtHTA8dySMURWqfg/JZ9E2Sq8JgSJmkl7k7Qe9FLeMSrSraWmQ==",
+       "license": "MIT"
+     },
++    "node_modules/@mdit/helper": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/@mdit/helper/-/helper-1.1.1.tgz",
++      "integrity": "sha512-Rrl14ZjFerzfAqCt0zxAWbPgRpsumgm9iBLrCVE05WS8dM6v/LnF1ppPFVnRz1F7fAaxn0kTFOlYwzcY+kRsHQ==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=22"
++      },
++      "peerDependencies": {
++        "markdown-it": "^15.0.1"
++      },
++      "peerDependenciesMeta": {
++        "markdown-it": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@mdit/plugin-alert": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/@mdit/plugin-alert/-/plugin-alert-2.0.1.tgz",
++      "integrity": "sha512-aWAjNZWQlXfCYUmTJvE+uWV0XZSz7SFcrI8N9Iq78XDZ3E/lEZo2apf9V5Nlbtc8cbda16fM9kx11GYwZlCSzw==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@mdit/helper": "1.1.1"
++      },
++      "engines": {
++        "node": ">=22"
++      },
++      "peerDependencies": {
++        "markdown-it": "^15.0.1"
++      },
++      "peerDependenciesMeta": {
++        "markdown-it": {
++          "optional": true
++        }
++      }
++    },
+     "node_modules/@module-federation/dts-plugin": {
+       "version": "2.9.0",
+       "resolved": "https://registry.npmjs.org/@module-federation/dts-plugin/-/dts-plugin-2.9.0.tgz",
+@@ -3705,6 +3758,22 @@
+         "node": ">=12"
+       }
+     },
++    "node_modules/@portabletext/block-tools": {
++      "version": "6.0.2",
++      "resolved": "https://registry.npmjs.org/@portabletext/block-tools/-/block-tools-6.0.2.tgz",
++      "integrity": "sha512-V/87M9Sx7nL8ede4I7C+yfQgcFBx+X4MyrefsjH+nSA/lmfx2vs6tYmpvQVfsYEQqoqV0sVG55aKza/Jj3ZQiA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@portabletext/html": "^2.0.0",
++        "@portabletext/sanity-bridge": "^4.1.1",
++        "@portabletext/schema": "^3.0.0",
++        "@sanity/types": "^6.9.1"
++      },
++      "engines": {
++        "node": ">=22.12"
++      }
++    },
+     "node_modules/@portabletext/editor": {
+       "version": "8.2.0",
+       "resolved": "https://registry.npmjs.org/@portabletext/editor/-/editor-8.2.0.tgz",
+@@ -3751,6 +3820,24 @@
+         "node": ">=22.12"
+       }
+     },
++    "node_modules/@portabletext/markdown": {
++      "version": "2.3.0",
++      "resolved": "https://registry.npmjs.org/@portabletext/markdown/-/markdown-2.3.0.tgz",
++      "integrity": "sha512-FakrnH6rfpnMdEWyH82dkga4VYsfCtiTnuXoOTDbAPKdvmXAsX0PB31XjwlrTlb/ya2zJO1dVjmiZZj+H2IIfg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@mdit/plugin-alert": "^2.0.1",
++        "@portabletext/schema": "^3.0.0",
++        "@portabletext/toolkit": "^6.0.0",
++        "@sanity/diff-match-patch": "^3.2.1",
++        "linkify-it": "^6.1.0",
++        "markdown-it": "^15.0.2"
++      },
++      "engines": {
++        "node": ">=22.12"
++      }
++    },
+     "node_modules/@portabletext/patches": {
+       "version": "3.0.1",
+       "resolved": "https://registry.npmjs.org/@portabletext/patches/-/patches-3.0.1.tgz",
+@@ -4485,6 +4572,22 @@
+         }
+       }
+     },
++    "node_modules/@sanity/cli-build/node_modules/@asamuzakjp/dom-selector": {
++      "version": "7.1.1",
++      "resolved": "https://registry.npmjs.org/@asamuzakjp/dom-selector/-/dom-selector-7.1.1.tgz",
++      "integrity": "sha512-67RZDnYRc8H/8MLDgQCDE//zoqVFwajkepHZgmXrbwybzXOEwOWGPYGmALYl9J2DOLfFPPs6kKCqmbzV895hTQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@asamuzakjp/generational-cache": "^1.0.1",
++        "@asamuzakjp/nwsapi": "^2.3.9",
++        "bidi-js": "^1.0.3",
++        "css-tree": "^3.2.1",
++        "is-potential-custom-element-name": "^1.0.1"
++      },
++      "engines": {
++        "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
++      }
++    },
+     "node_modules/@sanity/cli-build/node_modules/@rolldown/plugin-babel": {
+       "version": "0.2.4",
+       "resolved": "https://registry.npmjs.org/@rolldown/plugin-babel/-/plugin-babel-0.2.4.tgz",
+@@ -4544,6 +4647,55 @@
+         }
+       }
+     },
++    "node_modules/@sanity/cli-build/node_modules/jsdom": {
++      "version": "29.1.1",
++      "resolved": "https://registry.npmjs.org/jsdom/-/jsdom-29.1.1.tgz",
++      "integrity": "sha512-ECi4Fi2f7BdJtUKTflYRTiaMxIB0O6zfR1fX0GXpUrf6flp8QIYn1UT20YQqdSOfk2dfkCwS8LAFoJDEppNK5Q==",
++      "license": "MIT",
++      "dependencies": {
++        "@asamuzakjp/css-color": "^5.1.11",
++        "@asamuzakjp/dom-selector": "^7.1.1",
++        "@bramus/specificity": "^2.4.2",
++        "@csstools/css-syntax-patches-for-csstree": "^1.1.3",
++        "@exodus/bytes": "^1.15.0",
++        "css-tree": "^3.2.1",
++        "data-urls": "^7.0.0",
++        "decimal.js": "^10.6.0",
++        "html-encoding-sniffer": "^6.0.0",
++        "is-potential-custom-element-name": "^1.0.1",
++        "lru-cache": "^11.3.5",
++        "parse5": "^8.0.1",
++        "saxes": "^6.0.0",
++        "symbol-tree": "^3.2.4",
++        "tough-cookie": "^6.0.1",
++        "undici": "^7.25.0",
++        "w3c-xmlserializer": "^5.0.0",
++        "webidl-conversions": "^8.0.1",
++        "whatwg-mimetype": "^5.0.0",
++        "whatwg-url": "^16.0.1",
++        "xml-name-validator": "^5.0.0"
++      },
++      "engines": {
++        "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
++      },
++      "peerDependencies": {
++        "canvas": "^3.0.0"
++      },
++      "peerDependenciesMeta": {
++        "canvas": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@sanity/cli-build/node_modules/lru-cache": {
++      "version": "11.5.3",
++      "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.3.tgz",
++      "integrity": "sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==",
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": "20 || >=22"
++      }
++    },
+     "node_modules/@sanity/cli-core": {
+       "version": "3.8.0",
+       "resolved": "https://registry.npmjs.org/@sanity/cli-core/-/cli-core-3.8.0.tgz",
+@@ -4585,6 +4737,22 @@
+         }
+       }
+     },
++    "node_modules/@sanity/cli-core/node_modules/@asamuzakjp/dom-selector": {
++      "version": "7.1.1",
++      "resolved": "https://registry.npmjs.org/@asamuzakjp/dom-selector/-/dom-selector-7.1.1.tgz",
++      "integrity": "sha512-67RZDnYRc8H/8MLDgQCDE//zoqVFwajkepHZgmXrbwybzXOEwOWGPYGmALYl9J2DOLfFPPs6kKCqmbzV895hTQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@asamuzakjp/generational-cache": "^1.0.1",
++        "@asamuzakjp/nwsapi": "^2.3.9",
++        "bidi-js": "^1.0.3",
++        "css-tree": "^3.2.1",
++        "is-potential-custom-element-name": "^1.0.1"
++      },
++      "engines": {
++        "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
++      }
++    },
+     "node_modules/@sanity/cli-core/node_modules/@inquirer/ansi": {
+       "version": "2.0.8",
+       "resolved": "https://registry.npmjs.org/@inquirer/ansi/-/ansi-2.0.8.tgz",
+@@ -4913,6 +5081,55 @@
+         }
+       }
+     },
++    "node_modules/@sanity/cli-core/node_modules/jsdom": {
++      "version": "29.1.1",
++      "resolved": "https://registry.npmjs.org/jsdom/-/jsdom-29.1.1.tgz",
++      "integrity": "sha512-ECi4Fi2f7BdJtUKTflYRTiaMxIB0O6zfR1fX0GXpUrf6flp8QIYn1UT20YQqdSOfk2dfkCwS8LAFoJDEppNK5Q==",
++      "license": "MIT",
++      "dependencies": {
++        "@asamuzakjp/css-color": "^5.1.11",
++        "@asamuzakjp/dom-selector": "^7.1.1",
++        "@bramus/specificity": "^2.4.2",
++        "@csstools/css-syntax-patches-for-csstree": "^1.1.3",
++        "@exodus/bytes": "^1.15.0",
++        "css-tree": "^3.2.1",
++        "data-urls": "^7.0.0",
++        "decimal.js": "^10.6.0",
++        "html-encoding-sniffer": "^6.0.0",
++        "is-potential-custom-element-name": "^1.0.1",
++        "lru-cache": "^11.3.5",
++        "parse5": "^8.0.1",
++        "saxes": "^6.0.0",
++        "symbol-tree": "^3.2.4",
++        "tough-cookie": "^6.0.1",
++        "undici": "^7.25.0",
++        "w3c-xmlserializer": "^5.0.0",
++        "webidl-conversions": "^8.0.1",
++        "whatwg-mimetype": "^5.0.0",
++        "whatwg-url": "^16.0.1",
++        "xml-name-validator": "^5.0.0"
++      },
++      "engines": {
++        "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
++      },
++      "peerDependencies": {
++        "canvas": "^3.0.0"
++      },
++      "peerDependenciesMeta": {
++        "canvas": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@sanity/cli-core/node_modules/lru-cache": {
++      "version": "11.5.3",
++      "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.3.tgz",
++      "integrity": "sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==",
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": "20 || >=22"
++      }
++    },
+     "node_modules/@sanity/cli-core/node_modules/mute-stream": {
+       "version": "3.0.0",
+       "resolved": "https://registry.npmjs.org/mute-stream/-/mute-stream-3.0.0.tgz",
+@@ -10603,38 +10820,38 @@
+       }
+     },
+     "node_modules/jsdom": {
+-      "version": "29.1.1",
+-      "resolved": "https://registry.npmjs.org/jsdom/-/jsdom-29.1.1.tgz",
+-      "integrity": "sha512-ECi4Fi2f7BdJtUKTflYRTiaMxIB0O6zfR1fX0GXpUrf6flp8QIYn1UT20YQqdSOfk2dfkCwS8LAFoJDEppNK5Q==",
++      "version": "30.1.1",
++      "resolved": "https://registry.npmjs.org/jsdom/-/jsdom-30.1.1.tgz",
++      "integrity": "sha512-FahmoPK5vbPc+jxV1iErMHmAZypCZ942NHF4+qqaWAuvaKKTBZxawnmAtrbGWLU7MtlxfqIP0qw6aSI+aWGtLg==",
++      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@asamuzakjp/css-color": "^5.1.11",
+-        "@asamuzakjp/dom-selector": "^7.1.1",
++        "@asamuzakjp/css-color": "^7.0.0",
++        "@asamuzakjp/dom-selector": "^9.2.1",
+         "@bramus/specificity": "^2.4.2",
+-        "@csstools/css-syntax-patches-for-csstree": "^1.1.3",
+-        "@exodus/bytes": "^1.15.0",
++        "@csstools/css-syntax-patches-for-csstree": "^1.1.13",
++        "@exodus/bytes": "^1.15.1",
+         "css-tree": "^3.2.1",
+         "data-urls": "^7.0.0",
+         "decimal.js": "^10.6.0",
+-        "html-encoding-sniffer": "^6.0.0",
++        "html-encoding-sniffer": "^7.0.0",
+         "is-potential-custom-element-name": "^1.0.1",
+-        "lru-cache": "^11.3.5",
++        "lru-cache": "^11.5.2",
+         "parse5": "^8.0.1",
+         "saxes": "^6.0.0",
+-        "symbol-tree": "^3.2.4",
+-        "tough-cookie": "^6.0.1",
+-        "undici": "^7.25.0",
+-        "w3c-xmlserializer": "^5.0.0",
++        "tough-cookie": "^6.0.2",
++        "undici": "^8.10.2",
++        "w3c-xmlserializer": "^6.0.0",
+         "webidl-conversions": "^8.0.1",
+         "whatwg-mimetype": "^5.0.0",
+-        "whatwg-url": "^16.0.1",
++        "whatwg-url": "^17.1.1",
+         "xml-name-validator": "^5.0.0"
+       },
+       "engines": {
+-        "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
++        "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+       },
+       "peerDependencies": {
+-        "canvas": "^3.0.0"
++        "canvas": "^3.2.3"
+       },
+       "peerDependenciesMeta": {
+         "canvas": {
+@@ -10642,15 +10859,84 @@
+         }
+       }
+     },
++    "node_modules/jsdom/node_modules/@asamuzakjp/css-color": {
++      "version": "7.0.1",
++      "resolved": "https://registry.npmjs.org/@asamuzakjp/css-color/-/css-color-7.0.1.tgz",
++      "integrity": "sha512-C9duntabagkBZ1LebM7FKmphR4Q1pBclLxVbZETQV0akkFjV0ooFxo8FlvAQyKj9F6l8rEnmidgcTlpyxFYizg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@csstools/css-calc": "^3.4.0",
++        "@csstools/css-color-parser": "^4.2.3",
++        "@csstools/css-parser-algorithms": "^4.0.0",
++        "@csstools/css-tokenizer": "^4.0.1",
++        "lru-cache": "^11.5.3"
++      },
++      "engines": {
++        "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
++      }
++    },
++    "node_modules/jsdom/node_modules/html-encoding-sniffer": {
++      "version": "7.0.0",
++      "resolved": "https://registry.npmjs.org/html-encoding-sniffer/-/html-encoding-sniffer-7.0.0.tgz",
++      "integrity": "sha512-UikN5yr7xsCDAq87Or5or0PAlD3HJJOKVzM05az588WnpDJ4Ux7a2A53Qi6gofGg2/EtvF/H4hCi/TXfCW4Y6w==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@exodus/bytes": "^1.15.1"
++      },
++      "engines": {
++        "node": "^22.13.0 || >=24.0.0"
++      }
++    },
+     "node_modules/jsdom/node_modules/lru-cache": {
+       "version": "11.5.3",
+       "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.3.tgz",
+       "integrity": "sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==",
++      "dev": true,
+       "license": "BlueOak-1.0.0",
+       "engines": {
+         "node": "20 || >=22"
+       }
+     },
++    "node_modules/jsdom/node_modules/undici": {
++      "version": "8.11.0",
++      "resolved": "https://registry.npmjs.org/undici/-/undici-8.11.0.tgz",
++      "integrity": "sha512-AdzuGcAkzhbha3GgCSoUBx2P0quwym6qdFNCQz/fDGZc8w9XJ741wHUbt2kTmfPz+ZIOMkySFkiY7RXmiDDC8w==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=22.19.0"
++      }
++    },
++    "node_modules/jsdom/node_modules/w3c-xmlserializer": {
++      "version": "6.0.0",
++      "resolved": "https://registry.npmjs.org/w3c-xmlserializer/-/w3c-xmlserializer-6.0.0.tgz",
++      "integrity": "sha512-4Nsy8K5Tr6SPDH9jhKJOHf7ChDrc1zufZTVSF7x72hwuEXBqxqk9G6cK+K2NRUtB3iELRJqjXb4JPDMBjMTl2Q==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "xml-name-validator": "^5.0.0"
++      },
++      "engines": {
++        "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
++      }
++    },
++    "node_modules/jsdom/node_modules/whatwg-url": {
++      "version": "17.1.2",
++      "resolved": "https://registry.npmjs.org/whatwg-url/-/whatwg-url-17.1.2.tgz",
++      "integrity": "sha512-TEZA+Zqxin7Jjsm2cjRohCmen5awh+hT6Zi3VZdqZlNRk7zvOI/9WpBFg/DWlA56bWnzwm6DuB8NS0EsxQH9uQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@exodus/bytes": "^1.15.1",
++        "tr46": "^6.0.0",
++        "webidl-conversions": "^8.0.1"
++      },
++      "engines": {
++        "node": "^22.14.0 || >=24.0.0"
++      }
++    },
+     "node_modules/jsesc": {
+       "version": "3.1.0",
+       "resolved": "https://registry.npmjs.org/jsesc/-/jsesc-3.1.0.tgz",
+@@ -11114,6 +11400,26 @@
+         "url": "https://github.com/sponsors/antonk52"
+       }
+     },
++    "node_modules/linkify-it": {
++      "version": "6.1.0",
++      "resolved": "https://registry.npmjs.org/linkify-it/-/linkify-it-6.1.0.tgz",
++      "integrity": "sha512-wJ/TwpSDTLepCrQoYWYIExIKg5Zchex2Nn5yk2mFnB+6PtdkHtyLx742md9csRjjOnGkKIS/RrbY7l8D6gT9Vw==",
++      "dev": true,
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/puzrin"
++        },
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/markdown-it"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "uc.micro": "^3.0.0"
++      }
++    },
+     "node_modules/locate-path": {
+       "version": "6.0.0",
+       "resolved": "https://registry.npmjs.org/locate-path/-/locate-path-6.0.0.tgz",
+@@ -11213,6 +11519,64 @@
+         "semver": "bin/semver"
+       }
+     },
++    "node_modules/markdown-it": {
++      "version": "15.0.2",
++      "resolved": "https://registry.npmjs.org/markdown-it/-/markdown-it-15.0.2.tgz",
++      "integrity": "sha512-q4IGxMv56jCqT4OCRCADBoDP3LO4MhmTXjFbphHPXs4g3j9Xg5RDnxqN8IF/3vIWEU+VCnUq+7JUg/cfy2E6Qw==",
++      "dev": true,
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/puzrin"
++        },
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/markdown-it"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "argparse": "^3.0.0",
++        "entities": "^8.0.0",
++        "linkify-it": "^6.0.0",
++        "mdurl": "^2.1.0",
++        "punycode.js": "^2.3.1",
++        "uc.micro": "^3.0.0"
++      },
++      "bin": {
++        "markdown-it": "bin/markdown-it.mjs"
++      }
++    },
++    "node_modules/markdown-it/node_modules/argparse": {
++      "version": "3.0.2",
++      "resolved": "https://registry.npmjs.org/argparse/-/argparse-3.0.2.tgz",
++      "integrity": "sha512-mFdDM6WqWKraGLsVb+C9CahPnzTXOefAOLq3jYcca2YZ8bEWpr++Tzj+zSaKW9+X9L5uSxcm1AZ3Y6aZJ09OhQ==",
++      "dev": true,
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/puzrin"
++        },
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/nodeca"
++        }
++      ],
++      "license": "PSF-2.0"
++    },
++    "node_modules/markdown-it/node_modules/entities": {
++      "version": "8.1.0",
++      "resolved": "https://registry.npmjs.org/entities/-/entities-8.1.0.tgz",
++      "integrity": "sha512-kxL7msIffSuh9aaFAMD7rxAIuTRMAHMeBtgHW2yUdWw732ZNh4MehkF2gdjvtdmikkaIP9bFDDJOPlsvm7avrA==",
++      "dev": true,
++      "license": "BSD-2-Clause",
++      "engines": {
++        "node": ">=20.19.0"
++      },
++      "funding": {
++        "url": "https://github.com/fb55/entities?sponsor=1"
++      }
++    },
+     "node_modules/math-intrinsics": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
+@@ -11233,6 +11597,13 @@
+       "integrity": "sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==",
+       "license": "CC0-1.0"
+     },
++    "node_modules/mdurl": {
++      "version": "2.1.0",
++      "resolved": "https://registry.npmjs.org/mdurl/-/mdurl-2.1.0.tgz",
++      "integrity": "sha512-1+HBaOx0zi/dQWht8rNv9MYf9qqpqL/kxI0hXImU6Y547zM6Sni8BQibt7ifgMcYtQg41ao3Ivd6cnSM86inpg==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/media-chrome": {
+       "version": "4.19.2",
+       "resolved": "https://registry.npmjs.org/media-chrome/-/media-chrome-4.19.2.tgz",
+@@ -12289,6 +12660,16 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/punycode.js": {
++      "version": "2.3.1",
++      "resolved": "https://registry.npmjs.org/punycode.js/-/punycode.js-2.3.1.tgz",
++      "integrity": "sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/qified": {
+       "version": "0.10.1",
+       "resolved": "https://registry.npmjs.org/qified/-/qified-0.10.1.tgz",
+@@ -13685,6 +14066,13 @@
+         "typescript": ">=4.8.4 <6.1.0"
+       }
+     },
++    "node_modules/uc.micro": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/uc.micro/-/uc.micro-3.0.0.tgz",
++      "integrity": "sha512-U3PppEkleoTnIfi8BozMx3yju3qc/L6SwqWo2Sw+54PX+PX0q9I+r1Um5HCmqD7n9VDX5/v3vQH/AjA6deDdtw==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/ui5": {
+       "name": "@sanity/ui",
+       "version": "5.0.0-alpha.10",
+diff --git a/package.json b/package.json
+index 42d7c2a..aff158b 100644
+--- a/package.json
++++ b/package.json
+@@ -9,12 +9,14 @@
+     "deploy": "sanity deploy",
+     "deploy-graphql": "sanity graphql deploy",
+     "dev": "sanity dev",
+-    "start": "sanity start"
++    "start": "sanity start",
++    "typegen": "sanity schemas extract --force && sanity typegen generate"
+   },
+   "keywords": [
+     "sanity"
+   ],
+   "dependencies": {
++    "@sanity/icons": "^5.2.2",
+     "@sanity/vision": "^6.16.0",
+     "react": "^19.2.4",
+     "react-dom": "^19.2.4",
+@@ -22,9 +24,12 @@
+     "styled-components": "^6.1.18"
+   },
+   "devDependencies": {
++    "@portabletext/block-tools": "^6.0.2",
++    "@portabletext/markdown": "^2.3.0",
+     "@sanity/eslint-config-studio": "^7",
+     "@types/react": "^19.2.14",
+     "eslint": "^10.8.1",
++    "jsdom": "^30.1.1",
+     "prettier": "^3.5",
+     "typescript": "^5.8"
+   },
+diff --git a/sanity.cli.ts b/sanity.cli.ts
+index afce286..7ab192c 100644
+--- a/sanity.cli.ts
++++ b/sanity.cli.ts
+@@ -5,6 +5,13 @@ export default defineCliConfig({
+     projectId: 'quli96gc',
+     dataset: 'production'
+   },
++  typegen: {
++    enabled: true,
++    path: '../fit-app/lib/sanity/**/*.{js,ts}',
++    schema: 'schema.json',
++    generates: '../fit-app/lib/sanity/sanity.types.ts',
++    overloadClientMethods: true,
++  },
+   deployment: {
+     /**
+      * Enable auto-updates for studios.
+diff --git a/sanity.config.ts b/sanity.config.ts
+index 3a2f587..4a0e898 100644
+--- a/sanity.config.ts
++++ b/sanity.config.ts
+@@ -10,9 +10,23 @@ export default defineConfig({
+   projectId: 'quli96gc',
+   dataset: 'production',
+ 
+-  plugins: [structureTool(), visionTool()],
++  plugins: [structureTool({
++    structure: (S) => S.list().title('Fit content').items([
++      S.listItem().title('Analysis settings').id('analysis-settings')
++        .child(S.document().schemaType('analysisSettings').documentId('fit-analysis-settings')),
++      S.divider(),
++      ...S.documentTypeListItems().filter((item) => item.getId() !== 'analysisSettings'),
++    ]),
++  }), visionTool()],
++
++  document: {
++    actions: (actions, context) => context.schemaType === 'analysisSettings'
++      ? actions.filter(({action}) => !['delete', 'duplicate', 'unpublish'].includes(action || ''))
++      : actions,
++  },
+ 
+   schema: {
+     types: schemaTypes,
++    templates: (templates) => templates.filter((template) => template.schemaType !== 'analysisSettings'),
+   },
+ })
+diff --git a/schemaTypes/analysisSettings.ts b/schemaTypes/analysisSettings.ts
+new file mode 100644
+index 0000000..33ef2f3
+--- /dev/null
++++ b/schemaTypes/analysisSettings.ts
+@@ -0,0 +1,58 @@
++import {defineArrayMember, defineField, defineType} from 'sanity'
++import {CogIcon} from '@sanity/icons/Cog'
++
++const requiredText = (name: string, title: string, rows = 6) => defineField({
++  name, title, type: 'text', rows, validation: (rule) => rule.required().max(80000),
++})
++const key = (name = 'key') => defineField({name, title: 'App key', type: 'string', readOnly: true,
++  validation: (rule) => rule.required()})
++
++export const analysisSettings = defineType({
++  name: 'analysisSettings', title: 'Analysis settings', type: 'document', icon: CogIcon,
++  groups: [{name: 'prompts', title: 'Prompts and candidate context', default: true},
++    {name: 'jev', title: 'Jev rubric and routing'}, {name: 'facts', title: 'Confirmed facts'}],
++  fields: [
++    defineField({name: 'title', title: 'Title', type: 'string', initialValue: 'Fit analysis settings'}),
++    defineField({name: 'texts', title: 'Prompts and candidate context', group: 'prompts', type: 'array',
++      description: 'Published changes are read by new analysis tasks. Keep {{placeholder}} names unchanged. Output format requirements must match the app. All 13 entries are required.',
++      validation: (rule) => rule.required().length(13),
++      of: [defineArrayMember({name: 'promptText', title: 'Prompt or context', type: 'object',
++        fields: [key(), defineField({name: 'title', title: 'Label', type: 'string', readOnly: true}), requiredText('text', 'Text', 20)],
++        preview: {select: {title: 'title', subtitle: 'key'}},
++      })]}),
++    defineField({name: 'questions', title: 'Jev instructions and criteria', group: 'jev', type: 'array',
++      description: 'Includes all five fit dimensions, evidence checks, posting/constraint checks, and the two routing decisions. Keys and answer types are app contracts.',
++      validation: (rule) => rule.required().length(14),
++      of: [defineArrayMember({name: 'jevQuestion', title: 'Jev question', type: 'object', fields: [key(),
++        defineField({name: 'type', title: 'Answer type', type: 'string', readOnly: true}),
++        requiredText('instructions', 'Instructions', 12),
++        defineField({name: 'criteria', title: 'Rating levels (lowest to highest)', type: 'array',
++          hidden: ({parent}) => parent?.type !== 'score', of: [defineArrayMember({type: 'string'})],
++          validation: (rule) => rule.custom((value, context) => (context.parent as {type?: string})?.type !== 'score'
++            || (Array.isArray(value) && value.length === 5 && value.every(v => typeof v === 'string' && v.trim()))
++            || 'Keep five non-empty levels, from 0 to 4.')}),
++        defineField({name: 'options', title: 'Choice criteria', type: 'array', hidden: ({parent}) => parent?.type !== 'choice',
++          of: [defineArrayMember({name: 'jevOption', type: 'object', fields: [key(), requiredText('text', 'Description')],
++            preview: {select: {title: 'key', subtitle: 'text'}}})]}),
++      ], preview: {select: {title: 'key', subtitle: 'type'}}})]}),
++    defineField({name: 'dimensions', title: 'Fit dimensions', group: 'jev', type: 'array',
++      description: 'Weights must sum to 100. Score calibration and probability thresholds remain validated application logic.',
++      validation: (rule) => rule.required().length(5).custom((value) => !value || value.reduce<number>((sum, item) =>
++        sum + Number((item as {weight?: number}).weight || 0), 0) === 100 || 'Weights must total 100.'),
++      of: [defineArrayMember({name: 'fitDimension', type: 'object', fields: [key('id'),
++        defineField({name: 'label', title: 'Label', type: 'string', validation: (rule) => rule.required()}),
++        defineField({name: 'weight', title: 'Weight', type: 'number', validation: (rule) => rule.required().integer().min(0).max(100)}),
++        requiredText('gap', 'Message when evidence is limited')], preview: {select: {title: 'label', subtitle: 'id'}}})]}),
++    defineField({name: 'facts', title: 'Exact factual answers', group: 'facts', type: 'array',
++      description: 'These answers can bypass a model call when the exact question matches and economy mode is enabled.',
++      of: [defineArrayMember({name: 'factualAnswer', type: 'object', fields: [requiredText('question', 'Question', 2),
++        requiredText('answer', 'Confirmed answer')], preview: {select: {title: 'question', subtitle: 'answer'}}})]}),
++    defineField({name: 'routineQuestions', title: 'Routine motivation questions', group: 'facts', type: 'array',
++      of: [defineArrayMember({type: 'string'})], validation: (rule) => rule.unique()}),
++    defineField({name: 'personalFacts', title: 'Interview personal facts', group: 'facts', type: 'object', fields: [
++      requiredText('availability', 'Availability', 2), requiredText('location', 'Location', 2),
++      requiredText('sponsorship', 'Work eligibility / sponsorship', 2),
++    ]}),
++  ],
++  preview: {prepare: () => ({title: 'Analysis settings', subtitle: 'Publish to apply to new tasks'})},
++})
+diff --git a/schemaTypes/content.ts b/schemaTypes/content.ts
+new file mode 100644
+index 0000000..a0e274c
+--- /dev/null
++++ b/schemaTypes/content.ts
+@@ -0,0 +1,179 @@
++import {defineArrayMember, defineField, defineType} from 'sanity'
++import {DocumentTextIcon} from '@sanity/icons/DocumentText'
++import {UserIcon} from '@sanity/icons/User'
++import {LinkIcon} from '@sanity/icons/Link'
++import {extraFields, migrationFields, migrationRecord, replacements} from './migrationFields'
++
++const text = (name: string, title: string, required = false) => defineField({
++  name, title, type: 'text', rows: 4,
++  validation: (rule) => required ? rule.required() : rule,
++})
++const string = (name: string, title: string, required = false) => defineField({
++  name, title, type: 'string', validation: (rule) => required ? rule.required() : rule,
++})
++const date = (name: string, title: string) => defineField({name, title, type: 'datetime'})
++const ref = (name: string, title: string, type: string, required = false) => defineField({
++  name, title, type: 'reference', to: [{type}],
++  validation: (rule) => required ? rule.required() : rule,
++})
++const refs = (name: string, title: string, type: string) => defineField({
++  name, title, type: 'array', of: [defineArrayMember({type: 'reference', to: [{type}]})],
++  validation: (rule) => rule.unique(),
++})
++const body = (name = 'body', title = 'Content') => defineField({
++  name, title, type: 'array', of: [defineArrayMember({type: 'block'})],
++})
++const sourceId = string('legacyId', 'Existing app ID')
++const versionFields = [sourceId, string('versionId', 'Version ID'), date('generatedAt', 'Generated at'),
++  string('model', 'Generation model'), text('versionInstructions', 'Instructions for this version')]
++
++export const source = defineType({
++  name: 'source', title: 'Research source', type: 'object', icon: LinkIcon,
++  fields: [string('title', 'Title', true), defineField({name: 'url', title: 'URL', type: 'url',
++    validation: (rule) => rule.required().uri({scheme: ['https', 'http']})}),
++    string('publishedAt', 'Publication date as reported'), date('retrievedAt', 'Retrieved at')],
++  preview: {select: {title: 'title', subtitle: 'url'}},
++})
++export const evidencePoint = defineType({
++  name: 'evidencePoint', title: 'Evidence point', type: 'object', icon: DocumentTextIcon,
++  fields: [text('text', 'Text', true), string('sourceKey', 'Source key'),
++    defineField({name: 'basis', title: 'Evidence basis', type: 'string', options: {list: [
++      {title: 'Research source', value: 'research'}, {title: 'Job posting', value: 'posting'},
++      {title: 'Judgement / unverified', value: 'judgement'}]}})],
++  preview: {select: {title: 'text'}},
++})
++const points = (name: string, title: string) => defineField({
++  name, title, type: 'array', of: [defineArrayMember({type: 'evidencePoint'})],
++})
++const sources = defineField({name: 'sources', title: 'Sources', type: 'array',
++  of: [defineArrayMember({type: 'source'})]})
++
++export const candidateProfile = defineType({
++  name: 'candidateProfile', title: 'Candidate profile', type: 'document', icon: UserIcon,
++  fields: [string('name', 'Name', true), string('headline', 'Professional headline'),
++    body('summary', 'Candidate summary'), body('motivationSummary', 'Summary for motivation answers'),
++    body('interviewSummary', 'Summary for interview preparation'),
++    string('location', 'Location'), string('availability', 'Availability'),
++    text('workEligibility', 'Work eligibility and sponsorship'), string('noticePeriod', 'Notice period'),
++    text('careerDirection', 'Career direction'), text('workingPreferences', 'Working and travel preferences'),
++    text('salaryPreferences', 'Salary preferences'), text('constraints', 'Non-negotiable constraints'),
++    refs('evidence', 'Supporting evidence', 'candidateEvidence'),
++    defineField({name: 'confirmedAnswers', title: 'Confirmed factual answers', type: 'array', of: [
++      defineArrayMember({name: 'confirmedAnswer', title: 'Confirmed answer', type: 'object',
++        fields: [string('question', 'Exact question', true), text('answer', 'Confirmed answer', true)]}),
++    ]}), date('reviewedAt', 'Last reviewed')],
++  preview: {select: {title: 'name', subtitle: 'headline'}},
++})
++export const candidateEvidence = defineType({
++  name: 'candidateEvidence', title: 'Candidate evidence', type: 'document', icon: DocumentTextIcon,
++  fields: [string('title', 'Title', true), defineField({name: 'kind', title: 'Kind', type: 'string',
++    options: {list: ['employment', 'achievement', 'project', 'education', 'skill', 'preference', 'fact']},
++    validation: (rule) => rule.required()}), string('organisation', 'Organisation'),
++    string('period', 'Period'), body(), sources, date('reviewedAt', 'Last reviewed')],
++  preview: {select: {title: 'title', subtitle: 'organisation'}},
++})
++export const job = defineType({
++  name: 'job', title: 'Job opportunity', type: 'document', icon: DocumentTextIcon,
++  fields: [sourceId, string('company', 'Company', true), string('role', 'Role', true),
++    text('jobDescription', 'Original job description'), string('location', 'Location'),
++    string('locationMode', 'Working arrangement'), string('salary', 'Advertised salary'),
++    string('source', 'Source'), string('sourceType', 'Source type'),
++    defineField({name: 'sourceUrl', title: 'Posting URL', type: 'url'}),
++    string('externalId', 'External source ID'), string('threadId', 'Source conversation ID'),
++    defineField({name: 'stage', title: 'Application stage', type: 'string', initialValue: 'new',
++      options: {list: ['new', 'reviewing', 'applied', 'interviewing', 'offer', 'rejected', 'not_interested', 'expired']}}),
++    defineField({name: 'archived', title: 'Archived', type: 'boolean', initialValue: false}),
++    date('archivedAt', 'Archived at'), text('notes', 'Private notes'), text('instructions', 'Candidate instructions'),
++    defineField({name: 'recruiter', title: 'Recruiter', type: 'object', fields: [
++      string('name', 'Name'), string('email', 'Email'), string('phone', 'Phone'), string('company', 'Agency'),
++    ]}),
++    text('rationale', 'Initial fit rationale'), text('overviewSummary', 'Pipeline summary'),
++    ref('candidate', 'Candidate', 'candidateProfile'),
++    ref('activeReport', 'Active fit report', 'fitReport'), ref('activeCoverLetter', 'Active cover letter', 'coverLetter'),
++    ref('activeResearch', 'Active company research', 'companyResearch'),
++    ref('activeBrief', 'Active interview brief', 'interviewBrief'),
++    ref('activeAssessment', 'Active fit assessment', 'fitAssessment'),
++    date('receivedAt', 'Received at'), date('createdAt', 'Created in app')],
++  preview: {select: {title: 'role', subtitle: 'company'}},
++})
++export const applicationQuestion = defineType({
++  name: 'applicationQuestion', title: 'Application question and answer', type: 'document', icon: DocumentTextIcon,
++  fields: [sourceId, ref('job', 'Job', 'job', true), text('question', 'Question', true), text('answer', 'Answer'),
++    defineField({name: 'wordLimit', title: 'Word limit', type: 'number', initialValue: 120,
++      validation: (rule) => rule.integer().min(20).max(500)}),
++    defineField({name: 'refused', title: 'Needs a personal answer', type: 'boolean', initialValue: false}),
++    text('reason', 'Reason an answer could not be generated'), date('answeredAt', 'Answered at'),
++    defineField({name: 'order', title: 'Question order', type: 'number', validation: (rule) => rule.integer().min(0)})],
++  preview: {select: {title: 'question', subtitle: 'job.company'}},
++})
++export const fitReport = defineType({
++  name: 'fitReport', title: 'Fit report version', type: 'document', icon: DocumentTextIcon,
++  fields: [...versionFields, ref('job', 'Job', 'job'), string('jobTitle', 'Job title', true),
++    string('company', 'Company'), text('jobDescription', 'Job description used'), text('pitch', 'Opening pitch'),
++    defineField({name: 'categories', title: 'Fit categories', type: 'array', of: [defineArrayMember({
++      name: 'fitCategory', type: 'object', fields: [string('name', 'Category', true), text('note', 'Evidence')],
++    })]}),
++    defineField({name: 'differentiators', title: 'Differentiators', type: 'array', of: [defineArrayMember({
++      name: 'differentiator', type: 'object', fields: [string('headline', 'Headline', true), text('detail', 'Detail')],
++    })]}), text('closing', 'Closing'), text('privateReasoning', 'Private assessment reasoning'),
++    defineField({name: 'publiclyShared', title: 'May be served through a public app link', type: 'boolean', initialValue: false})],
++  preview: {select: {title: 'jobTitle', subtitle: 'company'}},
++})
++export const coverLetter = defineType({
++  name: 'coverLetter', title: 'Cover letter version', type: 'document', icon: DocumentTextIcon,
++  fields: [...versionFields, ref('job', 'Job', 'job', true), string('salutation', 'Salutation'), body(),
++    defineField({name: 'wordCount', title: 'Word count', type: 'number', readOnly: true})],
++  preview: {select: {title: 'job.role', subtitle: 'job.company'}},
++})
++export const companyResearch = defineType({
++  name: 'companyResearch', title: 'Company research version', type: 'document', icon: DocumentTextIcon,
++  fields: [...versionFields, ref('job', 'Job', 'job', true), string('company', 'Company', true),
++    string('domain', 'Company domain'), points('summary', 'Summary'), points('signals', 'Signals'),
++    points('risks', 'Risks'), points('roleContext', 'Role context'), text('unknowns', 'Unknowns'), sources,
++    defineField({name: 'partial', title: 'Incomplete research', type: 'boolean', initialValue: false})],
++  preview: {select: {title: 'company', subtitle: 'generatedAt'}},
++})
++export const interviewBrief = defineType({
++  name: 'interviewBrief', title: 'Interview brief version', type: 'document', icon: DocumentTextIcon,
++  fields: [...versionFields, ref('job', 'Job', 'job', true), ref('research', 'Research used', 'companyResearch'),
++    string('contact', 'Interview contact'), text('opening', 'Opening'), points('why', 'Why this role'),
++    text('conversationNotes', 'Conversation notes'), points('conversation', 'Conversation points'),
++    points('likelyQuestions', 'Likely questions'), points('gapResponses', 'Gap responses'),
++    points('greenFlags', 'Green flags'), points('redFlags', 'Red flags'), points('questionsToAsk', 'Questions to ask'),
++    points('companyReference', 'Company reference'), points('roleReference', 'Role reference'),
++    text('personalAnswers', 'Personal facts used'), text('confirmedAnswers', 'Confirmed answers used'),
++    text('unknowns', 'Unknowns'), sources],
++  preview: {select: {title: 'job.role', subtitle: 'job.company'}},
++})
++export const fitAssessment = defineType({
++  name: 'fitAssessment', title: 'Fit assessment', type: 'document', icon: DocumentTextIcon,
++  fields: [...versionFields, ref('job', 'Job', 'job', true),
++    defineField({name: 'score', title: 'Overall score', type: 'number', validation: (rule) => rule.min(0).max(100)}),
++    defineField({name: 'dimensions', title: 'Dimensions', type: 'array', of: [defineArrayMember({
++      name: 'assessmentDimension', type: 'object', fields: [string('name', 'Dimension', true),
++        defineField({name: 'score', title: 'Score', type: 'number', validation: (rule) => rule.min(0).max(100)}),
++        text('reasoning', 'Reasoning'), text('uncertainty', 'Uncertainty')],
++    })]}), text('reasoning', 'Reasoning'), text('clarifications', 'Clarifications'),
++    string('inputFingerprint', 'Input fingerprint'), string('policyVersion', 'Assessment policy version')],
++  preview: {select: {title: 'job.role', subtitle: 'job.company'}},
++})
++export const sitePage = defineType({
++  name: 'sitePage', title: 'Site page / CV', type: 'document', icon: DocumentTextIcon,
++  fields: [string('title', 'Title', true), defineField({name: 'slug', title: 'Slug', type: 'slug',
++    options: {source: 'title'}, validation: (rule) => rule.required()}), string('description', 'Description'),
++    body(), ref('candidate', 'Candidate', 'candidateProfile')],
++  preview: {select: {title: 'title', subtitle: 'slug.current'}},
++})
++export const writingGuidance = defineType({
++  name: 'writingGuidance', title: 'Writing guidance', type: 'document', icon: DocumentTextIcon,
++  fields: [string('title', 'Title', true), defineField({name: 'scope', title: 'Used for', type: 'string',
++    options: {list: ['shared', 'analysis', 'cover', 'answer', 'research', 'brief', 'assessment']},
++    validation: (rule) => rule.required()}), body(), date('reviewedAt', 'Last reviewed')],
++  preview: {select: {title: 'title', subtitle: 'scope'}},
++})
++
++export const contentTypes = [source, evidencePoint, candidateProfile, candidateEvidence, job,
++  applicationQuestion, fitReport, coverLetter, companyResearch, interviewBrief, fitAssessment,
++  sitePage, writingGuidance, defineType(migrationRecord)].map(type => type.type !== 'document' || type.name === 'migrationRecord' ? type : ({...type,
++    fields: [...type.fields.map(f => replacements[type.name]?.[f.name] || f), ...(extraFields[type.name] || []), ...migrationFields],
++  }))
+diff --git a/schemaTypes/index.ts b/schemaTypes/index.ts
+index ba4681d..5b29dfc 100644
+--- a/schemaTypes/index.ts
++++ b/schemaTypes/index.ts
+@@ -1 +1,4 @@
+-export const schemaTypes = []
++import {contentTypes} from './content'
++import {analysisSettings} from './analysisSettings'
++
++export const schemaTypes = [...contentTypes, analysisSettings]
+diff --git a/schemaTypes/migrationFields.ts b/schemaTypes/migrationFields.ts
+new file mode 100644
+index 0000000..9f580ba
+--- /dev/null
++++ b/schemaTypes/migrationFields.ts
+@@ -0,0 +1,52 @@
++import {defineArrayMember, defineField} from 'sanity'
++
++const field = (name: string, type = 'string') => defineField({name, type})
++const strings = (name: string) => defineField({name, type: 'array', of: [{type: 'string'}]})
++const object = (name: string, fields: ReturnType<typeof defineField>[]) => defineField({name, type: 'object', fields})
++const probabilities = defineField({name: 'probabilities', type: 'array', of: [defineArrayMember({type: 'object', fields: [field('label'), field('value', 'number')]})]})
++const answers = (name: string) => defineField({name, type: 'array', of: [defineArrayMember({type: 'object', fields: [field('question', 'text'), field('answer', 'text'), field('answeredAt', 'datetime')]})]})
++const choice = (name: string) => object(name, [field('type'), field('choice'), field('confidence', 'number'), probabilities])
++
++export const migrationFields = [
++  defineField({name: 'migration', title: 'Import provenance', type: 'object', readOnly: true, fields: [
++    field('sourceKey'), field('sourceHash'), field('importHash'), field('snapshotAt', 'datetime'), strings('qualityIssues'),
++  ]}),
++  defineField({name: 'sourcePayload', title: 'Original source record (recovery copy)', type: 'text', readOnly: true,
++    description: 'Immutable source JSON for lossless migration verification. Edit the structured fields above; this is not the live content source.', hidden: true}),
++]
++
++export const extraFields: Record<string, ReturnType<typeof defineField>[]> = {
++  job: [field('replyOwed', 'boolean'), field('userViewed', 'boolean'), field('closed', 'boolean'),
++    field('score', 'number'), field('tier'), field('updatedAt', 'datetime'), field('sourceRevision', 'number')],
++  fitReport: [defineField({name: 'jobs', title: 'Linked jobs', type: 'array', of: [{type: 'reference', to: [{type: 'job'}]}]}),
++    field('active', 'boolean'), field('createdAt', 'datetime'), field('regeneratedAt', 'datetime'),
++    object('generation', [field('prompt'),field('instructions','text'),field('effort')]),
++    object('internalAssessment', [field('score','number'),field('tier'),field('reasoning','text'),
++      defineField({name:'breakdown',type:'array',of:[defineArrayMember({type:'object',fields:[field('label'),field('value','number')]})]})])],
++  interviewBrief: [field('company'), field('role'), field('stage'), field('conversationReceivedAt', 'datetime'), field('conversationUpdatedAt', 'datetime')],
++  sitePage: [defineField({name: 'download', title: 'Downloadable document', type: 'file'}), field('legacyPath')],
++}
++
++export const replacements: Record<string, Record<string, ReturnType<typeof defineField>>> = {
++  job: {
++    company: defineField({name:'company',type:'string',description:'May be unknown for recruiter postings; preserve that uncertainty.'}),
++    overviewSummary: object('overviewSummary', [field('position', 'text'), field('fit', 'text'), field('model'), field('policy'), field('fingerprint'), field('assessedAt', 'datetime'), field('generatedAt', 'datetime')]),
++    recruiter: object('recruiter', [field('name'), field('org'), field('company'), field('email'), field('phone'), field('daysWaiting', 'number'), field('receivedAt','datetime')]),
++  },
++  companyResearch: {unknowns: strings('unknowns')},
++  interviewBrief: {unknowns: strings('unknowns'), confirmedAnswers: answers('confirmedAnswers'),
++    personalAnswers: object('personalAnswers', ['advertisedSalary','personallyExpectedSalary','previouslyDiscussedSalary','availability','location','locationMode','noticePeriod','startDate','sponsorship'].map(name=>field(name,'text')))},
++  fitAssessment: {
++    dimensions: defineField({name: 'dimensions', type: 'array', of: [defineArrayMember({type: 'object', fields: [
++      field('id'), field('label'), field('weight', 'number'), field('score', 'number'), field('confidence', 'number'),
++      probabilities, field('evidenceProbability', 'number'), field('evidenceLimited', 'boolean'), field('evidenceNote', 'text'),
++    ]})]}),
++  },
++}
++extraFields.fitAssessment = [choice('posting'), choice('constraint'), field('blocked', 'boolean'), field('provisional', 'boolean'), field('status')]
++
++export const migrationRecord = {
++  name: 'migrationRecord', title: 'Recovered source content', type: 'document' as const, readOnly: true,
++  fields: [field('title'), field('kind'), field('payload', 'text'), ...migrationFields],
++  preview: {select: {title: 'title', subtitle: 'kind'}},
++}
+diff --git a/scripts/import-content.mjs b/scripts/import-content.mjs
+new file mode 100644
+index 0000000..650c2c2
+--- /dev/null
++++ b/scripts/import-content.mjs
+@@ -0,0 +1,75 @@
++import {readFile, writeFile, mkdir} from 'node:fs/promises'
++import {getCliClient} from 'sanity/cli'
++import {payload, digest, assertUnedited} from '../../fit-app/migration/scripts/integrity.mjs'
++
++const root = new URL('../../fit-app/', import.meta.url)
++const client = getCliClient({apiVersion:'2026-09-22'}).withConfig({useCdn:false, perspective:'raw', maxRetries:0})
++if (client.config().projectId !== 'quli96gc' || client.config().dataset !== 'production') throw new Error('Wrong Sanity destination')
++const documents = JSON.parse(await readFile(new URL('migration/transformed/content.json',root),'utf8'))
++const report = JSON.parse(await readFile(new URL('migration/reports/transform.json',root),'utf8'))
++if (report.issues.length) throw new Error('Resolve transform issues before importing')
++await mkdir(new URL('migration/extracted/',root),{recursive:true})
++const before = await client.fetch('*[!(_id in path("_.**"))]')
++await writeFile(new URL(`migration/extracted/sanity-before-${Date.now()}.json`,root),JSON.stringify(before,null,2),{flag:'wx'})
++const settingsRevision = before.find(d=>d._id==='fit-analysis-settings')?._rev
++const existing = new Map(before.map(d=>[d._id,d]))
++const documentIds = new Set(documents.map(d=>d._id))
++for (const doc of documents) {
++  if(!doc._id.startsWith('fit-import-') || !doc.migration?.sourceKey || !doc.sourcePayload) throw new Error('Invalid import document')
++  if(existing.has(`drafts.${doc._id}`)) throw new Error(`Unpublished edits exist for ${doc.migration.sourceKey}`)
++  const current = existing.get(doc._id)
++  assertUnedited(current, doc)
++}
++// Assets are content addressed by Sanity; repeated uploads reuse the same asset.
++const cv = await client.assets.upload('file', await readFile(new URL('public/bernardo-raposo-cv.pdf',root)), {filename:'bernardo-raposo-cv.pdf',contentType:'application/pdf'})
++const cvDoc = documents.find(d=>d.migration.sourceKey==='page:cv')
++cvDoc.download = {_type:'file',asset:{_type:'reference',_ref:cv._id}}
++documentIds.add(cv._id)
++const checkRefs = value => {
++  if(!value || typeof value !== 'object') return
++  if(value._ref && !documentIds.has(value._ref)) throw new Error(`Missing reference target ${value._ref}`)
++  Object.values(value).forEach(checkRefs)
++}
++documents.forEach(checkRefs)
++const shells = documents.filter(d=>!existing.has(d._id)).map(d=>{
++  const shell = {_id:d._id,_type:d._type,migration:{sourceKey:d.migration.sourceKey},sourcePayload:'{}'}
++  shell.migration.importHash = digest(shell)
++  return shell
++})
++for(let offset=0;offset<shells.length;offset+=40) {
++  let tx=client.transaction()
++  shells.slice(offset,offset+40).forEach(d=>{tx=tx.createIfNotExists(d)})
++  await tx.commit({visibility:'sync'})
++}
++const readDocuments = async () => {
++  const result=[]
++  for(let offset=0;offset<documents.length;offset+=40) result.push(...await client.getDocuments(documents.slice(offset,offset+40).map(d=>d._id)))
++  return result
++}
++const currentDocuments = await readDocuments()
++let updated=0, unchanged=0
++for(let offset=0;offset<documents.length;offset+=20) {
++  let tx=client.transaction(), writes=0
++  for(let i=offset;i<Math.min(offset+20,documents.length);i++) {
++    const doc=documents[i], current=currentDocuments[i]
++    if(!current || current.migration?.importHash!==digest(current)) throw new Error('Destination edited during migration; stopping')
++    doc.migration.importHash=digest(doc)
++    if(digest(current)===doc.migration.importHash) {unchanged++;continue}
++    const {_id,...fields}=doc
++    // Revision guard prevents overwriting Studio edits made during this run.
++    const obsolete=Object.keys(payload(current)).filter(k=>k!=='_id' && !(k in fields))
++    tx=tx.patch(_id,p=>p.ifRevisionId(current._rev).set(fields).unset(obsolete))
++    writes++; updated++
++  }
++  if(writes) await tx.commit({visibility:'sync'})
++}
++const after = await readDocuments()
++const failures=[]
++for(let i=0;i<documents.length;i++) if(!after[i] || digest(after[i])!==digest(documents[i])) failures.push(documents[i].migration.sourceKey)
++const settings = await client.getDocument('fit-analysis-settings')
++if(settings?._rev!==settingsRevision) failures.push('Analysis settings changed during import; review concurrent edits')
++const result={verifiedAt:new Date().toISOString(),created:shells.length,updated,unchanged,total:documents.length,counts:report.counts,
++  exactContentMismatches:failures.length,failures,cvAsset:cv._id,analysisSettingsUnchanged:settings?._rev===settingsRevision,limitations:report.limitations}
++await writeFile(new URL('migration/reports/import.json',root),JSON.stringify(result,null,2))
++console.log(JSON.stringify(result,null,2))
++if(failures.length) process.exitCode=1
+diff --git a/scripts/seed-analysis-settings.mjs b/scripts/seed-analysis-settings.mjs
+new file mode 100644
+index 0000000..505ea24
+--- /dev/null
++++ b/scripts/seed-analysis-settings.mjs
+@@ -0,0 +1,14 @@
++import {getCliClient} from 'sanity/cli'
++import {initialSettingsDocument} from '../../fit-app/lib/sanity/settings-document.js'
++import {settingsFromDocument} from '../../fit-app/lib/sanity/analysis-settings.js'
++
++const client = getCliClient({apiVersion: '2026-09-22'}).withConfig({useCdn: false})
++const document = initialSettingsDocument()
++settingsFromDocument(document)
++const existing = await client.getDocument(document._id)
++if (existing) {
++  console.log('Analysis settings already exist; left published content unchanged.')
++} else {
++  await client.createIfNotExists(document)
++  console.log('Published the current code instructions as Analysis settings. No jobs or artifacts imported.')
++}
+diff --git a/scripts/transform-content.mjs b/scripts/transform-content.mjs
+new file mode 100644
+index 0000000..f57931f
+--- /dev/null
++++ b/scripts/transform-content.mjs
+@@ -0,0 +1,188 @@
++import {readFile, writeFile, mkdir} from 'node:fs/promises'
++import {createHash} from 'node:crypto'
++import {Schema} from '@sanity/schema'
++import {htmlToBlocks} from '@portabletext/block-tools'
++import {markdownToPortableText} from '@portabletext/markdown'
++import {JSDOM} from 'jsdom'
++import {DEFAULT_SETTINGS} from '../../fit-app/lib/sanity/analysis-defaults.js'
++
++const root = new URL('../../fit-app/', import.meta.url)
++const read = async path => JSON.parse(await readFile(new URL(path, root), 'utf8'))
++const snapshot = await read('migration/extracted/admin-export.json')
++const artifactExport = await read('migration/extracted/admin-artifacts.json')
++const docs = new Map(), issues = []
++const hash = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex')
++const id = key => `fit-import-${hash(key).slice(0, 40)}`
++const reference = key => ({_type: 'reference', _ref: id(key)})
++const clean = value => {
++  if (Array.isArray(value)) return value.map(clean)
++  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value)
++    .filter(([,v]) => v !== undefined && v !== null && v !== '').map(([k,v]) => [k, clean(v)]))
++  return value
++}
++const keyed = values => (values || []).map((v,i) => ({_key: `item${i}`, ...v}))
++const pick = (value, fields) => Object.fromEntries(fields.split(' ').filter(k => value[k] !== undefined).map(k => [k,value[k]]))
++const add = (key, type, source, fields) => {
++  const document = clean({_id: id(key), _type: type, ...fields,
++    migration: {sourceKey: key, sourceHash: hash(source), snapshotAt: snapshot.exportedAt}, sourcePayload: JSON.stringify(source)})
++  if (docs.has(key)) throw new Error(`Duplicate source identity: ${key}`)
++  docs.set(key, document)
++  return reference(key)
++}
++const schema = Schema.compile({name: 'migration', types: [{name: 'richText', type: 'array', of: [{type: 'block'}]}]})
++const html = input => {
++  let index = 0
++  return htmlToBlocks(input, schema.get('richText'), {parseHtml: s => new JSDOM(s).window.document, keyGenerator: () => `html${index++}`})
++}
++const markdown = input => {
++  const blocks = markdownToPortableText(input)
++  // Converter keys are random; remap keys and mark references deterministically.
++  let sequence = 0
++  const keys = new Map()
++  const visit = value => {
++    if (Array.isArray(value)) return value.forEach(visit)
++    if (!value || typeof value !== 'object') return
++    if (value._key) {const old = value._key; value._key = `md${sequence++}`; keys.set(old, value._key)}
++    Object.values(value).forEach(visit)
++  }
++  visit(blocks)
++  for (const b of blocks) for (const s of b.children || []) if (s.marks) s.marks = s.marks.map(k => keys.get(k) || k)
++  return blocks
++}
++const escape = value => String(value || '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
++const coverBody = paragraphs => html(paragraphs.map(p => {
++  if (typeof p === 'string') return `<p>${escape(p)}</p>`
++  const text = p.html ?? escape(p.text || '').replace(/\[\[([\s\S]*?)\]\]/g, '<strong>$1</strong>')
++  return `<p>${p.lead ? `<strong>${escape(p.lead)}</strong> ` : ''}${text}</p>`
++}).join(''))
++const probabilities = value => keyed(Object.entries(value || {}).map(([label, value]) => ({label, value})))
++const candidate = add('candidate:bernardo', 'candidateProfile', DEFAULT_SETTINGS, {
++  name: 'Bernardo Raposo', summary: markdown(DEFAULT_SETTINGS.texts.candidateProfile),
++  motivationSummary: markdown(DEFAULT_SETTINGS.texts.motivationProfile), interviewSummary: markdown(DEFAULT_SETTINGS.texts.interviewProfile),
++  location: DEFAULT_SETTINGS.personalFacts.location, availability: DEFAULT_SETTINGS.personalFacts.availability,
++  workEligibility: DEFAULT_SETTINGS.personalFacts.sponsorship, confirmedAnswers: keyed(DEFAULT_SETTINGS.facts),
++})
++const evidence = DEFAULT_SETTINGS.texts.candidateProfile.split(/(?=^## )/m).filter(s=>s.trim())
++docs.get('candidate:bernardo').evidence = evidence.map((body,i) => add(`candidate:evidence:${i}`, 'candidateEvidence', body, {
++  title: body.match(/^#+ (.+)$/m)?.[1] || `Candidate evidence ${i + 1}`, kind: 'fact', body: markdown(body),
++}))
++
++for (const job of snapshot.jobs) {
++  add(`job:${job.id}`, 'job', job, {...pick(job, 'company role jobDescription location locationMode salary source sourceType sourceUrl externalId threadId stage archived archivedAt notes instructions recruiter rationale overviewSummary replyOwed userViewed closed score tier receivedAt createdAt updatedAt'),
++    legacyId: job.id, sourceRevision: job.revision, candidate, stage: job.stage === 'not_a_fit' ? 'not_interested' : job.stage,
++  })
++  if (!job.company) docs.get(`job:${job.id}`).migration.qualityIssues = ['Company is missing in the source posting']
++  for (const [index, q] of (job.questions || []).entries()) add(`question:${job.id}:${q.id}`, 'applicationQuestion', q, {
++    legacyId: q.id, job: reference(`job:${job.id}`), question: q.q, answer: q.a, wordLimit: q.limit,
++    refused: q.refused, reason: q.reason, answeredAt: q.answeredAt, order: index,
++  })
++  if (job.jevAssessment) {
++    const a = job.jevAssessment
++    const choice = v => v ? {...v, probabilities: probabilities(v.probabilities)} : undefined
++    docs.get(`job:${job.id}`).activeAssessment = add(`assessment:${job.id}:${a.fingerprint}`, 'fitAssessment', a, {
++      job: reference(`job:${job.id}`), legacyId: job.id, ...pick(a, 'score model blocked provisional status'),
++      generatedAt: a.assessedAt, inputFingerprint: a.fingerprint, policyVersion: a.policy,
++      dimensions: keyed(a.dimensions.map(d => ({...d, probabilities: probabilities(d.probabilities)}))),
++      posting: choice(a.posting), constraint: choice(a.constraint),
++    })
++  }
++}
++for (const report of snapshot.reports) {
++  const jobs = snapshot.jobs.filter(j=>j.fitReportId===report.id).map(j=>reference(`job:${j.id}`))
++  const fields = r => ({legacyId: report.id, jobs, job: jobs[0], jobTitle: r.job_title, company: r.company,
++    jobDescription: r.job_description, pitch: r.pitch, categories: keyed(r.categories), differentiators: keyed(r.differentiators),
++    closing: r.closing, model: r.model, generatedAt: r.regenerated_at || r.created_at, createdAt: r.created_at, regeneratedAt: r.regenerated_at,
++    generation: r.generation, publiclyShared: true})
++  add(`report:${report.id}:current`, 'fitReport', report, {...fields(report), active: true})
++  for (const v of snapshot.versions[report.id] || []) add(`report:${report.id}:${v.vid}`, 'fitReport', v, {
++    ...fields(v.report), versionId: v.vid, generatedAt: v.createdAt, model: v.model, versionInstructions: v.versionInstructions,
++    active: false, privateReasoning: v.internal?.reasoning,
++    internalAssessment:v.internal ? {...v.internal,breakdown:probabilities(v.internal.breakdown)} : undefined,
++  })
++}
++const covers = new Map()
++for (const job of snapshot.jobs) {
++  for (const v of job.coverLetterVersions || []) covers.set(`${job.id}:${v.vid}`, {jobId: job.id, ...v})
++  if (job.coverLetter?.length) {
++    const matched = [...covers.values()].find(v=>v.jobId===job.id && JSON.stringify(v.paragraphs)===JSON.stringify(job.coverLetter))
++    const vid = matched?.vid || `legacy${hash(job.coverLetter).slice(0,16)}`
++    if (!matched) covers.set(`${job.id}:${vid}`, {jobId: job.id, vid, at: job.coverLetterAt, model: job.coverLetterModel,
++      salutation: job.coverLetterSalutation, words: job.coverLetterWords, paragraphs: job.coverLetter})
++    docs.get(`job:${job.id}`).activeCoverLetter = reference(`cover:${job.id}:${job.coverLetterId || vid}`)
++  }
++}
++const points = values => keyed((values || []).map(v => typeof v === 'string' ? {text:v, basis:'judgement'} : {
++  text: v.text, sourceKey: typeof v.src === 'number' ? String(v.src) : undefined,
++  basis: v.src === 'posting' ? 'posting' : typeof v.src === 'number' ? 'research' : 'judgement',
++}))
++for (const a of artifactExport.artifacts) {
++  if (a.kind === 'letter') {covers.set(`${a.jobId}:${a.vid}`, {...covers.get(`${a.jobId}:${a.vid}`), ...a}); continue}
++  const job = snapshot.jobs.find(j=>j.id===a.jobId)
++  const common = {job: reference(`job:${a.jobId}`), legacyId:a.jobId, versionId:a.vid, generatedAt:a.at || job[`${a.kind}At`],
++    model:a.model || job[`${a.kind}Model`], sources:(a.sources || []).map((s,i)=>({_key:String(s.id ?? i), _type:'source', ...pick(s,'title url retrievedAt publishedAt')})), unknowns:a.unknowns}
++  if (a.kind === 'research') add(`research:${a.jobId}:${a.vid}`, 'companyResearch', a, {...common,company:job.company,domain:a.domain,partial:a.partial ?? job.researchPartial,
++    ...Object.fromEntries(['summary','signals','risks','roleContext'].map(k=>[k,points(a[k])]))})
++  else add(`brief:${a.jobId}:${a.vid}`, 'interviewBrief', a, {...common,company:job.company,role:job.role,stage:job.briefStage,
++    contact:a.contact,opening:a.opening,personalAnswers:a.personalAnswers,confirmedAnswers:keyed(a.confirmedAnswers),
++    conversationNotes:a.conversation?.notes,conversationReceivedAt:a.conversation?.receivedAt,conversationUpdatedAt:a.conversation?.updatedAt,
++    conversation:points(a.conversation?.points), ...Object.fromEntries(['why','likelyQuestions','gapResponses','greenFlags','redFlags','questionsToAsk','companyReference','roleReference'].map(k=>[k,points(a[k])]))})
++}
++for (const [key,a] of covers) add(`cover:${key}`, 'coverLetter', a, {
++  job:reference(`job:${a.jobId}`), legacyId:a.jobId, versionId:a.vid, generatedAt:a.at,model:a.model,versionInstructions:a.versionInstructions,
++  salutation:a.salutation,wordCount:a.words,body:coverBody(a.paragraphs || []),
++})
++for (const job of snapshot.jobs) {
++  const doc = docs.get(`job:${job.id}`)
++  for (const [field,key] of [['activeReport',job.fitReportId && `report:${job.fitReportId}:current`],
++    ['activeCoverLetter',job.coverLetterId && `cover:${job.id}:${job.coverLetterId}`],
++    ['activeResearch',job.researchId && `research:${job.id}:${job.researchId}`], ['activeBrief',job.briefId && `brief:${job.id}:${job.briefId}`]]) {
++    if (!key) continue
++    if (docs.has(key)) doc[field] = reference(key)
++    else issues.push({sourceKey:`job:${job.id}`,missingReference:key})
++  }
++}
++const cvSource = await readFile(new URL('public/cv.html',root),'utf8')
++const cvDom = new JSDOM(cvSource).window.document
++cvDom.querySelectorAll('script,style,nav,button').forEach(el=>el.remove())
++add('page:cv', 'sitePage', cvSource, {title:'Bernardo Raposo · CV',slug:{_type:'slug',current:'cv'},legacyPath:'/cv.html',candidate,body:html(cvDom.body.innerHTML)})
++// Render only the trusted repository's inline homepage script in an offline DOM.
++// No external resources are enabled, and network access is explicitly disabled.
++const homeSource=await readFile(new URL('public/index.html',root),'utf8')
++const homeDom=new JSDOM(homeSource,{url:'https://fit.bernardoraposo.com/',runScripts:'outside-only'})
++homeDom.window.fetch=()=>{throw new Error('Network is disabled during source conversion')}
++const homeScript=homeDom.window.document.querySelector('script').textContent
++if(!homeScript.includes('var params = new URLSearchParams(location.search);')) throw new Error('Homepage structure changed; review converter')
++homeDom.window.eval(homeScript.replace('var params = new URLSearchParams(location.search);','window.__migrationDemo = DEMO_REPORT; var params = new URLSearchParams(location.search);'))
++add('page:home','sitePage',homeSource,{title:'Fit home',slug:{_type:'slug',current:'home'},legacyPath:'/',candidate,
++  body:html(homeDom.window.document.getElementById('app').innerHTML)})
++const demo=JSON.parse(JSON.stringify(homeDom.window.__migrationDemo))
++add('report:demo','fitReport',demo,{legacyId:'demo',jobTitle:demo.job_title,company:demo.company,pitch:demo.pitch,
++  categories:keyed(demo.categories),differentiators:keyed(demo.differentiators),closing:demo.closing,publiclyShared:false,active:false})
++homeDom.window.close()
++const ids = new Set([...docs.values()].map(d=>d._id))
++const validate = (value, sourceKey) => {
++  if (!value || typeof value !== 'object') return
++  if (value._ref && !ids.has(value._ref)) issues.push({sourceKey, danglingReference:value._ref})
++  if (Array.isArray(value)) {
++    const objects = value.filter(v=>v && typeof v==='object')
++    if (objects.some(v=>!v._key)) issues.push({sourceKey, missingArrayKey:true})
++  }
++  for (const child of Object.values(value)) validate(child,sourceKey)
++}
++// Reference arrays also require keys in Studio.
++for (const doc of docs.values()) {
++  const keys = value => {
++    if (Array.isArray(value)) value.forEach((v,i)=>{if(v && typeof v==='object') v._key ||= `item${i}`; keys(v)})
++    else if(value && typeof value==='object') Object.values(value).forEach(keys)
++  }
++  keys(doc); validate(doc,doc.migration.sourceKey)
++}
++await mkdir(new URL('migration/transformed/',root),{recursive:true})
++await mkdir(new URL('migration/reports/',root),{recursive:true})
++await writeFile(new URL('migration/transformed/content.json',root),JSON.stringify([...docs.values()].map(clean),null,2))
++await writeFile(new URL('migration/transformed/content.ndjson',root),[...docs.values()].map(d=>JSON.stringify(clean(d))).join('\n')+'\n')
++const report = {snapshotAt:snapshot.exportedAt,counts:Object.fromEntries([...new Set([...docs.values()].map(d=>d._type))].map(t=>[t,[...docs.values()].filter(d=>d._type===t).length])),issues,
++  limitations:['Admin export cannot prove orphan coverage or recover trimmed histories. Raw KV scan required.', 'Artifact preview API omits some generation provenance and brief confirmed answers.', 'Dynamic UI labels, loading/error messages and admin interface copy still live in application code; homepage body and demo report are imported.', 'App remains on Redis; rerun latest source delta before cutover.']}
++await writeFile(new URL('migration/reports/transform.json',root),JSON.stringify(report,null,2))
++console.log(JSON.stringify(report,null,2))
++if(issues.length) process.exitCode=1

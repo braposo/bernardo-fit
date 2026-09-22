@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {digest, assertUnedited} from '../migration/scripts/integrity.mjs';
+const doc = {_id:'example', _type:'job', notes:'Imported notes', migration:{sourceKey:'job:legacy'}, questions:[{_key:'a',answer:'Yes'}]};
+doc.migration.importHash = digest(doc);
+assert.doesNotThrow(() => assertUnedited({...doc,_rev:'new',_updatedAt:'later'},doc));
+assert.throws(() => assertUnedited({...doc,notes:'Editorial change'},doc), /No overwrite/);
+assert.throws(() => assertUnedited({...doc,questions:[{_key:'a',answer:'No'}]},doc), /No overwrite/);
+assert.throws(() => assertUnedited({...doc,migration:{...doc.migration,sourceKey:'job:other'}},doc), /No overwrite/);
+assert.equal(digest(doc),digest({questions:doc.questions,migration:doc.migration,notes:doc.notes,_type:doc._type,_id:doc._id}));
+assert.notEqual(digest(doc),digest({...doc,extraField:'Editor-added field'}));
+console.log('passed 6, failed 0');
