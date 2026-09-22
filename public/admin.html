@@ -653,10 +653,11 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       status.textContent = done.text;
       if (status.classList.contains("row-status")) status.className = "row-status" + (done.tone ? " " + done.tone : "");
       if (kind !== "answer") loadJobs(false);
-      if (kind === "jev-score" && out.ok && out.d.status === "COMPLETED") {
-        api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (detail) {
+      var detailId = kind === "jev-score-all" ? selectedId : id;
+      if ((kind === "jev-score" || kind === "jev-score-all") && detailId && out.ok && out.d.status === "COMPLETED") {
+        api("/api/admin/jobs?id=" + encodeURIComponent(detailId), { method: "GET" }).then(function (detail) {
           if (unauthorised(detail) || !detail.ok) return;
-          var index = jobs.findIndex(function (job) { return job.id === id; });
+          var index = jobs.findIndex(function (job) { return job.id === detailId; });
           if (index === -1 || (jobs[index].revision || 0) > (detail.d.job.revision || 0)) return;
           jobs[index] = Object.assign({}, jobs[index], detail.d.job);
           renderJobs();
@@ -1133,12 +1134,12 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var restoreInstructions = active && active.hasAttribute('data-version-instructions');
       var caret = restoreInstructions ? [active.selectionStart, active.selectionEnd] : null;
       currentReview = review;
-      if (options.kind !== 'jev-score') { model = review.model; localStorage.setItem(MODEL_KEY, model); }
+      if (options.kind !== 'jev-score' && options.kind !== 'jev-score-all') { model = review.model; localStorage.setItem(MODEL_KEY, model); }
       var models = MODELS.map(function (item) { return '<option value="' + esc(item.id) + '"' + (item.id === review.model ? ' selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
       var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
         return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
       renderAdmin(bodyEl, '<p class="review-description">' + esc(review.description || 'We’ll generate the requested content using your saved details.') + '</p>' +
-        jobsHtml + (options.kind === 'jev-score' || review.routing && review.routing.source === 'jev' ? '' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
+        jobsHtml + (options.kind === 'jev-score' || options.kind === 'jev-score-all' || review.routing && review.routing.source === 'jev' ? '' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
         (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="Add to this job’s generic instructions for this version only…">'+esc(versionInstructions)+'</textarea>' : ''));
       var instructionsEl = dialog.querySelector('[data-version-instructions]');
@@ -1248,7 +1249,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     searched.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
     var shown = searched.filter(function (j) { return !stageFilter || j.stage === stageFilter; });
     shown.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
-    var analysisIds = shown.filter(function (j) { return j.analysisReady; }).map(function (j) { return j.id; });
+    var assessmentIds = shown.map(function (j) { return j.id; });
 
     if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) {
       selectedId = shown[0].id;
@@ -1276,8 +1277,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
       '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select></div></div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
-      ((analysisIds.length && !searchLoading || activeRuns['analyse-all']) ? '<div class="bulkbar"><button class="generation" id="analyseall"' + (activeRuns['analyse-all'] ? ' disabled' : '') + '>' +
-        (activeRuns['analyse-all'] ? 'Analysing…' : 'Analyse listed roles (' + analysisIds.length + ')') + '</button></div>' : '') +
+      ((!showArchived && jevEnabled && assessmentIds.length && !searchLoading || activeRuns['jev-score-all']) ? '<div class="bulkbar"><button class="generation" id="assesslisted"' + (activeRuns['jev-score-all'] ? ' disabled' : '') + '>' +
+        (activeRuns['jev-score-all'] ? 'Assessing…' : 'Assess listed roles (' + assessmentIds.length + ')') + '</button></div>' : '') +
       '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
 
     renderedRole = selectedId; renderedSection = workspaceSection;
@@ -1313,17 +1314,17 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       });
     }
 
-    var analyseAllBtn = document.getElementById("analyseall");
-    if (analyseAllBtn) {
-      analyseAllBtn.disabled = !!activeRuns["analyse-all"];
-      analyseAllBtn.addEventListener("click", function () {
-        openGenerationReview({ kind: 'analyse-all', jobIds: analysisIds, trigger: analyseAllBtn, status: analyseAllBtn });
+    var assessListedBtn = document.getElementById("assesslisted");
+    if (assessListedBtn) {
+      assessListedBtn.disabled = !!activeRuns["jev-score-all"];
+      assessListedBtn.addEventListener("click", function () {
+        openGenerationReview({ kind: 'jev-score-all', jobIds: assessmentIds, trigger: assessListedBtn, status: assessListedBtn });
       });
     }
 
-    ["analyse-all", "adopt"].forEach(function (kind) {
+    ["jev-score-all", "adopt"].forEach(function (kind) {
       var active = activeRuns[kind];
-      var target = kind === "analyse-all" ? analyseAllBtn : adoptBtn;
+      var target = kind === "jev-score-all" ? assessListedBtn : adoptBtn;
       if (!active || !active.runId || !target || attachedCoverWatches[active.runId]) return;
       attachedCoverWatches[active.runId] = true;
       target.disabled = true;

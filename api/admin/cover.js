@@ -5,7 +5,7 @@ import { assertReviewedScope, resolveGenerationReview, REVIEWED_GENERATION_KINDS
 import { getJob, mutateJob } from "../../lib/store.js";
 import { resolveModel } from "../../lib/models.js";
 import { clearActiveRun, getReceiptForRequest, getRunReceipt, saveActiveRun, saveRunReceipt } from "../../lib/run-receipts.js";
-import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, ANALYSE_ALL_TASK_ID, ANSWER_TASK_ID, BRIEF_TASK_ID,
+import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, ANALYSE_ALL_TASK_ID, SCORE_LISTED_TASK_ID, ANSWER_TASK_ID, BRIEF_TASK_ID,
   COVER_TASK_ID, PREPARE_SCREEN_TASK_ID, RESEARCH_TASK_ID, TERMINAL_RUN_STATUSES,
   coverDispatchEnabled, screenDispatchEnabled } from "../../lib/task-policy.js";
 
@@ -18,7 +18,8 @@ const SPECS = {
   analyse: { taskId: ANALYSIS_TASK_ID, field: "analysisRun" },
   regenerate: { taskId: ANALYSIS_TASK_ID, field: "analysisRun" },
   answer: { taskId: ANSWER_TASK_ID, field: "questionRun" },
-  "analyse-all": { taskId: ANALYSE_ALL_TASK_ID, global: true },
+  "analyse-all": { taskId: ANALYSE_ALL_TASK_ID, global: true, statusOnly: true },
+  "jev-score-all": { taskId: SCORE_LISTED_TASK_ID, global: true },
   adopt: { taskId: ADOPT_TASK_ID, global: true },
   ingest: { taskId: null, global: true, statusOnly: true },
 };

@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
       const [stats, analysed, unlinked, activeRuns] = await Promise.all([
         getStats(ids), getReportSources(ids), findUnlinkedReportIds(all),
-        getActiveRuns(["analyse-all", "adopt"]),
+        getActiveRuns(["jev-score-all", "adopt"]),
       ]);
       // Whether the row's description has moved on since it was analysed.
       // Read from the report rather than stamped on the row when the analysis

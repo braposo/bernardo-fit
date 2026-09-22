@@ -13,6 +13,7 @@ check("superseded result stays closed", coverCompletion({ ok: true, d: { status:
 check("failure keeps its message", coverCompletion({ ok: false, d: { error: "Provider unavailable" } }).text === "Provider unavailable");
 check("research completion reports sources", workCompletion({ ok: true, d: { kind: "research", status: "COMPLETED", result: { outcome: "completed", sources: 6 } } }).text === "6 sources");
 check("brief completion can open", workCompletion({ ok: true, d: { kind: "brief", status: "COMPLETED", result: { outcome: "completed" } } }).open === true);
+check("bulk assessment reports completed scores", workCompletion({ ok: true, d: { kind: "jev-score-all", status: "COMPLETED", result: { outcome: "completed", assessed: 2, failed: 0 } } }).text === "2 assessed, 0 failed");
 
 console.log("\n--- run watcher ---");
 let calls = 0, progress = 0;

@@ -21,7 +21,7 @@ export function workCompletion(out) {
   if (out.d.kind === "answer") return { text: (out.d.result.refused ? "Needs you" : (out.d.result.words || 0) + " words") +
       (out.d.result.routing === "jev-unavailable-full" ? " · Jev unavailable; used full context" : ""),
     tone: out.d.result.refused || out.d.result.over ? "err" : "ok", open: false };
-  if (out.d.kind === "analyse-all") return { text: out.d.result.analysed + " analysed, " + out.d.result.failed + " failed",
+  if (out.d.kind === "jev-score-all") return { text: out.d.result.assessed + " assessed, " + out.d.result.failed + " failed",
     tone: out.d.result.failed ? "err" : "ok", open: false };
   if (out.d.kind === "adopt") return { text: out.d.result.added + " added", tone: "ok", open: false };
   return { text: "Screen brief ready", tone: "ok", open: true };
