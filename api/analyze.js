@@ -1,4 +1,5 @@
 import { withSettingsHandler } from "../lib/sanity/settings-handler.js";
+import { assertStorageDispatch } from "../lib/task-policy.js";
 import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
 import { analysisContext } from "../lib/analyze.js";
 import { PUBLIC_MODEL } from "../lib/models.js";
@@ -102,7 +103,7 @@ async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   try {
     if (req.method === "GET") return await status(req, res);
-    if (req.method === "POST") return await start(req, res);
+    if (req.method === "POST") { assertStorageDispatch(); return await start(req, res); }
     return res.status(405).json({ error: "Method not allowed" });
   } catch (error) {
     return res.status(error.status || 500).json({ error: error.message || "Unexpected error" });

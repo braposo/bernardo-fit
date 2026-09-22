@@ -63,6 +63,25 @@ await test("malformed rubrics, keys, templates and weights cannot reach a model"
   for (const mutate of mutations) { const bad = structuredClone(original); mutate(bad);
     assert.throws(() => settingsFromDocument(bad), {code: "SANITY_SETTINGS_INVALID"}); }
 });
+await test("candidate documents drive task evidence and invalidate fingerprints after publication", async () => {
+  const block=text=>[{children:[{text}]}];
+  const candidate={_rev:'profile-v1',summary:block('Published candidate evidence'),evidence:[{body:block('Published project evidence')}],
+    motivationSummary:block('Motivation evidence'),interviewSummary:block('Interview evidence'),location:'London',
+    availability:'Available',workEligibility:'No sponsorship required',confirmedAnswers:[{question:'Where?',answer:'London'}]};
+  const reader={fetch:async query=>query===ANALYSIS_SETTINGS_QUERY?revised:candidate};
+  const env={SANITY_ANALYSIS_ENABLED:'1',SANITY_CONTENT_ENABLED:'1'};
+  const a=await loadAnalysisSettings(env,reader);
+  assert.match(a.texts.candidateProfile,/Published project evidence/);
+  assert.equal(a.texts.motivationProfile,'Motivation evidence');
+  assert.equal(a.facts[0].answer,'London');
+  candidate.summary=block('Edited candidate evidence');
+  candidate.confirmedAnswers=[];
+  const b=await loadAnalysisSettings(env,reader);
+  assert.notEqual(a.fingerprint,b.fingerprint);
+  assert.deepEqual(b.facts,[],'Cleared facts must not resurrect code defaults');
+  candidate.summary=[];
+  await assert.rejects(loadAnalysisSettings(env,reader),{code:'SANITY_SETTINGS_INVALID'});
+});
 await test("concurrent tasks retain isolated immutable snapshots", async () => {
   const results = await Promise.all([snapshot, changed].map(value => withSettingsSnapshot(value, async () => {
     await new Promise(resolve => setImmediate(resolve));

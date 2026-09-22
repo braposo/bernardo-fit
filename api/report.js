@@ -1,4 +1,4 @@
-import { getReport } from "../lib/store.js";
+import { getSharedReport } from "../lib/store.js";
 import { publicReport } from "../lib/report.js";
 
 // GET /api/report?id=abc123  -> { report }
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const report = await getReport(id);
+    const report = await getSharedReport(id);
     if (!report) {
       res.status(404).json({ error: "Report not found" });
       return;

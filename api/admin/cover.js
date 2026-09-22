@@ -1,4 +1,5 @@
 import { withSettingsHandler } from "../../lib/sanity/settings-handler.js";
+import { assertStorageDispatch } from "../../lib/task-policy.js";
 import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
 import { requireAdmin } from "../../lib/admin.js";
 import { digest } from "../../lib/generation-fingerprint.js";
@@ -103,6 +104,7 @@ async function handler(req, res) {
       });
     }
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    assertStorageDispatch();
     const body = req.body || {};
     if (body.action === "review") {
       const resolved = await resolveGenerationReview(body);

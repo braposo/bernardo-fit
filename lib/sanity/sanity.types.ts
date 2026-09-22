@@ -23,6 +23,15 @@ export type Migration = {
   qualityIssues?: Array<string>;
 };
 
+export type ContentRegistry = {
+  _id: string;
+  _type: "contentRegistry";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  sequence?: number;
+};
+
 export type AnalysisSettings = {
   _id: string;
   _type: "analysisSettings";
@@ -82,6 +91,9 @@ export type MigrationRecord = {
   title?: string;
   kind?: string;
   payload?: string;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -120,6 +132,9 @@ export type WritingGuidance = {
     _key: string;
   }>;
   reviewedAt?: string;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -172,6 +187,9 @@ export type SitePage = {
     _type: "file";
   };
   legacyPath?: string;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -204,6 +222,9 @@ export type ApplicationQuestion = {
   reason?: string;
   answeredAt?: string;
   order?: number;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -308,6 +329,9 @@ export type Job = {
   tier?: string;
   updatedAt?: string;
   sourceRevision?: number;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -368,6 +392,9 @@ export type FitAssessment = {
   blocked?: boolean;
   provisional?: boolean;
   status?: string;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -461,6 +488,9 @@ export type InterviewBrief = {
   stage?: string;
   conversationReceivedAt?: string;
   conversationUpdatedAt?: string;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -506,6 +536,9 @@ export type CompanyResearch = {
     } & Source
   >;
   partial?: boolean;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -542,6 +575,14 @@ export type CoverLetter = {
     _key: string;
   }>;
   wordCount?: number;
+  paragraphFlags?: Array<{
+    lead?: boolean;
+    fit?: boolean;
+    _key: string;
+  }>;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -585,6 +626,9 @@ export type FitReport = {
   active?: boolean;
   createdAt?: string;
   regeneratedAt?: string;
+  current?: boolean;
+  activeVersionId?: string;
+  dismissed?: boolean;
   generation?: {
     prompt?: string;
     instructions?: string;
@@ -600,6 +644,9 @@ export type FitReport = {
       _key: string;
     }>;
   };
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -645,6 +692,9 @@ export type CandidateEvidence = {
     } & Source
   >;
   reviewedAt?: string;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -738,6 +788,9 @@ export type CandidateProfile = {
     _key: string;
   }>;
   reviewedAt?: string;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
 };
@@ -872,6 +925,7 @@ export type Geopoint = {
 
 export type AllSanitySchemaTypes =
   | Migration
+  | ContentRegistry
   | AnalysisSettings
   | MigrationRecord
   | WritingGuidance
@@ -1085,7 +1139,7 @@ export type CANDIDATE_QUERY_RESULT = {
 
 // Source: ../fit-app/lib/sanity/queries.js
 // Variable: JOB_CONTENT_QUERY
-// Query: *[_type == "job" && _id == $id][0]{  ...,  candidate->{_id, name}, activeReport->, activeCoverLetter->, activeResearch->,  activeBrief->, activeAssessment->,  "questions": *[_type == "applicationQuestion" && job._ref == ^._id] | order(order asc, _createdAt asc),  "reportVersions": *[_type == "fitReport" && (job._ref == ^._id || ^._id in jobs[]._ref)] | order(generatedAt desc){_id, versionId, generatedAt, model, active},  "coverVersions": *[_type == "coverLetter" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},  "researchVersions": *[_type == "companyResearch" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},  "briefVersions": *[_type == "interviewBrief" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model}}
+// Query: *[_type == "job" && _id == $id][0]{  ...,  candidate->{_id, name}, activeReport->, activeCoverLetter->, activeResearch->,  activeBrief->, activeAssessment->,  "questions": *[_type == "applicationQuestion" && job._ref == ^._id] | order(order asc, _createdAt asc),  "reportVersions": *[_type == "fitReport" && legacyId == ^.activeReport->.legacyId && !defined(deletedAt) && pending != true] | order(generatedAt desc){_id, versionId, generatedAt, model, active},  "coverVersions": *[_type == "coverLetter" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},  "researchVersions": *[_type == "companyResearch" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},  "briefVersions": *[_type == "interviewBrief" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model}}
 export type JOB_CONTENT_QUERY_RESULT = {
   _id: string;
   _type: "job";
@@ -1179,6 +1233,9 @@ export type JOB_CONTENT_QUERY_RESULT = {
     active?: boolean;
     createdAt?: string;
     regeneratedAt?: string;
+    current?: boolean;
+    activeVersionId?: string;
+    dismissed?: boolean;
     generation?: {
       prompt?: string;
       instructions?: string;
@@ -1194,6 +1251,9 @@ export type JOB_CONTENT_QUERY_RESULT = {
         _key: string;
       }>;
     };
+    appState?: string;
+    pending?: boolean;
+    deletedAt?: string;
     migration?: Migration;
     sourcePayload?: string;
   } | null;
@@ -1229,6 +1289,14 @@ export type JOB_CONTENT_QUERY_RESULT = {
       _key: string;
     }>;
     wordCount?: number;
+    paragraphFlags?: Array<{
+      lead?: boolean;
+      fit?: boolean;
+      _key: string;
+    }>;
+    appState?: string;
+    pending?: boolean;
+    deletedAt?: string;
     migration?: Migration;
     sourcePayload?: string;
   } | null;
@@ -1273,6 +1341,9 @@ export type JOB_CONTENT_QUERY_RESULT = {
       } & Source
     >;
     partial?: boolean;
+    appState?: string;
+    pending?: boolean;
+    deletedAt?: string;
     migration?: Migration;
     sourcePayload?: string;
   } | null;
@@ -1365,6 +1436,9 @@ export type JOB_CONTENT_QUERY_RESULT = {
     stage?: string;
     conversationReceivedAt?: string;
     conversationUpdatedAt?: string;
+    appState?: string;
+    pending?: boolean;
+    deletedAt?: string;
     migration?: Migration;
     sourcePayload?: string;
   } | null;
@@ -1424,6 +1498,9 @@ export type JOB_CONTENT_QUERY_RESULT = {
     blocked?: boolean;
     provisional?: boolean;
     status?: string;
+    appState?: string;
+    pending?: boolean;
+    deletedAt?: string;
     migration?: Migration;
     sourcePayload?: string;
   } | null;
@@ -1436,6 +1513,9 @@ export type JOB_CONTENT_QUERY_RESULT = {
   tier?: string;
   updatedAt?: string;
   sourceRevision?: number;
+  appState?: string;
+  pending?: boolean;
+  deletedAt?: string;
   migration?: Migration;
   sourcePayload?: string;
   questions: Array<{
@@ -1453,6 +1533,9 @@ export type JOB_CONTENT_QUERY_RESULT = {
     reason?: string;
     answeredAt?: string;
     order?: number;
+    appState?: string;
+    pending?: boolean;
+    deletedAt?: string;
     migration?: Migration;
     sourcePayload?: string;
   }>;
@@ -1552,6 +1635,20 @@ export type CONTENT_LIST_QUERY_RESULT = Array<
       name: null;
       role: null;
       company: string | null;
+      question: null;
+      headline: null;
+      stage: null;
+      slug: null;
+    }
+  | {
+      _id: string;
+      _type: "contentRegistry";
+      _rev: string;
+      _updatedAt: string;
+      title: null;
+      name: null;
+      role: null;
+      company: null;
       question: null;
       headline: null;
       stage: null;
@@ -1776,6 +1873,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       reason?: string;
       answeredAt?: string;
       order?: number;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -1821,6 +1921,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
         } & Source
       >;
       reviewedAt?: string;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -1909,6 +2012,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
         _key: string;
       }>;
       reviewedAt?: string;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -1953,8 +2059,19 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
         } & Source
       >;
       partial?: boolean;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
+    }
+  | {
+      _id: string;
+      _type: "contentRegistry";
+      _createdAt: string;
+      _updatedAt: string;
+      _rev: string;
+      sequence?: number;
     }
   | {
       _id: string;
@@ -1989,6 +2106,14 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
         _key: string;
       }>;
       wordCount?: number;
+      paragraphFlags?: Array<{
+        lead?: boolean;
+        fit?: boolean;
+        _key: string;
+      }>;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -2048,6 +2173,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       blocked?: boolean;
       provisional?: boolean;
       status?: string;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -2090,6 +2218,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       active?: boolean;
       createdAt?: string;
       regeneratedAt?: string;
+      current?: boolean;
+      activeVersionId?: string;
+      dismissed?: boolean;
       generation?: {
         prompt?: string;
         instructions?: string;
@@ -2105,6 +2236,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
           _key: string;
         }>;
       };
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -2197,6 +2331,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       stage?: string;
       conversationReceivedAt?: string;
       conversationUpdatedAt?: string;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -2265,6 +2402,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       tier?: string;
       updatedAt?: string;
       sourceRevision?: number;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -2277,6 +2417,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       title?: string;
       kind?: string;
       payload?: string;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -2358,6 +2501,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
         _type: "file";
       };
       legacyPath?: string;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -2396,6 +2542,9 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
         _key: string;
       }>;
       reviewedAt?: string;
+      appState?: string;
+      pending?: boolean;
+      deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
     }
@@ -2407,7 +2556,7 @@ declare global {
     '*[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{\n  _id, _rev, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},\n  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,\n  personalFacts{availability, location, sponsorship}\n}': ANALYSIS_SETTINGS_QUERY_RESULT;
     '{\n  "analysisSettings": count(*[_type == "analysisSettings"]),\n  "candidateProfile": count(*[_type == "candidateProfile"]),\n  "candidateEvidence": count(*[_type == "candidateEvidence"]),\n  "job": count(*[_type == "job"]),\n  "applicationQuestion": count(*[_type == "applicationQuestion"]),\n  "fitReport": count(*[_type == "fitReport"]),\n  "coverLetter": count(*[_type == "coverLetter"]),\n  "companyResearch": count(*[_type == "companyResearch"]),\n  "interviewBrief": count(*[_type == "interviewBrief"]),\n  "fitAssessment": count(*[_type == "fitAssessment"]),\n  "sitePage": count(*[_type == "sitePage"]),\n  "writingGuidance": count(*[_type == "writingGuidance"])\n}': CONTENT_COUNTS_QUERY_RESULT;
     '*[_type == "candidateProfile" && _id == $id][0]{\n  _id, _rev, name, headline, summary, motivationSummary, interviewSummary,\n  location, availability, workEligibility, noticePeriod, careerDirection,\n  workingPreferences, salaryPreferences, constraints, confirmedAnswers, reviewedAt,\n  evidence[]->{_id, _rev, title, kind, organisation, period, body, sources, reviewedAt}\n}': CANDIDATE_QUERY_RESULT;
-    '*[_type == "job" && _id == $id][0]{\n  ...,\n  candidate->{_id, name}, activeReport->, activeCoverLetter->, activeResearch->,\n  activeBrief->, activeAssessment->,\n  "questions": *[_type == "applicationQuestion" && job._ref == ^._id] | order(order asc, _createdAt asc),\n  "reportVersions": *[_type == "fitReport" && (job._ref == ^._id || ^._id in jobs[]._ref)] | order(generatedAt desc){_id, versionId, generatedAt, model, active},\n  "coverVersions": *[_type == "coverLetter" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "researchVersions": *[_type == "companyResearch" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "briefVersions": *[_type == "interviewBrief" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model}\n}': JOB_CONTENT_QUERY_RESULT;
+    '*[_type == "job" && _id == $id][0]{\n  ...,\n  candidate->{_id, name}, activeReport->, activeCoverLetter->, activeResearch->,\n  activeBrief->, activeAssessment->,\n  "questions": *[_type == "applicationQuestion" && job._ref == ^._id] | order(order asc, _createdAt asc),\n  "reportVersions": *[_type == "fitReport" && legacyId == ^.activeReport->.legacyId && !defined(deletedAt) && pending != true] | order(generatedAt desc){_id, versionId, generatedAt, model, active},\n  "coverVersions": *[_type == "coverLetter" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "researchVersions": *[_type == "companyResearch" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "briefVersions": *[_type == "interviewBrief" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model}\n}': JOB_CONTENT_QUERY_RESULT;
     '*[_type == $type] | order(_updatedAt desc, _id asc)[$start...$end]{\n  _id, _type, _rev, _updatedAt, title, name, role, company, question, headline, stage,\n  "slug": slug.current\n}': CONTENT_LIST_QUERY_RESULT;
     "*[_type == $type && _id == $id][0]": CONTENT_DOCUMENT_QUERY_RESULT;
   }

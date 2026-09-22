@@ -1,7 +1,10 @@
 # Fit content import
 
 Destination: private Sanity project `quli96gc`, dataset `production`.
-The app continues to read and write Redis. Merging this PR does **not** switch storage.
+The connected branch reads and writes Sanity when `SANITY_CONTENT_ENABLED=1`.
+Production continues using Redis until its coordinated app/worker activation.
+Merging this PR alone does **not** switch production storage. The importer is a
+historical transfer utility; it is not required for normal app reads or writes.
 
 ## Result — 22 September 2026
 
@@ -44,9 +47,12 @@ This verifies the exported content, **not a complete database migration**.
 - Dynamic labels, loading/error messages and admin interface copy remain in code.
   The homepage body, demo report, CV and analysis instructions are in Sanity;
   remaining interface copy needs an explicit editable model if it is in scope.
-- Job/artifact read-write adapters, concurrency rules, draft handling and public
-  renderers still need implementation and verification. Redis locks, run receipts,
-  usage, audit and rate limiting should remain operational data in Redis.
+- Job/artifact read-write adapters, concurrency guards, draft handling and shared
+  report reads are connected on this branch. The live storage probe exercises
+  these through the app storage layer and Trigger development worker. Hosted
+  branch generation requires Trigger Preview setup. Static home/CV renderers
+  still need wiring. Redis locks, run receipts, usage, audit and rate limiting
+  remain operational data in Redis, isolated by namespace on the branch.
 - Before enabling Sanity storage after merge: pause content writes, extract and
   import a final delta, verify active pointers and shared links, test generation
   and edits, then enable the coordinated web/worker configuration. Keep snapshots
@@ -102,7 +108,7 @@ without making arbitrary JSON the canonical editor.
 The Studio has a separate local Git repository without a remote.
 `standalone-studio.patch` is a reviewable text patch covering its schema,
 configuration and migration changes from bootstrap commit `ec51460` through
-`4b18e8f`. The actual Studio remains exclusively in `../studio-fit-app`; no Studio
+`0405fff`. The actual Studio remains exclusively in `../studio-fit-app`; no Studio
 directory is embedded in this app. The sibling changes are already committed.
 For a matching bootstrap checkout on another machine, run `git apply --check --unidiff-zero`
 against this patch before applying it there with `git apply --unidiff-zero`, then `npm ci`. Do not apply the

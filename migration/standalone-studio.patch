@@ -548,17 +548,19 @@ index afce286..7ab192c 100644
 +    overloadClientMethods: true,
 +  },
 diff --git a/sanity.config.ts b/sanity.config.ts
-index 3a2f587..4a0e898 100644
+index 3a2f587..01d2c09 100644
 --- a/sanity.config.ts
 +++ b/sanity.config.ts
-@@ -13 +13,14 @@ export default defineConfig({
+@@ -13 +13,16 @@ export default defineConfig({
 -  plugins: [structureTool(), visionTool()],
 +  plugins: [structureTool({
 +    structure: (S) => S.list().title('Fit content').items([
 +      S.listItem().title('Analysis settings').id('analysis-settings')
 +        .child(S.document().schemaType('analysisSettings').documentId('fit-analysis-settings')),
 +      S.divider(),
-+      ...S.documentTypeListItems().filter((item) => item.getId() !== 'analysisSettings'),
++      ...S.documentTypeListItems().filter((item) => !['analysisSettings','contentRegistry'].includes(item.getId() || ''))
++        .map(item=>item.child(S.documentList().title(item.getTitle() || 'Content')
++          .filter('_type == $type && !defined(deletedAt) && pending != true').params({type:item.getId()}))),
 +    ]),
 +  }), visionTool()],
 +
@@ -567,7 +569,7 @@ index 3a2f587..4a0e898 100644
 +      ? actions.filter(({action}) => !['delete', 'duplicate', 'unpublish'].includes(action || ''))
 +      : actions,
 +  },
-@@ -16,0 +30 @@ export default defineConfig({
+@@ -16,0 +32 @@ export default defineConfig({
 +    templates: (templates) => templates.filter((template) => template.schemaType !== 'analysisSettings'),
 diff --git a/schemaTypes/analysisSettings.ts b/schemaTypes/analysisSettings.ts
 new file mode 100644
@@ -819,21 +821,24 @@ index 0000000..a0e274c
 +    fields: [...type.fields.map(f => replacements[type.name]?.[f.name] || f), ...(extraFields[type.name] || []), ...migrationFields],
 +  }))
 diff --git a/schemaTypes/index.ts b/schemaTypes/index.ts
-index ba4681d..5b29dfc 100644
+index ba4681d..6f17725 100644
 --- a/schemaTypes/index.ts
 +++ b/schemaTypes/index.ts
-@@ -1 +1,4 @@
+@@ -1 +1,7 @@
 -export const schemaTypes = []
 +import {contentTypes} from './content'
 +import {analysisSettings} from './analysisSettings'
 +
-+export const schemaTypes = [...contentTypes, analysisSettings]
++export const schemaTypes = [...contentTypes, analysisSettings, {
++  name:'contentRegistry',title:'App content registry',type:'document',readOnly:true,
++  fields:[{name:'sequence',type:'number'}],
++}]
 diff --git a/schemaTypes/migrationFields.ts b/schemaTypes/migrationFields.ts
 new file mode 100644
-index 0000000..9f580ba
+index 0000000..848280e
 --- /dev/null
 +++ b/schemaTypes/migrationFields.ts
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,57 @@
 +import {defineArrayMember, defineField} from 'sanity'
 +
 +const field = (name: string, type = 'string') => defineField({name, type})
@@ -844,6 +849,9 @@ index 0000000..9f580ba
 +const choice = (name: string) => object(name, [field('type'), field('choice'), field('confidence', 'number'), probabilities])
 +
 +export const migrationFields = [
++  defineField({name:'appState',title:'App coordination metadata',type:'text',readOnly:true,hidden:true}),
++  defineField({name:'pending',type:'boolean',readOnly:true,hidden:true}),
++  defineField({name:'deletedAt',type:'datetime',readOnly:true,hidden:true}),
 +  defineField({name: 'migration', title: 'Import provenance', type: 'object', readOnly: true, fields: [
 +    field('sourceKey'), field('sourceHash'), field('importHash'), field('snapshotAt', 'datetime'), strings('qualityIssues'),
 +  ]}),
@@ -852,10 +860,12 @@ index 0000000..9f580ba
 +]
 +
 +export const extraFields: Record<string, ReturnType<typeof defineField>[]> = {
++  coverLetter: [defineField({name:'paragraphFlags',type:'array',of:[defineArrayMember({type:'object',fields:[field('lead','boolean'),field('fit','boolean')]})]})],
 +  job: [field('replyOwed', 'boolean'), field('userViewed', 'boolean'), field('closed', 'boolean'),
 +    field('score', 'number'), field('tier'), field('updatedAt', 'datetime'), field('sourceRevision', 'number')],
 +  fitReport: [defineField({name: 'jobs', title: 'Linked jobs', type: 'array', of: [{type: 'reference', to: [{type: 'job'}]}]}),
 +    field('active', 'boolean'), field('createdAt', 'datetime'), field('regeneratedAt', 'datetime'),
++    defineField({name:'current',type:'boolean',readOnly:true}),defineField({name:'activeVersionId',type:'string',readOnly:true}),defineField({name:'dismissed',type:'boolean',hidden:true}),
 +    object('generation', [field('prompt'),field('instructions','text'),field('effort')]),
 +    object('internalAssessment', [field('score','number'),field('tier'),field('reasoning','text'),
 +      defineField({name:'breakdown',type:'array',of:[defineArrayMember({type:'object',fields:[field('label'),field('value','number')]})]})])],
@@ -967,6 +977,27 @@ index 0000000..650c2c2
 +await writeFile(new URL('migration/reports/import.json',root),JSON.stringify(result,null,2))
 +console.log(JSON.stringify(result,null,2))
 +if(failures.length) process.exitCode=1
+diff --git a/scripts/repair-cover-format.mjs b/scripts/repair-cover-format.mjs
+new file mode 100644
+index 0000000..1f8a883
+--- /dev/null
++++ b/scripts/repair-cover-format.mjs
+@@ -0,0 +1,15 @@
++import {getCliClient} from 'sanity/cli'
++import {paragraphsToBody,keyed} from '../../fit-app/lib/sanity/codecs.js'
++import {digest,assertUnedited} from '../../fit-app/migration/scripts/integrity.mjs'
++const client=getCliClient({apiVersion:'2026-09-22'}).withConfig({useCdn:false})
++const docs=await client.fetch('*[_type == "coverLetter" && defined(migration.sourceKey)]')
++let repaired=0
++for(const doc of docs) {
++  assertUnedited(doc,doc)
++  const original=JSON.parse(doc.sourcePayload)
++  const fields={body:paragraphsToBody(original.paragraphs),paragraphFlags:keyed(original.paragraphs.map(p=>({lead:!!p.lead,fit:!!p.fit})))}
++  const next={...doc,...fields};next.migration={...doc.migration,importHash:digest(next)}
++  await client.patch(doc._id).ifRevisionId(doc._rev).set({...fields,migration:next.migration}).commit({visibility:'sync'})
++  repaired++
++}
++console.log(JSON.stringify({repaired}))
 diff --git a/scripts/seed-analysis-settings.mjs b/scripts/seed-analysis-settings.mjs
 new file mode 100644
 index 0000000..505ea24
@@ -989,10 +1020,10 @@ index 0000000..505ea24
 +}
 diff --git a/scripts/transform-content.mjs b/scripts/transform-content.mjs
 new file mode 100644
-index 0000000..f57931f
+index 0000000..8503425
 --- /dev/null
 +++ b/scripts/transform-content.mjs
-@@ -0,0 +1,188 @@
+@@ -0,0 +1,185 @@
 +import {readFile, writeFile, mkdir} from 'node:fs/promises'
 +import {createHash} from 'node:crypto'
 +import {Schema} from '@sanity/schema'
@@ -1000,6 +1031,7 @@ index 0000000..f57931f
 +import {markdownToPortableText} from '@portabletext/markdown'
 +import {JSDOM} from 'jsdom'
 +import {DEFAULT_SETTINGS} from '../../fit-app/lib/sanity/analysis-defaults.js'
++import {paragraphsToBody} from '../../fit-app/lib/sanity/codecs.js'
 +
 +const root = new URL('../../fit-app/', import.meta.url)
 +const read = async path => JSON.parse(await readFile(new URL(path, root), 'utf8'))
@@ -1045,11 +1077,7 @@ index 0000000..f57931f
 +  return blocks
 +}
 +const escape = value => String(value || '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
-+const coverBody = paragraphs => html(paragraphs.map(p => {
-+  if (typeof p === 'string') return `<p>${escape(p)}</p>`
-+  const text = p.html ?? escape(p.text || '').replace(/\[\[([\s\S]*?)\]\]/g, '<strong>$1</strong>')
-+  return `<p>${p.lead ? `<strong>${escape(p.lead)}</strong> ` : ''}${text}</p>`
-+}).join(''))
++const coverBody = paragraphs => paragraphsToBody(paragraphs.map(p=>typeof p==='string'?{text:p}:p))
 +const probabilities = value => keyed(Object.entries(value || {}).map(([label, value]) => ({label, value})))
 +const candidate = add('candidate:bernardo', 'candidateProfile', DEFAULT_SETTINGS, {
 +  name: 'Bernardo Raposo', summary: markdown(DEFAULT_SETTINGS.texts.candidateProfile),
@@ -1124,7 +1152,7 @@ index 0000000..f57931f
 +}
 +for (const [key,a] of covers) add(`cover:${key}`, 'coverLetter', a, {
 +  job:reference(`job:${a.jobId}`), legacyId:a.jobId, versionId:a.vid, generatedAt:a.at,model:a.model,versionInstructions:a.versionInstructions,
-+  salutation:a.salutation,wordCount:a.words,body:coverBody(a.paragraphs || []),
++  salutation:a.salutation,wordCount:a.words,body:coverBody(a.paragraphs || []),paragraphFlags:keyed((a.paragraphs || []).map(p=>({lead:!!p.lead,fit:!!p.fit}))),
 +})
 +for (const job of snapshot.jobs) {
 +  const doc = docs.get(`job:${job.id}`)

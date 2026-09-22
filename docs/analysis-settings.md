@@ -23,10 +23,14 @@ such as `{{candidateProfile}}` and `{{slopTop}}` insert the other editable entri
 refusal formats must remain compatible with the app. No published text executes
 as JavaScript. Runtime validation rejects incomplete or incompatible settings.
 
-This document is currently the source for analysis context. The separate prepared
-`candidateProfile`, `candidateEvidence` and `writingGuidance` content types are
-not yet connected to generation. Jobs, generated artifacts and public page copy
-remain in their existing stores; this change only activates analysis settings.
+With `SANITY_CONTENT_ENABLED=1`, edit candidate context in **Candidate profile**
+and its referenced **Candidate evidence**, including motivation/interview
+summaries, confirmed answers and personal facts. Those fields supersede the
+duplicate candidate entries retained in Analysis settings for legacy operation.
+Jev instructions, rubric, prompts and shared writing rules still come from
+**Analysis settings**. The optional `writingGuidance` type is not a runtime source.
+Jobs and generated artifacts also use Sanity in this mode; static public home/CV
+renderers remain file-backed. See [content storage](sanity-content.md).
 
 ## Activation and deployment
 
@@ -35,10 +39,13 @@ The local app has `SANITY_READ_TOKEN` and `SANITY_ANALYSIS_ENABLED=1` in its ign
 builds real task inputs without spending on a model or printing candidate content.
 
 Production requires the updated web app **and** Trigger.dev workers. Deploy them
-together after the PR is merged, with the same viewer-token access to project
-`quli96gc`, dataset `production`, and `SANITY_ANALYSIS_ENABLED=1` in both environments.
-The runtime needs read access only. Do not give the worker a Sanity editor token.
-No hosted environment variables or production workers were changed by this setup.
+together after the PR is merged. For full content storage both environments need
+`SANITY_CONTENT_ENABLED=1`, `SANITY_ANALYSIS_ENABLED=1` and a server-only editor
+`SANITY_WRITE_TOKEN` for project `quli96gc`, dataset `production`. A viewer token
+alone is sufficient only for the legacy analysis-settings-only mode.
+Branch-specific Vercel Preview settings enable the new content backend; production
+settings and workers remain unchanged. Trigger Preview must be enabled and its
+matching worker verified before setting `SANITY_WORKERS_READY=1` in the app.
 The flag defaults off until that coordinated activation; when off, the preserved
 code baseline is used. When on, a failed fetch or invalid/missing published settings
 returns an error rather than silently using obsolete instructions.

@@ -30,6 +30,7 @@
     "trigger:deploy": "trigger deploy --skip-update-check",
     "trigger:health": "trigger report health --env prod --period 24h",
     "sanity:check": "node --env-file-if-exists=.env.local scripts/check-sanity.mjs",
+    "sanity:storage:check": "node --env-file-if-exists=.env.local scripts/check-sanity-storage.mjs",
     "sanity:settings:check": "node --env-file-if-exists=.env.local scripts/check-analysis-settings.mjs"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@ import { requireAdmin } from "../../lib/admin.js";
 import { contentStatus, listContent, readContent, validateContentType, validateContentId,
   contentPage } from "../../lib/sanity/content.js";
 
-// Preparation connection only. Existing app reads/writes do not route here yet.
+// Authenticated content inspection; app and workers share the storage repository.
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   if (!requireAdmin(req, res)) return;

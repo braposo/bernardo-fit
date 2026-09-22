@@ -1,4 +1,5 @@
 import { withSettingsHandler } from "../../lib/sanity/settings-handler.js";
+import { assertStorageDispatch } from "../../lib/task-policy.js";
 import { idempotencyKeys, tasks } from "@trigger.dev/sdk";
 import { requireAdmin } from "../../lib/admin.js";
 import { cleanOpportunity } from "../../lib/ingest-work.js";
@@ -20,6 +21,7 @@ async function handler(req, res) {
   if (!requestId) return res.status(400).json({ error: "Expected a valid requestId." });
   if (list.length > 200) return res.status(400).json({ error: "Too many at once; send 200 or fewer." });
   try {
+    assertStorageDispatch();
     const cleaned = list.map((row) => row && typeof row === "object" ? cleanOpportunity(row) : row);
     const recovered = await getReceiptForRequest("ingest", "batch", requestId);
     if (recovered) return res.status(202).json({ runId: recovered.runId, requestId, kind: "ingest", recovered: true });
