@@ -31,7 +31,7 @@ function violations(r) {
   return [words(r.pitch) > 55, ...r.categories.map(c => words(c.note) > 45),
     ...r.differentiators.map(d => words(d.detail) > 30), words(r.closing) > 30].filter(Boolean).length;
 }
-const fitHtml = fs.readFileSync("public/index.html", "utf8");
+const fitHtml = fs.readFileSync("lib/templates/home.html", "utf8");
 const style = fitHtml.match(/<style>([\s\S]*?)<\/style>/)[1];
 const fonts = fitHtml.match(/<link href="https:\/\/fonts.googleapis.com[^>]+>/)[0];
 function body(r) {

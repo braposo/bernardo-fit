@@ -40,7 +40,7 @@ export function createSiteHandler(getClient = createContentClient) {
       }
       let html = await readFile(
         new URL(
-          `../public/${slug === "home" ? "index" : "cv"}.html`,
+          `../lib/templates/${slug === "home" ? "home" : "cv"}.html`,
           import.meta.url,
         ),
         "utf8",

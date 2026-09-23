@@ -102,6 +102,13 @@ index 0000000..f4c312b
 +    ],
 +  }),
 +]
+diff --git a/scripts/import-content.mjs b/scripts/import-content.mjs
+index 650c2c2..4a4941a 100644
+--- a/scripts/import-content.mjs
++++ b/scripts/import-content.mjs
+@@ -24 +24 @@ for (const doc of documents) {
+-const cv = await client.assets.upload('file', await readFile(new URL('public/bernardo-raposo-cv.pdf',root)), {filename:'bernardo-raposo-cv.pdf',contentType:'application/pdf'})
++const cv = await client.assets.upload('file', await readFile(new URL('migration/assets/bernardo-raposo-cv.pdf',root)), {filename:'bernardo-raposo-cv.pdf',contentType:'application/pdf'})
 diff --git a/scripts/structure-public-pages.mjs b/scripts/structure-public-pages.mjs
 new file mode 100644
 index 0000000..662c28d
@@ -236,3 +243,15 @@ index 0000000..662c28d
 +  await tx.commit({visibility: 'sync'})
 +}
 +console.log(JSON.stringify({applied: process.argv.includes('--apply'), pages: summary}))
+diff --git a/scripts/transform-content.mjs b/scripts/transform-content.mjs
+index 318f64c..f618a1e 100644
+--- a/scripts/transform-content.mjs
++++ b/scripts/transform-content.mjs
+@@ -0,0 +1 @@
++import {execFileSync} from 'node:child_process'
+@@ -142 +143 @@ for (const job of snapshot.jobs) {
+-const cvSource = await readFile(new URL('public/cv.html',root),'utf8')
++const cvSource = execFileSync('git',['show','49f271180b8b738fb98ea4267fc89695b5098214:public/cv.html'],{cwd:root,encoding:'utf8'})
+@@ -148 +149 @@ add('page:cv', 'sitePage', cvSource, {title:'Bernardo Raposo · CV',slug:{_type:
+-const homeSource=await readFile(new URL('public/index.html',root),'utf8')
++const homeSource=execFileSync('git',['show','49f271180b8b738fb98ea4267fc89695b5098214:public/index.html'],{cwd:root,encoding:'utf8'})
