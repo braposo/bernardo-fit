@@ -56,19 +56,22 @@ separate their Redis locks, run receipts, audit, usage and admission limits from
 production. These operational records intentionally remain in Redis; Sanity is
 the source of editorial content. The development probe can run without Redis.
 
-### Explicit shared-production preview
+### Realtime notifications preview
 
-To connect a preview to the existing production workers, its
-branch-specific configuration must set SANITY_CONTENT_ENABLED=1,
-SANITY_ANALYSIS_ENABLED=1, SANITY_WORKERS_READY=1, and
-SANITY_WORKER_ENV=production, with Sanity editor access. It inherits the production
-Trigger key and uses no TRIGGER_PREVIEW_BRANCH or KV_NAMESPACE override.
-Once configured, this preview operates on live Sanity content, like the production app.
+The realtime notifications branch targets a named Trigger Development worker:
+SANITY_WORKER_ENV=development, TRIGGER_PREVIEW_BRANCH=codex/realtime-task-toasts,
+and KV_NAMESPACE=realtime-preview. The app and worker both enable Sanity content
+and analysis settings, use editor access to the same dataset, and share the
+Development Trigger key. Start its worker with:
 
-This mode is explicit: previews with a production Trigger key cannot dispatch
-against legacy Redis content. A storage mismatch otherwise makes workers see old
-request pointers and incorrectly return superseded before doing any work.
-Named development or hosted preview workers remain available for isolated code testing.
+```sh
+npm run trigger:dev:sanity -- codex/realtime-task-toasts realtime-preview
+```
+
+The worker process and computer must stay running for queued tasks to execute.
+This uses the same task code and published Sanity inputs as production, with
+separate Trigger runs and operational Redis keys. Preview apps cannot dispatch to
+production workers, even if the preview’s Sanity flag is accidentally missing.
 
 ## Editing and consistency
 
