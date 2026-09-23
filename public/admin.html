@@ -2054,6 +2054,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     event.preventDefault();
     var wasArchived = showArchived, wasStage = stageFilter, wasSearch = searchQuery;
     rememberPipelineScroll();
+    var current = new URL(navigationUrl(), location.origin);
+    ['collection', 'stage', 'q'].forEach(function (key) {
+      if (!url.searchParams.has(key) && current.searchParams.has(key)) url.searchParams.set(key, current.searchParams.get(key));
+    });
     history.pushState({ admin: true }, '', url.pathname + url.search);
     readNavigationState();
     selectedMissing = false;
