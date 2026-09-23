@@ -5,10 +5,15 @@
   "type": "module",
   "private": true,
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.62",
+    "@ai-sdk/mcp": "2.0.57",
+    "@ai-sdk/openai": "4.0.74",
     "@sanity/client": "^8.6.2",
+    "@shadcn/react": "^0.3.1",
     "@trigger.dev/react-hooks": "^4.5.16",
     "@trigger.dev/sdk": "4.5.16",
     "@vercel/kv": "^2.0.0",
+    "ai": "7.0.113",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.3.0",
@@ -23,6 +28,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "scripts": {
+    "chat:check": "node --env-file-if-exists=.env.local --env-file-if-exists=.env.development.local --env-file-if-exists=.env.context.local scripts/check-chat.mjs",
     "jev:check": "node --env-file-if-exists=.env.local scripts/check-jev.mjs",
     "build": "node scripts/build-admin.mjs",
     "test:admin-ui": "node scripts/verify-admin-ux.mjs",

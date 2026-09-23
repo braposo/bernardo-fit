@@ -287,6 +287,15 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Successful generation automatically makes the new version live. Keep the previous output readable while work runs and retain previous versions for preview and explicit publication. Preserve public/private boundaries and never describe this as draft-only generation.
 - Distinguish missing, stale, running, failed and other backend-supported outcomes. Reload should recover running work; duplicate submission should recover the existing request rather than start another one.
 
+## Admin chat (approved direction; interface pending)
+
+- Chat is private to the authenticated admin and reads Sanity content. Suggested answers do not save or publish changes.
+- Use the actual shadcn Message Scroller with Message/Bubble and the existing form primitives. Preserve scroll position while reading older messages; offer a scroll-to-end action as new text arrives.
+- Chat explicitly exposes provider and model selection, including Auto with Jev, and records the actual model on each answer. This is a chat-specific choice; existing generation action labels continue to use task verbs.
+- Keep streamed text, sources, draft input and partial failed/stopped answers readable. Stop and explicit Retry must describe the real request lifecycle. Send is the explicit submission for a chat turn; it does not require a document-generation review dialog.
+- Keep the composer reachable on mobile, controls labelled, keyboard focus stable and status announcements polite. Do not show raw tool payloads or hidden reasoning.
+- Follow [the implementation plan](docs/admin-chat-implementation-plan.md) for transport, source links and verification before enabling the interface.
+
 ## Background task notifications
 
 - Every app action dispatched to Trigger shows one persistent toast keyed by its run ID (not its action button), updated from Trigger Realtime status and phase metadata through completion, failure, cancellation or expiry. Use human-readable task names and role context; keep relevant role, pipeline and result links in the toast.
