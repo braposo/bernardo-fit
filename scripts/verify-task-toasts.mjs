@@ -38,6 +38,7 @@ try {
     const reply = (json, status = 200) => route.fulfill({ json, status });
     if (url.pathname === '/api/admin/jobs') {
       if (req.method() === 'PATCH') return reply({ job });
+      if (url.searchParams.has('q')) return reply({ matchingIds: [job, secondJob].filter(item => (item.company + ' ' + item.role).toLowerCase().includes(url.searchParams.get('q').toLowerCase())).map(item => item.id) });
       return reply(url.searchParams.has('id') ? { job: url.searchParams.get('id') === 'job2' ? secondJob : job } : { jobs: [job, secondJob], stages: ['new'], features: { jevEnabled: true } });
     }
     if (url.pathname === '/api/admin/versions') return reply({});
@@ -103,11 +104,22 @@ try {
   await page.waitForFunction(() => !document.querySelector('[data-act=cover]').disabled);
   assert.match(await page.locator('.task-toast a').getAttribute('href'), /job=job1/);
   await page.setViewportSize({ width: 1280, height: 900 });
+  await page.locator('#search').fill('Engineering');
+  await page.locator('#stagefilter').selectOption('new');
+  await page.waitForFunction(() => document.querySelectorAll('[data-select-job]').length === 2);
   await page.evaluate(() => { window.pipelineBeforeToastLink = document.querySelector('.pipeline'); });
   await page.locator('[data-select-job=job2]').click();
   await page.locator('.task-toast a').click();
-  assert.match(page.url(), /job=job1/);
+  assert.equal(new URL(page.url()).searchParams.get('job'), 'job1');
+  assert.equal(new URL(page.url()).searchParams.get('stage'), 'new');
+  assert.equal(new URL(page.url()).searchParams.get('q'), 'Engineering');
+  assert.equal(await page.locator('#search').inputValue(), 'Engineering');
+  assert.equal(await page.locator('#stagefilter').inputValue(), 'new');
   assert.equal(await page.evaluate(() => document.querySelector('.pipeline') === window.pipelineBeforeToastLink), true, 'toast role link navigates within admin');
+  await page.goBack();
+  assert.equal(new URL(page.url()).searchParams.get('job'), 'job2');
+  assert.equal(await page.locator('#search').inputValue(), 'Engineering');
+  await page.goForward();
   const axe = await new AxeBuilder({ page }).include('.task-toast-viewport').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   assert.deepEqual(axe.violations, []);
   await page.getByRole('button', { name: 'Dismiss Cover letter', exact: false }).click();
