@@ -1,3 +1,4 @@
+import { realtimeCredentials } from "../lib/realtime-token.js";
 import { withSettingsHandler } from "../lib/sanity/settings-handler.js";
 import { assertStorageDispatch } from "../lib/task-policy.js";
 import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
@@ -37,6 +38,7 @@ async function status(req, res) {
       error: "The analysis could not start. Please try again." });
   }
   if (!receipt.runId) return res.status(200).json({ status: "dispatching", phase: "queued", terminal: false });
+  if (req.query?.realtime === "1") return res.status(200).json(await realtimeCredentials(receipt.runId));
   const run = await runs.retrieve(receipt.runId);
   const terminal = TERMINAL_RUN_STATUSES.has(run.status);
   if (terminal && run.status !== "COMPLETED") await releasePublicAnalysisClaim(receipt.fingerprint, requestId);

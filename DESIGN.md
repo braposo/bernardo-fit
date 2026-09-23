@@ -286,6 +286,12 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Successful generation automatically makes the new version live. Keep the previous output readable while work runs and retain previous versions for preview and explicit publication. Preserve public/private boundaries and never describe this as draft-only generation.
 - Distinguish missing, stale, running, failed and other backend-supported outcomes. Reload should recover running work; duplicate submission should recover the existing request rather than start another one.
 
+## Background task notifications
+
+- Every app action dispatched to Trigger shows one persistent toast, updated from Trigger Realtime status and phase metadata through completion, failure, cancellation or expiry. Use human-readable task names and role context; keep relevant role, pipeline and result links in the toast.
+- Lock the corresponding action from submission until a confirmed terminal result, including after navigation, re-render and recovery on reload. Keep unrelated controls usable. A lost status connection means reconnecting, not task failure; keep the action locked while reconnecting.
+- Toasts never steal focus. Keep status announcements polite, completed notifications dismissible, and links and dismiss controls keyboard-accessible with 44px mobile targets. Keep the stack scrollable within narrow screens.
+
 ## Editing, accessibility and responsive behaviour
 
 - Use persistent field labels and local Saving, Saved and Couldn't save feedback. Retain drafts on failures, section/role changes and background updates. Preserve focus, cursor/selection and scroll; late saves must not overwrite newer edits or another job.

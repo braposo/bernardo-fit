@@ -15,37 +15,53 @@ check("research completion reports sources", workCompletion({ ok: true, d: { kin
 check("brief completion can open", workCompletion({ ok: true, d: { kind: "brief", status: "COMPLETED", result: { outcome: "completed" } } }).open === true);
 check("bulk assessment reports completed scores", workCompletion({ ok: true, d: { kind: "jev-score-all", status: "COMPLETED", result: { outcome: "completed", assessed: 2, failed: 0 } } }).text === "2 assessed, 0 failed");
 
-console.log("\n--- run watcher ---");
-let calls = 0, progress = 0;
-const scheduled = [];
+console.log("\n--- realtime run watcher ---");
+let calls = [], callbacks, subscriptions = 0, stopped = 0, progress = 0, secondProgress = 0;
+const tick = () => new Promise(resolve => setImmediate(resolve));
 const watch = createRunWatcher({
-  request: async () => (++calls === 1
-    ? { ok: true, d: { terminal: false, phase: "writing" } }
-    : { ok: true, d: { terminal: true, status: "COMPLETED" } }),
-  schedule: (fn) => scheduled.push(fn), intervalMs: 1, maxAttempts: 3,
+  request: async (_, realtime) => { calls.push(realtime); return { ok: true, d: realtime
+    ? { runId: 'run1', publicAccessToken: 'scoped-token', kind: 'cover' }
+    : { terminal: true, status: 'COMPLETED', result: { outcome: 'completed' } } }; },
+  subscribe: (_, handlers) => { subscriptions++; callbacks = handlers; return () => { stopped++; }; },
 });
-const first = watch("run1", () => { progress++; });
-const duplicate = watch("run1");
-check("duplicate watchers share one promise", first === duplicate);
-await new Promise((resolve) => setImmediate(resolve));
-check("non-terminal progress is reported", progress === 1);
-scheduled.shift()();
+const first = watch('run1', () => { progress++; });
+const duplicate = watch('run1', () => { secondProgress++; });
+check('duplicate watchers share one promise', first === duplicate);
+await tick();
+callbacks.onUpdate({ status: 'EXECUTING', metadata: { phase: 'writing' } });
+check('subscribers both receive progress', progress === 1 && secondProgress === 1);
+check('progress does not poll the status endpoint', calls.length === 1);
+let resolved = false; first.then(() => { resolved = true; });
+callbacks.onError(new Error('offline'));
+await tick();
+check('connection loss does not release the pending action', !resolved);
+check('token refresh uses the authorized credentials endpoint', await callbacks.refreshAccessToken() === 'scoped-token');
+callbacks.onUpdate({ status: 'COMPLETED' });
 const done = await first;
-check("terminal response resolves", done.d.terminal === true);
-check("the shared watcher made two requests", calls === 2, calls);
+check('terminal event fetches the authoritative result', done.d.terminal && calls.filter(x => !x).length === 1);
+check('subscription is closed on completion', subscriptions === 1 && stopped === 1);
+check('retry status has an honest label', coverPhaseText({ status: 'REATTEMPTING' }) === 'Retrying…');
+check('waiting status has an honest label', coverPhaseText({ status: 'WAITING' }) === 'Waiting…');
+check('connection error is not shown as task failure', /Reconnecting/.test(coverPhaseText({ connectionError: true })));
 
-let attempts = 0;
-const timers = [];
-const timeoutWatch = createRunWatcher({
-  request: async () => { attempts++; return { ok: false, status: 0, d: {} }; },
-  schedule: (fn) => timers.push(fn), maxAttempts: 2,
+for (const status of ['FAILED','CANCELED','CRASHED','INTERRUPTED','SYSTEM_FAILURE','EXPIRED','TIMED_OUT']) {
+  let handler;
+  const watcher = createRunWatcher({ request: async (_, realtime) => ({ ok: true, d: realtime ? { publicAccessToken: 't' } : { terminal: true, status } }),
+    subscribe: (_, h) => { handler = h; return () => {}; } });
+  const result = watcher(status); await tick(); handler.onUpdate({ status });
+  check(status + ' resolves without restarting work', (await result).d.status === status);
+}
+let handler, attempts = 0; const timers = [];
+const retryWatch = createRunWatcher({
+  schedule: fn => timers.push(fn),
+  request: async (_, realtime) => realtime ? { ok: true, d: { publicAccessToken: 't' } }
+    : ++attempts === 1 ? { ok: false } : { ok: true, d: { terminal: true, status: 'COMPLETED' } },
+  subscribe: (_, h) => { handler = h; return () => {}; },
 });
-const timed = timeoutWatch("run2");
-await new Promise((resolve) => setImmediate(resolve));
-timers.shift()();
-const timeout = await timed;
-check("unresolved runs time out", timeout.status === 408);
-check("timeout respects the attempt limit", attempts === 2, attempts);
-
-console.log("\npassed " + pass + ", failed " + fail);
+const retryResult = retryWatch('retry'); await tick(); handler.onUpdate({ status: 'COMPLETED' }); await tick();
+check('result retrieval failure is retried', timers.length === 1);
+timers.shift()(); check('result retry recovers completion', (await retryResult).d.status === 'COMPLETED');
+const earlyWatch = createRunWatcher({ request: async () => ({ ok: true, d: { terminal: true, status: 'failed', error: 'Dispatch failed' } }), subscribe: () => { throw new Error('Must not subscribe'); } });
+check('dispatch failure before a run exists resolves safely', (await earlyWatch('dispatch')).d.error === 'Dispatch failed');
+console.log('\npassed ' + pass + ', failed ' + fail);
 process.exit(fail ? 1 : 0);

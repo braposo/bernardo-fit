@@ -8,7 +8,7 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const { default: AxeBuilder } = await import('@axe-core/playwright');
 const server = createServer(async (req, res) => {
   const name = new URL(req.url, 'http://localhost').pathname;
-  if (!['/admin.html', '/admin-run.js', '/admin-usage.js', '/assets/admin-ui.js', '/assets/admin-ui.css'].includes(name)) { res.writeHead(404).end(); return; }
+  if (!['/admin.html', '/admin-run.js', '/admin-usage.js', '/assets/admin-ui.js', '/assets/admin-ui.css', '/assets/task-ui.js', '/task-ui.css'].includes(name)) { res.writeHead(404).end(); return; }
   res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html');
   res.end(await readFile(new URL('../public' + name, import.meta.url)));
 });
@@ -230,7 +230,7 @@ try {
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-act="runfit"]').click();
   await page.locator('[data-review-submit]:enabled').click();
-  await page.getByText('Synthetic dispatch failure').waitFor();
+  await page.getByRole('alert').filter({ hasText: 'Synthetic dispatch failure' }).waitFor();
   check('explicit submission dispatches once', dispatches === 1);
   await page.keyboard.press('Escape');
   await page.locator('[data-select-job="job0"]').click();

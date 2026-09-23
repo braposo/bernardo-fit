@@ -44,3 +44,6 @@ jobs:
 
       - name: Verify admin components and accessibility
         run: npm run test:admin-ui
+
+      - name: Verify realtime task notifications
+        run: npm run test:task-ui

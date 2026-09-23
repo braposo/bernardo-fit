@@ -1,3 +1,4 @@
+import { realtimeCredentials } from "../../lib/realtime-token.js";
 import { withSettingsHandler } from "../../lib/sanity/settings-handler.js";
 import { assertStorageDispatch } from "../../lib/task-policy.js";
 import { idempotencyKeys, runs, tasks } from "@trigger.dev/sdk";
@@ -92,6 +93,7 @@ async function handler(req, res) {
       const receipt = await getRunReceipt(String(req.query?.run || ""));
       const spec = receipt && SPECS[receipt.kind];
       if (!receipt || !spec) return res.status(404).json({ error: "Run not found" });
+      if (req.query?.realtime === "1") return res.status(200).json({ kind: receipt.kind, jobId: receipt.jobId, questionId: receipt.questionId, ...await realtimeCredentials(receipt.runId) });
       const run = await runs.retrieve(receipt.runId);
       const terminal = TERMINAL_RUN_STATUSES.has(run.status);
       if (terminal && run.status !== "COMPLETED") await failRun(receipt, spec);
@@ -100,7 +102,7 @@ async function handler(req, res) {
         requestId: receipt.requestId, status: run.status, terminal,
         phase: run.metadata?.phase || (run.status === "COMPLETED" ? "completed" : "queued"),
         ...(run.status === "COMPLETED" && run.output ? { result: run.output } : {}),
-        ...(terminal && run.status !== "COMPLETED" ? { error: run.error?.message || "Background work failed." } : {}),
+        ...(terminal && run.status !== "COMPLETED" ? { error: run.error?.message || ({ CANCELED: "Task canceled.", EXPIRED: "Task expired before it could finish.", TIMED_OUT: "Task timed out." }[run.status] || "Background work failed.") } : {}),
       });
     }
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });

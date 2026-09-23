@@ -437,6 +437,7 @@
   }
 </style>
 <link rel="stylesheet" href="/assets/admin-ui.css" />
+<link rel="stylesheet" href="/task-ui.css" />
 </head>
 <body>
   <div class="frame">
@@ -452,6 +453,7 @@
   <main id="app"></main>
 
 <script type="module">
+import { subscribeRun, taskToast } from "./assets/task-ui.js";
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 import { summariseUsage } from "./admin-usage.js";
 import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError } from "./assets/admin-ui.js";
@@ -626,45 +628,111 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
 
   var watchRun = createRunWatcher({
-    request: function (runId) {
-      return api("/api/admin/cover?run=" + encodeURIComponent(runId), { method: "GET" });
+    subscribe: subscribeRun,
+    request: function (runId, realtime) {
+      return api("/api/admin/cover?run=" + encodeURIComponent(runId) + (realtime ? "&realtime=1" : ""), { method: "GET" });
     }
   });
 
-  function watchCover(id, runId, status, openWhenDone) {
-    status.textContent = "Queued…";
-    status.className = "row-status";
-    return watchRun(runId, function (run) {
-      status.textContent = coverPhaseText(run);
-    }).then(function (out) {
-      var done = coverCompletion(out);
-      status.textContent = done.text;
-      status.className = "row-status" + (done.tone ? " " + done.tone : "");
-      loadJobs(false);
-      if (done.open && openWhenDone) openLetter(id);
+  var pendingActions = new Map();
+  var watchedActions = new Map();
+  var finishedRuns = new Set();
+  var actionNames = { cover: 'Cover letter', research: 'Company research', brief: 'Screen brief', 'prepare-screen': 'Interview preparation', analyse: 'Fit analysis', regenerate: 'Fit analysis', answer: 'Application answer', 'jev-score': 'Fit assessment', 'jev-score-all': 'Listed role assessments', adopt: 'Add reports', ingest: 'Import roles' };
+  function actionKey(id, kind, questionId) {
+    return [id || 'batch', kind === 'regenerate' ? 'analyse' : kind === 'brief' ? 'prepare-screen' : kind, questionId || ''].join(':');
+  }
+  function actionTitle(id, kind) {
+    var job = jobs.find(function (j) { return j.id === id; });
+    return (actionNames[kind] || 'Background work') + (job ? ' · ' + (job.company || job.role) : '');
+  }
+  function actionBusy(id, kind, questionId) {
+    return pendingActions.has(actionKey(id, kind, questionId)) ||
+      (kind === 'research' && pendingActions.has(actionKey(id, 'prepare-screen'))) ||
+      ((kind === 'prepare-screen' || kind === 'brief') && pendingActions.has(actionKey(id, 'research'))) ||
+      (kind === 'jev-score' && pendingActions.has(actionKey('batch', 'jev-score-all'))) ||
+      (kind === 'jev-score-all' && Array.from(pendingActions.values()).some(function (action) { return action.kind === 'jev-score'; }));
+  }
+  function applyActionLocks() {
+    document.querySelectorAll('.row-item').forEach(function (row) {
+      var id = row.getAttribute('data-id');
+      var kinds = { cover: 'cover', briefrewrite: 'prepare-screen', researchrefresh: 'research', runfit: 'analyse', regen: 'analyse', jevscore: 'jev-score', qdraft: 'answer' };
+      row.querySelectorAll('[data-act]').forEach(function (button) {
+        var kind = kinds[button.getAttribute('data-act')];
+        if (!kind) return;
+        var qa = button.closest('[data-qid]');
+        if (actionBusy(id, kind, qa && qa.getAttribute('data-qid'))) {
+          button.disabled = true; button.setAttribute('aria-busy', 'true');
+        }
+      });
+    });
+    [['adopt', 'adopt'], ['assesslisted', 'jev-score-all']].forEach(function (entry) {
+      var button = document.getElementById(entry[0]);
+      if (button && actionBusy('batch', entry[1])) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
     });
   }
-
-  function watchWork(id, runId, status, kind, openWhenDone) {
-    status.textContent = "Queued…";
-    if (status.classList.contains("row-status")) status.className = "row-status";
-    return watchRun(runId, function (run) { status.textContent = coverPhaseText(run); }).then(function (out) {
-      var done = workCompletion(out);
-      status.textContent = done.text;
-      if (status.classList.contains("row-status")) status.className = "row-status" + (done.tone ? " " + done.tone : "");
-      if (kind !== "answer") loadJobs(false);
-      var detailId = kind === "jev-score-all" ? selectedId : id;
-      if ((kind === "jev-score" || kind === "jev-score-all") && detailId && out.ok && out.d.status === "COMPLETED") {
-        api("/api/admin/jobs?id=" + encodeURIComponent(detailId), { method: "GET" }).then(function (detail) {
-          if (unauthorised(detail) || !detail.ok) return;
-          var index = jobs.findIndex(function (job) { return job.id === detailId; });
-          if (index === -1 || (jobs[index].revision || 0) > (detail.d.job.revision || 0)) return;
-          jobs[index] = Object.assign({}, jobs[index], detail.d.job);
-          renderJobs();
-        });
-      }
-      if (done.open && openWhenDone) openArtifact(id, kind === "research" ? "research" : "brief");
+  function beginAction(id, kind, questionId) {
+    if (actionBusy(id, kind, questionId)) return false;
+    var key = actionKey(id, kind, questionId);
+    pendingActions.set(key, { id: id, kind: kind, questionId: questionId });
+    taskToast(key, { title: actionTitle(id, kind), message: 'Starting…', terminal: false, tone: 'pending', href: undefined });
+    applyActionLocks(); return true;
+  }
+  function persistActions() {
+    try { sessionStorage.setItem('fit.activeTasks', JSON.stringify(Array.from(pendingActions.values()).filter(function (a) { return a.runId; }))); } catch (_) {}
+  }
+  function failAction(id, kind, questionId, message) {
+    var key = actionKey(id, kind, questionId);
+    pendingActions.delete(key); persistActions();
+    taskToast(key, { message: message, terminal: true, tone: 'err' });
+    renderJobs();
+  }
+  function watchCover(id, runId, status, openWhenDone) {
+    return watchWork(id, runId, status, 'cover', openWhenDone);
+  }
+  function watchWork(id, runId, status, kind, openWhenDone, questionId) {
+    if (watchedActions.has(runId)) {
+      taskToast(actionKey(id, kind, questionId), { title: actionTitle(id, kind) });
+      return watchedActions.get(runId);
+    }
+    if (finishedRuns.has(runId)) return Promise.resolve();
+    var key = actionKey(id, kind, questionId);
+    pendingActions.set(key, { id: id, kind: kind, questionId: questionId, runId: runId });
+    persistActions(); applyActionLocks();
+    var href = id && id !== 'batch' ? '/admin?job=' + encodeURIComponent(id) + '&section=' + (kind === 'jev-score' ? 'overview' : 'materials') : '/admin';
+    taskToast(key, { title: actionTitle(id, kind), message: 'Queued…', terminal: false, tone: 'pending', href: href, linkLabel: id === 'batch' ? 'Open pipeline' : 'Open role' });
+    var watching = watchRun(runId, function (run) {
+      var message = coverPhaseText(run);
+      if (status) status.textContent = message;
+      taskToast(key, { message: message });
+    }).then(function (out) {
+      var done = kind === 'cover' ? coverCompletion(out) : workCompletion(out);
+      if (status) { status.textContent = done.text; if (status.classList.contains('row-status')) status.className = 'row-status ' + done.tone; }
+      if (out.d.result && out.d.result.reportId && done.tone === 'ok') href = '/?r=' + encodeURIComponent(out.d.result.reportId);
+      taskToast(key, { message: done.text, tone: done.tone, terminal: true, href: href, linkLabel: href.indexOf('/?r=') === 0 ? 'Open analysis' : id === 'batch' ? 'Open pipeline' : 'Open role' });
+      finishedRuns.add(runId); watchedActions.delete(runId);
+      if (pendingActions.get(key)?.runId === runId) pendingActions.delete(key);
+      persistActions();
+      if (activeRuns[kind]?.runId === runId) activeRuns[kind] = null;
+      loadJobs(false);
+      var detailId = kind === 'jev-score-all' ? selectedId : id;
+      if (detailId && detailId !== 'batch') api('/api/admin/jobs?id=' + encodeURIComponent(detailId), { method: 'GET' }).then(function (detail) {
+        if (!detail.ok) return;
+        var index = jobs.findIndex(function (j) { return j.id === detailId; });
+        if (index !== -1 && (jobs[index].revision || 0) <= (detail.d.job.revision || 0)) jobs[index] = Object.assign({}, jobs[index], detail.d.job);
+        renderJobs();
+      });
       return out;
+    });
+    watchedActions.set(runId, watching);
+    return watching;
+  }
+  function recoverActions() {
+    jobs.forEach(function (job) {
+      [['coverRun','cover'],['researchRun','research'],['prepareRun','prepare-screen'],['briefRun','brief'],['analysisRun','analyse'],['jevRun','jev-score']].forEach(function (entry) {
+        var run = job[entry[0]];
+        if (run && run.runId && ['dispatching','queued'].indexOf(run.status) !== -1) watchWork(job.id, run.runId, null, entry[1], false);
+      });
+      (job.answerRuns || []).forEach(function (answer) { watchWork(job.id, answer.run.runId, null, 'answer', false, answer.questionId); });
     });
   }
 
@@ -1101,6 +1169,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   function openGenerationReview(options) {
     options = options || {};
+    if (actionBusy(options.id, options.kind, options.questionId)) return;
     if (hasPendingEdits(options.id)) {
       notifyAdmin('Save pending edits in Role & context before reviewing generation. Failed saves can be retried by leaving the field again.');
       return;
@@ -1172,7 +1241,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     function close() { clearTimeout(instructionsTimer); dialog.close(); }
     dialog.querySelector('[data-review-cancel]').addEventListener('click', close);
     submit.addEventListener('click', function () {
-      if (!currentReview || submitting) return;
+      if (!currentReview || submitting || !beginAction(options.id, currentReview.effectiveKind, options.questionId)) return;
       submitting = true;
       dialog.querySelectorAll('select, input, textarea, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = true; });
       submit.disabled = true; setButtonLabel(submit, 'Starting…');
@@ -1181,8 +1250,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       api('/api/admin/cover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) }).then(function (out) {
         submitting = false;
         dialog.querySelectorAll('select, input, textarea, [data-review-economy], [data-review-cancel]').forEach(function (control) { control.disabled = false; });
-        if (unauthorised(out)) { close(); return; }
+        if (out.status === 401) { failAction(options.id, currentReview.effectiveKind, options.questionId, "Session expired. Sign in again."); unauthorised(out); close(); return; }
         if (!out.ok) {
+          failAction(options.id, currentReview.effectiveKind, options.questionId, out.d.error || "Could not start generation.");
           if (out.status === 409 && out.d.code === 'REVIEW_STALE') {
             showAdminError(bodyEl, 'The inputs or scope changed. Review the refreshed scope before submitting.');
             requestId = newRequestId(); loadReview(); return;
@@ -1194,7 +1264,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         if (options.status) { options.status.textContent = 'Queued…'; options.status.className = 'row-status'; }
         if (currentReview.effectiveKind === 'cover') watchCover(options.id, out.d.runId, options.status, false);
         else {
-          var watched = watchWork(options.id || 'batch', out.d.runId, options.status || options.trigger, currentReview.effectiveKind, false);
+          var watched = watchWork(options.id || 'batch', out.d.runId, options.status || options.trigger, currentReview.effectiveKind, false, options.questionId);
           if (currentReview.effectiveKind === 'answer') watched.then(function () {
             api('/api/admin/jobs?id=' + encodeURIComponent(options.id), { method: 'GET' }).then(function (detail) {
               if (!detail.ok) return;
@@ -1288,6 +1358,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var restoredSearch = document.getElementById('search');
       restoredSearch.focus(); restoredSearch.setSelectionRange(searchStart, searchEnd);
     }
+    recoverActions();
+    queueMicrotask(applyActionLocks);
     document.querySelectorAll('.generation').forEach(function (button) {
       button.setAttribute('aria-description', 'Sparkle actions run AI and may incur costs.');
     });
@@ -1300,14 +1372,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var adoptBtn = document.getElementById("adopt");
     if (adoptBtn) {
       adoptBtn.addEventListener("click", function () {
+        if (!beginAction("batch", "adopt")) return;
         adoptBtn.disabled = true; adoptBtn.textContent = "Adding…";
         api("/api/admin/cover", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ kind: "adopt", requestId: newRequestId() }),
         }).then(function (out) {
-          if (unauthorised(out)) return;
-          if (!out.ok) { notifyAdmin(out.d.error || "Failed."); adoptBtn.disabled = false; return; }
+          if (!out.ok) { failAction("batch", "adopt", null, out.d.error || "Could not add reports."); unauthorised(out); return; }
           activeRuns.adopt = { runId: out.d.runId };
           watchWork("batch", out.d.runId, adoptBtn, "adopt", false).then(function () { activeRuns.adopt = null; });
         });
@@ -1442,7 +1514,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       (job.answerRuns || []).forEach(function (answerRun) {
         if (attachedCoverWatches[answerRun.run.runId]) return;
         attachedCoverWatches[answerRun.run.runId] = true;
-        watchWork(id, answerRun.run.runId, status, "answer", false).then(function () {
+        watchWork(id, answerRun.run.runId, status, "answer", false, answerRun.questionId).then(function () {
           delete attachedCoverWatches[answerRun.run.runId];
           loadJobs(false);
         });
@@ -1564,7 +1636,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
             (savedQuestion.run.status === "dispatching" || savedQuestion.run.status === "queued") &&
             !attachedCoverWatches[savedQuestion.run.runId]) {
           attachedCoverWatches[savedQuestion.run.runId] = true;
-          watchWork(id, savedQuestion.run.runId, status, "answer", false).then(function () {
+          watchWork(id, savedQuestion.run.runId, status, "answer", false, qid).then(function () {
             delete attachedCoverWatches[savedQuestion.run.runId];
             api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
               if (!out.ok) return;
@@ -1951,7 +2023,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   });
 
   readNavigationState();
-  if (secret) loadJobs(true);
+  if (secret) {
+    try { JSON.parse(sessionStorage.getItem('fit.activeTasks') || '[]').forEach(function (a) { if (a.runId) watchWork(a.id, a.runId, null, a.kind, false, a.questionId); }); } catch (_) {}
+    loadJobs(true);
+  }
   else renderGate();
 })();
 </script>

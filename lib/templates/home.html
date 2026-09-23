@@ -195,11 +195,14 @@
     .diff-detail { margin-top: 8px; }
   }
 </style>
+<link rel="stylesheet" href="/task-ui.css">
 </head>
 <body>
   <main id="app"></main>
 
-<script>
+<script type="module">
+import { subscribeRun, taskToast } from "/assets/task-ui.js";
+import { createRunWatcher, coverPhaseText } from "/admin-run.js";
 /* SANITY_PUBLIC_CONTENT */
 (function () {
   "use strict";
@@ -245,6 +248,7 @@
     '</div></div>';
 
   function renderInput() {
+    if (pendingAnalysis) { state.view = "loading"; return renderLoading(); }
     app.innerHTML =
       MASTHEAD +
       '<div class="frame">' +
@@ -382,30 +386,34 @@
       });
   }
 
-  function watchAnalysis(id, token, failures) {
+  var publicWatchers = new Map();
+  var pendingAnalysis = null;
+  function watchAnalysis(id, token) {
+    pendingAnalysis = { id: id, token: token };
+    if (publicWatchers.has(id)) return;
     var nonce = watchNonce;
-    fetch("/api/analyze?request=" + encodeURIComponent(id) + "&token=" + encodeURIComponent(token))
-      .then(responseJson)
-      .then(function (out) {
-        if (nonce !== watchNonce) return;
-        if (!out.ok) throw new Error(out.d.error || "Could not check the analysis.");
-        var data = out.d || {};
-        if (data.reportId) return finishReport(data.reportId, data.cached);
-        if (data.terminal) {
-          history.replaceState({}, "", location.pathname);
-          state.view = "input"; state.error = data.error || "The analysis did not finish. Please try again."; return render();
-        }
-        state.phase = data.phase || "queued"; renderLoading();
-        setTimeout(function () { watchAnalysis(id, token, 0); }, 2500);
-      })
-      .catch(function (err) {
-        if (nonce !== watchNonce) return;
-        if ((failures || 0) < 3) return setTimeout(function () { watchAnalysis(id, token, (failures || 0) + 1); }, 2500);
-        state.view = "input"; state.error = err.message || "Connection lost. Refresh to resume the analysis."; render();
-      });
+    taskToast('public-analysis', { title: 'Fit analysis', message: 'Queued…', terminal: false, tone: 'pending', href: undefined });
+    var watch = createRunWatcher({ subscribe: subscribeRun, request: function (_, realtime) {
+      return fetch('/api/analyze?request=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) + (realtime ? '&realtime=1' : '')).then(responseJson);
+    }});
+    var watching = watch(id, function (run) {
+      taskToast('public-analysis', { message: coverPhaseText(run) });
+      if (nonce === watchNonce && state.view === 'loading') { state.phase = run.phase || 'queued'; renderLoading(); }
+    }).then(function (out) {
+      publicWatchers.delete(id); pendingAnalysis = null;
+      var data = out.d;
+      taskToast('public-analysis', { message: data.reportId ? 'Your analysis is ready.' : data.error || 'The analysis did not finish.',
+        terminal: true, tone: data.reportId ? 'ok' : 'err', href: data.reportId ? '/?r=' + encodeURIComponent(data.reportId) : undefined, linkLabel: 'Open analysis' });
+      if (nonce !== watchNonce && state.view === 'report') return;
+      if (data.reportId) return finishReport(data.reportId, data.cached);
+      history.replaceState({}, '', location.pathname);
+      state.view = 'input'; state.error = data.error || 'The analysis did not finish. Please try again.'; render();
+    });
+    publicWatchers.set(id, watching);
   }
 
   function runAnalyze() {
+    if (pendingAnalysis || state.view === "loading") return;
     var jd = (state.jd || "").trim();
     if (jd.length < 20) { state.error = "Paste a bit more of the role so I can give you a real read."; return render(); }
     state.error = null;
@@ -422,6 +430,8 @@
     }
 
     var id = requestId();
+    pendingAnalysis = { id: id };
+    taskToast("public-analysis", { title: "Fit analysis", message: "Starting…", terminal: false, tone: "pending", href: undefined });
     function admit(attempt) { return fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -435,6 +445,8 @@
       .then(function (out) {
         if (!out.ok) throw new Error(out.d && out.d.error ? out.d.error : "Something went wrong.");
         if (out.status === 200 && out.d.report) {
+          pendingAnalysis = null;
+          taskToast("public-analysis", { message: "Your analysis is ready.", terminal: true, tone: "ok", href: "/?r=" + encodeURIComponent(out.d.id), linkLabel: "Open analysis" });
           state.report = out.d.report; state.id = out.d.id; state.cached = true; state.view = "report";
           history.pushState({}, "", location.pathname + "?r=" + encodeURIComponent(out.d.id)); return render();
         }
@@ -444,6 +456,8 @@
         watchNonce++; watchAnalysis(out.d.requestId, out.d.token, 0);
       })
       .catch(function (err) {
+        pendingAnalysis = null;
+        taskToast("public-analysis", { message: err.message || "Could not start analysis.", terminal: true, tone: "err" });
         state.view = "input"; state.error = err.message || "Something went wrong. Try again."; render();
       });
   }
