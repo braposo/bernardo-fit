@@ -411,7 +411,6 @@ export type Job = {
   replyOwed?: boolean;
   userViewed?: boolean;
   closed?: boolean;
-  score?: number;
   tier?: string;
   updatedAt?: string;
   sourceRevision?: number;
@@ -1704,7 +1703,6 @@ export type JOB_CONTENT_QUERY_RESULT = {
   replyOwed?: boolean;
   userViewed?: boolean;
   closed?: boolean;
-  score?: number;
   tier?: string;
   updatedAt?: string;
   sourceRevision?: number;
@@ -2593,7 +2591,6 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       replyOwed?: boolean;
       userViewed?: boolean;
       closed?: boolean;
-      score?: number;
       tier?: string;
       updatedAt?: string;
       sourceRevision?: number;

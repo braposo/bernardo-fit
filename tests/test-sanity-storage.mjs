@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import {paragraphsToBody,bodyToParagraphs,jobFrom,questionFrom,reportRevision} from '../lib/sanity/codecs.js';
+import {paragraphsToBody,bodyToParagraphs,jobFrom,jobFields,questionFrom,reportRevision} from '../lib/sanity/codecs.js';
 import {namespaceKV} from '../lib/kv.js';
 import {assertStorageDispatch} from '../lib/task-policy.js';
 let passed=0;
 const test=(fn)=>{fn();passed++;};
+test(()=>{const job=jobFrom({_id:'job',score:30,assessment:{score:85}});assert.equal(job.score,null);assert.equal(job.jevAssessment.score,85);assert.equal(Object.hasOwn(jobFields({...job,score:30}),'score'),false);});
 test(()=>{const body=paragraphsToBody([{lead:true,html:'Hello <em>world</em> &amp; <a href="https://example.com">link</a>'}]);assert.equal(bodyToParagraphs(body)[0].html,'Hello <em>world</em> &amp; <a href="https://example.com">link</a>');assert.ok(!bodyToParagraphs(body)[0].html.includes('true'));});
 test(()=>assert.equal(bodyToParagraphs([{children:[{text:'<script>bad()</script>',marks:['x']}],markDefs:[{_key:'x',href:'javascript:bad()'}]}])[0].html,'&lt;script&gt;bad()&lt;/script&gt;'));
 test(()=>assert.equal(jobFrom({_id:'a',_rev:'r',sourcePayload:'{"notes":"old"}',questions:[]}).notes,''));
