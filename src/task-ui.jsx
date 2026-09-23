@@ -6,8 +6,10 @@ import { Button } from './admin/components/ui/button';
 
 const notices = new Map();
 let toastRoot;
-export function taskToast(id, update) {
-  notices.set(id, { ...notices.get(id), ...update });
+export function taskToast(id, update, replaceId) {
+  const previous = notices.get(id) || notices.get(replaceId);
+  if (replaceId && replaceId !== id) notices.delete(replaceId);
+  notices.set(id, { ...previous, ...update });
   if (!toastRoot) {
     const host = document.createElement('div');
     document.body.append(host);
@@ -18,7 +20,7 @@ export function taskToast(id, update) {
 function paint() {
   toastRoot.render(<Toast.Provider swipeDirection="right"><>
     {[...notices].map(([id, notice]) => <Toast.Root key={id} open duration={Infinity}
-      className="task-toast" data-tone={notice.tone || 'pending'} type="background"
+      className="task-toast" data-task-id={id} data-tone={notice.tone || 'pending'} type="background"
       onOpenChange={open => { if (!open && notice.terminal) { notices.delete(id); paint(); } }}>
       <Toast.Title className="task-toast-title">{notice.title || 'Background work'}</Toast.Title>
       <Toast.Description className="task-toast-message" role="status" aria-live="polite" aria-atomic="true">{notice.message}</Toast.Description>

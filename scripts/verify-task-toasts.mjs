@@ -26,6 +26,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined });
 const job = { id: 'job1', company: 'Example company', role: 'Engineering Manager', stage: 'new', jobDescription: 'A detailed synthetic engineering leadership role.', questions: [{ id: 'q1', q: 'Why this role?', limit: 120 }], fitReportId: 'report1', hasCoverLetter: true, hasResearch: true, hasBrief: true };
+const secondJob = { ...job, id: 'job2', company: 'Second company', questions: [] };
 let dispatches = 0, status = 'EXECUTING';
 const runKinds = new Map();
 const errors = [];
@@ -37,7 +38,7 @@ try {
     const reply = (json, status = 200) => route.fulfill({ json, status });
     if (url.pathname === '/api/admin/jobs') {
       if (req.method() === 'PATCH') return reply({ job });
-      return reply(url.searchParams.has('id') ? { job } : { jobs: [job], stages: ['new'], features: { jevEnabled: true } });
+      return reply(url.searchParams.has('id') ? { job: url.searchParams.get('id') === 'job2' ? secondJob : job } : { jobs: [job, secondJob], stages: ['new'], features: { jevEnabled: true } });
     }
     if (url.pathname === '/api/admin/versions') return reply({});
     if (url.pathname === '/api/admin/cover') {
@@ -111,6 +112,42 @@ try {
     await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status: 'COMPLETED' }), runId);
     await page.waitForFunction(sel => !document.querySelector(sel)?.disabled, selector);
   }
+  // Two roles stay independent even when their updates and completion interleave.
+  await page.locator('[data-select-job=job1]').click();
+  await page.locator('[data-act=jevscore]').click();
+  await page.locator('[data-review-submit]:enabled').click();
+  const firstAssessment = 'run' + dispatches;
+  await page.waitForFunction(id => window.fixtureRuns?.[id], firstAssessment);
+  await page.locator('[data-select-job=job2]').click();
+  assert.equal(await page.locator('[data-act=jevscore]').isEnabled(), true);
+  await page.locator('[data-act=jevscore]').click();
+  await page.locator('[data-review-submit]:enabled').click();
+  const secondAssessment = 'run' + dispatches;
+  await page.waitForFunction(id => window.fixtureRuns?.[id], secondAssessment);
+  await page.evaluate(([a,b]) => {
+    window.fixtureRuns[a].onUpdate({ status:'EXECUTING', metadata:{phase:'scoring'} });
+    window.fixtureRuns[b].onUpdate({ status:'WAITING' });
+  }, [firstAssessment,secondAssessment]);
+  const firstToast = page.locator('[data-task-id="run:' + firstAssessment + '"]');
+  const secondToast = page.locator('[data-task-id="run:' + secondAssessment + '"]');
+  await firstToast.getByText('Assessing fit…', {exact:true}).waitFor();
+  await secondToast.getByText('Waiting…', {exact:true}).waitFor();
+  status = 'COMPLETED';
+  await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), firstAssessment);
+  await firstToast.getByText('Fit assessment ready', {exact:true}).waitFor();
+  assert.equal(await page.locator('[data-act=jevscore]').isDisabled(), true, 'other role stays locked');
+  assert.equal(await secondToast.getByText('Waiting…', {exact:true}).count(), 1);
+  await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), secondAssessment);
+  await secondToast.getByText('Fit assessment ready', {exact:true}).waitFor();
+  await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]').disabled);
+  // A later run on the same button keeps the preceding run's result visible.
+  await page.locator('[data-act=jevscore]').click();
+  await page.locator('[data-review-submit]:enabled').click();
+  const nextAssessment = 'run' + dispatches;
+  await page.waitForFunction(id => window.fixtureRuns?.[id], nextAssessment);
+  assert.equal(await secondToast.getByText('Fit assessment ready', {exact:true}).count(), 1);
+  await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), nextAssessment);
+  await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]').disabled);
   await page.goto(origin + '/');
   await page.locator('#jd').fill('A sufficiently detailed synthetic engineering leadership role.');
   await page.locator('#go').click();

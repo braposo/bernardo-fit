@@ -199,6 +199,29 @@ await test("worker persists assessment once, retains legacy score, and keeps rep
   assert.equal((await getJob(job.id)).score, 55, "page completion also preserves historical scores");
   assert.equal(JSON.stringify(await getReport("jev-public")).includes("jev"), false);
 });
+await test("concurrent roles keep independent request ownership and results", async () => {
+  const one = await saveJob({ company:'Concurrent one', role:'Manager', jobDescription:'Engineering leadership with developer tools.' });
+  const two = await saveJob({ company:'Concurrent two', role:'Director', jobDescription:'Platform engineering strategy and technical leadership.' });
+  const payloads = await Promise.all([claim(one.id,'parallel-one'),claim(two.id,'parallel-two')]);
+  const originalFetch = globalThis.fetch;
+  let arrivals = 0, release;
+  const barrier = new Promise(resolve => { release = resolve; });
+  globalThis.fetch = async (...args) => {
+    if (args[0] === 'https://api.typesafe.ai/v1/systemone') { if (++arrivals === 2) release(); await barrier; }
+    return originalFetch(...args);
+  };
+  try {
+    const results = await Promise.all(payloads.map(executeJevWork));
+    assert.deepEqual(results.map(r=>r.outcome), ['completed','completed']);
+    for(const payload of payloads) {
+      const saved = await getJob(payload.jobId);
+      assert.equal(saved.jevRun.requestId, payload.requestId);
+      assert.equal(saved.jevRun.status, 'completed');
+      assert.equal(saved.jevAssessment.fingerprint, payload.fingerprint);
+      assert.ok(saved.overviewSummary);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
 await test("edits invalidate scores and stale in-flight results cannot attach", async () => {
   await mutateJob(job.id, () => ({ salary: "New salary" }));
   const summary = jobSummary(await getJob(job.id)); assert.equal(summary.jevStale, true); assert.equal(summary.score, null);

@@ -56,6 +56,20 @@ separate their Redis locks, run receipts, audit, usage and admission limits from
 production. These operational records intentionally remain in Redis; Sanity is
 the source of editorial content. The development probe can run without Redis.
 
+### Explicit shared-production preview
+
+The realtime notifications preview uses the existing production workers. Its
+branch-specific configuration sets SANITY_CONTENT_ENABLED=1,
+SANITY_ANALYSIS_ENABLED=1, SANITY_WORKERS_READY=1, and
+SANITY_WORKER_ENV=production, with Sanity editor access. It inherits the production
+Trigger key and uses no TRIGGER_PREVIEW_BRANCH or KV_NAMESPACE override.
+This preview operates on live Sanity content, like the production app.
+
+This mode is explicit: previews with a production Trigger key cannot dispatch
+against legacy Redis content. A storage mismatch otherwise makes workers see old
+request pointers and incorrectly return superseded before doing any work.
+Named development or hosted preview workers remain available for isolated code testing.
+
 ## Editing and consistency
 
 - Publish Studio edits before using them in the app. App saves reject affected

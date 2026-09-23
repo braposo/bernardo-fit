@@ -691,24 +691,25 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
   function watchWork(id, runId, status, kind, openWhenDone, questionId) {
     if (watchedActions.has(runId)) {
-      taskToast(actionKey(id, kind, questionId), { title: actionTitle(id, kind) });
+      taskToast('run:' + runId, { title: actionTitle(id, kind) });
       return watchedActions.get(runId);
     }
     if (finishedRuns.has(runId)) return Promise.resolve();
     var key = actionKey(id, kind, questionId);
+    var toastId = 'run:' + runId;
     pendingActions.set(key, { id: id, kind: kind, questionId: questionId, runId: runId });
     persistActions(); applyActionLocks();
     var href = id && id !== 'batch' ? '/admin?job=' + encodeURIComponent(id) + '&section=' + (kind === 'jev-score' ? 'overview' : 'materials') : '/admin';
-    taskToast(key, { title: actionTitle(id, kind), message: 'Queued…', terminal: false, tone: 'pending', href: href, linkLabel: id === 'batch' ? 'Open pipeline' : 'Open role' });
+    taskToast(toastId, { title: actionTitle(id, kind), message: 'Queued…', terminal: false, tone: 'pending', href: href, linkLabel: id === 'batch' ? 'Open pipeline' : 'Open role' }, key);
     var watching = watchRun(runId, function (run) {
       var message = coverPhaseText(run);
       if (status) status.textContent = message;
-      taskToast(key, { message: message });
+      taskToast(toastId, { message: message });
     }).then(function (out) {
       var done = kind === 'cover' ? coverCompletion(out) : workCompletion(out);
       if (status) { status.textContent = done.text; if (status.classList.contains('row-status')) status.className = 'row-status ' + done.tone; }
       if (out.d.result && out.d.result.reportId && done.tone === 'ok') href = '/?r=' + encodeURIComponent(out.d.result.reportId);
-      taskToast(key, { message: done.text, tone: done.tone, terminal: true, href: href, linkLabel: href.indexOf('/?r=') === 0 ? 'Open analysis' : id === 'batch' ? 'Open pipeline' : 'Open role' });
+      taskToast(toastId, { message: done.text, tone: done.tone, terminal: true, href: href, linkLabel: href.indexOf('/?r=') === 0 ? 'Open analysis' : id === 'batch' ? 'Open pipeline' : 'Open role' });
       finishedRuns.add(runId); watchedActions.delete(runId);
       if (pendingActions.get(key)?.runId === runId) pendingActions.delete(key);
       persistActions();

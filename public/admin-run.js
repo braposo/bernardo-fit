@@ -20,7 +20,8 @@ export function workCompletion(out) {
   if (!out?.ok || out.d?.status !== "COMPLETED") {
     return { text: out?.d?.error || "Background work failed.", tone: "err", open: false };
   }
-  if (out.d?.result?.outcome !== "completed") return { text: "A newer request replaced this work.", tone: "", open: false };
+  if (out.d?.result?.outcome === "superseded") return { text: "This result no longer matches the role’s current request or inputs.", tone: "", open: false };
+  if (out.d?.result?.outcome !== "completed") return { text: "Task completed, but its result details are unavailable.", tone: "err", open: false };
   if (out.d.kind === "jev-score") return { text: "Fit assessment ready", tone: "ok", open: false };
   if (out.d.kind === "research") return { text: (out.d.result.sources || 0) + " sources", tone: "ok", open: true };
   if (out.d.kind === "analyse" || out.d.kind === "regenerate") return { text: "Analysis ready", tone: "ok", open: false };
@@ -38,9 +39,8 @@ export function coverCompletion(out) {
   if (!out?.ok || out.d?.status !== "COMPLETED") {
     return { text: out?.d?.error || "Cover generation failed.", tone: "err", open: false };
   }
-  if (out.d?.result?.outcome !== "completed") {
-    return { text: "A newer request replaced this draft.", tone: "", open: false };
-  }
+  if (out.d?.result?.outcome === "superseded") return { text: "This draft no longer matches the role’s current request or inputs.", tone: "", open: false };
+  if (out.d?.result?.outcome !== "completed") return { text: "Task completed, but its result details are unavailable.", tone: "err", open: false };
   return { text: `${out.d.result.words || 0} words`, tone: "ok", open: true };
 }
 
