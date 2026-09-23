@@ -200,10 +200,12 @@
   <main id="app"></main>
 
 <script>
+/* SANITY_PUBLIC_CONTENT */
 (function () {
   "use strict";
 
   var app = document.getElementById("app");
+  var content = window.PUBLIC_CONTENT;
   var state = { view: "input", jd: "", report: null, id: null, error: null, cached: false, phase: "queued" };
   var watchNonce = 0;
   var DEMO = new URLSearchParams(location.search).get("demo") === "1";
@@ -234,26 +236,26 @@
 
   var MASTHEAD =
     '<div class="frame"><div class="masthead">' +
-      '<div class="mark">Bernardo Raposo<span class="dot">.</span></div>' +
+      '<div class="mark">' + esc(content.name) + '<span class="dot">.</span></div>' +
     '</div></div>';
 
   var FOOTER =
     '<div class="frame"><div class="footer" style="justify-content: flex-end">' +
-      '<span><a href="mailto:hi@bernardoraposo.com">hi@bernardoraposo.com</a> &nbsp; <a href="https://linkedin.com/in/braposo" target="_blank" rel="noopener">LinkedIn</a></span>' +
+      '<span>' + content.contactsHtml + '</span>' +
     '</div></div>';
 
   function renderInput() {
     app.innerHTML =
       MASTHEAD +
       '<div class="frame">' +
-        '<h1 class="lede">Paste the role. I\'ll tell you <em>where I\'d fit</em>.</h1>' +
-        '<p class="sub">Drop in a job description and I\'ll give you an honest read — what I bring, where the gaps are, and what makes me different from the rest of your pipeline.<br></br>You\'ll get a link you can keep.</p>' +
+        '<h1 class="lede">' + content.headingHtml + '</h1>' +
+        '<p class="sub">' + content.introductionHtml + '</p>' +
         '<div class="composer">' +
-          '<textarea id="jd" placeholder="Paste the full job description here…" aria-label="Job description">' + esc(state.jd) + '</textarea>' +
+          '<textarea id="jd" placeholder="' + esc(content.placeholder).replace(/"/g, '&quot;') + '" aria-label="Job description">' + esc(state.jd) + '</textarea>' +
           (state.error ? '<div class="error">' + esc(state.error) + '</div>' : '') +
           '<div class="row">' +
-            '<button class="primary" id="go">See where I fit</button>' +
-            '<span class="hint">' + (DEMO ? 'Demo mode — no API call' : 'Runs safely in the background') + '</span>' +
+            '<button class="primary" id="go">' + esc(content.buttonLabel) + '</button>' +
+            '<span class="hint">' + (DEMO ? 'Demo mode — no API call' : esc(content.hint)) + '</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -355,24 +357,7 @@
     return renderInput();
   }
 
-  var DEMO_REPORT = {
-    job_title: "Head of Frontend Engineering",
-    company: "Aurora Health",
-    pitch: "This is close to the job I've been doing for five years. I lead technically while staying hands-on. I've taken a platform through this kind of modernisation twice, at SingleStore and TravelRepublic.",
-    categories: [
-      { name: "Technical fit", note: "React, Next.js and TypeScript are my daily tools. I've built two design systems from scratch, at EDITED and TravelRepublic. I go from Figma to production myself, so I can hold a real technical conversation with the team." },
-      { name: "Leadership & management", note: "Five years as EM at SingleStore. I hired two engineers and wrote both promotion cases myself. My approach is stripping interference so people can own outcomes end to end." },
-      { name: "Domain & context", note: "I haven't worked in healthcare since my first role, building the interface for an elderly-care sensor system at Critical Software. But my career has been high-trust, high-traffic platforms where reliability matters. Travel bookings at Emirates Group scale carry similar weight." },
-      { name: "Ways of working", note: "High-trust, high-context, product-minded. I write the vision down so people know the why, then hand over real ownership. That matches how this role describes the team." },
-      { name: "Seniority & scope", note: "As Principal Engineer I led TravelRepublic's platform across three brands. At SingleStore I owned the website, docs, CMS, an AI assistant and an MCP server. Platform, team and roadmap is the shape I've worked at for years." }
-    ],
-    differentiators: [
-      { headline: "Player-coach by design", detail: "I stay in code review and architecture debates while managing people. I haven't left the engineering behind." },
-      { headline: "Shipped two replatformings", detail: "I led the vision and the execution for major platform rewrites at both SingleStore and TravelRepublic." },
-      { headline: "Early on AI in production", detail: "I shipped an AI assistant and one of the first MCP servers in our space, ahead of much bigger competitors." }
-    ],
-    closing: "If this is the kind of platform thinking you're after, I'd love to talk it through."
-  };
+  var DEMO_REPORT = window.PUBLIC_DEMO;
 
   function requestId() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, "");

@@ -4,6 +4,34 @@
   "buildCommand": "npm run build",
   "outputDirectory": "public",
   "rewrites": [
-    { "source": "/", "destination": "/index.html" }
-  ]
+    {
+      "source": "/",
+      "destination": "/api/site?page=home"
+    },
+    {
+      "source": "/index",
+      "destination": "/api/site?page=home"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/api/site?page=home"
+    },
+    {
+      "source": "/cv",
+      "destination": "/api/site?page=cv"
+    },
+    {
+      "source": "/cv.html",
+      "destination": "/api/site?page=cv"
+    },
+    {
+      "source": "/bernardo-raposo-cv.pdf",
+      "destination": "/api/site?page=download"
+    }
+  ],
+  "functions": {
+    "api/site.js": {
+      "includeFiles": "public/{index,cv}.html"
+    }
+  }
 }

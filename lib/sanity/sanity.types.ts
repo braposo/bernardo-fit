@@ -162,6 +162,92 @@ export type SitePage = {
   title?: string;
   slug?: Slug;
   description?: string;
+  home?: {
+    name?: string;
+    heading?: Array<{
+      children?: Array<{
+        marks?: Array<string>;
+        text?: string;
+        _type: "span";
+        _key: string;
+      }>;
+      style?: "normal" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "blockquote";
+      listItem?: "bullet" | "number";
+      markDefs?: Array<{
+        href?: string;
+        _type: "link";
+        _key: string;
+      }>;
+      level?: number;
+      _type: "block";
+      _key: string;
+    }>;
+    introduction?: Array<{
+      children?: Array<{
+        marks?: Array<string>;
+        text?: string;
+        _type: "span";
+        _key: string;
+      }>;
+      style?: "normal" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "blockquote";
+      listItem?: "bullet" | "number";
+      markDefs?: Array<{
+        href?: string;
+        _type: "link";
+        _key: string;
+      }>;
+      level?: number;
+      _type: "block";
+      _key: string;
+    }>;
+    buttonLabel?: string;
+    placeholder?: string;
+    hint?: string;
+    contacts?: Array<{
+      label?: string;
+      href?: string;
+      _key: string;
+    }>;
+  };
+  cv?: {
+    name?: string;
+    headline?: string;
+    contacts?: Array<{
+      label?: string;
+      href?: string;
+      _key: string;
+    }>;
+    sections?: Array<{
+      label?: string;
+      items?: Array<{
+        kind?: "text" | "role" | "skill";
+        title?: string;
+        dates?: string;
+        location?: string;
+        body?: Array<{
+          children?: Array<{
+            marks?: Array<string>;
+            text?: string;
+            _type: "span";
+            _key: string;
+          }>;
+          style?:
+            "normal" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "blockquote";
+          listItem?: "bullet" | "number";
+          markDefs?: Array<{
+            href?: string;
+            _type: "link";
+            _key: string;
+          }>;
+          level?: number;
+          _type: "block";
+          _key: string;
+        }>;
+        _key: string;
+      }>;
+      _key: string;
+    }>;
+  };
   body?: Array<{
     children?: Array<{
       marks?: Array<string>;
@@ -998,6 +1084,115 @@ export type ANALYSIS_SETTINGS_QUERY_RESULT = {
     location: string | null;
     sponsorship: string | null;
   } | null;
+} | null;
+
+// Source: ../fit-app/lib/sanity/public-pages.js
+// Variable: PUBLIC_PAGE_QUERY
+// Query: *[_type == "sitePage" && slug.current == $slug][0]{  title, description,  home{name, heading, introduction, buttonLabel, placeholder, hint, contacts[]{label, href}},  cv{name, headline, contacts[]{label, href}, sections[]{label, items[]{kind, title, dates, location, body}}},  "downloadUrl": download.asset->url}
+export type PUBLIC_PAGE_QUERY_RESULT = {
+  title: string | null;
+  description: string | null;
+  home: {
+    name: string | null;
+    heading: Array<{
+      children?: Array<{
+        marks?: Array<string>;
+        text?: string;
+        _type: "span";
+        _key: string;
+      }>;
+      style?: "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "normal";
+      listItem?: "bullet" | "number";
+      markDefs?: Array<{
+        href?: string;
+        _type: "link";
+        _key: string;
+      }>;
+      level?: number;
+      _type: "block";
+      _key: string;
+    }> | null;
+    introduction: Array<{
+      children?: Array<{
+        marks?: Array<string>;
+        text?: string;
+        _type: "span";
+        _key: string;
+      }>;
+      style?: "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "normal";
+      listItem?: "bullet" | "number";
+      markDefs?: Array<{
+        href?: string;
+        _type: "link";
+        _key: string;
+      }>;
+      level?: number;
+      _type: "block";
+      _key: string;
+    }> | null;
+    buttonLabel: string | null;
+    placeholder: string | null;
+    hint: string | null;
+    contacts: Array<{
+      label: string | null;
+      href: string | null;
+    }> | null;
+  } | null;
+  cv: {
+    name: string | null;
+    headline: string | null;
+    contacts: Array<{
+      label: string | null;
+      href: string | null;
+    }> | null;
+    sections: Array<{
+      label: string | null;
+      items: Array<{
+        kind: "role" | "skill" | "text" | null;
+        title: string | null;
+        dates: string | null;
+        location: string | null;
+        body: Array<{
+          children?: Array<{
+            marks?: Array<string>;
+            text?: string;
+            _type: "span";
+            _key: string;
+          }>;
+          style?:
+            "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "normal";
+          listItem?: "bullet" | "number";
+          markDefs?: Array<{
+            href?: string;
+            _type: "link";
+            _key: string;
+          }>;
+          level?: number;
+          _type: "block";
+          _key: string;
+        }> | null;
+      }> | null;
+    }> | null;
+  } | null;
+  downloadUrl: string | null;
+} | null;
+
+// Source: ../fit-app/lib/sanity/public-pages.js
+// Variable: DEMO_QUERY
+// Query: *[_type == "fitReport" && legacyId == "demo"][0]{  "job_title": jobTitle, company, pitch, categories[]{name, note},  differentiators[]{headline, detail}, closing}
+export type DEMO_QUERY_RESULT = {
+  job_title: string | null;
+  company: string | null;
+  pitch: string | null;
+  categories: Array<{
+    name: string | null;
+    note: string | null;
+  }> | null;
+  differentiators: Array<{
+    headline: string | null;
+    detail: string | null;
+  }> | null;
+  closing: string | null;
 } | null;
 
 // Source: ../fit-app/lib/sanity/queries.js
@@ -2475,6 +2670,101 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       title?: string;
       slug?: Slug;
       description?: string;
+      home?: {
+        name?: string;
+        heading?: Array<{
+          children?: Array<{
+            marks?: Array<string>;
+            text?: string;
+            _type: "span";
+            _key: string;
+          }>;
+          style?:
+            "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "normal";
+          listItem?: "bullet" | "number";
+          markDefs?: Array<{
+            href?: string;
+            _type: "link";
+            _key: string;
+          }>;
+          level?: number;
+          _type: "block";
+          _key: string;
+        }>;
+        introduction?: Array<{
+          children?: Array<{
+            marks?: Array<string>;
+            text?: string;
+            _type: "span";
+            _key: string;
+          }>;
+          style?:
+            "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "normal";
+          listItem?: "bullet" | "number";
+          markDefs?: Array<{
+            href?: string;
+            _type: "link";
+            _key: string;
+          }>;
+          level?: number;
+          _type: "block";
+          _key: string;
+        }>;
+        buttonLabel?: string;
+        placeholder?: string;
+        hint?: string;
+        contacts?: Array<{
+          label?: string;
+          href?: string;
+          _key: string;
+        }>;
+      };
+      cv?: {
+        name?: string;
+        headline?: string;
+        contacts?: Array<{
+          label?: string;
+          href?: string;
+          _key: string;
+        }>;
+        sections?: Array<{
+          label?: string;
+          items?: Array<{
+            kind?: "role" | "skill" | "text";
+            title?: string;
+            dates?: string;
+            location?: string;
+            body?: Array<{
+              children?: Array<{
+                marks?: Array<string>;
+                text?: string;
+                _type: "span";
+                _key: string;
+              }>;
+              style?:
+                | "blockquote"
+                | "h1"
+                | "h2"
+                | "h3"
+                | "h4"
+                | "h5"
+                | "h6"
+                | "normal";
+              listItem?: "bullet" | "number";
+              markDefs?: Array<{
+                href?: string;
+                _type: "link";
+                _key: string;
+              }>;
+              level?: number;
+              _type: "block";
+              _key: string;
+            }>;
+            _key: string;
+          }>;
+          _key: string;
+        }>;
+      };
       body?: Array<{
         children?: Array<{
           marks?: Array<string>;
@@ -2554,6 +2844,8 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
 declare global {
   interface SanityQueries {
     '*[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{\n  _id, _rev, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},\n  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,\n  personalFacts{availability, location, sponsorship}\n}': ANALYSIS_SETTINGS_QUERY_RESULT;
+    '*[_type == "sitePage" && slug.current == $slug][0]{\n  title, description,\n  home{name, heading, introduction, buttonLabel, placeholder, hint, contacts[]{label, href}},\n  cv{name, headline, contacts[]{label, href}, sections[]{label, items[]{kind, title, dates, location, body}}},\n  "downloadUrl": download.asset->url\n}': PUBLIC_PAGE_QUERY_RESULT;
+    '*[_type == "fitReport" && legacyId == "demo"][0]{\n  "job_title": jobTitle, company, pitch, categories[]{name, note},\n  differentiators[]{headline, detail}, closing\n}': DEMO_QUERY_RESULT;
     '{\n  "analysisSettings": count(*[_type == "analysisSettings"]),\n  "candidateProfile": count(*[_type == "candidateProfile"]),\n  "candidateEvidence": count(*[_type == "candidateEvidence"]),\n  "job": count(*[_type == "job"]),\n  "applicationQuestion": count(*[_type == "applicationQuestion"]),\n  "fitReport": count(*[_type == "fitReport"]),\n  "coverLetter": count(*[_type == "coverLetter"]),\n  "companyResearch": count(*[_type == "companyResearch"]),\n  "interviewBrief": count(*[_type == "interviewBrief"]),\n  "fitAssessment": count(*[_type == "fitAssessment"]),\n  "sitePage": count(*[_type == "sitePage"]),\n  "writingGuidance": count(*[_type == "writingGuidance"])\n}': CONTENT_COUNTS_QUERY_RESULT;
     '*[_type == "candidateProfile" && _id == $id][0]{\n  _id, _rev, name, headline, summary, motivationSummary, interviewSummary,\n  location, availability, workEligibility, noticePeriod, careerDirection,\n  workingPreferences, salaryPreferences, constraints, confirmedAnswers, reviewedAt,\n  evidence[]->{_id, _rev, title, kind, organisation, period, body, sources, reviewedAt}\n}': CANDIDATE_QUERY_RESULT;
     '*[_type == "job" && _id == $id][0]{\n  ...,\n  candidate->{_id, name}, activeReport->, activeCoverLetter->, activeResearch->,\n  activeBrief->, activeAssessment->,\n  "questions": *[_type == "applicationQuestion" && job._ref == ^._id] | order(order asc, _createdAt asc),\n  "reportVersions": *[_type == "fitReport" && legacyId == ^.activeReport->.legacyId && !defined(deletedAt) && pending != true] | order(generatedAt desc){_id, versionId, generatedAt, model, active},\n  "coverVersions": *[_type == "coverLetter" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "researchVersions": *[_type == "companyResearch" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model},\n  "briefVersions": *[_type == "interviewBrief" && job._ref == ^._id] | order(generatedAt desc){_id, versionId, generatedAt, model}\n}': JOB_CONTENT_QUERY_RESULT;
