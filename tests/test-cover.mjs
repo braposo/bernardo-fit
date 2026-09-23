@@ -40,7 +40,7 @@ const { getCoverArtifact, listCoverVersions } = await import(lib + "cover-artifa
 const { saveRunReceipt } = await import(lib + "run-receipts.js");
 const { coverFingerprint } = await import(lib + "generation-fingerprint.js");
 const { makeViewToken, verifyViewToken } = await import(lib + "admin.js");
-const coverHandler = (await import(base + "admin/cover.js")).default;
+const { default: coverHandler, settleRun } = await import(base + "admin/cover.js");
 const jobsHandler = (await import(base + "admin/jobs.js")).default;
 const letterHandler = (await import(base + "letter.js")).default;
 
@@ -108,6 +108,13 @@ await coverHandler({ method: "POST", headers: auth, body: { id: "nope", requestI
 check("unknown job -> 404", res.statusCode === 404);
 
 const noFit = await store.saveJob({ company: "NoFit", role: "R" });
+await store.updateJob(noFit.id, { jevRun: { requestId: 'stale-score', runId: 'stale-run', status: 'queued' } });
+await settleRun({ jobId: noFit.id, runId: 'stale-run' }, { field: 'jevRun' },
+  { status: 'COMPLETED', output: { outcome: 'superseded' } });
+check('terminal lookup releases a stale fit assessment', (await store.getJob(noFit.id)).jevRun.status === 'superseded');
+await store.updateJob(noFit.id, { jevRun: { requestId: 'new-score', runId: 'new-run', status: 'queued' } });
+await settleRun({ jobId: noFit.id, runId: 'stale-run' }, { field: 'jevRun' }, { status: 'FAILED' });
+check('old terminal lookup keeps a newer assessment locked', (await store.getJob(noFit.id)).jevRun.status === 'queued');
 res = mockRes();
 await coverHandler({ method: "POST", headers: hdrs, body: { id: noFit.id, requestId: "request02" } }, res);
 check("refuses without an analysis", res.statusCode === 409, res.statusCode);

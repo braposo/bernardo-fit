@@ -636,6 +636,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   var pendingActions = new Map();
   var watchedActions = new Map();
+  var recoveringActions = new Map();
   var finishedRuns = new Set();
   var actionNames = { cover: 'Cover letter', research: 'Company research', brief: 'Screen brief', 'prepare-screen': 'Interview preparation', analyse: 'Fit analysis', regenerate: 'Fit analysis', answer: 'Application answer', 'jev-score': 'Fit assessment', 'jev-score-all': 'Listed role assessments', adopt: 'Add reports', ingest: 'Import roles' };
   function actionKey(id, kind, questionId) {
@@ -727,13 +728,33 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     watchedActions.set(runId, watching);
     return watching;
   }
+  function recoverWork(id, runId, status, kind, openWhenDone, questionId) {
+    if (watchedActions.has(runId)) return watchedActions.get(runId);
+    if (finishedRuns.has(runId)) return Promise.resolve();
+    if (recoveringActions.has(runId)) return recoveringActions.get(runId);
+    var key = actionKey(id, kind, questionId);
+    pendingActions.set(key, { id: id, kind: kind, questionId: questionId, runId: runId });
+    persistActions(); applyActionLocks();
+    var recovery = api('/api/admin/cover?run=' + encodeURIComponent(runId), { method: 'GET' }).then(function (out) {
+      if (out.ok && out.d.terminal) {
+        finishedRuns.add(runId);
+        if (pendingActions.get(key)?.runId === runId) pendingActions.delete(key);
+        persistActions();
+        loadJobs(false);
+        return out;
+      }
+      return watchWork(id, runId, status, kind, openWhenDone, questionId);
+    }).finally(function () { recoveringActions.delete(runId); });
+    recoveringActions.set(runId, recovery);
+    return recovery;
+  }
   function recoverActions() {
     jobs.forEach(function (job) {
       [['coverRun','cover'],['researchRun','research'],['prepareRun','prepare-screen'],['briefRun','brief'],['analysisRun','analyse'],['jevRun','jev-score']].forEach(function (entry) {
         var run = job[entry[0]];
-        if (run && run.runId && ['dispatching','queued'].indexOf(run.status) !== -1) watchWork(job.id, run.runId, null, entry[1], false);
+        if (run && run.runId && ['dispatching','queued'].indexOf(run.status) !== -1) recoverWork(job.id, run.runId, null, entry[1], false);
       });
-      (job.answerRuns || []).forEach(function (answer) { watchWork(job.id, answer.run.runId, null, 'answer', false, answer.questionId); });
+      (job.answerRuns || []).forEach(function (answer) { recoverWork(job.id, answer.run.runId, null, 'answer', false, answer.questionId); });
     });
   }
 
@@ -1293,15 +1314,16 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
       if (sequence !== detailSequence || selectedId !== id) return;
       if (unauthorised(out)) return;
-      if (!out.ok) { selectedMissing = true; renderJobs(); return; }
+      if (!out.ok) { selectedMissing = true; renderJobs(true); return; }
       var i = jobs.findIndex(function (j) { return j.id === id; });
       if (i === -1) jobs.push(Object.assign({}, out.d.job, { _outOfCollection: !!out.d.job.archived !== showArchived }));
       else jobs[i] = Object.assign({}, jobs[i], out.d.job);
-      renderJobs();
+      renderJobs(true);
     });
   }
 
-  function renderJobs() {
+  function renderJobs(workspaceOnly) {
+    workspaceOnly = workspaceOnly === true && !!document.querySelector('.admin-shell .workspace');
     // Keep live editors in place during background refreshes and search updates.
     var focused = document.activeElement;
     var preserveWorkspace = renderedRole === selectedId && renderedSection === workspaceSection &&
@@ -1342,7 +1364,16 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       selected ? (!selectedVisible ? '<div class="notice">This role no longer matches the current pipeline view.<button class="read-link" data-return-list>Return to the list</button></div>' : '') + jobHtml(selected) :
       '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a role from the pipeline to review its fit, materials, context and activity.</p></div>';
 
-    renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + '"><aside class="pipeline" aria-label="' + (showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
+    if (workspaceOnly) {
+      var shell = document.querySelector('.admin-shell');
+      shell.classList.toggle('has-selection', !!selectedId);
+      document.querySelectorAll('[data-select-job]').forEach(function (button) {
+        var isSelected = button.getAttribute('data-select-job') === selectedId;
+        button.classList.toggle('selected', isSelected);
+        button.setAttribute('aria-pressed', String(isSelected));
+      });
+      renderAdmin(shell.querySelector('.workspace'), workspaceHtml);
+    } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + '"><aside class="pipeline" aria-label="' + (showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
       '<span class="pipeline-total">'+shown.length+' opportunities</span>' + '</div>' +
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
@@ -1370,7 +1401,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     });
 
 
-    var adoptBtn = document.getElementById("adopt");
+    var adoptBtn = workspaceOnly ? null : document.getElementById("adopt");
     if (adoptBtn) {
       adoptBtn.addEventListener("click", function () {
         if (!beginAction("batch", "adopt")) return;
@@ -1387,7 +1418,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       });
     }
 
-    var assessListedBtn = document.getElementById("assesslisted");
+    var assessListedBtn = workspaceOnly ? null : document.getElementById("assesslisted");
     if (assessListedBtn) {
       assessListedBtn.disabled = !!activeRuns["jev-score-all"];
       assessListedBtn.addEventListener("click", function () {
@@ -1401,10 +1432,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (!active || !active.runId || !target || attachedCoverWatches[active.runId]) return;
       attachedCoverWatches[active.runId] = true;
       target.disabled = true;
-      watchWork("batch", active.runId, target, kind, false).then(function () { activeRuns[kind] = null; });
+      recoverWork("batch", active.runId, target, kind, false).then(function () { activeRuns[kind] = null; });
     });
 
-    var searchEl = document.getElementById("search");
+    var searchEl = workspaceOnly ? null : document.getElementById("search");
     if (searchEl) {
       searchEl.addEventListener("input", function () {
         searchQuery = searchEl.value;
@@ -1419,7 +1450,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var usageButton = document.getElementById("usagebtn");
     if (usageButton) usageButton.onclick = showUsage;
 
-    Array.prototype.forEach.call(document.querySelectorAll('[data-collection]'), function (button) {
+    Array.prototype.forEach.call(workspaceOnly ? [] : document.querySelectorAll('[data-collection]'), function (button) {
       button.onclick = function () {
         var nextArchived = button.getAttribute('data-collection') === 'archive';
         if (nextArchived === showArchived) return;
@@ -1428,7 +1459,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       };
     });
 
-    var archToggle = document.getElementById("togglearchived");
+    var archToggle = workspaceOnly ? null : document.getElementById("togglearchived");
     if (archToggle) {
       archToggle.addEventListener("click", function () {
         rememberPipelineScroll();
@@ -1442,31 +1473,33 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       });
     }
 
-    var stageFilterEl = document.getElementById("stagefilter");
+    var stageFilterEl = workspaceOnly ? null : document.getElementById("stagefilter");
     if (stageFilterEl) stageFilterEl.addEventListener("change", function () {
       rememberPipelineScroll(); stageFilter = stageFilterEl.value || null; writeNavigation("push"); renderJobs(); restorePipelineScroll();
     });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-select-job]'), function (button) {
+    Array.prototype.forEach.call(workspaceOnly ? [] : document.querySelectorAll('[data-select-job]'), function (button) {
       button.addEventListener('click', function () {
-        rememberPipelineScroll(); selectedId = button.getAttribute('data-select-job'); selectedMissing = false;
-        writeNavigation('push', { admin: true, selectedFromList: true }); renderJobs(); loadSelectedDetail(selectedId);
+        var nextId = button.getAttribute('data-select-job');
+        if (nextId === selectedId) return;
+        rememberPipelineScroll(); selectedId = nextId; selectedMissing = false;
+        writeNavigation('push', { admin: true, selectedFromList: true }); renderJobs(true); loadSelectedDetail(selectedId);
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-section-link]'), function (button) {
       button.addEventListener('click', function () {
         workspaceSection = button.getAttribute('data-section-link'); versionGroup = button.getAttribute('data-version-group') || "";
-        writeNavigation('push'); renderJobs();
+        writeNavigation('push'); renderJobs(true);
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-return-list], [data-act="back"]'), function (button) {
       button.addEventListener('click', function () {
         suppressAutoSelect = true;
-        selectedId = ""; writeNavigation('push'); renderJobs(); restorePipelineScroll();
+        selectedId = ""; writeNavigation('push'); renderJobs(true); restorePipelineScroll();
       });
     });
-    var clearSearch = document.querySelector('[data-clear-search]');
+    var clearSearch = workspaceOnly ? null : document.querySelector('[data-clear-search]');
     if (clearSearch) clearSearch.addEventListener('click', function () { searchQuery = ""; searchMatches = null; writeNavigation('push'); renderJobs(); });
-    var allStages = document.querySelector('[data-all-stages]');
+    var allStages = workspaceOnly ? null : document.querySelector('[data-all-stages]');
     if (allStages) allStages.addEventListener('click', function () { stageFilter = null; writeNavigation('push'); renderJobs(); });
 
     var listing = document.querySelector('.listing-link');
@@ -1492,7 +1525,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           (job.coverRun.status === "dispatching" || job.coverRun.status === "queued") &&
           !attachedCoverWatches[job.coverRun.runId]) {
         attachedCoverWatches[job.coverRun.runId] = true;
-        watchCover(id, job.coverRun.runId, status, false).then(function () {
+        recoverWork(id, job.coverRun.runId, status, 'cover', false).then(function () {
           delete attachedCoverWatches[job.coverRun.runId];
         });
       }
@@ -1500,7 +1533,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           (job.prepareRun.status === "dispatching" || job.prepareRun.status === "queued") &&
           !attachedCoverWatches[job.prepareRun.runId]) {
         attachedCoverWatches[job.prepareRun.runId] = true;
-        watchWork(id, job.prepareRun.runId, status, "prepare-screen", false).then(function () {
+        recoverWork(id, job.prepareRun.runId, status, "prepare-screen", false).then(function () {
           delete attachedCoverWatches[job.prepareRun.runId];
         });
       }
@@ -1508,14 +1541,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           (job.analysisRun.status === "dispatching" || job.analysisRun.status === "queued") &&
           !attachedCoverWatches[job.analysisRun.runId]) {
         attachedCoverWatches[job.analysisRun.runId] = true;
-        watchWork(id, job.analysisRun.runId, status, "analyse", false).then(function () {
+        recoverWork(id, job.analysisRun.runId, status, "analyse", false).then(function () {
           delete attachedCoverWatches[job.analysisRun.runId];
         });
       }
       (job.answerRuns || []).forEach(function (answerRun) {
         if (attachedCoverWatches[answerRun.run.runId]) return;
         attachedCoverWatches[answerRun.run.runId] = true;
-        watchWork(id, answerRun.run.runId, status, "answer", false, answerRun.questionId).then(function () {
+        recoverWork(id, answerRun.run.runId, status, "answer", false, answerRun.questionId).then(function () {
           delete attachedCoverWatches[answerRun.run.runId];
           loadJobs(false);
         });
@@ -1538,7 +1571,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         var run = job[entry[0]];
         if (!run || !run.runId || ['dispatching', 'queued'].indexOf(run.status) === -1 || attachedCoverWatches[run.runId]) return;
         attachedCoverWatches[run.runId] = true;
-        watchWork(id, run.runId, status, entry[1], false).then(function () { delete attachedCoverWatches[run.runId]; });
+        recoverWork(id, run.runId, status, entry[1], false).then(function () { delete attachedCoverWatches[run.runId]; });
       });
 
       var fieldSaveSeq = {};
@@ -1637,7 +1670,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
             (savedQuestion.run.status === "dispatching" || savedQuestion.run.status === "queued") &&
             !attachedCoverWatches[savedQuestion.run.runId]) {
           attachedCoverWatches[savedQuestion.run.runId] = true;
-          watchWork(id, savedQuestion.run.runId, status, "answer", false, qid).then(function () {
+          recoverWork(id, savedQuestion.run.runId, status, "answer", false, qid).then(function () {
             delete attachedCoverWatches[savedQuestion.run.runId];
             api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
               if (!out.ok) return;
@@ -2011,21 +2044,47 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   });
 
   document.addEventListener('admin:section', function (event) {
-    workspaceSection = event.detail; writeNavigation('push'); renderJobs();
+    workspaceSection = event.detail; writeNavigation('push'); renderJobs(true);
     document.querySelector('[data-section="' + workspaceSection + '"]').focus();
   });
 
-  window.addEventListener('popstate', function () {
-    var wasArchived = showArchived;
+  document.addEventListener('admin:navigate', function (event) {
+    var url = new URL(event.detail, location.href);
+    if (url.origin !== location.origin || url.pathname !== '/admin') return;
+    event.preventDefault();
+    var wasArchived = showArchived, wasStage = stageFilter, wasSearch = searchQuery;
+    rememberPipelineScroll();
+    history.pushState({ admin: true }, '', url.pathname + url.search);
     readNavigationState();
-    searchMatches = null; searchRequested = ""; selectedMissing = false;
+    selectedMissing = false;
+    suppressAutoSelect = false;
     if (wasArchived !== showArchived) loadJobs(false);
-    else { renderJobs(); if (searchQuery.trim()) applySearch(); loadSelectedDetail(selectedId); restorePipelineScroll(); }
+    else {
+      if (wasStage !== stageFilter || wasSearch !== searchQuery) {
+        searchMatches = null; searchRequested = '';
+        renderJobs(); if (searchQuery.trim()) applySearch();
+      } else renderJobs(true);
+      loadSelectedDetail(selectedId);
+    }
+  });
+
+  window.addEventListener('popstate', function () {
+    var wasArchived = showArchived, wasStage = stageFilter, wasSearch = searchQuery;
+    readNavigationState();
+    selectedMissing = false;
+    if (wasArchived !== showArchived) loadJobs(false);
+    else {
+      if (wasStage !== stageFilter || wasSearch !== searchQuery) {
+        searchMatches = null; searchRequested = "";
+        renderJobs(); if (searchQuery.trim()) applySearch();
+      } else renderJobs(true);
+      loadSelectedDetail(selectedId); restorePipelineScroll();
+    }
   });
 
   readNavigationState();
   if (secret) {
-    try { JSON.parse(sessionStorage.getItem('fit.activeTasks') || '[]').forEach(function (a) { if (a.runId) watchWork(a.id, a.runId, null, a.kind, false, a.questionId); }); } catch (_) {}
+    try { JSON.parse(sessionStorage.getItem('fit.activeTasks') || '[]').forEach(function (a) { if (a.runId) recoverWork(a.id, a.runId, null, a.kind, false, a.questionId); }); } catch (_) {}
     loadJobs(true);
   }
   else renderGate();

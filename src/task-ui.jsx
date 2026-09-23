@@ -25,7 +25,13 @@ function paint() {
       <Toast.Title className="task-toast-title">{notice.title || 'Background work'}</Toast.Title>
       <Toast.Description className="task-toast-message" role="status" aria-live="polite" aria-atomic="true">{notice.message}</Toast.Description>
       <div className="task-toast-actions">
-        {notice.href && <a href={notice.href}>{notice.linkLabel || 'Open result'}</a>}
+        {notice.href && <a href={notice.href} onClick={event => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          const url = new URL(notice.href, location.href);
+          if (url.origin !== location.origin || url.pathname !== '/admin') return;
+          const navigation = new CustomEvent('admin:navigate', { detail: url.href, cancelable: true });
+          if (!document.dispatchEvent(navigation)) event.preventDefault();
+        }}>{notice.linkLabel || 'Open result'}</a>}
         {notice.retry && <Button variant="outline" onClick={notice.retry}>Reconnect</Button>}
         {notice.terminal && <Toast.Close asChild><Button variant="ghost" aria-label={`Dismiss ${notice.title || 'notification'}`}>Dismiss</Button></Toast.Close>}
       </div>

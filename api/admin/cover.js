@@ -63,14 +63,17 @@ export async function claimRun(jobId, spec, body, pending) {
   return selected;
 }
 
-async function failRun(receipt, spec) {
+export async function settleRun(receipt, spec, run) {
   if (spec.global) return;
+  const status = run.status === "COMPLETED"
+    ? ["completed", "superseded"].includes(run.output?.outcome) ? run.output.outcome : "completed"
+    : "failed";
   await mutateJob(receipt.jobId, (current) => {
     if (spec.field === "questionRun") return { questions: (current.questions || []).map((q) =>
-      q.id === receipt.questionId && q.run?.runId === receipt.runId && q.run.status !== "failed"
-        ? { ...q, run: { ...q.run, status: "failed", finishedAt: finished() } } : q) };
-    return current[spec.field]?.runId === receipt.runId && current[spec.field].status !== "failed"
-      ? { [spec.field]: { ...current[spec.field], status: "failed", finishedAt: finished() } } : undefined;
+      q.id === receipt.questionId && q.run?.runId === receipt.runId && ["dispatching", "queued"].includes(q.run.status)
+        ? { ...q, run: { ...q.run, status, finishedAt: finished() } } : q) };
+    return current[spec.field]?.runId === receipt.runId && ["dispatching", "queued"].includes(current[spec.field].status)
+      ? { [spec.field]: { ...current[spec.field], status, finishedAt: finished() } } : undefined;
   });
 }
 
@@ -96,7 +99,7 @@ async function handler(req, res) {
       if (req.query?.realtime === "1") return res.status(200).json({ kind: receipt.kind, jobId: receipt.jobId, questionId: receipt.questionId, ...await realtimeCredentials(receipt.runId) });
       const run = await runs.retrieve(receipt.runId);
       const terminal = TERMINAL_RUN_STATUSES.has(run.status);
-      if (terminal && run.status !== "COMPLETED") await failRun(receipt, spec);
+      if (terminal) await settleRun(receipt, spec, run);
       if (terminal && spec.global) await clearActiveRun(receipt.kind, receipt.runId);
       return res.status(200).json({ kind: receipt.kind, runId: run.id, jobId: receipt.jobId,
         requestId: receipt.requestId, status: run.status, terminal,

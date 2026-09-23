@@ -290,6 +290,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 ## Background task notifications
 
 - Every app action dispatched to Trigger shows one persistent toast keyed by its run ID (not its action button), updated from Trigger Realtime status and phase metadata through completion, failure, cancellation or expiry. Use human-readable task names and role context; keep relevant role, pipeline and result links in the toast.
+- On reload, check saved run status before restoring notifications. Restore toasts for unfinished work only; results that finished before the reload belong in the role, not in a newly opened toast.
 - Lock the corresponding action from submission until a confirmed terminal result, including after navigation, re-render and recovery on reload. Keep unrelated controls usable. A lost status connection means reconnecting, not task failure; keep the action locked while reconnecting.
 - Toasts never steal focus. Keep status announcements polite, completed notifications dismissible, and links and dismiss controls keyboard-accessible with 44px mobile targets. Keep the stack scrollable within narrow screens.
 

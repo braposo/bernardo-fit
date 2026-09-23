@@ -46,7 +46,10 @@ try {
       if (req.method() === 'POST') { dispatches++; runKinds.set('run' + dispatches, body.kind); if (body.kind === 'cover') job.coverRun = { runId: 'run' + dispatches, status: 'queued' }; return reply({ runId: 'run' + dispatches, kind: body.kind }, 202); }
       if (url.searchParams.get('realtime')) return reply({ runId: url.searchParams.get('run'), kind: runKinds.get(url.searchParams.get('run')), publicAccessToken: 'fixture-token' });
       job.coverRun = { runId: 'run1', status: status === 'COMPLETED' ? 'completed' : 'failed' };
-      return reply({ terminal: true, status, kind: runKinds.get(url.searchParams.get('run')), result: { outcome: 'completed', words: 320, assessed: 1, failed: 0 }, error: status === 'FAILED' ? 'Provider unavailable' : undefined });
+      for (const item of [job, secondJob]) if (item.jevRun?.runId === url.searchParams.get('run') && ['COMPLETED', 'FAILED'].includes(status)) {
+        item.jevRun.status = status === 'COMPLETED' ? 'completed' : 'failed';
+      }
+      return reply({ terminal: ['COMPLETED', 'FAILED'].includes(status), status, kind: runKinds.get(url.searchParams.get('run')), result: { outcome: 'completed', words: 320, assessed: 1, failed: 0 }, error: status === 'FAILED' ? 'Provider unavailable' : undefined });
     }
     if (url.pathname === '/api/analyze') {
       if (req.method() === 'POST') { dispatches++; return reply({ requestId: 'public_fixture_request', token: 'fixture' }, 202); }
@@ -64,6 +67,16 @@ try {
   assert.equal(await page.locator('[data-act=cover]').isDisabled(), true);
   await page.evaluate(() => window.fixtureRuns.run1.onUpdate({ status: 'EXECUTING', metadata: { phase: 'writing' } }));
   await page.locator('.task-toast-message').filter({ hasText: 'Writing…' }).waitFor();
+  await page.evaluate(() => { window.pipelineBeforeSelection = document.querySelector('.pipeline'); });
+  await page.locator('[data-select-job=job2]').click();
+  assert.equal(await page.evaluate(() => document.querySelector('.pipeline') === window.pipelineBeforeSelection), true, 'job selection keeps pipeline mounted');
+  assert.equal(await page.locator('.task-toast-message').filter({ hasText: 'Writing…' }).count(), 1, 'job selection keeps toast visible');
+  await page.locator('[data-select-job=job1]').click();
+  await page.goBack();
+  assert.match(page.url(), /job=job2/);
+  assert.equal(await page.evaluate(() => document.querySelector('.pipeline') === window.pipelineBeforeSelection), true, 'browser Back keeps pipeline mounted');
+  await page.goForward();
+  assert.match(page.url(), /job=job1/);
   await page.locator('[data-section=overview]').click();
   await page.locator('[data-section=materials]').click();
   assert.equal(await page.locator('[data-act=cover]').isDisabled(), true);
@@ -89,6 +102,12 @@ try {
   await page.locator('.task-toast-message').filter({ hasText: '320 words' }).waitFor();
   await page.waitForFunction(() => !document.querySelector('[data-act=cover]').disabled);
   assert.match(await page.locator('.task-toast a').getAttribute('href'), /job=job1/);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.evaluate(() => { window.pipelineBeforeToastLink = document.querySelector('.pipeline'); });
+  await page.locator('[data-select-job=job2]').click();
+  await page.locator('.task-toast a').click();
+  assert.match(page.url(), /job=job1/);
+  assert.equal(await page.evaluate(() => document.querySelector('.pipeline') === window.pipelineBeforeToastLink), true, 'toast role link navigates within admin');
   const axe = await new AxeBuilder({ page }).include('.task-toast-viewport').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   assert.deepEqual(axe.violations, []);
   await page.getByRole('button', { name: 'Dismiss Cover letter', exact: false }).click();
@@ -148,6 +167,18 @@ try {
   assert.equal(await secondToast.getByText('Fit assessment ready', {exact:true}).count(), 1);
   await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), nextAssessment);
   await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]').disabled);
+  await page.evaluate(([a, b]) => sessionStorage.setItem('fit.activeTasks', JSON.stringify([
+    { id: 'job1', kind: 'jev-score', runId: a }, { id: 'job2', kind: 'jev-score', runId: b }
+  ])), [firstAssessment, secondAssessment]);
+  secondJob.jevRun = { runId: nextAssessment, status: 'queued' };
+  const pointerCheck = page.waitForResponse(response => response.url().includes('run=' + nextAssessment) && !response.url().includes('realtime=1'));
+  await page.reload();
+  await pointerCheck;
+  await page.locator('[data-select-job=job1]').waitFor();
+  await page.waitForFunction(() => sessionStorage.getItem('fit.activeTasks') === '[]');
+  assert.equal(await page.locator('.task-toast').count(), 0, 'finished saved runs and stale job pointers do not reopen toasts');
+  await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]')?.disabled);
+  assert.equal(await page.locator('[data-act=jevscore]').isEnabled(), true, 'finished run releases Assess fit');
   await page.goto(origin + '/');
   await page.locator('#jd').fill('A sufficiently detailed synthetic engineering leadership role.');
   await page.locator('#go').click();
