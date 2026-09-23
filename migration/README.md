@@ -45,6 +45,16 @@ unchanged role inputs. This restores the same 39 current active scores and eight
 stale active assessments as the source app, without recomputation or relabeling
 outdated results as current.
 
+Follow-up verification on 23 September: all 132 jobs and 103 attached report,
+cover, research and brief pointers resolve through the Sanity runtime adapters.
+All 130 assessments and 55 saved summaries remain present (54 summaries satisfy
+the current display/provenance checks). The local disposable storage probe passes
+16 checks. Imported research now accepts its original fingerprint only while the
+candidate/settings baseline and company/role/domain inputs are unchanged; the
+seven-day expiry still applies. Existing outdated briefs are not relabelled.
+The owner confirmed there is no new production content to reconcile, so no
+catch-up import is planned. This does not expand the original export's coverage.
+
 ## Missing pieces before cutover
 
 - Production KV credentials are marked sensitive in Vercel, so `env pull` returns
@@ -66,8 +76,8 @@ outdated results as current.
   branch generation requires Trigger Preview setup. Static home/CV renderers
   still need wiring. Redis locks, run receipts, usage, audit and rate limiting
   remain operational data in Redis, isolated by namespace on the branch.
-- Before enabling Sanity storage after merge: pause content writes, extract and
-  import a final delta, verify active pointers and shared links, test generation
+- Before enabling Sanity storage after merge: pause content writes, verify the
+  owner's no-new-content assumption still holds, verify shared links, test generation
   and edits, then enable the coordinated web/worker configuration. Keep snapshots
   and Redis available for rollback. Existing report IDs and URLs are preserved.
 

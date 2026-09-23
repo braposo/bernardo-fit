@@ -5,6 +5,8 @@ import {initialSettingsDocument} from '../lib/sanity/settings-document.js';
 import {settingsFromDocument,withSettingsSnapshot,candidateContentSignature,loadAnalysisSettings} from '../lib/sanity/analysis-settings.js';
 import {saveReportWithId,saveJob,deleteJob} from '../lib/store.js';
 import reportsHandler from '../api/admin/reports.js';
+import {digest,researchFingerprint,researchInputsAreCurrent} from '../lib/generation-fingerprint.js';
+import {researchIsReusable,RESEARCH_REUSE_MS} from '../lib/screen-work.js';
 let passed=0;
 const test=async fn=>{await fn();passed++;};
 const settings=settingsFromDocument(initialSettingsDocument());
@@ -53,5 +55,26 @@ await test(async()=>{
   const response={setHeader(){},status(code){this.code=code;return this;},json(value){this.body=value;}};
   await reportsHandler({method:'GET',headers:{'x-admin-secret':'migration-test'},query:{export:'1'}},response);
   assert.equal(response.code,200);assert.deepEqual(response.body.dismissedReportIds,['dismissed-migration-report']);
+});
+const researchJob={company:'Example',role:'Engineering Manager',sourceUrl:'https://example.com/jobs',researchId:'research',researchAt:new Date().toISOString()};
+// Original pre-migration format, independently specified here.
+researchJob.researchFingerprint=digest({company:'Example',role:'Engineering Manager',domain:'example.com'});
+await test(()=>withSettingsSnapshot(settings,()=>{
+  assert.equal(jobSummary(researchJob).researchStale,false);
+  assert.equal(researchIsReusable(researchJob,{at:researchJob.researchAt}),true);
+  for(const patch of [{company:'Changed'},{role:'Changed'},{sourceUrl:'https://other.com'},{researchFingerprint:''}]) {
+    assert.equal(researchInputsAreCurrent({...researchJob,...patch}),false);
+  }
+  assert.equal(researchIsReusable(researchJob,{at:researchJob.researchAt},Date.now()+RESEARCH_REUSE_MS+1000),false);
+  assert.equal(jobSummary({...researchJob,researchAt:new Date(Date.now()-RESEARCH_REUSE_MS-1000).toISOString()}).researchStale,true);
+  assert.equal(researchIsReusable(researchJob,{at:researchJob.researchAt,model:'different'},Date.now(),'sol'),false);
+}));
+await test(()=>withSettingsSnapshot({...settings,legacyScoringCompatible:false},()=>{
+  assert.equal(researchInputsAreCurrent(researchJob),false);
+  assert.equal(researchInputsAreCurrent({...researchJob,researchFingerprint:researchFingerprint(researchJob)}),true);
+}));
+await test(()=>{
+  const doc=initialSettingsDocument();doc.questions[0].instructions+=' Changed guidance.';
+  withSettingsSnapshot(settingsFromDocument(doc),()=>assert.equal(researchInputsAreCurrent(researchJob),false));
 });
 console.log(`passed ${passed}, failed 0`);
