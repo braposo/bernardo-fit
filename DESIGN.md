@@ -273,7 +273,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 ## Reading, generation and versions
 
-- Only the current five-dimension fit assessment supplies visible scores. Do not show historical report scores in document versions or use them as a fallback in the pipeline or role header. Generating or publishing a document does not rescore the role.
+- The latest saved five-dimension fit assessment supplies visible scores, including when later input changes make it outdated. Label outdated scores and offer reassessment; keep outdated Overview prose hidden. Do not show historical report scores in document versions or use them as a fallback in the pipeline or role header. Generating or publishing a document does not rescore the role.
 - Introduce generation reviews with one short, natural explanation of what the user will receive. Omit headings such as Work to run and procedural task lists. Mention meaningful scope, such as refreshing company research before writing a brief, in plain language.
 - Assess fit also writes the private Overview summary using Sol behind the scenes. Save it with the exact assessment/input snapshot; hide outdated prose after context changes. Loading Overview never generates. Existing assessments acquire summaries on explicit reassessment. Keep summaries concise, grounded in the description and scores, and reflect material uncertainty without boilerplate.
 - Refresh the selected role's detail when a fit assessment completes so its private Overview summary appears alongside the updated scores without a page reload.

@@ -32,6 +32,10 @@ try {
     hasResearch: i !== 1, researchStale: true, briefStale: true,
     questions: i ? [] : [{ id: 'q1', q: 'Why this role?', limit: 120, a: 'A synthetic saved answer.' }],
   }));
+  jobs[1].jevStale = true;
+  jobs[1].jevAssessment = { score: 79, assessedAt: '2026-09-20T10:00:00Z',
+    dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility']
+      .map((label, i) => ({ label, score: 79 - i, weight: [25, 25, 20, 20, 10][i], confidence: 0.9 })) };
   let failSave = false, dispatches = 0, reviews = 0, mutations = 0, jevRoutesModels = false;
   const errors = [];
   const page = await context.newPage();
@@ -326,6 +330,25 @@ try {
     check('notice return action restores the list at ' + width, await page.locator('.pipeline').isVisible() && await page.locator('.workspace > .notice').count() === 0);
   }
   check('notice navigation does not generate or mutate', dispatches === beforeNotice.dispatches && mutations === beforeNotice.mutations);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(origin + '/admin.html?job=job1');
+    await page.locator('.role-header .score-tile').waitFor();
+    check('outdated saved score remains visible in role header at ' + width,
+      await page.locator('.role-header .score-tile').textContent() === '79' &&
+      (await page.locator('.role-header .score-tile').getAttribute('aria-label')).includes('outdated assessment'));
+    check('outdated saved dimensions remain visible at ' + width,
+      await page.getByRole('meter').count() === 5 &&
+      await page.getByRole('meter', { name: 'Responsibilities fit' }).getAttribute('aria-valuenow') === '79' &&
+      (await page.locator('#panel-overview').textContent()).includes('Outdated'));
+    if (width === 390) await page.locator('[data-act="back"]').click();
+    check('outdated saved score remains visible in pipeline at ' + width,
+      await page.locator('[data-select-job="job1"] .score-tile').textContent() === '79' &&
+      (await page.locator('[data-select-job="job1"] .score-tile').getAttribute('aria-label')).includes('outdated assessment'));
+    check('outdated score layout fits at ' + width,
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/outdated-score-' + width + '.png' });
+  }
   check('no browser errors', errors.length === 0);
   console.log(`passed ${passed}, failed 0`);
 } finally {

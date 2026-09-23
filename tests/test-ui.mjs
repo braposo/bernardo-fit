@@ -66,10 +66,11 @@ const overview = render("overview");
 check("unassessed overview has five empty gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 5 && (overview.match(/data-value=""/g) || []).length === 5);
 check("document shortcuts stay out of Overview", !actions(overview).some(a => ["briefopen","letteropen","copyfit"].includes(a)) && !overview.includes("Ready to use"));
 check("overview offers the standalone Jev assessment", /class="generation" data-act="jevscore"/.test(overview));
-const jev = render("overview", { score: null, jevStale: true, jevAssessment: { assessedAt: "2026-09-19T12:00:00Z", score: null,
+const jev = render("overview", { score: 70, jevStale: true, jevAssessment: { assessedAt: "2026-09-19T12:00:00Z", score: 70,
   dimensions: ["Responsibilities", "Evidence", "Scope", "Direction", "Practical"].map(label => ({ label, score: 75, weight: 20, confidence: null })),
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
-check("Jev shows five gauges and stale assessments withhold values", (jev.match(/data-score-gauge=/g) || []).length === 5 && (jev.match(/data-value=""/g) || []).length === 5);
+check("outdated assessments retain their five saved dimension scores", (jev.match(/data-score-gauge=/g) || []).length === 5 && (jev.match(/data-value="75"/g) || []).length === 5);
+check("outdated scores remain labelled in the role and pipeline", render("overview", { score: 70, jevStale: true }).includes('aria-label="70 out of 100 fit score, from an outdated assessment"') && R.pipelineItemHtml({ ...base, jevStale: true }).includes('aria-label="70 out of 100 fit score, from an outdated assessment"'));
 check("stale assessment is concise", jev.includes("Outdated") && !jev.includes("Partial description") && !jev.includes("Previous analysis score"));
 const provisional = render("overview", { score: 70, jevAssessment: { assessedAt: "2026-09-20T12:00:00Z", score: 70, provisional: true,
   dimensions: [{ label: "Practical", score: 50, weight: 10, confidence: 0.4, evidenceLimited: true, evidenceNote: "Travel needs clarification <details>" }],

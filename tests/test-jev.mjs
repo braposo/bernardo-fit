@@ -222,9 +222,9 @@ await test("concurrent roles keep independent request ownership and results", as
     }
   } finally { globalThis.fetch = originalFetch; }
 });
-await test("edits invalidate scores and stale in-flight results cannot attach", async () => {
+await test("edits mark saved scores outdated and stale in-flight results cannot attach", async () => {
   await mutateJob(job.id, () => ({ salary: "New salary" }));
-  const summary = jobSummary(await getJob(job.id)); assert.equal(summary.jevStale, true); assert.equal(summary.score, null);
+  const summary = jobSummary(await getJob(job.id)); assert.equal(summary.jevStale, true); assert.equal(summary.score, 65);
   assert.equal(jobDetail(await getJob(job.id)).overviewSummary, null);
   const payload = await claim(job.id, "jev-work-two");
   const fetch = globalThis.fetch;
