@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {legacyScoringFingerprint,scoringFingerprint} from '../lib/jev-scoring.js';
+import {legacyScoringFingerprint,scoringFingerprint,scoringInput,scoringQuestions,FIT_DIMENSIONS} from '../lib/jev-scoring.js';
+import {JEV_MODEL,JEV_POLICY_VERSION} from '../lib/jev.js';
 import {jobSummary,jobDetail} from '../lib/job-view.js';
 import {initialSettingsDocument} from '../lib/sanity/settings-document.js';
 import {settingsFromDocument,withSettingsSnapshot,candidateContentSignature,loadAnalysisSettings} from '../lib/sanity/analysis-settings.js';
@@ -29,12 +30,54 @@ await test(()=>{
   const doc=initialSettingsDocument();doc.questions[0].instructions+=' Changed guidance.';
   withSettingsSnapshot(settingsFromDocument(doc),()=>assert.equal(jobSummary(job).jevStale,true));
 });
-await test(()=>withSettingsSnapshot({...settings,legacyScoringCompatible:false},()=>{
+await test(()=>withSettingsSnapshot({...settings,legacyFitCompatible:false},()=>{
   assert.equal(jobSummary(job).jevStale,true);
   const current={...job,jevAssessment:{...job.jevAssessment,fingerprint:scoringFingerprint(job)}};
   assert.equal(jobSummary(current).jevStale,false);
   assert.equal(jobDetail(current).overviewSummary,null,'Do not attach prose from a different assessment');
 }));
+await test(()=>{
+  const doc=initialSettingsDocument();
+  for(const key of ['interviewProfile','motivationProfile','brief','cover','answer'])doc.texts.find(t=>t.key===key).text+=' Extra writing guidance.';
+  const changed=settingsFromDocument(doc);
+  assert.equal(changed.legacyScoringCompatible,false);
+  assert.equal(changed.legacyFitCompatible,true);
+  const fingerprint=withSettingsSnapshot(settings,()=>scoringFingerprint(input));
+  withSettingsSnapshot(changed,()=>{
+    assert.equal(scoringFingerprint(input),fingerprint,'Unrelated writing changes do not invalidate scores');
+    assert.equal(jobSummary(job).jevStale,false,'Pre-migration assessments remain current');
+    assert.equal(jobDetail(job).overviewSummary.position,'Saved position');
+    assert.equal(jobSummary({...job,score:null,scoreBreakdown:null}).jevStale,false,'Removing historical scores does not affect freshness');
+  });
+});
+await test(()=>{
+  // Independently reproduce the previous all-settings format used in production.
+  const fingerprint=withSettingsSnapshot(settings,()=>digest({input:scoringInput(input),model:JEV_MODEL,
+    settings:'d2a805d285eb770772129dce043c442604e1b62c86ba1fc565b2eb2949619c57',
+    policy:'2026-09-21-stricter-fit-1',transportPolicy:JEV_POLICY_VERSION,dimensions:FIT_DIMENSIONS,questions:scoringQuestions()}));
+  const saved={...job,jevAssessment:{...job.jevAssessment,fingerprint},overviewSummary:{...job.overviewSummary,fingerprint}};
+  withSettingsSnapshot(settings,()=>{
+    assert.equal(jobSummary(saved).jevStale,false);
+    assert.equal(jobDetail(saved).overviewSummary.position,'Saved position');
+    assert.equal(jobSummary({...saved,salary:'Changed'}).jevStale,true);
+  });
+  withSettingsSnapshot({...settings,legacyFitCompatible:false},()=>assert.equal(jobSummary(saved).jevStale,true));
+});
+await test(()=>{
+  const original=withSettingsSnapshot(settings,()=>scoringFingerprint(input));
+  for(const change of [
+    doc=>{doc.texts.find(t=>t.key==='candidateProfile').text+=' New scoring evidence.';},
+    doc=>{doc.questions.find(q=>q.key==='responsibilities').instructions+=' New rubric.';},
+    doc=>{doc.dimensions[0].weight--;doc.dimensions[1].weight++;},
+  ]) {
+    const doc=initialSettingsDocument();change(doc);const changed=settingsFromDocument(doc);
+    assert.equal(changed.legacyFitCompatible,false);
+    withSettingsSnapshot(changed,()=>{
+      assert.notEqual(scoringFingerprint(input),original);
+      assert.equal(jobSummary(job).jevStale,true);
+    });
+  }
+});
 await test(()=>{
   const a={summary:[{style:'normal',children:[{text:'Candidate',_key:'one'}]}],evidence:[]};
   const b={evidence:[],summary:[{children:[{_key:'two',text:'Candidate'}],style:'normal'}]};
@@ -46,6 +89,7 @@ await test(async()=>{
   const snapshot=await loadAnalysisSettings({SANITY_ANALYSIS_ENABLED:'1',SANITY_CONTENT_ENABLED:'1'},
     {fetch:async query=>query.includes('analysisSettings')?initialSettingsDocument():candidate});
   assert.equal(snapshot.legacyScoringCompatible,false);
+  assert.equal(snapshot.legacyFitCompatible,false);
 });
 await test(async()=>{
   process.env.ADMIN_SECRET='migration-test';
