@@ -58,12 +58,12 @@ the source of editorial content. The development probe can run without Redis.
 
 ### Explicit shared-production preview
 
-The realtime notifications preview uses the existing production workers. Its
-branch-specific configuration sets SANITY_CONTENT_ENABLED=1,
+To connect a preview to the existing production workers, its
+branch-specific configuration must set SANITY_CONTENT_ENABLED=1,
 SANITY_ANALYSIS_ENABLED=1, SANITY_WORKERS_READY=1, and
 SANITY_WORKER_ENV=production, with Sanity editor access. It inherits the production
 Trigger key and uses no TRIGGER_PREVIEW_BRANCH or KV_NAMESPACE override.
-This preview operates on live Sanity content, like the production app.
+Once configured, this preview operates on live Sanity content, like the production app.
 
 This mode is explicit: previews with a production Trigger key cannot dispatch
 against legacy Redis content. A storage mismatch otherwise makes workers see old
