@@ -5,9 +5,15 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { createSiteHandler } from '../api/site.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const cv = await readFile(path.join(root, 'public/cv.html'));
+// Render through the same CMS-backed handler with an offline public fixture.
+let cv;
+await createSiteHandler(()=>({fetch:async()=>({title:'Example CV',cv:{name:'Example Candidate',headline:'Engineer',contacts:[],sections:[{label:'Profile',items:[{kind:'text',body:[{_type:'block',children:[{text:'A sample public biography.',marks:[]}]}]}]}]}})}))(
+  {method:'GET',query:{page:'cv'}},
+  {setHeader(){},status(code){assert.equal(code,200);return this;},send(html){cv=html;}}
+);
 const fixture = {
   company: 'Example Company', salutation: 'Dear Hiring Team,',
   paragraphs: [

@@ -77,7 +77,7 @@ function walk(dir) {
 }
 walk(path.join(root, "api"));
 // The private Sanity content reader adds one route to the nine existing handlers.
-check("Vercel function surface is ten files", apiFiles.length === 10, apiFiles);
+check("Vercel function surface is eleven files including public pages", apiFiles.length === 11, apiFiles);
 check("old synchronous handlers are deleted", ["analyse.js", "answer.js", "regenerate.js"].every((name) => !fs.existsSync(path.join(root, "api", "admin", name))));
 const html = fs.readFileSync(path.join(root, "public", "admin.html"), "utf8");
 check("browser uses the shared reviewed dispatch route", html.includes("kind: 'analyse'") && html.includes("kind: 'answer'") && html.includes("kind: 'regenerate'") && html.includes('reviewFingerprint'));
