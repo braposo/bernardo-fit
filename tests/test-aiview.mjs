@@ -61,7 +61,7 @@ check("wants a named limit", cov.includes("Naming a limit or a tradeoff"));
 check("still bound by length", cov.includes("Same word budget as any other paragraph"));
 
 console.log("\n--- the fit page has no dedicated section ---");
-const html = fs.readFileSync(root + "public/index.html", "utf8");
+const html = fs.readFileSync(root + "lib/templates/home.html", "utf8");
 check("no ai_view render", !html.includes("ai_view"));
 check("no aiview style", !html.includes("aiview"));
 check("no 'Where AI fits' label", !html.includes("Where AI fits"));

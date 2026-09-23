@@ -72,7 +72,7 @@ console.log("\n--- transport and worker keep data small ---");
 const api = fs.readFileSync(path.join(root, "api/analyze.js"), "utf8");
 const task = fs.readFileSync(path.join(root, "src/trigger/public-analysis.ts"), "utf8");
 const work = fs.readFileSync(path.join(root, "lib/public-analysis-work.js"), "utf8");
-const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
+const html = fs.readFileSync(path.join(root, "lib/templates/home.html"), "utf8");
 check("public API accepts request IDs rather than Trigger run IDs", api.includes("request: String") === false && !api.includes("req.query?.run"));
 check("public status returns only a report ID on completion", api.includes("reportId: result.reportId") && !api.includes("result: run.output"));
 check("task payload is reference-only", /inputId: string;\s*fingerprint: string/.test(task) && !/jobDescription/.test(task));

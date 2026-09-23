@@ -1,0 +1,257 @@
+diff --git a/schemaTypes/content.ts b/schemaTypes/content.ts
+index a0e274c..1a4e292 100644
+--- a/schemaTypes/content.ts
++++ b/schemaTypes/content.ts
+@@ -2,0 +3 @@ import {DocumentTextIcon} from '@sanity/icons/DocumentText'
++import {publicPageFields} from './publicPages'
+@@ -164 +165 @@ export const sitePage = defineType({
+-    body(), ref('candidate', 'Candidate', 'candidateProfile')],
++    ...publicPageFields, {...body(), title: 'Original imported content (archive)', readOnly: true, hidden: ({document}) => !!document?.home || !!document?.cv}, ref('candidate', 'Candidate', 'candidateProfile')],
+diff --git a/schemaTypes/publicPages.ts b/schemaTypes/publicPages.ts
+new file mode 100644
+index 0000000..f4c312b
+--- /dev/null
++++ b/schemaTypes/publicPages.ts
+@@ -0,0 +1,89 @@
++import {defineField as field} from 'sanity'
++const text = (name: string, title: string) => field({name, title, type: 'string'})
++const rich = (name: string, title: string) =>
++  field({name, title, type: 'array', of: [{type: 'block'}]})
++const contacts = field({
++  name: 'contacts',
++  title: 'Contact details',
++  type: 'array',
++  of: [
++    {
++      type: 'object',
++      fields: [
++        text('label', 'Label'),
++        field({
++          name: 'href',
++          title: 'Link',
++          type: 'url',
++          validation: (r) => r.uri({scheme: ['https', 'http', 'mailto']}),
++        }),
++      ],
++      preview: {select: {title: 'label'}},
++    },
++  ],
++})
++export const publicPageFields = [
++  field({
++    name: 'home',
++    title: 'Homepage',
++    type: 'object',
++    hidden: ({document}) => (document?.slug as {current?: string} | undefined)?.current !== 'home',
++    fields: [
++      text('name', 'Name'),
++      rich('heading', 'Heading'),
++      rich('introduction', 'Introduction'),
++      text('buttonLabel', 'Submit button'),
++      text('placeholder', 'Posting placeholder'),
++      text('hint', 'Generation hint'),
++      contacts,
++    ],
++  }),
++  field({
++    name: 'cv',
++    title: 'CV layout',
++    type: 'object',
++    hidden: ({document}) => (document?.slug as {current?: string} | undefined)?.current !== 'cv',
++    fields: [
++      text('name', 'Name'),
++      text('headline', 'Headline'),
++      contacts,
++      field({
++        name: 'sections',
++        title: 'Sections',
++        type: 'array',
++        of: [
++          {
++            type: 'object',
++            fields: [
++              text('label', 'Section label'),
++              field({
++                name: 'items',
++                title: 'Content',
++                type: 'array',
++                of: [
++                  {
++                    type: 'object',
++                    fields: [
++                      field({
++                        name: 'kind',
++                        title: 'Layout',
++                        type: 'string',
++                        options: {list: ['text', 'role', 'skill']},
++                      }),
++                      text('title', 'Role or skill'),
++                      text('dates', 'Dates'),
++                      text('location', 'Location'),
++                      rich('body', 'Content'),
++                    ],
++                    preview: {select: {title: 'title', subtitle: 'kind'}},
++                  },
++                ],
++              }),
++            ],
++            preview: {select: {title: 'label'}},
++          },
++        ],
++      }),
++    ],
++  }),
++]
+diff --git a/scripts/import-content.mjs b/scripts/import-content.mjs
+index 650c2c2..4a4941a 100644
+--- a/scripts/import-content.mjs
++++ b/scripts/import-content.mjs
+@@ -24 +24 @@ for (const doc of documents) {
+-const cv = await client.assets.upload('file', await readFile(new URL('public/bernardo-raposo-cv.pdf',root)), {filename:'bernardo-raposo-cv.pdf',contentType:'application/pdf'})
++const cv = await client.assets.upload('file', await readFile(new URL('migration/assets/bernardo-raposo-cv.pdf',root)), {filename:'bernardo-raposo-cv.pdf',contentType:'application/pdf'})
+diff --git a/scripts/structure-public-pages.mjs b/scripts/structure-public-pages.mjs
+new file mode 100644
+index 0000000..662c28d
+--- /dev/null
++++ b/scripts/structure-public-pages.mjs
+@@ -0,0 +1,128 @@
++import {isDeepStrictEqual} from 'node:util'
++import {readFile, writeFile} from 'node:fs/promises'
++import {execFileSync} from 'node:child_process'
++import {JSDOM} from 'jsdom'
++import {createClient} from '@sanity/client'
++import {paragraphsToBody, strip} from '../../fit-app/lib/sanity/codecs.js'
++const root = new URL('../../fit-app/', import.meta.url)
++const client = createClient({
++  projectId: 'quli96gc',
++  dataset: 'production',
++  apiVersion: '2026-09-22',
++  token: process.env.SANITY_WRITE_TOKEN,
++  useCdn: false,
++  perspective: 'raw',
++})
++const baseline = JSON.parse(
++  await readFile(new URL('migration/transformed/content.json', root), 'utf8'),
++)
++const docs = await client.fetch('*[_type == "sitePage" && slug.current in ["home","cv"]]')
++const keyed = (xs) => xs.map((x, i) => ({_key: `item${i}`, ...x}))
++const body = (el) =>
++  paragraphsToBody(
++    [...(el.matches('p,li,h1') ? [el] : el.querySelectorAll('p,li'))].map((p) => ({
++      html: p.innerHTML,
++    })),
++  ).map((b, i) => ({
++    ...b,
++    ...([...el.querySelectorAll('p,li')][i]?.tagName === 'LI'
++      ? {listItem: 'bullet', level: 1}
++      : {}),
++  }))
++const inline = (el) => paragraphsToBody([{html: el.innerHTML}])
++const contacts = (el) =>
++  keyed(
++    [...el.children].map((c) => ({
++      label: c.textContent.trim(),
++      ...(c.tagName === 'A' ? {href: c.getAttribute('href')} : {}),
++    })),
++  )
++const normalize = (blocks) =>
++  strip(
++    blocks.map((b) => ({
++      ...b,
++      children: (b.children || []).map((s) => ({...s, text: s.text || ''})),
++    })),
++  )
++let tx = client.transaction()
++const summary = []
++for (const slug of ['home', 'cv']) {
++  const doc = docs.find((d) => d.slug.current === slug && !d._id.startsWith('drafts.'))
++  if (!doc) throw Error(`Missing ${slug}`)
++  if (docs.some((d) => d._id === `drafts.${doc._id}`)) throw Error(`Unpublished ${slug} edits`)
++  if (doc[slug]) {
++    summary.push({slug, skipped: true})
++    continue
++  }
++  const original = baseline.find((d) => d._id === doc._id)
++  if (!isDeepStrictEqual(normalize(doc.body), normalize(original.body)))
++    throw Error(`Imported ${slug} body changed; review before conversion`)
++  // Only execute the reviewed repository revision, never sourcePayload from the CMS.
++  const source = execFileSync(
++    'git',
++    [
++      'show',
++      `49f271180b8b738fb98ea4267fc89695b5098214:public/${slug === 'home' ? 'index' : 'cv'}.html`,
++    ],
++    {cwd: root, encoding: 'utf8'},
++  )
++  const dom = new JSDOM(source, {
++    url: 'https://fit.bernardoraposo.com/',
++    runScripts: 'outside-only',
++  })
++  const d = dom.window.document
++  let content
++  if (slug === 'home') {
++    dom.window.fetch = () => {
++      throw Error('Offline conversion only')
++    }
++    dom.window.eval(d.querySelector('script').textContent)
++    content = {
++      name: d.querySelector('.mark').textContent.replace(/\.$/, ''),
++      heading: inline(d.querySelector('.lede')),
++      introduction: inline(d.querySelector('.sub')),
++      buttonLabel: d.querySelector('#go').textContent,
++      placeholder: d.querySelector('#jd').placeholder,
++      hint: d.querySelector('.hint').textContent,
++      contacts: contacts(d.querySelector('.footer span')),
++    }
++  } else {
++    const page = d.querySelector('#page')
++    content = {
++      name: page.querySelector('h1').textContent.replace(/\.$/, ''),
++      headline: page.querySelector('.headline').textContent,
++      contacts: contacts(page.querySelector('.contact')),
++      sections: keyed(
++        [...page.querySelectorAll('section')].map((section) => ({
++          label: section.querySelector('.label').textContent,
++          items: keyed(
++            [...section.querySelector('.content').children].map((el) => {
++              if (el.classList.contains('role'))
++                return {
++                  kind: 'role',
++                  title: el.querySelector('.role-head span').textContent,
++                  dates: el.querySelector('.when').textContent,
++                  location: el.querySelector('.role-where').textContent,
++                  body: body(el.querySelector('ul')),
++                }
++              if (el.classList.contains('skill')) return {kind: 'skill', body: inline(el)}
++              return {kind: 'text', body: inline(el)}
++            }),
++          ),
++        })),
++      ),
++    }
++  }
++  dom.window.close()
++  tx = tx.patch(doc._id, (p) => p.ifRevisionId(doc._rev).set({[slug]: content}))
++  summary.push({slug, sections: content.sections?.length})
++}
++if (process.argv.includes('--apply')) {
++  await writeFile(
++    new URL(`migration/extracted/public-pages-before-${Date.now()}.json`, root),
++    JSON.stringify(docs, null, 2),
++    {flag: 'wx'},
++  )
++  await tx.commit({visibility: 'sync'})
++}
++console.log(JSON.stringify({applied: process.argv.includes('--apply'), pages: summary}))
+diff --git a/scripts/transform-content.mjs b/scripts/transform-content.mjs
+index 318f64c..f618a1e 100644
+--- a/scripts/transform-content.mjs
++++ b/scripts/transform-content.mjs
+@@ -0,0 +1 @@
++import {execFileSync} from 'node:child_process'
+@@ -142 +143 @@ for (const job of snapshot.jobs) {
+-const cvSource = await readFile(new URL('public/cv.html',root),'utf8')
++const cvSource = execFileSync('git',['show','49f271180b8b738fb98ea4267fc89695b5098214:public/cv.html'],{cwd:root,encoding:'utf8'})
+@@ -148 +149 @@ add('page:cv', 'sitePage', cvSource, {title:'Bernardo Raposo · CV',slug:{_type:
+-const homeSource=await readFile(new URL('public/index.html',root),'utf8')
++const homeSource=execFileSync('git',['show','49f271180b8b738fb98ea4267fc89695b5098214:public/index.html'],{cwd:root,encoding:'utf8'})
