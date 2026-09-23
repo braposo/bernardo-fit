@@ -74,6 +74,10 @@ edits instructions and rubric descriptions/weights, not executable policy.
 
 ## Maintaining the setup
 
+For the opening and STAR answer structure used in interview briefs, see
+[Interview preparation](interview-preparation.md), including the source resources,
+evidence-led examples and the supplement to publish into the existing brief prompt.
+
 `lib/sanity/analysis-defaults.js` preserves the prior behavior for offline tests,
 rollback and initial creation. Updating it does not overwrite published content.
 The repeatable Studio command below uses `createIfNotExists`; subsequent runs
