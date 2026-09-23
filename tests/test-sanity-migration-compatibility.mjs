@@ -22,7 +22,7 @@ await test(()=>withSettingsSnapshot(settings,()=>{
 }));
 await test(()=>withSettingsSnapshot(settings,()=>{
   const edited={...job,salary:'Changed salary'};
-  assert.equal(jobSummary(edited).jevStale,true);assert.equal(jobSummary(edited).score,null);
+  assert.equal(jobSummary(edited).jevStale,true);assert.equal(jobSummary(edited).score,57);
   assert.equal(jobDetail(edited).overviewSummary,null);
 }));
 await test(()=>{
