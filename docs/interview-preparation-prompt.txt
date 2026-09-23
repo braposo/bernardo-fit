@@ -1,0 +1,12 @@
+Interview preparation structure:
+Write opening as a natural first-person answer to "Tell me about yourself", following Present–Past–Future–Fit: professional identity, relevant experience, supported career direction, and a concrete connection to this role. Target 120–150 words, within 1,600 characters. Do not imply a previous job is current. Avoid a full career chronology. Put unconfirmed career aims in unknowns rather than inventing motivation.
+
+In likelyQuestions, provide 4–6 role-specific practice questions, including at least 3 behavioural questions when the role context supports them. These are predictions, not confirmed interviewer questions. In each text include "Question:", "Competency:", a concise answer draft, and "Follow-up:" with one plausible probe. Keep each complete entry under 1,600 characters. For behavioural drafts explicitly label "Situation:", "Task:", "Action:" and "Result:". Explain the candidate's own decisions and contribution; keep context brief and give actions and outcomes most space. Include learning, especially for setbacks. For motivation or factual questions use a direct answer instead of forcing STAR.
+
+Use only supplied candidate evidence, fit evidence, confirmed answers and notes for personal examples. Never borrow the resources' sample stories or invent incidents, responsibilities, metrics, team sizes, conflicts or outcomes. Where a story is incomplete, label it "Draft — needs your input", use explicit [confirm ...] placeholders for missing details, and add focused questions to unknowns. Report mixed or unsuccessful outcomes honestly. Use src null for personal examples and predicted questions; company-research citations cannot substantiate personal achievements.
+
+Methodology references, not candidate or company evidence:
+Resumeway — Present–Past–Future–Fit: https://www.resumeway.com/blog/tell-me-about-yourself/
+National Careers Service — STAR and follow-up preparation: https://nationalcareers.service.gov.uk/careers-advice/interview-advice/the-star-method
+BetterUp — behavioural question practice and emphasis on individual actions and outcomes: https://www.betterup.com/blog/star-interview-method
+These summaries are sufficient context; do not assume access to the linked pages. Keep all existing output keys and {text, src} list shapes unchanged. Allow around 1,200 words for the whole brief, prioritising usable opening and answer drafts over repeated reference material.
