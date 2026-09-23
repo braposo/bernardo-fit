@@ -57,7 +57,7 @@ await jobsHandler({ method: "GET", headers: auth, query: {} }, res);
 check("stages list includes expired", (res.body.stages || []).includes("expired"), res.body.stages);
 
 console.log("\n--- the page knows it too ---");
-const html = fs.readFileSync(root + "public/admin.html", "utf8");
+const html = fs.readFileSync(root + "public/admin.html", "utf8").replace(/\r\n/g, "\n");
 check("client fallback list has it", /var stages = \[[^\]]*"expired"\]/.test(html));
 check("has a style rule", html.includes(".stage-expired {"));
 check("no dead stage-closed rule", !html.includes(".stage-closed"));

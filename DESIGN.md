@@ -274,6 +274,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 ## Reading, generation and versions
 
 - The latest saved five-dimension fit assessment supplies visible scores, including when later input changes make it outdated. Label outdated scores and offer reassessment; keep outdated Overview prose hidden. Do not show historical report scores in document versions or use them as a fallback in the pipeline or role header. Generating or publishing a document does not rescore the role.
+- Fit freshness depends on the role inputs, candidate scoring evidence, scoring rubric, weights, model and scoring policy. Interview notes, writing prompts and deletion of historical score fields do not make a fit assessment outdated. Preserve saved assessment provenance when recognizing compatible migrated fingerprints.
 - Introduce generation reviews with one short, natural explanation of what the user will receive. Omit headings such as Work to run and procedural task lists. Mention meaningful scope, such as refreshing company research before writing a brief, in plain language.
 - Assess fit also writes the private Overview summary using Sol behind the scenes. Save it with the exact assessment/input snapshot; hide outdated prose after context changes. Loading Overview never generates. Existing assessments acquire summaries on explicit reassessment. Keep summaries concise, grounded in the description and scores, and reflect material uncertainty without boilerplate.
 - Refresh the selected role's detail when a fit assessment completes so its private Overview summary appears alongside the updated scores without a page reload.
@@ -285,6 +286,12 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Place an optional shadcn Textarea beneath the model selector for up to 4,000 characters of additional instructions. These supplement the job instructions for this request only. Model changes retain the draft; instruction changes require refreshed review. Keep the saved instructions accessible in authenticated version history, not public report bodies.
 - Successful generation automatically makes the new version live. Keep the previous output readable while work runs and retain previous versions for preview and explicit publication. Preserve public/private boundaries and never describe this as draft-only generation.
 - Distinguish missing, stale, running, failed and other backend-supported outcomes. Reload should recover running work; duplicate submission should recover the existing request rather than start another one.
+
+## Background task notifications
+
+- Every app action dispatched to Trigger shows one persistent toast keyed by its run ID (not its action button), updated from Trigger Realtime status and phase metadata through completion, failure, cancellation or expiry. Use human-readable task names and role context; keep relevant role, pipeline and result links in the toast.
+- Lock the corresponding action from submission until a confirmed terminal result, including after navigation, re-render and recovery on reload. Keep unrelated controls usable. A lost status connection means reconnecting, not task failure; keep the action locked while reconnecting.
+- Toasts never steal focus. Keep status announcements polite, completed notifications dismissible, and links and dismiss controls keyboard-accessible with 44px mobile targets. Keep the stack scrollable within narrow screens.
 
 ## Editing, accessibility and responsive behaviour
 

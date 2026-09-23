@@ -10,6 +10,7 @@ import {
   findUnlinkedReportIds,
   getStats,
   JOB_STAGES,
+  ARCHIVE_ON_STAGE,
   normaliseJobStage,
   getReportSources,
   hashJD,
@@ -31,8 +32,6 @@ import { jevEnabled } from "../../lib/jev.js";
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...)
 // DELETE /api/admin/jobs?id=abc       -> remove
-// Stages that take a row out of the pipeline by themselves.
-const ARCHIVE_ON_STAGE = ["expired", "rejected", "not_interested"];
 
 async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
@@ -146,16 +145,7 @@ async function handler(req, res) {
         res.status(400).json({ error: "Unknown stage" });
         return;
       }
-      // These stages mean the role is done with, so it leaves the pipeline on
-      // the same click rather than needing a second one. Done here rather than
-      // in the page so it holds however the row is updated. An explicit archived
-      // flag in the same patch still wins, so restoring one stays possible.
-      if (ARCHIVE_ON_STAGE.includes(patch.stage) && patch.archived === undefined) {
-        patch.archived = true;
-      }
-      // Archiving stamps the time; restoring clears it.
-      if (patch.archived === true) patch.archivedAt = new Date().toISOString();
-      if (patch.archived === false) patch.archivedAt = "";
+      // Shared storage applies terminal-stage archiving and explicit restores.
       const job = body.question ? await editQuestion(id, body.question)
         : await mutateJob(id, current => {
           const changed = key => body[key] !== undefined && JSON.stringify(body[key]) !== JSON.stringify(current[key] ?? "");

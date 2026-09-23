@@ -39,6 +39,19 @@ for (const stage of ["expired", "not_a_fit", "rejected", "not_interested"]) {
   check(stage + ": visible in archive", (await store.listJobs({ onlyArchived: true })).some(row => row.id === j.id));
 }
 
+console.log("\n--- shared writes archive without the admin endpoint ---");
+for (const stage of ["expired", "rejected", "not_interested", "not_a_fit"]) {
+  const created = await store.saveJob({company:"Direct creation",role:stage,stage});
+  check(stage + " creation archives", created.archived && !!created.archivedAt);
+  const active = await store.saveJob({company:"Direct update",role:stage});
+  const updated = await store.updateJob(active.id,{stage});
+  check(stage + " direct update archives", updated.archived && !!updated.archivedAt);
+  check(stage + " excluded from pipeline", !(await store.listJobs()).some(j=>j.id===active.id || j.id===created.id));
+  await store.updateJob(active.id,{archived:false});
+  await store.updateJob(active.id,{notes:"Restored intentionally"});
+  check(stage + " restored row survives unrelated edits", !(await store.getJob(active.id)).archived);
+}
+
 console.log("\n--- other stages do not ---");
 for (const stage of ["reviewing", "applied", "interviewing", "offer"]) {
   const j = await store.saveJob({ company: "C", role: stage });

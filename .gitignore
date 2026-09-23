@@ -21,3 +21,7 @@ public/assets/admin-ui.*
 migration/extracted/
 migration/transformed/
 migration/reports/
+
+public/assets/task-ui.*
+
+.toast-screenshots/

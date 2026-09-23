@@ -12,6 +12,14 @@ await build({
   define: { 'process.env.NODE_ENV': '"production"' },
   alias: { '@': path.join(root, 'src/admin') }, legalComments: 'linked',
 });
+await build({
+  absWorkingDir: root, entryPoints: ['src/task-ui.jsx'], bundle: true, minify: true,
+  format: 'esm', target: ['es2022'], outfile: 'public/assets/task-ui.js',
+  // S2 dynamically imports HTTP/2 only in Node; browsers use its fetch transport.
+  external: ['node:http2'],
+  define: { 'process.env.NODE_ENV': '"production"' },
+  alias: { '@': path.join(root, 'src/admin') }, legalComments: 'linked',
+});
 execFileSync(process.execPath, [path.join(root, 'node_modules/@tailwindcss/cli/dist/index.mjs'),
   '-i', 'src/admin/styles.css', '-o', 'public/assets/admin-ui.css', '--minify'], { cwd: root, stdio: 'inherit' });
 console.log('Built admin shadcn components and theme.');
