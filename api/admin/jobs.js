@@ -1,3 +1,4 @@
+import { withSettingsHandler } from "../../lib/sanity/settings-handler.js";
 import { requireAdmin, makeViewToken } from "../../lib/admin.js";
 import {
   listJobs,
@@ -33,7 +34,7 @@ import { jevEnabled } from "../../lib/jev.js";
 // Stages that take a row out of the pipeline by themselves.
 const ARCHIVE_ON_STAGE = ["expired", "rejected", "not_interested"];
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
   res.setHeader("Cache-Control", "private, no-store");
 
@@ -205,3 +206,5 @@ export default async function handler(req, res) {
     res.status(err.status || 500).json({ error: err.status ? err.message : "Unexpected error", detail: String(err).slice(0, 300) });
   }
 }
+
+export default withSettingsHandler(handler);

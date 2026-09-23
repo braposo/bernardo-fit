@@ -1,3 +1,4 @@
+import { withAnalysisSettings } from "../../lib/sanity/analysis-settings.js";
 import { idempotencyKeys, metadata, task } from "@trigger.dev/sdk";
 import { jevScoreTask } from "./jev.js";
 import { analysisChildRequestId } from "../../lib/analyse-all.js";
@@ -9,7 +10,7 @@ export type ScoreListedPayload = { requestId: string; jobs: Array<{ id: string; 
 export const scoreListedTask = task({
   id: SCORE_LISTED_TASK_ID, maxDuration: 3600, retry: BATCH_TASK_POLICY.retry,
   queue: { concurrencyLimit: BATCH_TASK_POLICY.concurrencyLimit },
-  run: async (payload: ScoreListedPayload) => {
+  run: async (payload: ScoreListedPayload) => withAnalysisSettings(async () => {
     const reviewed = Array.isArray(payload.jobs) ? payload.jobs : [];
     const reviewedById = new Map(reviewed.map((item) => [item.id, item.fingerprint]));
     const pending = selectScoringCandidates(await listJobs(), reviewed);
@@ -30,5 +31,5 @@ export const scoreListedTask = task({
     const summary = summariseScoringBatch(pending, result.runs);
     metadata.set("phase", "completed").set("completed", summary.assessed).set("failed", summary.failed);
     return { ...summary, reviewed: reviewed.length, skipped };
-  },
+  }),
 });

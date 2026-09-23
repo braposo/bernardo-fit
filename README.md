@@ -155,7 +155,9 @@ The letter page is reached with a short-lived signed token rather than the admin
 
 ## Editing what it says about you
 
-The main source of truth for candidate evidence used in generation is `PROFILE_CONTEXT` in `lib/profile.js`. Update it there and every future analysis, letter and application answer reflects it. Public CV copy, demo content, role-specific instructions and operational configuration remain separate.
+Generation instructions are editable in the standalone Sanity Studio under **Analysis settings**. With `SANITY_ANALYSIS_ENABLED=1`, published settings drive Jev assessments/routing and every writing task. With content storage enabled, **Candidate profile** and referenced evidence supply candidate context and confirmed facts. Drafts have no effect; published changes invalidate relevant reviews and cached results. The preserved baseline in `lib/sanity/analysis-defaults.js` is used while the feature is disabled. See [editing analysis settings](docs/analysis-settings.md) for coordinated web/worker activation.
+
+The initial content is already imported. `SANITY_CONTENT_ENABLED=1` connects app and worker reads/writes for jobs, questions, assessments, reports, covers, research and briefs to Sanity using a server-only editor token. The branch preview enables this connection; production activation remains separate from merge. Redis retains operational coordination and telemetry. Public home/CV renderers still use static files. See [Sanity content storage](docs/sanity-content.md) for verification commands, branch worker setup and remaining migration scope.
 
 ## Model
 
