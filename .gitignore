@@ -25,3 +25,6 @@ migration/reports/
 public/assets/task-ui.*
 
 .toast-screenshots/
+
+# Sanity Function bundles (source and lockfile are tracked)
+functions/*/.build/

@@ -6,6 +6,8 @@ import { contextUrl, connectContext, collectSources, validateContextToolInput } 
 import { providerUsage, createChatAgent } from "../lib/chat/agent.js";
 import { createChatHandler } from "../api/admin/chat.js";
 import { admitChat } from "../lib/chat/admission.js";
+import { saveChatTurn, insightsClient } from "../lib/chat/insights.js";
+import { MODEL, GAPS, metricsFromAnswers, classifyPending } from "../functions/classify-conversations/classifier.js";
 import { MockLanguageModelV4 } from "ai/test";
 
 let passed = 0, failed = 0;
@@ -71,6 +73,38 @@ await test("SDK usage excludes cached input from uncached counts", () => {
   assert.deepEqual(providerUsage({ inputTokens: 100, inputTokenDetails: { cacheReadTokens: 30, cacheWriteTokens: 10 }, outputTokens: 20 }),
     { input_tokens: 60, output_tokens: 20, cache_read_input_tokens: 30, cache_creation_input_tokens: 10 });
 });
+await test("Insights scopes writes to the organization and saves text snapshots without tool payloads", async () => {
+  const configured = { ...env, SANITY_CONTEXT_WRITE_TOKEN: "write-fake" };
+  assert.equal(insightsClient(configured).config().context.organizationId, "org");
+  assert.throws(() => insightsClient(env), /not configured/);
+  let saved;
+  await saveChatTurn({ request: { ...request, conversationId: "conversation-one" }, ref: "turn-one",
+    route: { provider: "openai", model: "gpt-5.6-sol" }, text: "Answer", outcome: "complete", env: configured,
+    client: { context: { conversations: { save: async value => { saved = value; } } } } });
+  assert.equal(saved.threadId, "admin-chat.turn-one");
+  assert.equal(saved.metadata.conversationId, "conversation-one");
+  assert.deepEqual(saved.messages, [...request.messages, { role: "assistant", content: "Answer" }]);
+  assert.deepEqual(saved.sharing, { metrics: false, conversations: false });
+  assert.throws(() => validateChatRequest({ ...request, conversationId: "invalid" }), /UUID/);
+});
+await test("Jev Insights validates native classifications and maps scores to Sanity's 1–10 scale", () => {
+  const data = { model: MODEL, answers: {
+    success: { type: "score", score: 8, probabilities: Object.fromEntries(Array.from({length:10}, (_, i) => [i, i === 8 ? 1 : 0])) },
+    sentiment: { type: "choice", choice: "neutral", probabilities: { positive: 0, neutral: 1, negative: 0 } },
+    ...Object.fromEntries(Object.keys(GAPS).map(key => [key, { type: "noul", noul: key === "salary" ? 0.9 : 0.1 }])) } };
+  assert.deepEqual(metricsFromAnswers(data), { successScore: 9, sentiment: "neutral", contentGaps: [GAPS.salary] });
+  assert.throws(() => metricsFromAnswers({ ...data, model: "other" }));
+  data.answers.success.score = 10; assert.throws(() => metricsFromAnswers(data));
+});
+await test("Insights records verdicts and safe failures without leaking model errors", async () => {
+  const writes = [];
+  const client = { config: () => ({ context: { organizationId: "org" } }), context: {
+    fetch: async (query, params) => { assert.equal(params.endpoint, "bernardo-fit-admin"); assert.match(query, /!defined\(classifiedAt\)/); return [{threadId:"one"}, {threadId:"two"}]; },
+    conversations: { get: async ({threadId}) => ({messages:[{role:"user",content:threadId}]}), classify: async value => { writes.push(value); } } } };
+  const counts = await classifyPending(client, async messages => { if(messages[0].content === "two") throw Error("PRIVATE CONTENT"); return {successScore:8,sentiment:"neutral",contentGaps:[]}; });
+  assert.deepEqual(counts, {successCount:1,errorCount:1,totalFound:2});
+  assert.ok(writes[0].coreMetrics); assert.ok(writes[1].classificationError); assert.ok(!JSON.stringify(writes).includes("PRIVATE CONTENT"));
+});
 
 process.env.ADMIN_SECRET = "test-admin";
 function exchange(method = "POST", authorized = true) {
@@ -105,6 +139,23 @@ await test("midstream provider failures produce a safe error and cleanup", async
     makeAgent: () => ({ stream: async () => ({ stream: (async function* () { yield { type: "error", error: new Error("SECRET") }; })() }) }) });
   const {req,res} = exchange(); await handler(req,res);
   assert.match(res.output, /event: error/); assert.ok(!res.output.includes("SECRET")); assert.ok(closed);
+});
+await test("Insights saves completed responses before done and reports storage failures safely", async () => {
+  for (const fail of [false, true]) {
+    let saved;
+    const handler = createChatHandler({ env: { ...env, ADMIN_CHAT_INSIGHTS_ENABLED: "1", SANITY_CONTEXT_WRITE_TOKEN: "fake" },
+      connect: async () => ({ sources: new Map(), close: async () => {} }),
+      select: async () => ({ model: "gpt-5.6-sol", provider: "openai" }), admit: async () => async () => {},
+      saveTurn: async value => { saved = value; if (fail) throw Error("SECRET"); },
+      makeAgent: () => ({ stream: async () => ({ stream: (async function* () {
+        yield { type: "text-delta", text: "Answer" }; yield { type: "finish", finishReason: "stop" };
+      })() }) }) });
+    const {req,res} = exchange(); await handler(req,res);
+    assert.equal(saved.text, "Answer"); assert.equal(saved.outcome, "complete");
+    assert.ok(res.output.indexOf("event: persistence") < res.output.indexOf("event: done"));
+    assert.ok(res.output.includes(fail ? '"state":"failed"' : '"state":"saved"'));
+    assert.ok(!res.output.includes("SECRET"));
+  }
 });
 await test("concurrent request limit releases admission slots", async () => {
   const release1 = await admitChat("one"), release2 = await admitChat("two");

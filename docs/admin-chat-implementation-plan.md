@@ -71,10 +71,11 @@ Before streaming, errors are JSON with an HTTP error status. After streaming beg
 
 | Event | Data | UI treatment |
 | --- | --- | --- |
-| `route` | requestId, model, provider, source, policy; optional confidence/reason | Record actual model for this answer |
+| `route` | requestId, conversationId, model, provider, source, policy; optional confidence/reason | Record actual model and stable conversation ID |
 | `text` | text | Append delta to current assistant message |
 | `activity` | state, tool | Map to brief Reading content / Query unsuccessful status |
 | `sources` | sources array | Replace source collection for this answer; IDs, types, titles and optional revision/jobId |
+| `persistence` | state (saved/failed), optional error | Show transcript-storage status without discarding the answer |
 | `done` | finishReason, truncated | Mark complete, or show output-limit notice |
 | `error` | error, code | Preserve partial text and offer explicit retry |
 
@@ -126,13 +127,21 @@ Start with escaped text; if adding Markdown, disable raw HTML and sanitize link 
 
 ### 6. History and telemetry
 
-Version one keeps chat in memory for the current open session, with explicit New chat and cleanup on logout. Do not put transcripts in localStorage, URLs, Sanity Insights or logs. Persist only non-sensitive provider/model preferences if desired. Durable chat history is a later feature requiring a conversation schema, access rules, retention/deletion behavior and restore tests. Insights should be a deliberate later addition with transcript handling reviewed, not automatic setup.
+The user explicitly enabled stored transcripts and Insights. `lib/chat/insights.js` now saves user/assistant text to the organization's Context store. The browser supplies a UUID `conversationId` (or adopts the one returned by `route`) and retains it across turns. Each request saves an immutable full-history snapshot under `admin-chat.<requestId>`, grouped by conversationId metadata. This avoids late-request overwrites and lets each new turn be classified even when earlier turns already have verdicts. Insights metrics are per turn snapshot, not unique conversations. Raw tool results and hidden reasoning are excluded; Sanity's optional telemetry sharing remains off.
+
+`ADMIN_CHAT_INSIGHTS_ENABLED=1` enables saving with the separate `SANITY_CONTEXT_WRITE_TOKEN` Context Editor credential. Completed, truncated, stopped and failed turns are labelled. The `persistence` SSE event reports `saved` or `failed` before successful `done`; a save failure preserves the answer and shows a local notice. Rejected admissions are not stored. The UI must explain that conversations are retained privately for Insights. No expiry has been configured: saved transcripts remain until explicitly deleted from the Context store. Do not put transcripts in localStorage, URLs or application logs. In-app history browsing/restoration and deletion controls still need implementation; Insights storage alone does not provide those UI features.
+
+The organization-scoped `bernardo-admin-chat` Blueprint defines an hourly classifier; Sanity's current plan rejects more frequent schedules. Per the user's choice, it processes up to three idle snapshots per run using **Jev (`jev-1.13.0`)**, with a 360-second function deadline and 30-second classification requests. It uses Jev's native score/choice/noul API and Sanity's direct classification API; no generative-model adapter or second AI SDK version is needed. Success scores map from Jev's zero-based rubric to Sanity's 1–10 scale. Sentiment is positive/neutral/negative. Content gaps use eight domain categories and a probability threshold of 0.8; this provides consistent labels but does not discover arbitrary new topic names. Classifier failures are recorded safely rather than automatically retried; inspect them in Context Insights before explicit reprocessing. Backlog remains pending for later runs.
+
+The classifier uses a separate Context Editor token and the existing Jev credential. It sends stored transcripts to Jev for classification, as requested. OpenAI/Anthropic remain available for answering questions. Optional Sanity telemetry sharing is disabled. The initial Anthropic classification deployment was rejected by automatic approval review; the user subsequently selected Jev, and the implementation was changed accordingly.
+
+Synthetic retrieval, missing-evidence and document-instruction evaluations are available through `npm run chat:evaluate` (paid provider calls; no real Sanity content). Optional arguments restrict provider and scenario. These are focused behavioral checks, not a comprehensive safety evaluation.
 
 ## Verification and rollout
 
 Completed: dedicated Context token read connection and query; synthetic streaming through both direct providers; targeted chat, Jev and existing model-routing tests; admin build. The SDK tool round trip is covered with synthetic mocked model/tool data. Real Sanity evidence has not been sent through a model in the setup smoke tests: automatic approval review blocked that combined test, and synthetic provider tests were used instead.
 
-Jev's existing Vercel keys are sensitive and cannot be retrieved for local use. Routing contracts are tested locally; live Auto routing still needs verification in the deployed environment. `npm run chat:check` reports missing local Jev configuration explicitly rather than reporting complete readiness. It performs a read-only Context query and no model generation.
+The existing Jev key was obtained from the authorized Trigger environment and stored only in the ignored local environment and the classification function. `npm run chat:check` now passes with both providers, Jev and Context configured. It performs a read-only Context query and no model generation. Synthetic live Jev classification was saved successfully into Insights, and six synthetic provider/tool evaluations pass. Anthropic sometimes describes an ignored injected instruction while still answering correctly; this verbosity remains a tuning opportunity.
 
 Before enabling the feature:
 

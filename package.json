@@ -28,6 +28,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "scripts": {
+    "chat:evaluate": "node --env-file-if-exists=.env.development.local scripts/evaluate-chat.mjs",
     "chat:check": "node --env-file-if-exists=.env.local --env-file-if-exists=.env.development.local --env-file-if-exists=.env.context.local scripts/check-chat.mjs",
     "jev:check": "node --env-file-if-exists=.env.local scripts/check-jev.mjs",
     "build": "node scripts/build-admin.mjs",
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
+    "@sanity/blueprints": "0.27.0",
     "@tailwindcss/cli": "^4.3.3",
     "@trigger.dev/build": "4.5.16",
     "esbuild": "^0.28.2",
