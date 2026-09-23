@@ -46,7 +46,7 @@ try {
       if (req.method() === 'POST') { dispatches++; runKinds.set('run' + dispatches, body.kind); if (body.kind === 'cover') job.coverRun = { runId: 'run' + dispatches, status: 'queued' }; return reply({ runId: 'run' + dispatches, kind: body.kind }, 202); }
       if (url.searchParams.get('realtime')) return reply({ runId: url.searchParams.get('run'), kind: runKinds.get(url.searchParams.get('run')), publicAccessToken: 'fixture-token' });
       job.coverRun = { runId: 'run1', status: status === 'COMPLETED' ? 'completed' : 'failed' };
-      return reply({ terminal: true, status, kind: runKinds.get(url.searchParams.get('run')), result: { outcome: 'completed', words: 320, assessed: 1, failed: 0 }, error: status === 'FAILED' ? 'Provider unavailable' : undefined });
+      return reply({ terminal: ['COMPLETED', 'FAILED'].includes(status), status, kind: runKinds.get(url.searchParams.get('run')), result: { outcome: 'completed', words: 320, assessed: 1, failed: 0 }, error: status === 'FAILED' ? 'Provider unavailable' : undefined });
     }
     if (url.pathname === '/api/analyze') {
       if (req.method() === 'POST') { dispatches++; return reply({ requestId: 'public_fixture_request', token: 'fixture' }, 202); }
@@ -164,6 +164,16 @@ try {
   assert.equal(await secondToast.getByText('Fit assessment ready', {exact:true}).count(), 1);
   await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), nextAssessment);
   await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]').disabled);
+  await page.evaluate(([a, b]) => sessionStorage.setItem('fit.activeTasks', JSON.stringify([
+    { id: 'job1', kind: 'jev-score', runId: a }, { id: 'job2', kind: 'jev-score', runId: b }
+  ])), [firstAssessment, secondAssessment]);
+  secondJob.jevRun = { runId: nextAssessment, status: 'queued' };
+  const pointerCheck = page.waitForResponse(response => response.url().includes('run=' + nextAssessment) && !response.url().includes('realtime=1'));
+  await page.reload();
+  await pointerCheck;
+  await page.locator('[data-select-job=job1]').waitFor();
+  await page.waitForFunction(() => sessionStorage.getItem('fit.activeTasks') === '[]');
+  assert.equal(await page.locator('.task-toast').count(), 0, 'finished saved runs and stale job pointers do not reopen toasts');
   await page.goto(origin + '/');
   await page.locator('#jd').fill('A sufficiently detailed synthetic engineering leadership role.');
   await page.locator('#go').click();

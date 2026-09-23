@@ -636,6 +636,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   var pendingActions = new Map();
   var watchedActions = new Map();
+  var recoveringActions = new Map();
   var finishedRuns = new Set();
   var actionNames = { cover: 'Cover letter', research: 'Company research', brief: 'Screen brief', 'prepare-screen': 'Interview preparation', analyse: 'Fit analysis', regenerate: 'Fit analysis', answer: 'Application answer', 'jev-score': 'Fit assessment', 'jev-score-all': 'Listed role assessments', adopt: 'Add reports', ingest: 'Import roles' };
   function actionKey(id, kind, questionId) {
@@ -727,13 +728,33 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     watchedActions.set(runId, watching);
     return watching;
   }
+  function recoverWork(id, runId, status, kind, openWhenDone, questionId) {
+    if (watchedActions.has(runId)) return watchedActions.get(runId);
+    if (finishedRuns.has(runId)) return Promise.resolve();
+    if (recoveringActions.has(runId)) return recoveringActions.get(runId);
+    var key = actionKey(id, kind, questionId);
+    pendingActions.set(key, { id: id, kind: kind, questionId: questionId, runId: runId });
+    persistActions(); applyActionLocks();
+    var recovery = api('/api/admin/cover?run=' + encodeURIComponent(runId), { method: 'GET' }).then(function (out) {
+      if (out.ok && out.d.terminal) {
+        finishedRuns.add(runId);
+        if (pendingActions.get(key)?.runId === runId) pendingActions.delete(key);
+        persistActions();
+        loadJobs(false);
+        return out;
+      }
+      return watchWork(id, runId, status, kind, openWhenDone, questionId);
+    }).finally(function () { recoveringActions.delete(runId); });
+    recoveringActions.set(runId, recovery);
+    return recovery;
+  }
   function recoverActions() {
     jobs.forEach(function (job) {
       [['coverRun','cover'],['researchRun','research'],['prepareRun','prepare-screen'],['briefRun','brief'],['analysisRun','analyse'],['jevRun','jev-score']].forEach(function (entry) {
         var run = job[entry[0]];
-        if (run && run.runId && ['dispatching','queued'].indexOf(run.status) !== -1) watchWork(job.id, run.runId, null, entry[1], false);
+        if (run && run.runId && ['dispatching','queued'].indexOf(run.status) !== -1) recoverWork(job.id, run.runId, null, entry[1], false);
       });
-      (job.answerRuns || []).forEach(function (answer) { watchWork(job.id, answer.run.runId, null, 'answer', false, answer.questionId); });
+      (job.answerRuns || []).forEach(function (answer) { recoverWork(job.id, answer.run.runId, null, 'answer', false, answer.questionId); });
     });
   }
 
@@ -1411,7 +1432,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (!active || !active.runId || !target || attachedCoverWatches[active.runId]) return;
       attachedCoverWatches[active.runId] = true;
       target.disabled = true;
-      watchWork("batch", active.runId, target, kind, false).then(function () { activeRuns[kind] = null; });
+      recoverWork("batch", active.runId, target, kind, false).then(function () { activeRuns[kind] = null; });
     });
 
     var searchEl = workspaceOnly ? null : document.getElementById("search");
@@ -1504,7 +1525,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           (job.coverRun.status === "dispatching" || job.coverRun.status === "queued") &&
           !attachedCoverWatches[job.coverRun.runId]) {
         attachedCoverWatches[job.coverRun.runId] = true;
-        watchCover(id, job.coverRun.runId, status, false).then(function () {
+        recoverWork(id, job.coverRun.runId, status, 'cover', false).then(function () {
           delete attachedCoverWatches[job.coverRun.runId];
         });
       }
@@ -1512,7 +1533,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           (job.prepareRun.status === "dispatching" || job.prepareRun.status === "queued") &&
           !attachedCoverWatches[job.prepareRun.runId]) {
         attachedCoverWatches[job.prepareRun.runId] = true;
-        watchWork(id, job.prepareRun.runId, status, "prepare-screen", false).then(function () {
+        recoverWork(id, job.prepareRun.runId, status, "prepare-screen", false).then(function () {
           delete attachedCoverWatches[job.prepareRun.runId];
         });
       }
@@ -1520,14 +1541,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           (job.analysisRun.status === "dispatching" || job.analysisRun.status === "queued") &&
           !attachedCoverWatches[job.analysisRun.runId]) {
         attachedCoverWatches[job.analysisRun.runId] = true;
-        watchWork(id, job.analysisRun.runId, status, "analyse", false).then(function () {
+        recoverWork(id, job.analysisRun.runId, status, "analyse", false).then(function () {
           delete attachedCoverWatches[job.analysisRun.runId];
         });
       }
       (job.answerRuns || []).forEach(function (answerRun) {
         if (attachedCoverWatches[answerRun.run.runId]) return;
         attachedCoverWatches[answerRun.run.runId] = true;
-        watchWork(id, answerRun.run.runId, status, "answer", false, answerRun.questionId).then(function () {
+        recoverWork(id, answerRun.run.runId, status, "answer", false, answerRun.questionId).then(function () {
           delete attachedCoverWatches[answerRun.run.runId];
           loadJobs(false);
         });
@@ -1550,7 +1571,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         var run = job[entry[0]];
         if (!run || !run.runId || ['dispatching', 'queued'].indexOf(run.status) === -1 || attachedCoverWatches[run.runId]) return;
         attachedCoverWatches[run.runId] = true;
-        watchWork(id, run.runId, status, entry[1], false).then(function () { delete attachedCoverWatches[run.runId]; });
+        recoverWork(id, run.runId, status, entry[1], false).then(function () { delete attachedCoverWatches[run.runId]; });
       });
 
       var fieldSaveSeq = {};
@@ -1649,7 +1670,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
             (savedQuestion.run.status === "dispatching" || savedQuestion.run.status === "queued") &&
             !attachedCoverWatches[savedQuestion.run.runId]) {
           attachedCoverWatches[savedQuestion.run.runId] = true;
-          watchWork(id, savedQuestion.run.runId, status, "answer", false, qid).then(function () {
+          recoverWork(id, savedQuestion.run.runId, status, "answer", false, qid).then(function () {
             delete attachedCoverWatches[savedQuestion.run.runId];
             api("/api/admin/jobs?id=" + encodeURIComponent(id), { method: "GET" }).then(function (out) {
               if (!out.ok) return;
@@ -2063,7 +2084,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   readNavigationState();
   if (secret) {
-    try { JSON.parse(sessionStorage.getItem('fit.activeTasks') || '[]').forEach(function (a) { if (a.runId) watchWork(a.id, a.runId, null, a.kind, false, a.questionId); }); } catch (_) {}
+    try { JSON.parse(sessionStorage.getItem('fit.activeTasks') || '[]').forEach(function (a) { if (a.runId) recoverWork(a.id, a.runId, null, a.kind, false, a.questionId); }); } catch (_) {}
     loadJobs(true);
   }
   else renderGate();
