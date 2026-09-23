@@ -46,6 +46,9 @@ try {
       if (req.method() === 'POST') { dispatches++; runKinds.set('run' + dispatches, body.kind); if (body.kind === 'cover') job.coverRun = { runId: 'run' + dispatches, status: 'queued' }; return reply({ runId: 'run' + dispatches, kind: body.kind }, 202); }
       if (url.searchParams.get('realtime')) return reply({ runId: url.searchParams.get('run'), kind: runKinds.get(url.searchParams.get('run')), publicAccessToken: 'fixture-token' });
       job.coverRun = { runId: 'run1', status: status === 'COMPLETED' ? 'completed' : 'failed' };
+      for (const item of [job, secondJob]) if (item.jevRun?.runId === url.searchParams.get('run') && ['COMPLETED', 'FAILED'].includes(status)) {
+        item.jevRun.status = status === 'COMPLETED' ? 'completed' : 'failed';
+      }
       return reply({ terminal: ['COMPLETED', 'FAILED'].includes(status), status, kind: runKinds.get(url.searchParams.get('run')), result: { outcome: 'completed', words: 320, assessed: 1, failed: 0 }, error: status === 'FAILED' ? 'Provider unavailable' : undefined });
     }
     if (url.pathname === '/api/analyze') {
@@ -174,6 +177,8 @@ try {
   await page.locator('[data-select-job=job1]').waitFor();
   await page.waitForFunction(() => sessionStorage.getItem('fit.activeTasks') === '[]');
   assert.equal(await page.locator('.task-toast').count(), 0, 'finished saved runs and stale job pointers do not reopen toasts');
+  await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]')?.disabled);
+  assert.equal(await page.locator('[data-act=jevscore]').isEnabled(), true, 'finished run releases Assess fit');
   await page.goto(origin + '/');
   await page.locator('#jd').fill('A sufficiently detailed synthetic engineering leadership role.');
   await page.locator('#go').click();
