@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { logger } from "@trigger.dev/sdk";
 import { traceModelRequest } from "../lib/ai-telemetry.js";
 import { promptIdentity, promptTelemetryMetadata, chatPromptSpanAttributes } from "../lib/prompt-telemetry.js";
+import { setModelContentAttributes } from "../lib/gen-ai-content.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -55,11 +56,60 @@ try {
 
   await test("failed provider requests still have a model span and HTTP status", async () => {
     await traceModelRequest({ provider: "anthropic", model: "claude-opus-5",
-      attempt: 1, continuation: 0, maxTokens: 128 }, async () => ({ ok: false, status: 429 }));
+      attempt: 1, continuation: 0, maxTokens: 128,
+      requestBody: { system: [{ type: "text", text: "Private rubric" }],
+        messages: [{ role: "user", content: "Private evidence" }] } },
+    async () => ({ ok: false, status: 429 }));
     const attributes = spans.at(-1).attributes;
     assert.equal(attributes["gen_ai.response.model"], "claude-opus-5");
     assert.equal(attributes["http.response.status_code"], 429);
     assert.equal(attributes["gen_ai.response.finish_reasons"], '["error"]');
+    assert.equal(JSON.parse(attributes["gen_ai.input.messages"])[0].parts[0].content, "Private evidence");
+    assert.equal("gen_ai.output.messages" in attributes, false);
+  });
+
+  await test("OpenAI content records instructions, user input, search and response", async () => {
+    await traceModelRequest({ provider: "openai", model: "gpt-5.6-sol", requestBody: {
+      instructions: "Private instructions", input: [{ role: "user", content: "Private question" }],
+      tools: [{ type: "web_search" }],
+    } }, async () => ({ ok: true, status: 200, json: async () => ({ status: "completed",
+      output: [{ type: "web_search_call", id: "call-1", action: { query: "Example" } },
+        { type: "message", content: [{ type: "output_text", text: "Private answer" }] }],
+    }) }));
+    const attributes = spans.at(-1).attributes;
+    assert.deepEqual(JSON.parse(attributes["gen_ai.system_instructions"]), [{ type: "text", content: "Private instructions" }]);
+    assert.deepEqual(JSON.parse(attributes["gen_ai.input.messages"]),
+      [{ role: "user", parts: [{ type: "text", content: "Private question" }] }]);
+    assert.equal(JSON.parse(attributes["gen_ai.tool.definitions"])[0].type, "web_search");
+    assert.equal(JSON.parse(attributes["gen_ai.output.messages"])[0].parts[1].content, "Private answer");
+    assert.equal(JSON.stringify(attributes).includes("Bearer"), false);
+  });
+
+  await test("Anthropic content records cached system blocks and continuation tool results", async () => {
+    const attributes = {};
+    setModelContentAttributes((key, value) => { attributes[key] = value; }, { provider: "anthropic",
+      request: { system: [{ type: "text", text: "Private rubric", cache_control: { type: "ephemeral" } }],
+        messages: [{ role: "user", content: [{ type: "text", text: "Private evidence" }] },
+          { role: "assistant", content: [{ type: "tool_use", id: "search-1", input: { query: "role" } }] }],
+        tools: [{ name: "web_search" }] },
+      data: { content: [{ type: "text", text: "Private finding" },
+        { type: "web_search_tool_result", tool_use_id: "search-1", content: [{ title: "Result" }] }] } });
+    assert.equal(JSON.parse(attributes["gen_ai.system_instructions"])[0].content, "Private rubric");
+    assert.equal(JSON.parse(attributes["gen_ai.input.messages"])[1].parts[0].type, "tool_call");
+    assert.equal(JSON.parse(attributes["gen_ai.output.messages"])[0].parts[1].type, "tool_call_response");
+  });
+
+  await test("Jev content records exact assessment input and returned answers", async () => {
+    const attributes = {};
+    setModelContentAttributes((key, value) => { attributes[key] = value; }, { provider: "typesafe",
+      request: { model: "jev-1.13.0", state: { messages: ["Private chat"] },
+        questions: { route: { type: "noul", instructions: "Assess route" } } },
+      data: { answers: { route: { type: "noul", noul: 0.9 } } } });
+    const input = JSON.parse(JSON.parse(attributes["gen_ai.input.messages"])[0].parts[0].content);
+    assert.deepEqual(input.state.messages, ["Private chat"]);
+    assert.equal(input.questions.route.type, "noul");
+    const answer = JSON.parse(JSON.parse(attributes["gen_ai.output.messages"])[0].parts[0].content);
+    assert.equal(answer.route.noul, 0.9);
   });
 
   await test("prompt identity is stable for a rubric and changes with its published text", async () => {
