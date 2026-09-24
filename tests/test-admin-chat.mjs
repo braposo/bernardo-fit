@@ -81,6 +81,21 @@ await test("sources come from retrieved objects and omit private fields", () => 
   collectSources({ content: [{ type: "text", text: JSON.stringify({ _id: "assessment1", _type: "fitAssessment", job: { legacyId: "app1" } }) }] }, sources);
   assert.deepEqual(sources.get("assessment1"), { id: "assessment1", type: "fitAssessment", title: "fitAssessment", jobId: "app1" });
 });
+await test("projected Context results resolve source types from published Sanity metadata", async () => {
+  let lookup = 0;
+  const connection = await connectContext({env,fetchImpl:async()=>new Response('schema'),
+    createClient:async()=>({close:async()=>{},tools:async()=>({groq_query:{execute:async()=>({content:[{
+      type:'text',text:JSON.stringify({meta:{resultCount:1},result:[{_id:'job2',role:'Designer'}]})
+    }]})}})}),
+    createSourceClient:()=>({fetch:async(query,params)=>{
+      lookup++; assert.match(query,/_id in \$ids/); assert.deepEqual(params.ids,['job2']);
+      return [{_id:'job2',_type:'job',role:'Designer',legacyId:'app2',notes:'private'}];
+    }})});
+  await connection.tools.groq_query.execute({query:'*[_type == "job"]{role}'},{});
+  assert.equal(lookup,1);
+  assert.deepEqual([...connection.sources.values()],[{id:'job2',type:'job',title:'Designer',jobId:'app2'}]);
+  await connection.close();
+});
 await test("SDK usage excludes cached input from uncached counts", () => {
   assert.deepEqual(providerUsage({ inputTokens: 100, inputTokenDetails: { cacheReadTokens: 30, cacheWriteTokens: 10 }, outputTokens: 20 }),
     { input_tokens: 60, output_tokens: 20, cache_read_input_tokens: 30, cache_creation_input_tokens: 10 });
@@ -154,6 +169,16 @@ await test("Worker streams text and route, hides raw tool data, and releases res
   const { req,res } = exchange(); await handler(req,res);
   assert.match(res.output, /event: route/); assert.match(res.output, /Hello/); assert.match(res.output, /event: done/);
   assert.ok(!res.output.includes("PRIVATE RAW RESULT")); assert.equal(closed,1); assert.equal(released,1);
+});
+await test("Worker snapshots resolved sources even without a tool-result stream part", async () => {
+  const source = {id:'job2',type:'job',title:'Designer',jobId:'app2'};
+  const work = createChatWork({env,connect:async()=>({sources:new Map([[source.id,source]]),close:async()=>{}}),
+    select:async()=>({model:'gpt-5.6-sol',provider:'openai'}),admit:async()=>async()=>{},
+    makeAgent:()=>({stream:async()=>({stream:(async function*(){yield {type:'text-delta',text:'Answer'};yield {type:'finish',finishReason:'stop'};})()})})});
+  const events=[];
+  const output=await work({request,requestId:'source-check'},{emit:async(event,data)=>events.push({event,data})});
+  assert.deepEqual(output.sources,[source]);
+  assert.deepEqual(events.find(item=>item.event==='sources')?.data.sources,[source]);
 });
 await test("routing is recorded once before generation and stays out of the browser stream", async () => {
   const decisions = [], events = [];

@@ -56,6 +56,7 @@ body:has(.admin-chat-panel[data-state=open]) .task-toast-viewport { visibility:h
 .chat-source-title { color:#252631; }
 .chat-sources a { display:inline-flex; align-items:center; gap:5px; min-height:28px; color:#51448f; text-decoration:underline; text-underline-offset:2px; }
 .chat-sources a:hover { color:#392a77; }
+.chat-source-empty { margin:0; padding:0 14px 14px; color:#666d7b; }
 .chat-scroll-button { min-height:44px; min-width:44px; }
 .chat-composer { padding:8px 24px 20px; border-top:1px solid #e0e3eb; background:#fff; flex-shrink:0; }
 .chat-status { font-size:12px; color:#666d7b; min-height:24px; padding:3px 0; }

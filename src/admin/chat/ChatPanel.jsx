@@ -167,14 +167,14 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
               <Message align="end"><MessageContent><MessageHeader>You</MessageHeader><Bubble variant="secondary"><BubbleContent className="chat-text">{turn.question}</BubbleContent></Bubble></MessageContent></Message>
               <Message className="chat-answer"><MessageContent><MessageHeader>Assistant</MessageHeader>
                 <Bubble variant="ghost"><BubbleContent>{turn.text ? <MarkdownMessage text={turn.text} /> : (turn.status === 'running' ? 'Working on your question…' : 'No response received.')}</BubbleContent></Bubble>
-                {displaySources(turn.sources).length > 0 && <details className="chat-sources"><summary><span>Sources consulted</span><span className="chat-source-count">{displaySources(turn.sources).length}</span></summary><ul>{displaySources(turn.sources).map(source => <li key={source.id}>
+                <details className="chat-sources"><summary><span>Sources consulted</span><span className="chat-source-count">{displaySources(turn.sources).length}</span></summary>{displaySources(turn.sources).length > 0 ? <ul>{displaySources(turn.sources).map(source => <li key={source.id}>
                   {source.title !== source.type && <span className="chat-source-type">{sourceTypes[source.type] || 'Source'}</span>}{sourceDestination(source) ?
                   <a href={sourceDestination(source)} onClick={event => {
                     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                     event.preventDefault();
                     const url = new URL(window.location.href); url.searchParams.set('job', source.jobId); url.searchParams.set('section', sourceSections[source.type]);
                     window.history.pushState({}, '', url); window.dispatchEvent(new PopStateEvent('popstate')); setOpen(false);
-                  }}>{sourceTitle(source)}<ExternalLink size={14} aria-hidden="true" /></a> : <span className="chat-source-title">{sourceTitle(source)}</span>}</li>)}</ul></details>}
+                  }}>{sourceTitle(source)}<ExternalLink size={14} aria-hidden="true" /></a> : <span className="chat-source-title">{sourceTitle(source)}</span>}</li>)}</ul> : <p className="chat-source-empty">{turn.status === 'running' ? 'Sources will appear here when found.' : 'No source records were returned for this answer.'}</p>}</details>
                 {turn.status === 'stopped' && <p className="chat-notice">Stopped · partial response</p>}
                 {turn.status === 'truncated' && <p className="chat-notice">Response limit reached. Try a narrower question.</p>}
                 {turn.error && <p className="chat-error" role="alert">{turn.error}</p>}

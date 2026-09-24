@@ -36,7 +36,7 @@ const server=createServer(async(req,res)=>{
           if(runMode==='error'){run.send('snapshot',{status:'failed',error:'Synthetic upstream failure'});run.send('done',{status:'failed'});return;}
           const ending=' evidence** for a €100 project. <script>window.chatUnsafe=true</script>\n\n- Design leadership\n- Product strategy\n\n1. Review the role\n2. Use `specific evidence`\n\n> Focus on impact.\n\n| Role | Strength | Evidence | Next step |\n| --- | --- | --- | --- |\n| Atlas | Leadership | Research and strategy | Review portfolio |\n\n```js\nconst evidence = "A long example that stays inside its own horizontally scrolling code block on mobile screens";\n```\n\n[Reference](https://example.com/evidence) · [Unsafe](javascript:alert%281%29)\n\n![Hidden image](https://example.com/tracking.png)\n\n**Sources**\n\n- Sanity ID `fit-import-private`\n';
           run.send('text',{text:ending});
-          run.send('sources',{sources:[{id:'synthetic.job',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'},{id:'synthetic.job.copy',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'},{id:'synthetic.report',type:'fitReport',title:'Role analysis',jobId:'job & example'},{id:'synthetic.evidence',type:'candidateEvidence',title:'Design leadership'}]});
+          run.send('sources',{sources:runMode==='no-sources'?[]:[{id:'synthetic.job',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'},{id:'synthetic.job.copy',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'},{id:'synthetic.report',type:'fitReport',title:'Role analysis',jobId:'job & example'},{id:'synthetic.evidence',type:'candidateEvidence',title:'Design leadership'}]});
           run.send('activity',{state:'saving'});run.send('snapshot',{status:'complete',storage:'saved'});run.send('done',{status:'complete'});
         },runMode==='hold'?30000:200);
       }
@@ -76,6 +76,7 @@ try {
   await page.getByLabel('Message',{exact:true}).fill('Compare my roles');
   assert.equal(await page.getByRole('dialog').getByRole('combobox').count(),0);
   await page.getByRole('button',{name:'Send',exact:true}).click();
+  await page.getByText('Response complete.').waitFor();
   await page.getByText('Sources consulted').waitFor();
   assert.equal(lastBody.provider,'auto');assert.equal(lastBody.model,'auto');assert.equal(calls,1);
   assert.equal(loseSubmission,false);assert.equal(interruptStream,false);
@@ -164,6 +165,14 @@ try {
   assert.equal(lastBody.provider,'auto');assert.equal(lastBody.model,'auto');
   await page.getByRole('button',{name:'Start a new chat'}).click();
   await page.getByText('What would you like to explore?').waitFor();
+  mode='no-sources';
+  await page.getByLabel('Message',{exact:true}).fill('Question with no source records');
+  await page.getByRole('button',{name:'Send',exact:true}).click();
+  await page.getByText('Response complete.').waitFor();
+  await page.getByText('Sources consulted').click();
+  await page.getByText('No source records were returned for this answer.').waitFor();
+  await page.getByRole('button',{name:'Start a new chat'}).click();
+  mode='normal';
   autoAvailable=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Chat',exact:true}).click();
   await page.getByText('Chat is temporarily unavailable. Please try again later.').waitFor();
   await page.getByLabel('Message',{exact:true}).fill('Question while routing is unavailable');
