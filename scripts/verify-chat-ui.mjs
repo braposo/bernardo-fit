@@ -50,6 +50,10 @@ try {
   assert.equal(await page.evaluate(()=>window.chatUnsafe),undefined);
   await page.getByText('Sources consulted (1)').click();
   assert.match(await page.getByRole('link',{name:'Fictional Atlas'}).getAttribute('href'), /job%20%26%20example/);
+  await page.getByRole('link',{name:'Fictional Atlas'}).click();
+  assert.equal(new URL(page.url()).searchParams.get('job'),'job & example');
+  await page.getByRole('button',{name:'Chat',exact:true}).click();
+  await page.getByText('Sources consulted (1)').waitFor();
   await mkdir('.chat-screenshots',{recursive:true});
   for(const width of [1280,768,390,360]) {
     await page.setViewportSize({width,height:900});

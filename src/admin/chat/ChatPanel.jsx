@@ -115,7 +115,12 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
               <Message className="chat-answer"><MessageContent><MessageHeader>Assistant{turn.model && <span className="chat-model-label">{config?.models.find(m => m.id === turn.model)?.label || turn.model}</span>}</MessageHeader>
                 <Bubble variant="ghost"><BubbleContent className="chat-text">{turn.text || (turn.status === 'running' ? 'Working on your question…' : 'No response received.')}</BubbleContent></Bubble>
                 {turn.sources.length > 0 && <details className="chat-sources"><summary>Sources consulted ({turn.sources.length})</summary><ul>{turn.sources.map(source => <li key={source.id}>{source.type === 'job' && typeof source.jobId === 'string' ?
-                  <a href={`/admin?job=${encodeURIComponent(source.jobId)}&section=overview`} target="_blank" rel="noopener noreferrer">{source.title}</a> : source.title}</li>)}</ul></details>}
+                  <a href={`/admin?job=${encodeURIComponent(source.jobId)}&section=overview`} onClick={event => {
+                    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                    event.preventDefault();
+                    const url = new URL(window.location.href); url.searchParams.set('job', source.jobId); url.searchParams.set('section', 'overview');
+                    window.history.pushState({}, '', url); window.dispatchEvent(new PopStateEvent('popstate')); setOpen(false);
+                  }}>{source.title}</a> : source.title}</li>)}</ul></details>}
                 {turn.status === 'stopped' && <p className="chat-notice">Stopped · partial response</p>}
                 {turn.status === 'truncated' && <p className="chat-notice">Response limit reached. Try a narrower question.</p>}
                 {turn.error && <p className="chat-error" role="alert">{turn.error}</p>}
