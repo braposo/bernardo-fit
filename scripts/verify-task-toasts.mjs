@@ -103,6 +103,11 @@ try {
   status = 'COMPLETED';
   await page.evaluate(() => window.fixtureRuns.run1.onUpdate({ status: 'COMPLETED' }));
   await page.locator('.task-toast-message').filter({ hasText: '320 words' }).waitFor();
+  assert.match(await page.locator('[data-task-id="run:run1"] button[aria-label^="Dismiss"]').textContent(), /^Dismiss \([1-5]s\)$/, 'successful notification shows a countdown');
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.screenshot({ path: new URL(`../.toast-screenshots/success-${width}.png`, import.meta.url).pathname.replace(/^\/(\w:)/, '$1') });
+  }
   await page.waitForFunction(() => !document.querySelector('[data-act=cover]').disabled);
   assert.match(await page.locator('.task-toast a').getAttribute('href'), /job=job1/);
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -130,6 +135,7 @@ try {
   await page.waitForFunction(() => window.fixtureRuns?.run2);
   status = 'FAILED'; await page.evaluate(() => window.fixtureRuns.run2.onUpdate({ status: 'FAILED' }));
   await page.locator('.task-toast-message').filter({ hasText: 'Provider unavailable' }).waitFor();
+  assert.equal(await page.locator('[data-task-id="run:run2"] button[aria-label^="Dismiss"]').textContent(), 'Dismiss', 'failed notification has no countdown');
   await page.waitForFunction(() => !document.querySelector('[data-act=cover]').disabled);
   await page.setViewportSize({ width: 1280, height: 900 });
   for (const [section, selector] of [['materials','[data-act=regen]'],['materials','[data-act=researchrefresh]'],['materials','[data-act=briefrewrite]'],['materials','[data-act=qdraft]'],['overview','[data-act=jevscore]'],['overview','#assesslisted']]) {
@@ -181,6 +187,13 @@ try {
   assert.equal(await secondToast.getByText('Fit assessment ready', {exact:true}).count(), 1);
   await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), nextAssessment);
   await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]').disabled);
+  const countdown = page.locator('[data-task-id="run:' + nextAssessment + '"] button[aria-label^="Dismiss"]');
+  await countdown.getByText(/\([1-4]s\)/).waitFor();
+  await page.evaluate(async id => {
+    const { taskToast } = await import('/assets/task-ui-real.js');
+    taskToast('run:' + id, { title: 'Updated role title' });
+  }, nextAssessment);
+  assert.match(await countdown.textContent(), /^Dismiss \([1-4]s\)$/, 'later updates keep the original dismissal deadline');
   await page.locator('[data-task-id="run:' + nextAssessment + '"]').waitFor({ state: 'detached', timeout: 7000 });
   assert.equal(await page.locator('[data-task-id="run:run2"]').count(), 1, 'failed notification remains until dismissed');
   await page.evaluate(([a, b]) => sessionStorage.setItem('fit.activeTasks', JSON.stringify([
