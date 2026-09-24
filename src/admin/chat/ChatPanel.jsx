@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { MessageCircle, Send, Square, Plus, ExternalLink } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
-import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '../components/ui/dialog';
+import { Sheet, SheetContent, SheetTitle, SheetDescription, SheetTrigger } from '../components/ui/sheet';
 import { Message, MessageContent, MessageHeader } from '../components/ui/message';
 import { Bubble, BubbleContent } from '../components/ui/bubble';
 import { MessageScrollerProvider, MessageScroller, MessageScrollerViewport, MessageScrollerContent,
@@ -81,6 +81,10 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
     }).catch(e => { if (!controller.signal.aborted) setConfigError(e.message); });
     return () => controller.abort();
   }, [open, authenticated]);
+  useEffect(() => {
+    document.body.classList.toggle('admin-chat-open', authenticated && open);
+    return () => document.body.classList.remove('admin-chat-open');
+  }, [authenticated, open]);
 
   const hasProvider = config?.models?.some(m => m.available);
   const canSend = config?.enabled && config.contextConfigured && hasProvider && config.autoAvailable && config.workerConfigured;
@@ -152,11 +156,11 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
     !config.contextConfigured ? 'The content connection is unavailable.' :
     !hasProvider || !config.autoAvailable || !config.workerConfigured ? 'Chat is temporarily unavailable. Please try again later.' : '');
   if (!authenticated) return null;
-  return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Ask your assistant</Button></DialogTrigger>
-    <DialogContent className="admin-chat-panel" onOpenAutoFocus={e => { e.preventDefault(); composer.current?.focus(); }}>
-      <header className="chat-heading"><div><DialogTitle>Your assistant</DialogTitle>
-        <DialogDescription>Ask me about your experience, roles and applications.</DialogDescription></div>
+  return <Sheet open={open} onOpenChange={setOpen}>
+    <SheetTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Ask your assistant</Button></SheetTrigger>
+    <SheetContent className="admin-chat-panel" onOpenAutoFocus={e => { e.preventDefault(); composer.current?.focus(); }}>
+      <header className="chat-heading"><div><SheetTitle>Your assistant</SheetTitle>
+        <SheetDescription>Ask me about your experience, roles and applications.</SheetDescription></div>
         <Button className="chat-new-button" variant="outline" onClick={newChat} disabled={busy || !turns.length} aria-label="Start a new chat"><Plus aria-hidden="true" />New chat</Button></header>
       <MessageScrollerProvider key={conversation.current || 'empty'} defaultScrollPosition="end" autoScroll>
         <MessageScroller className="chat-scroll">
@@ -173,7 +177,8 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
                     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                     event.preventDefault();
                     const url = new URL(window.location.href); url.searchParams.set('job', source.jobId); url.searchParams.set('section', sourceSections[source.type]);
-                    window.history.pushState({}, '', url); window.dispatchEvent(new PopStateEvent('popstate')); setOpen(false);
+                    window.history.pushState({}, '', url); window.dispatchEvent(new PopStateEvent('popstate'));
+                    if (window.matchMedia('(max-width: 600px)').matches) setOpen(false);
                   }}>{sourceTitle(source)}<ExternalLink size={14} aria-hidden="true" /></a> : <span className="chat-source-title">{sourceTitle(source)}</span>}</li>)}</ul> : <p className="chat-source-empty">{turn.status === 'running' ? 'Sources will appear here when found.' : 'No source records were returned for this answer.'}</p>}</details>
                 {turn.status === 'stopped' && <p className="chat-notice">Stopped · partial response</p>}
                 {turn.status === 'truncated' && <p className="chat-notice">Response limit reached. Try a narrower question.</p>}
@@ -195,8 +200,8 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
           {busy ? <Button type="button" variant="outline" onClick={stop}><Square aria-hidden="true" />Stop</Button> :
             <Button type="submit" disabled={!canSend || !draft.trim() || incomplete}><Send aria-hidden="true" />Send</Button>}</div>
       </form>
-    </DialogContent>
-  </Dialog>;
+    </SheetContent>
+  </Sheet>;
 }
 
 export function mountAdminChat(options) {
