@@ -2,7 +2,7 @@
 
 Configuration update: assistant/Context prompts, the chat model catalog, Jev routing rules and models, response budgets, and Insights classification now come from the published **Chat settings** singleton. See [editable chat configuration](chat-settings.md) for editing, validation, revision logging and deployment details; the hardcoded values described in the original rollout below are the initial seed values.
 
-Status: Trigger task migration uses the Development environment, per the user’s explicit requirement. Run `npm run trigger:dev:chat` to register the named Development branch. The worker must remain running on this computer.
+Status: The user authorized hosted Trigger Production for production chat on 24 September 2026. Production requires a `tr_prod_` key and no branch override. Preview/local continue using the named Development branch (`npm run trigger:dev:chat`). Production does not depend on this computer. Earlier Development-only rollout notes below are historical.
 
 Original setup: backend, service configuration and admin chat interface implemented on 24 September 2026. The interface is mounted separately from legacy workspace renders and available from the authenticated Chat launcher. `ADMIN_CHAT_ENABLED` defaults off; rollout is controlled per environment.
 

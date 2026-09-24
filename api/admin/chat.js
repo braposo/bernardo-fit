@@ -20,8 +20,10 @@ export function createChatHandler({ env = process.env, storage = hasKV, trigger 
     try {
       const workerKey = env.ADMIN_CHAT_TRIGGER_SECRET_KEY || env.TRIGGER_SECRET_KEY;
       const workerBranch = env.ADMIN_CHAT_TRIGGER_BRANCH || env.TRIGGER_PREVIEW_BRANCH;
-      const workerReady = env.ADMIN_CHAT_WORKER_READY === '1' && workerKey?.startsWith('tr_dev_') && storage &&
-        (env.VERCEL_ENV !== 'preview' || !!workerBranch);
+      const production = env.VERCEL_ENV === 'production';
+      const workerReady = env.ADMIN_CHAT_WORKER_READY === '1' && storage && (production
+        ? workerKey?.startsWith('tr_prod_') && !workerBranch
+        : workerKey?.startsWith('tr_dev_') && (env.VERCEL_ENV !== 'preview' || !!workerBranch));
       if (req.method === 'GET' && !req.query?.run) return res.status(200).json({
         models: [
           {provider:"openai",available:!!env.OPENAI_API_KEY?.trim()},

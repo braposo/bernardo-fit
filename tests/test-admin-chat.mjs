@@ -84,7 +84,7 @@ await test("SDK usage excludes cached input from uncached counts", () => {
     { input_tokens: 60, output_tokens: 20, cache_read_input_tokens: 30, cache_creation_input_tokens: 10 });
 });
 await test("Insights scopes writes to the organization and saves text snapshots without tool payloads", async () => {
-  const configured = { ...env, SANITY_CONTEXT_WRITE_TOKEN: "write-fake" };
+  const configured = { ...env, SANITY_CONTEXT_WRITE_TOKEN: "write-fake", TRIGGER_SECRET_KEY:'tr_prod_test' };
   assert.equal(insightsClient(configured).config().context.organizationId, "org");
   assert.throws(() => insightsClient(env), /not configured/);
   let saved;
@@ -93,6 +93,7 @@ await test("Insights scopes writes to the organization and saves text snapshots 
     client: { context: { conversations: { save: async value => { saved = value; } } } } });
   assert.equal(saved.threadId, "admin-chat.turn-one");
   assert.equal(saved.metadata.conversationId, "conversation-one");
+  assert.equal(saved.metadata.environment, 'production');
   assert.deepEqual(saved.messages, [...request.messages, { role: "assistant", content: "Answer" }]);
   assert.deepEqual(saved.sharing, { metrics: false, conversations: false });
   assert.throws(() => validateChatRequest({ ...request, conversationId: "invalid" }), /UUID/);
