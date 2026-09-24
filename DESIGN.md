@@ -304,7 +304,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Chat uses its inline composer status instead of a duplicate task toast. Every other app action dispatched to Trigger shows one persistent toast keyed by its run ID (not its action button), updated from Trigger Realtime status and phase metadata through completion, failure, cancellation or expiry. Use human-readable task names and role context; keep relevant role, pipeline and result links in the toast.
 - On reload, check saved run status before restoring notifications. Restore toasts for unfinished work only; results that finished before the reload belong in the role, not in a newly opened toast.
 - Lock the corresponding action from submission until a confirmed terminal result, including after navigation, re-render and recovery on reload. Keep unrelated controls usable. A lost status connection means reconnecting, not task failure; keep the action locked while reconnecting.
-- Toasts never steal focus. Keep status announcements polite, completed notifications dismissible, and links and dismiss controls keyboard-accessible with 44px mobile targets. Keep the stack scrollable within narrow screens.
+- Toasts never steal focus. Keep status announcements polite, successful notifications dismissible and automatically remove them after five seconds. Keep failed notifications visible until dismissed. Links and dismiss controls must be keyboard-accessible with 44px mobile targets. Keep the stack scrollable within narrow screens. Do not repeat background task phases or outcomes in the role-wide status line, document actions, or overview summary; keep inline feedback for direct edits.
 
 ## Editing, accessibility and responsive behaviour
 

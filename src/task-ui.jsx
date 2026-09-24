@@ -5,11 +5,26 @@ import { Toast } from 'radix-ui';
 import { Button } from './admin/components/ui/button';
 
 const notices = new Map();
+const dismissTimers = new Map();
 let toastRoot;
 export function taskToast(id, update, replaceId) {
   const previous = notices.get(id) || notices.get(replaceId);
-  if (replaceId && replaceId !== id) notices.delete(replaceId);
-  notices.set(id, { ...previous, ...update });
+  if (replaceId && replaceId !== id) {
+    clearTimeout(dismissTimers.get(replaceId));
+    dismissTimers.delete(replaceId);
+    notices.delete(replaceId);
+  }
+  clearTimeout(dismissTimers.get(id));
+  dismissTimers.delete(id);
+  const notice = { ...previous, ...update };
+  notices.set(id, notice);
+  if (notice.terminal && notice.tone === 'ok') {
+    dismissTimers.set(id, setTimeout(() => {
+      dismissTimers.delete(id);
+      notices.delete(id);
+      paint();
+    }, 5000));
+  }
   if (!toastRoot) {
     const host = document.createElement('div');
     document.body.append(host);
@@ -21,7 +36,12 @@ function paint() {
   toastRoot.render(<Toast.Provider swipeDirection="right"><>
     {[...notices].map(([id, notice]) => <Toast.Root key={id} open duration={Infinity}
       className="task-toast" data-task-id={id} data-tone={notice.tone || 'pending'} type="background"
-      onOpenChange={open => { if (!open && notice.terminal) { notices.delete(id); paint(); } }}>
+      onOpenChange={open => { if (!open && notice.terminal) {
+        clearTimeout(dismissTimers.get(id));
+        dismissTimers.delete(id);
+        notices.delete(id);
+        paint();
+      } }}>
       <Toast.Title className="task-toast-title">{notice.title || 'Background work'}</Toast.Title>
       <Toast.Description className="task-toast-message" role="status" aria-live="polite" aria-atomic="true">{notice.message}</Toast.Description>
       <div className="task-toast-actions">
