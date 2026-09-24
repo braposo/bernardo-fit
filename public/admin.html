@@ -456,7 +456,7 @@
 import { subscribeRun, taskToast } from "./assets/task-ui.js";
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 import { summariseUsage } from "./admin-usage.js";
-import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError } from "./assets/admin-ui.js";
+import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError, mountAdminChat } from "./assets/admin-ui.js";
 (function () {
   "use strict";
 
@@ -466,6 +466,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   renderAdmin(topnav, topnav.innerHTML);
   var SECRET_KEY = "bfit_admin_secret";
   var secret = sessionStorage.getItem(SECRET_KEY) || "";
+  var chat = mountAdminChat({ getSecret: function () { return secret; }, onUnauthorized: function () {
+    secret = ''; sessionStorage.removeItem(SECRET_KEY); renderGate('Session expired.');
+  } });
 
   var jobs = [];
   var fieldDrafts = new Map();
@@ -770,6 +773,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   // ---------- Gate ----------
 
   function renderGate(err) {
+    chat.setAuthenticated(false);
     renderAdmin(app,
       '<div class="frame"><div class="gate">' +
         "<h1>Locked</h1>" +
@@ -2008,6 +2012,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (unauthorised(out, firstTry)) return;
       if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
       sessionStorage.setItem(SECRET_KEY, secret);
+      chat.setAuthenticated(true);
       var previous = new Map(jobs.map(function (job) { return [job.id, job]; }));
       jobs = (out.d.jobs || []).map(function (summary) {
         var detail = previous.get(summary.id);

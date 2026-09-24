@@ -287,14 +287,16 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 - Successful generation automatically makes the new version live. Keep the previous output readable while work runs and retain previous versions for preview and explicit publication. Preserve public/private boundaries and never describe this as draft-only generation.
 - Distinguish missing, stale, running, failed and other backend-supported outcomes. Reload should recover running work; duplicate submission should recover the existing request rather than start another one.
 
-## Admin chat (approved direction; interface pending)
+## Admin chat
 
 - Chat is private to the authenticated admin and reads Sanity content. Suggested answers do not save or publish changes.
+- Open Chat from its persistent launcher. Use a centred dialog on desktop and a full-height surface on mobile, with a fixed composer beneath independently scrolling messages. Closing preserves the conversation and draft; session expiry clears both. New chat clears the visible conversation while retaining an unsent draft.
 - Use the actual shadcn Message Scroller with Message/Bubble and the existing form primitives. Preserve scroll position while reading older messages; offer a scroll-to-end action as new text arrives.
 - Chat explicitly exposes provider and model selection, including Auto with Jev, and records the actual model on each answer. This is a chat-specific choice; existing generation action labels continue to use task verbs.
 - Keep streamed text, sources, draft input and partial failed/stopped answers readable. Stop and explicit Retry must describe the real request lifecycle. Send is the explicit submission for a chat turn; it does not require a document-generation review dialog.
 - Keep the composer reachable on mobile, controls labelled, keyboard focus stable and status announcements polite. Do not show raw tool payloads or hidden reasoning.
-- Follow [the implementation plan](docs/admin-chat-implementation-plan.md) for transport, source links and verification before enabling the interface.
+- Disclose private Insights storage beneath the composer. Show source links only from validated source metadata; render model text safely. Incomplete answers require explicit Retry or New chat before another turn, so partial text is not silently reused as completed evidence.
+- Follow [the implementation plan](docs/admin-chat-implementation-plan.md) for transport, source links and rollout verification.
 
 ## Background task notifications
 

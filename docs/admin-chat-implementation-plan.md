@@ -1,6 +1,8 @@
 # Admin chat with Sanity Context
 
-Status: backend foundation and service configuration prepared on 24 September 2026. The chat interface is planned below and is not mounted in the admin yet. `ADMIN_CHAT_ENABLED` defaults off.
+Status: backend, service configuration and admin chat interface implemented on 24 September 2026. The interface is mounted separately from legacy workspace renders and available from the authenticated Chat launcher. `ADMIN_CHAT_ENABLED` defaults off; rollout is controlled per environment.
+
+UI implementation: `src/admin/chat/ChatPanel.jsx`, `stream.js` and `chat.css`. Uses installed shadcn Message Scroller, Message/Bubble, Dialog, Textarea, NativeSelect and Button. Renders escaped text, validates source links, retains drafts across closing, supports Stop/Retry/New chat, and clears memory on session expiry. `tests/test-chat-stream.mjs` covers fragmented UTF-8/SSE and history limits. `npm run test:chat-ui` exercises synthetic streaming, provider/model selection, sources, stop/retry, session expiry, disabled state and accessibility at 1280/768/390/360 px. Below is the design and rollout reference for the implemented feature; optional selected-role context, rich Markdown, and durable-history browsing are future additions.
 
 ## Intended experience
 
