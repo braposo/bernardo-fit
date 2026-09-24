@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { logger } from "@trigger.dev/sdk";
 import { traceModelRequest } from "../lib/ai-telemetry.js";
+import { promptIdentity, promptTelemetryMetadata, chatPromptSpanAttributes } from "../lib/prompt-telemetry.js";
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -59,6 +60,32 @@ try {
     assert.equal(attributes["gen_ai.response.model"], "claude-opus-5");
     assert.equal(attributes["http.response.status_code"], 429);
     assert.equal(attributes["gen_ai.response.finish_reasons"], '["error"]');
+  });
+
+  await test("prompt identity is stable for a rubric and changes with its published text", async () => {
+    const first = promptIdentity("jev-fit", { score: "Fit criteria" }, "sanity-a");
+    assert.deepEqual(promptIdentity("jev-fit", { score: "Fit criteria" }, "sanity-a"), first);
+    assert.notEqual(promptIdentity("jev-fit", { score: "Revised criteria" }, "sanity-b").version, first.version);
+    assert.equal(promptTelemetryMetadata(first)["prompt.version"], String(first.version));
+    await traceModelRequest({ provider: "openai", model: "gpt-5.6-sol", kind: "answer",
+      attempt: 1, maxTokens: 128, prompt: first }, async () => ({ ok: false, status: 429 }));
+    const attributes = spans.at(-1).attributes;
+    assert.equal(attributes["prompt.slug"], "fit-jev-fit");
+    assert.equal(attributes["prompt.version"], first.version);
+    assert.equal(attributes["fit.ai.prompt.fingerprint"], first.fingerprint);
+    assert.equal(attributes["fit.ai.prompt.revision"], "sanity-a");
+    assert.equal(attributes["ai.telemetry.metadata.prompt.slug"], "fit-jev-fit");
+    assert.equal(attributes["ai.telemetry.metadata.prompt.version"], String(first.version));
+    assert.equal(JSON.stringify(attributes).includes("Fit criteria"), false);
+  });
+
+  await test("AI SDK model spans receive the same indexed prompt attributes", async () => {
+    const prompt = promptIdentity("admin-chat", ["assistant rules", "context rules"], "chat-rev");
+    const attributes = chatPromptSpanAttributes({ spanType: "languageModel", runtimeContext: { promptTelemetry: prompt } });
+    assert.equal(attributes["ai.telemetry.metadata.prompt.slug"], "fit-admin-chat");
+    assert.equal(attributes["fit.ai.prompt.fingerprint"], prompt.fingerprint);
+    assert.deepEqual(chatPromptSpanAttributes({ spanType: "operation", runtimeContext: { promptTelemetry: prompt } }), {});
+    assert.equal(JSON.stringify(attributes).includes("assistant rules"), false);
   });
 } finally {
   logger.trace = originalTrace;
