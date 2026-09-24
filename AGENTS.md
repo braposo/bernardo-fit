@@ -4,6 +4,14 @@
 This project has Trigger.dev agent skills installed in `.agents/skills/`. Before writing or changing Trigger.dev code (background tasks, scheduled tasks, realtime, or chat.agent AI agents), load the most relevant skill: `trigger-authoring-chat-agent`, `trigger-authoring-tasks`, `trigger-chat-agent-advanced`, `trigger-cost-savings`, `trigger-getting-started`, `trigger-realtime-and-frontend`.
 <!-- TRIGGER.DEV SKILLS END -->
 
+## Trigger environment requirement
+
+- Use Trigger.dev **Development** for this project's work, including Vercel preview apps and admin chat. This is the user's explicit environment choice.
+- Run the local `trigger dev` worker, using the existing `tr_dev_` key. For branch isolation, use a named Development branch and set the same `TRIGGER_PREVIEW_BRANCH` in the calling app (the SDK uses this variable for Development branches too).
+- Do not enable Trigger Preview environments or deploy to Preview, Staging or Production unless the user explicitly changes this instruction. Vercel Preview and Trigger Development are separate environment choices.
+- Keep app and worker Redis namespaces aligned. Reuse existing credentials without displaying them. Verify the Development worker is registered before marking it ready.
+- Development tasks execute on the machine running `trigger dev`; the worker must stay running. State this availability requirement when handing off.
+
 ## UI and design work
 
 - Before reviewing or changing user-facing UI, read root `DESIGN.md` and the references it identifies for the affected surface.

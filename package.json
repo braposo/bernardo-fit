@@ -45,7 +45,8 @@
     "sanity:check": "node --env-file-if-exists=.env.local scripts/check-sanity.mjs",
     "sanity:storage:check": "node --env-file-if-exists=.env.local scripts/check-sanity-storage.mjs",
     "sanity:settings:check": "node --env-file-if-exists=.env.local scripts/check-analysis-settings.mjs",
-    "test:task-ui": "node scripts/verify-task-toasts.mjs"
+    "test:task-ui": "node scripts/verify-task-toasts.mjs",
+    "trigger:dev:chat": "node scripts/start-chat-worker.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

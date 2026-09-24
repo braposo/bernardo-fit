@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
-import { tasks, runs, streams, idempotencyKeys } from '@trigger.dev/sdk';
+import { tasks, runs, streams, idempotencyKeys, auth } from '@trigger.dev/sdk';
 import { requireAdmin } from '../../lib/admin.js';
 import { jevEnabled } from '../../lib/jev.js';
 import { chatModels } from '../../lib/chat/models.js';
@@ -19,8 +19,10 @@ export function createChatHandler({ env = process.env, storage = hasKV, trigger 
     res.setHeader('Cache-Control', 'private, no-store');
     if (!requireAdmin(req, res)) return;
     try {
-      const workerReady = env.ADMIN_CHAT_WORKER_READY === '1' && !!env.TRIGGER_SECRET_KEY && storage &&
-        (env.VERCEL_ENV !== 'preview' || (!!env.TRIGGER_PREVIEW_BRANCH && env.TRIGGER_SECRET_KEY.startsWith('tr_preview_')));
+      const workerKey = env.ADMIN_CHAT_TRIGGER_SECRET_KEY || env.TRIGGER_SECRET_KEY;
+      const workerBranch = env.ADMIN_CHAT_TRIGGER_BRANCH || env.TRIGGER_PREVIEW_BRANCH;
+      const workerReady = env.ADMIN_CHAT_WORKER_READY === '1' && workerKey?.startsWith('tr_dev_') && storage &&
+        (env.VERCEL_ENV !== 'preview' || !!workerBranch);
       if (req.method === 'GET' && !req.query?.run) return res.status(200).json({
         models: chatModels(env), autoAvailable: jevEnabled(env), enabled: env.ADMIN_CHAT_ENABLED === '1',
         insightsEnabled: env.ADMIN_CHAT_INSIGHTS_ENABLED === '1',
@@ -118,4 +120,9 @@ export async function relayChatRun(req, res, runId, { retrieve, read }) {
   }
 }
 
-export default createChatHandler();
+const handler = createChatHandler();
+// Scope the chat connection without changing other app tasks' SDK credentials.
+export default (req, res) => auth.withAuth({
+  secretKey: process.env.ADMIN_CHAT_TRIGGER_SECRET_KEY || process.env.TRIGGER_SECRET_KEY,
+  previewBranch: process.env.ADMIN_CHAT_TRIGGER_BRANCH || process.env.TRIGGER_PREVIEW_BRANCH,
+}, () => handler(req, res));

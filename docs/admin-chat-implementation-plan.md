@@ -1,6 +1,6 @@
 # Admin chat with Sanity Context
 
-Status: Trigger task migration implemented and locally verified; cloud deployment awaits approval to upload the source bundle. The existing preview has not been updated with this migration.
+Status: Trigger task migration uses the Development environment, per the user’s explicit requirement. Run `npm run trigger:dev:chat` to register the named Development branch. The worker must remain running on this computer.
 
 Original setup: backend, service configuration and admin chat interface implemented on 24 September 2026. The interface is mounted separately from legacy workspace renders and available from the authenticated Chat launcher. `ADMIN_CHAT_ENABLED` defaults off; rollout is controlled per environment.
 
@@ -58,7 +58,7 @@ flowchart LR
 
 Both methods require the existing `x-admin-secret` header. The browser must use the existing session authentication helper; never put secrets in URLs. Responses are private and uncached.
 
-`GET /api/admin/chat` returns availability flags including `workerConfigured`. The app always submits automatic routing. `ADMIN_CHAT_WORKER_READY=1` is required after deploying a matching worker; Preview requires a preview key and branch.
+`GET /api/admin/chat` returns availability flags including `workerConfigured`. The app always submits automatic routing. `ADMIN_CHAT_WORKER_READY=1` is required after registering a matching Development worker. Vercel Preview uses the Development key and branch through chat-scoped `ADMIN_CHAT_TRIGGER_SECRET_KEY` and `ADMIN_CHAT_TRIGGER_BRANCH` settings.
 
 `POST /api/admin/chat` accepts a UUID `requestId`, UUID `conversationId`, and alternating text `messages`. It returns 202 with a run ID. A global, 30-day Trigger idempotency key recovers ambiguous submissions; receipts bind the ID to the exact request hash. Reusing it with different content fails. The endpoint and worker force automatic Jev routing. Existing limits remain 40 messages, 12,000 characters per message and 48 KB overall.
 
@@ -132,12 +132,12 @@ Completed: dedicated Context token read connection and query; synthetic streamin
 
 The existing Jev key was obtained from the authorized Trigger environment and stored only in the ignored local environment and the classification function. `npm run chat:check` now passes with both providers, Jev and Context configured. It performs a read-only Context query and no model generation. Synthetic live Jev classification was saved successfully into Insights, and six synthetic provider/tool evaluations pass. Anthropic sometimes describes an ignored injected instruction while still answering correctly; this verbosity remains a tuning opportunity.
 
-Before deploying this Trigger migration:
+Development worker setup:
 
-1. Approve uploading the source bundle to Trigger.dev, then deploy `admin-context-chat` to preview branch `codex/sanity-context-chat-setup`. Configure that worker with the existing OpenAI/Anthropic, Jev, Redis and Sanity Context read/write credentials, `ADMIN_CHAT_INSIGHTS_ENABLED=1`, and matching `KV_NAMESPACE`. Never put the admin secret in the task payload.
+1. Start `npm run trigger:dev:chat`. The launcher loads only chat configuration and provider credentials from ignored local files, while additional Development credentials come from Trigger. Keep the worker running; do not deploy to Trigger Preview, Staging or Production.
 2. Browser-check 1280, 768, 390 and 360 px; long messages, keyboard operation, mobile composer, scroll anchoring, empty/disabled states, errors, retry and sources. Use synthetic fixtures for visual verification.
 3. Verify deployed admin auth, disabled POST behavior, automatic Jev routing, live streaming, Redis admission, reconnect and cancellation. A combined private-content/provider test remains outstanding; obtain approval for that test if required by the execution environment.
-4. Set the matching Trigger preview key and branch in Vercel, enable `ADMIN_CHAT_WORKER_READY=1`, and run full pull-request CI. Enable `ADMIN_CHAT_ENABLED=1` on the tested preview first, then Production only with the finished UI and successful checks. Redeploy after environment changes.
+4. Set the existing Development key and matching branch in Vercel’s chat-scoped settings, enable `ADMIN_CHAT_WORKER_READY=1`, and run full pull-request CI. Enable `ADMIN_CHAT_ENABLED=1` on the tested preview first, then Production only with the finished UI and successful checks. Redeploy after environment changes.
 
 Rollback: unset `ADMIN_CHAT_ENABLED` or set it to `0` and redeploy. POST fails closed while existing app functionality remains available. Revoke the dedicated Sanity robot token if the integration is retired or its credential is compromised.
 

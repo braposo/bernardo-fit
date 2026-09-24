@@ -7,7 +7,15 @@ export const adminChat = task({
   maxDuration: 210,
   retry: { maxAttempts: 1 }, // Never replay a partially billed answer automatically.
   queue: { concurrencyLimit: 2 },
-  run: async (payload: { requestId: string; request: any }, { signal }) => {
+  run: async (payload: { requestId?: string; request?: any; healthcheck?: boolean }, { signal }) => {
+    // Operational probe, available through authenticated Trigger tooling only.
+    // The app dispatcher never copies this flag from user input.
+    if (payload.healthcheck === true) {
+      const checks = { storage: hasKV, context: !!process.env.SANITY_CONTEXT_MCP_URL && !!process.env.SANITY_ORGANIZATION_TOKEN,
+        jev: !!process.env.TYPESAFE_API_KEY, openai: !!process.env.OPENAI_API_KEY, anthropic: !!process.env.ANTHROPIC_API_KEY,
+        insights: process.env.ADMIN_CHAT_INSIGHTS_ENABLED === '1' && !!process.env.SANITY_CONTEXT_WRITE_TOKEN };
+      return { ready: Object.values(checks).every(Boolean), checks };
+    }
     if (!hasKV) throw new AbortTaskRunError('Chat storage is unavailable.');
     let result: any, seq = 0;
     const { waitUntilComplete } = streams.writer('chat', {

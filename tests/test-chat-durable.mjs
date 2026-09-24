@@ -12,7 +12,7 @@ function exchange(method='POST',body=request,query={}) {
 }
 function fixture() {
   const receipts=new Map(), runs=new Map(); let starts=0, failSave=true;
-  const handler=createChatHandler({env:{ADMIN_CHAT_ENABLED:'1',ADMIN_CHAT_WORKER_READY:'1',TRIGGER_SECRET_KEY:'synthetic'},storage:true,
+  const handler=createChatHandler({env:{ADMIN_CHAT_ENABLED:'1',ADMIN_CHAT_WORKER_READY:'1',TRIGGER_SECRET_KEY:'tr_dev_synthetic'},storage:true,
     key:async value=>value,
     trigger:async(id,payload,options)=>{if(!runs.has(options.idempotencyKey)){starts++;runs.set(options.idempotencyKey,{id:'run_one',taskIdentifier:id,payload,status:'EXECUTING'});}return {id:'run_one'};},
     retrieve:async()=>[...runs.values()][0],
@@ -51,5 +51,11 @@ await test('disconnect cancels only the subscription and resume forwards the chu
 await test('worker crash produces a safe terminal failure instead of endless reconnection',async()=>{
   const x=exchange('GET');await relayChatRun(x.req,x.res,'run_one',{retrieve:async()=>({status:'CRASHED',error:{message:'SECRET'}})});
   assert.match(x.res.output,/"status":"failed"/);assert.ok(!x.res.output.includes('SECRET'));
+});
+await test('chat accepts Development workers and rejects Preview or Production keys',async()=>{
+  for (const [secret,branch,ready] of [['tr_dev_test','chat-branch',true],['tr_dev_test','',false],['tr_preview_test','chat-branch',false],['tr_prod_test','chat-branch',false]]) {
+    const handler=createChatHandler({storage:true,env:{ADMIN_CHAT_WORKER_READY:'1',VERCEL_ENV:'preview',ADMIN_CHAT_TRIGGER_SECRET_KEY:secret,ADMIN_CHAT_TRIGGER_BRANCH:branch}});
+    const x=exchange('GET',null);await handler(x.req,x.res);assert.equal(x.res.body.workerConfigured,ready);
+  }
 });
 console.log(`passed ${passed}, failed ${failed}`);process.exitCode=failed?1:0;
