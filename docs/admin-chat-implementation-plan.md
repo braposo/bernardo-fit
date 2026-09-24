@@ -2,13 +2,13 @@
 
 Status: backend, service configuration and admin chat interface implemented on 24 September 2026. The interface is mounted separately from legacy workspace renders and available from the authenticated Chat launcher. `ADMIN_CHAT_ENABLED` defaults off; rollout is controlled per environment.
 
-UI implementation: `src/admin/chat/ChatPanel.jsx`, `stream.js` and `chat.css`. Uses installed shadcn Message Scroller, Message/Bubble, Dialog, Textarea, NativeSelect and Button. Renders escaped text, validates source links, retains drafts across closing, supports Stop/Retry/New chat, and clears memory on session expiry. `tests/test-chat-stream.mjs` covers fragmented UTF-8/SSE and history limits. `npm run test:chat-ui` exercises synthetic streaming, provider/model selection, sources, stop/retry, session expiry, disabled state and accessibility at 1280/768/390/360 px. Below is the design and rollout reference for the implemented feature; optional selected-role context, rich Markdown, and durable-history browsing are future additions.
+UI implementation: `src/admin/chat/ChatPanel.jsx`, `stream.js` and `chat.css`. Uses installed shadcn Message Scroller, Message/Bubble, Dialog, Textarea and Button. Renders safe Markdown, validates source links, retains drafts across closing, supports Stop/Retry/New chat, and clears memory on session expiry. `tests/test-chat-stream.mjs` covers fragmented UTF-8/SSE and history limits. `npm run test:chat-ui` exercises synthetic streaming, automatic Jev routing, Markdown, sources, stop/retry, session expiry, disabled state and accessibility at 1280/768/390/360 px. Below is the design and rollout reference for the implemented feature; optional selected-role context and durable-history browsing are future additions.
 
 ## Intended experience
 
 Bernardo can ask questions about his experience, roles, assessments and application materials inside the authenticated admin. Answers stream as they are generated and show retrieved sources. Chat is read-only: suggested wording does not save, publish or rescore anything.
 
-The default model choice is **Auto (Jev)**. Bernardo can restrict Auto to OpenAI or Anthropic, or choose an exact supported model. A manual choice bypasses Jev. The response shows the model actually used. Existing document-generation workflows keep their current behavior.
+Jev automatically chooses the provider and model for each question and retry. The chat UI always submits `provider: auto` and `model: auto`, with no selection controls or model badges. Existing document-generation workflows keep their current behavior.
 
 ## Service setup completed
 
@@ -67,7 +67,7 @@ Both methods require the existing `x-admin-secret` header. The browser must use 
 }
 ```
 
-Provider is `auto`, `openai` or `anthropic`. Model is `auto` or an ID from the server catalog. Text history must alternate user/assistant, begin and end with user, contain at most 40 messages, at most 12,000 characters per message and 48 KB of text overall. System messages, credentials and tool results cannot be supplied by the client.
+The admin UI always uses `auto` for both fields. The lower-level API also supports diagnostic overrides: provider is `auto`, `openai` or `anthropic`. Model is `auto` or an ID from the server catalog. Text history must alternate user/assistant, begin and end with user, contain at most 40 messages, at most 12,000 characters per message and 48 KB of text overall. System messages, credentials and tool results cannot be supplied by the client.
 
 Before streaming, errors are JSON with an HTTP error status. After streaming begins, errors are SSE events and do not change HTTP status. Each event contains one JSON `data` field:
 
@@ -85,7 +85,7 @@ No raw tool payloads, credentials or hidden reasoning are streamed. The source l
 
 ### Routing and operating limits
 
-The catalog reuses the app's Sol, Astra, Sonnet and Opus models. Jev receives the bounded conversation and selects among available models within the provider constraint. Confidence or selected probability below 0.8 chooses Sol, or Opus within an Anthropic-only request. Routing failure gives an explicit error and a manual-selection option; it never silently switches providers. The selected model remains fixed through the turn's tool loop.
+The catalog reuses the app's Sol, Astra, Sonnet and Opus models. Jev receives the bounded conversation and selects among available models within the provider constraint. Confidence or selected probability below 0.8 chooses Sol, or Opus within an Anthropic-only request. Routing failure gives an explicit error and the UI offers retry; it never silently switches providers. The selected model remains fixed through the turn's tool loop.
 
 Each request has a 180-second deadline, 20-second Context HTTP deadlines, up to six model steps, ten executed read tools and 4,096 output tokens per model step. The last step disables tools so the model can answer with collected evidence. Provider retries are disabled. Redis permits two concurrent requests and 60 admissions per UTC hour; failed setup attempts count. Leases expire after 240 seconds if a process dies. Client disconnect aborts generation; normal completion and errors close MCP and release the lease.
 
@@ -109,13 +109,13 @@ Suggested files: `src/admin/chat/ChatPanel.jsx`, `useAdminChat.js`, `stream.js`,
 
 ### 2. Message Scroller and composer
 
-Compose installed `MessageScrollerProvider`, `MessageScroller`, `MessageScrollerViewport`, `MessageScrollerContent`, `MessageScrollerItem` and `MessageScrollerButton`, with stable message IDs and the documented anchor behavior. Compose Message/Bubble for user and assistant turns; Marker can identify source references. Reuse Button, Textarea, NativeSelect, Alert and existing tooltips. Match IBM Plex Sans, grey/white surfaces and restrained purple accents in `DESIGN.md`.
+Compose installed `MessageScrollerProvider`, `MessageScroller`, `MessageScrollerViewport`, `MessageScrollerContent`, `MessageScrollerItem` and `MessageScrollerButton`, with stable message IDs and the documented anchor behavior. Compose Message/Bubble for user and assistant turns; Marker can identify source references. Reuse Button, Textarea, Alert and existing tooltips. Match IBM Plex Sans, grey/white surfaces and restrained purple accents in `DESIGN.md`.
 
 Follow streaming output when the user is at the end; preserve position when reading older messages and expose the scroll-to-end button. Keep the composer outside the scrolling message content. Enter sends, Shift+Enter inserts a newline, and IME composition never submits. Give icon actions accessible labels and mobile targets of at least 44 px. Announce meaningful status changes politely rather than every token.
 
-### 3. Provider and model controls
+### 3. Automatic routing
 
-Show a Provider select (Any / OpenAI / Anthropic) and Model select (Auto with Jev / available matching models). Changing providers resets an incompatible model to Auto. Disable unavailable choices with an actionable explanation. Manual selections persist for subsequent turns in this session; each answer retains its actual model badge even if controls later change. Freeze the submitted request's choices during a response while allowing the next draft to be edited.
+Send every question and retry to Jev for automatic provider/model selection. Keep routing details behind the scenes. Disable sending if Jev or all providers are unavailable; report a concise availability error. The chosen model stays fixed during that response while the next draft remains editable.
 
 ### 4. Stream transport and lifecycle
 
@@ -125,7 +125,7 @@ States: idle, connecting/routing, reading, streaming, complete, stopped, failed.
 
 ### 5. Safe rendering and sources
 
-Start with escaped text; if adding Markdown, disable raw HTML and sanitize link protocols. Only create app links from validated source metadata. Job sources with `jobId` can use `/admin?job=<encoded legacyId>&section=overview`; other source types remain labelled references until a verified authenticated destination exists. Do not invent public links from Sanity IDs. Display returned sources as Sources consulted and keep per-answer source state separate.
+Render assistant text with react-markdown and remark-gfm, with raw HTML disabled and safe link protocols. Suppress remote images; wrap tables and code blocks for horizontal scrolling. User messages remain escaped plain text. Only create app links from validated source metadata. Job sources with `jobId` can use `/admin?job=<encoded legacyId>&section=overview`; other source types remain labelled references until a verified authenticated destination exists. Do not invent public links from Sanity IDs. Display returned sources as Sources consulted and keep per-answer source state separate.
 
 ### 6. History and telemetry
 

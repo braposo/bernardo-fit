@@ -3,18 +3,17 @@ import { createRoot } from 'react-dom/client';
 import { MessageCircle, Send, Square, Plus } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
-import { NativeSelect, NativeSelectOption } from '../components/ui/native-select';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '../components/ui/dialog';
 import { Message, MessageContent, MessageHeader } from '../components/ui/message';
 import { Bubble, BubbleContent } from '../components/ui/bubble';
 import { MessageScrollerProvider, MessageScroller, MessageScrollerViewport, MessageScrollerContent,
   MessageScrollerItem, MessageScrollerButton } from '../components/ui/message-scroller';
 import { readChatStream, historyForTurns } from './stream';
+import { MarkdownMessage } from './MarkdownMessage';
 
 function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
   const [open, setOpen] = useState(false), [config, setConfig] = useState(null), [configError, setConfigError] = useState('');
   const [turns, setTurns] = useState([]), [draft, setDraft] = useState(''), [error, setError] = useState('');
-  const [provider, setProvider] = useState('auto'), [model, setModel] = useState('auto');
   const [busy, setBusy] = useState(false), [phase, setPhase] = useState('');
   const active = useRef(null), conversation = useRef(null), composer = useRef(null), generation = useRef(0);
   const headers = () => ({ 'x-admin-secret': getSecret(), 'Content-Type': 'application/json' });
@@ -39,9 +38,8 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
     return () => controller.abort();
   }, [open, authenticated]);
 
-  const eligible = (config?.models || []).filter(m => m.available && (provider === 'auto' || m.provider === provider));
-  const canSend = config?.enabled && config.contextConfigured && eligible.length > 0 &&
-    (model === 'auto' ? config.autoAvailable : eligible.some(m => m.id === model));
+  const hasProvider = config?.models?.some(m => m.available);
+  const canSend = config?.enabled && config.contextConfigured && hasProvider && config.autoAvailable;
   const updateTurn = turn => setTurns(previous => previous.map(item => item.id === turn.id ? { ...turn } : item));
   async function send(question, retry = false) {
     if (active.current || !canSend || !question.trim()) return;
@@ -57,11 +55,11 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
     const flush = () => { frame = undefined; if (generation.current === epoch) updateTurn(turn); };
     try {
       const response = await fetch('/api/admin/chat', { method: 'POST', headers: headers(), signal: controller.signal,
-        body: JSON.stringify({ messages, provider, model, conversationId: conversation.current }) });
+        body: JSON.stringify({ messages, provider: 'auto', model: 'auto', conversationId: conversation.current }) });
       if (response.status === 401) { onUnauthorized(); return; }
       await readChatStream(response, (event, value) => {
         if (generation.current !== epoch) return;
-        if (event === 'route') { turn.model = value.model; setPhase('Thinking…'); }
+        if (event === 'route') setPhase('Thinking…');
         if (event === 'text' && typeof value.text === 'string') { turn.text += value.text; setPhase('Writing…'); }
         if (event === 'activity') setPhase(value.state === 'query-failed' ? 'Checking another source…' : 'Reading content…');
         if (event === 'sources' && Array.isArray(value.sources)) turn.sources = value.sources.filter(s => typeof s?.id === 'string' && typeof s.title === 'string');
@@ -73,7 +71,7 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
     } catch (e) {
       if (generation.current !== epoch) return;
       turn.status = controller.signal.aborted ? 'stopped' : 'failed';
-      if (!controller.signal.aborted) turn.error = e.message;
+      if (!controller.signal.aborted) turn.error = e.code === 'CHAT_ROUTER_UNAVAILABLE' ? 'Chat is temporarily unavailable. Please retry.' : e.message;
     } finally {
       cancelAnimationFrame(frame);
       if (generation.current === epoch) {
@@ -87,8 +85,8 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
   }
   const last = turns.at(-1), incomplete = last && last.status !== 'complete';
   const unavailable = config && (!config.enabled ? 'Chat is not enabled in this environment yet.' :
-    !config.contextConfigured ? 'The content connection is unavailable.' : !eligible.length ? 'This provider is unavailable.' :
-    model === 'auto' && !config.autoAvailable ? 'Auto selection is unavailable. Choose a model to continue.' : '');
+    !config.contextConfigured ? 'The content connection is unavailable.' :
+    !hasProvider || !config.autoAvailable ? 'Chat is temporarily unavailable. Please try again later.' : '');
   if (!authenticated) return null;
   return <Dialog open={open} onOpenChange={setOpen}>
     <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Chat</Button></DialogTrigger>
@@ -96,15 +94,6 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
       <header className="chat-heading"><div><DialogTitle>Chat with your content</DialogTitle>
         <DialogDescription>Explore your experience, roles and application materials.</DialogDescription></div>
         <Button variant="ghost" onClick={newChat} disabled={busy || !turns.length} aria-label="Start a new chat"><Plus aria-hidden="true" />New chat</Button></header>
-      <div className="chat-models">
-        <label>Provider<NativeSelect aria-label="Chat provider" value={provider} disabled={busy} onChange={e => { setProvider(e.target.value); setModel('auto'); }}>
-          <NativeSelectOption value="auto">Any provider</NativeSelectOption><NativeSelectOption value="openai">OpenAI</NativeSelectOption><NativeSelectOption value="anthropic">Anthropic</NativeSelectOption>
-        </NativeSelect></label>
-        <label>Model<NativeSelect aria-label="Chat model" value={model} disabled={busy} onChange={e => setModel(e.target.value)}>
-          <NativeSelectOption value="auto" disabled={config && !config.autoAvailable}>Auto · Jev</NativeSelectOption>
-          {(config?.models || []).filter(m => provider === 'auto' || m.provider === provider).map(m => <NativeSelectOption key={m.id} value={m.id} disabled={!m.available}>{m.label}{!m.available ? ' · unavailable' : ''}</NativeSelectOption>)}
-        </NativeSelect></label>
-      </div>
       <MessageScrollerProvider key={conversation.current || 'empty'} defaultScrollPosition="end">
         <MessageScroller className="chat-scroll">
           <MessageScrollerViewport aria-label="Chat messages"><MessageScrollerContent className="chat-messages" aria-live="off">
@@ -112,8 +101,8 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
               <Button variant="outline" onClick={() => { setDraft('Which roles best match my experience?'); composer.current?.focus(); }}>Compare my roles</Button></div>}
             {turns.map(turn => <MessageScrollerItem key={turn.id} messageId={turn.id}>
               <Message align="end"><MessageContent><MessageHeader>You</MessageHeader><Bubble variant="secondary"><BubbleContent className="chat-text">{turn.question}</BubbleContent></Bubble></MessageContent></Message>
-              <Message className="chat-answer"><MessageContent><MessageHeader>Assistant{turn.model && <span className="chat-model-label">{config?.models.find(m => m.id === turn.model)?.label || turn.model}</span>}</MessageHeader>
-                <Bubble variant="ghost"><BubbleContent className="chat-text">{turn.text || (turn.status === 'running' ? 'Working on your question…' : 'No response received.')}</BubbleContent></Bubble>
+              <Message className="chat-answer"><MessageContent><MessageHeader>Assistant</MessageHeader>
+                <Bubble variant="ghost"><BubbleContent>{turn.text ? <MarkdownMessage text={turn.text} /> : (turn.status === 'running' ? 'Working on your question…' : 'No response received.')}</BubbleContent></Bubble>
                 {turn.sources.length > 0 && <details className="chat-sources"><summary>Sources consulted ({turn.sources.length})</summary><ul>{turn.sources.map(source => <li key={source.id}>{source.type === 'job' && typeof source.jobId === 'string' ?
                   <a href={`/admin?job=${encodeURIComponent(source.jobId)}&section=overview`} onClick={event => {
                     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;

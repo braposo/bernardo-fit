@@ -1,7 +1,7 @@
 export async function readChatStream(response, onEvent) {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw Object.assign(new Error(body.error || `Chat request failed (${response.status}).`), { status: response.status });
+    throw Object.assign(new Error(body.error || `Chat request failed (${response.status}).`), { status: response.status, code: body.code });
   }
   if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream')) throw new Error('Chat returned an unexpected response.');
   const reader = response.body.getReader(), decoder = new TextDecoder();
