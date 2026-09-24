@@ -65,7 +65,10 @@ await test('agent passes published prompts and response limits to the actual SDK
   }})};}});
   const agent=createChatAgent({settings,route:{model:'test',provider:'openai'},ref:'fixture',context:{initialContext:'Schema',tools:{}},makeModel:()=>model,record:async()=>{}});
   const response=await agent.stream({messages:request.messages});for await(const part of response.stream)if(part.type==='error')throw part.error;
-  assert.equal(options.maxOutputTokens,512);assert.equal(options.prompt[0].content,'Assistant prompt\n\nContext prompt\n\nSchema');
+  assert.equal(options.maxOutputTokens,512);
+  assert.equal(options.prompt[0].content,'Assistant prompt\n\nContext prompt\n\nSchema');
+  assert.match(document().assistantInstructions,/Do not add a Sources, References, or citations section/);
+  assert.doesNotMatch(document().assistantInstructions,/Include useful source titles and IDs/);
 });
 await test('Insights uses editable classifier prompts, model, gap labels and threshold',async()=>{
   const doc=document();doc.classifierModel='jev-custom';doc.gapThreshold=0.6;doc.classificationQuestions[0].instructions='Custom success rubric';

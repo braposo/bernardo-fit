@@ -34,9 +34,9 @@ const server=createServer(async(req,res)=>{
         const runMode=mode;
         run.timer=setTimeout(()=>{
           if(runMode==='error'){run.send('snapshot',{status:'failed',error:'Synthetic upstream failure'});run.send('done',{status:'failed'});return;}
-          const ending=' evidence** for a €100 project. <script>window.chatUnsafe=true</script>\n\n- Design leadership\n- Product strategy\n\n1. Review the role\n2. Use `specific evidence`\n\n> Focus on impact.\n\n| Role | Strength | Evidence | Next step |\n| --- | --- | --- | --- |\n| Atlas | Leadership | Research and strategy | Review portfolio |\n\n```js\nconst evidence = "A long example that stays inside its own horizontally scrolling code block on mobile screens";\n```\n\n[Reference](https://example.com/evidence) · [Unsafe](javascript:alert%281%29)\n\n![Hidden image](https://example.com/tracking.png)\n';
+          const ending=' evidence** for a €100 project. <script>window.chatUnsafe=true</script>\n\n- Design leadership\n- Product strategy\n\n1. Review the role\n2. Use `specific evidence`\n\n> Focus on impact.\n\n| Role | Strength | Evidence | Next step |\n| --- | --- | --- | --- |\n| Atlas | Leadership | Research and strategy | Review portfolio |\n\n```js\nconst evidence = "A long example that stays inside its own horizontally scrolling code block on mobile screens";\n```\n\n[Reference](https://example.com/evidence) · [Unsafe](javascript:alert%281%29)\n\n![Hidden image](https://example.com/tracking.png)\n\n**Sources**\n\n- Sanity ID `fit-import-private`\n';
           run.send('text',{text:ending});
-          run.send('sources',{sources:[{id:'synthetic.job',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'}]});
+          run.send('sources',{sources:runMode==='no-sources'?[]:[{id:'synthetic.job',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'},{id:'synthetic.job.copy',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'},{id:'synthetic.report',type:'fitReport',title:'Role analysis',jobId:'job & example'},{id:'synthetic.evidence',type:'candidateEvidence',title:'Design leadership'}]});
           run.send('activity',{state:'saving'});run.send('snapshot',{status:'complete',storage:'saved'});run.send('done',{status:'complete'});
         },runMode==='hold'?30000:200);
       }
@@ -68,14 +68,16 @@ try {
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>sessionStorage.setItem('bfit_admin_secret','synthetic'));
   await page.goto(`http://127.0.0.1:${server.address().port}/admin.html`);
-  await page.getByRole('button',{name:'Chat',exact:true}).click();
-  await page.getByRole('heading',{name:'Chat with your content'}).waitFor();
+  assert.equal(await page.locator('.masthead #admin-chat-root .admin-chat-launcher').count(),1);
+  await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
+  await page.getByRole('heading',{name:'Your assistant'}).waitFor();
   await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),false,'notifications do not cover the modal');
   await page.getByLabel('Message',{exact:true}).fill('Compare my roles');
   assert.equal(await page.getByRole('dialog').getByRole('combobox').count(),0);
   await page.getByRole('button',{name:'Send',exact:true}).click();
-  await page.getByText('Sources consulted (1)').waitFor();
+  await page.getByText('Response complete.').waitFor();
+  await page.getByText('Sources consulted').waitFor();
   assert.equal(lastBody.provider,'auto');assert.equal(lastBody.model,'auto');assert.equal(calls,1);
   assert.equal(loseSubmission,false);assert.equal(interruptStream,false);
   assert.equal(await page.evaluate(()=>window.chatUnsafe),undefined);
@@ -90,30 +92,47 @@ try {
   assert.equal(await markdown.getByRole('link',{name:'Reference',exact:true}).getAttribute('href'),'https://example.com/evidence');
   assert.equal(await markdown.getByRole('link',{name:'Unsafe',exact:true}).count(),0);
   assert.equal(await markdown.locator('script, img').count(),0);
+  assert.equal(await markdown.getByText('Sources', {exact:true}).count(),0);
+  assert.equal(await markdown.getByText('fit-import-private').count(),0);
   assert.equal(await page.locator('.chat-model-label').count(),0);
-  await page.getByText('Sources consulted (1)').click();
+  await page.getByText('Sources consulted').click();
+  assert.equal(await page.locator('.chat-sources li').count(),3);
+  assert.match(await page.getByRole('link',{name:'Role analysis'}).getAttribute('href'), /section=materials/);
+  assert.equal(await page.getByText('Design leadership',{exact:true}).count(),2);
   assert.match(await page.getByRole('link',{name:'Fictional Atlas'}).getAttribute('href'), /job%20%26%20example/);
   await page.getByRole('link',{name:'Fictional Atlas'}).click();
   assert.equal(new URL(page.url()).searchParams.get('job'),'job & example');
-  await page.getByRole('button',{name:'Chat',exact:true}).click();
-  await page.getByText('Sources consulted (1)').waitFor();
+  await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
+  await page.getByText('Sources consulted').waitFor();
   await mkdir('.chat-screenshots',{recursive:true});
   for(const width of [1280,768,390,360]) {
     await page.setViewportSize({width,height:900});
+    const launcherPosition=await page.evaluate(()=>{const header=document.querySelector('.masthead').getBoundingClientRect(),button=document.querySelector('.admin-chat-launcher').getBoundingClientRect(),root=document.querySelector('#admin-chat-root');return {header:{top:header.top,bottom:header.bottom},button:{top:button.top,bottom:button.bottom,right:button.right},position:getComputedStyle(root).position};});
+    if(width<=600) assert.ok(launcherPosition.position==='fixed'&&launcherPosition.button.bottom<=900-16&&launcherPosition.button.bottom>=900-24&&launcherPosition.button.right<=width-16&&launcherPosition.button.right>=width-24,`chat launcher stays at the bottom right at ${width}: ${JSON.stringify(launcherPosition)}`);
+    else assert.ok(launcherPosition.button.top>=launcherPosition.header.top&&launcherPosition.button.bottom<=launcherPosition.header.bottom&&launcherPosition.button.right<=width,`chat launcher stays in header at ${width}`);
     const panel=page.getByRole('dialog');
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const bounds=await panel.boundingBox();assert.ok(bounds.x>=-1&&bounds.x+bounds.width<=width+1,`dialog fits ${width}: ${JSON.stringify(bounds)}`);
+    const newChatBounds=await page.getByRole('button',{name:'Start a new chat'}).boundingBox();
+    const closeBounds=await panel.locator('[data-slot=dialog-close]').boundingBox();
+    assert.ok(newChatBounds.x+newChatBounds.width+12<=closeBounds.x || newChatBounds.y>=closeBounds.y+closeBounds.height+12,`New chat stays clear of Close at ${width}`);
     assert.ok(await page.getByRole('button',{name:'Send',exact:true}).isVisible());
     assert.equal(await panel.evaluate(el=>el.scrollWidth>el.clientWidth),false,`no overflow ${width}`);
     await page.screenshot({path:`.chat-screenshots/chat-${width}.png`});
+    if(width<=600) {
+      await page.keyboard.press('Escape');
+      await panel.waitFor({state:'hidden'});
+      await page.screenshot({path:`.chat-screenshots/chat-launcher-${width}.png`});
+      await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
+    }
   }
   const accessibility=await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   assert.deepEqual(accessibility.violations.map(v=>({id:v.id,description:v.description})),[]);
   await page.getByLabel('Message',{exact:true}).fill('Draft survives closing');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications return after closing chat');
-  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'80px');
-  await page.getByRole('button',{name:'Chat',exact:true}).click();
+  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'76px');
+  await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   assert.equal(await page.getByLabel('Message',{exact:true}).inputValue(),'Draft survives closing');
   assert.equal(await page.getByText('Conversations are saved privately for Insights.').count(),0);
   assert.equal(await page.locator('.chat-composer-footer [role=status]').textContent(),'Response complete.');
@@ -145,7 +164,7 @@ try {
     await atBottom();
   }
   const beforeReload=calls;
-  await page.reload();await page.getByRole('button',{name:'Chat',exact:true}).click();
+  await page.reload();await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByRole('button',{name:'Stop',exact:true}).waitFor();
   assert.equal(calls,beforeReload,'reload reconnects without regenerating');
   await page.getByRole('button',{name:'Stop',exact:true}).click();await page.getByText('Stopped · partial response').waitFor();
@@ -156,15 +175,23 @@ try {
   assert.equal(lastBody.provider,'auto');assert.equal(lastBody.model,'auto');
   await page.getByRole('button',{name:'Start a new chat'}).click();
   await page.getByText('What would you like to explore?').waitFor();
-  autoAvailable=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Chat',exact:true}).click();
+  mode='no-sources';
+  await page.getByLabel('Message',{exact:true}).fill('Question with no source records');
+  await page.getByRole('button',{name:'Send',exact:true}).click();
+  await page.getByText('Response complete.').waitFor();
+  await page.getByText('Sources consulted').click();
+  await page.getByText('No source records were returned for this answer.').waitFor();
+  await page.getByRole('button',{name:'Start a new chat'}).click();
+  mode='normal';
+  autoAvailable=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByText('Chat is temporarily unavailable. Please try again later.').waitFor();
   await page.getByLabel('Message',{exact:true}).fill('Question while routing is unavailable');
   assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
   autoAvailable=true;
-  enabled=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Chat',exact:true}).click();
+  enabled=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByText('Chat is not enabled in this environment yet.').waitFor();
   assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
-  expired=true;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Chat',exact:true}).click();
+  expired=true;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByRole('heading',{name:'Locked',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('bfit_admin_secret')),null);

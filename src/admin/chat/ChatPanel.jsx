@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MessageCircle, Send, Square, Plus } from 'lucide-react';
+import { MessageCircle, Send, Square, Plus, ExternalLink } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '../components/ui/dialog';
@@ -14,6 +14,27 @@ import { MarkdownMessage } from './MarkdownMessage';
 
 const SESSION_KEY = 'bfit_admin_chat';
 const phases = { queued: 'Queued…', connecting: 'Connecting to your content…', routing: 'Thinking…', reading: 'Reading content…', 'query-failed': 'Checking another source…', writing: 'Writing…', saving: 'Saving…', complete: 'Response complete.', truncated: 'Response limit reached.', failed: 'Response failed.', stopped: 'Response stopped.' };
+const sourceSections = { job: 'overview', fitAssessment: 'overview', fitReport: 'materials', coverLetter: 'materials', companyResearch: 'materials', interviewBrief: 'materials', applicationQuestion: 'materials' };
+const sourceTypes = { candidateProfile: 'Profile', candidateEvidence: 'Experience', job: 'Role', fitAssessment: 'Fit assessment', fitReport: 'Fit report', coverLetter: 'Cover letter', companyResearch: 'Research', interviewBrief: 'Interview brief', applicationQuestion: 'Application question', sitePage: 'Page', writingGuidance: 'Writing guidance' };
+
+function sourceDestination(source) {
+  return typeof source.jobId === 'string' && source.jobId.trim() && sourceSections[source.type]
+    ? `/admin?job=${encodeURIComponent(source.jobId)}&section=${sourceSections[source.type]}` : '';
+}
+
+function sourceTitle(source) {
+  return source.title === source.type ? sourceTypes[source.type] || 'Source' : source.title;
+}
+
+function displaySources(sources) {
+  const seen = new Set();
+  return (Array.isArray(sources) ? sources : []).filter(source => {
+    if (!source || typeof source.title !== 'string' || !source.title.trim()) return false;
+    const key = `${source.type}:${source.title.trim().toLocaleLowerCase()}:${sourceDestination(source)}`;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+}
 
 function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
   const [open, setOpen] = useState(false), [config, setConfig] = useState(null), [configError, setConfigError] = useState('');
@@ -132,11 +153,11 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
     !hasProvider || !config.autoAvailable || !config.workerConfigured ? 'Chat is temporarily unavailable. Please try again later.' : '');
   if (!authenticated) return null;
   return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Chat</Button></DialogTrigger>
+    <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Ask your assistant</Button></DialogTrigger>
     <DialogContent className="admin-chat-panel" onOpenAutoFocus={e => { e.preventDefault(); composer.current?.focus(); }}>
-      <header className="chat-heading"><div><DialogTitle>Chat with your content</DialogTitle>
-        <DialogDescription>Explore your experience, roles and application materials.</DialogDescription></div>
-        <Button variant="ghost" onClick={newChat} disabled={busy || !turns.length} aria-label="Start a new chat"><Plus aria-hidden="true" />New chat</Button></header>
+      <header className="chat-heading"><div><DialogTitle>Your assistant</DialogTitle>
+        <DialogDescription>Ask me about your experience, roles and applications.</DialogDescription></div>
+        <Button className="chat-new-button" variant="outline" onClick={newChat} disabled={busy || !turns.length} aria-label="Start a new chat"><Plus aria-hidden="true" />New chat</Button></header>
       <MessageScrollerProvider key={conversation.current || 'empty'} defaultScrollPosition="end" autoScroll>
         <MessageScroller className="chat-scroll">
           <MessageScrollerViewport aria-label="Chat messages"><MessageScrollerContent className="chat-messages" aria-live="off">
@@ -146,13 +167,14 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
               <Message align="end"><MessageContent><MessageHeader>You</MessageHeader><Bubble variant="secondary"><BubbleContent className="chat-text">{turn.question}</BubbleContent></Bubble></MessageContent></Message>
               <Message className="chat-answer"><MessageContent><MessageHeader>Assistant</MessageHeader>
                 <Bubble variant="ghost"><BubbleContent>{turn.text ? <MarkdownMessage text={turn.text} /> : (turn.status === 'running' ? 'Working on your question…' : 'No response received.')}</BubbleContent></Bubble>
-                {turn.sources.length > 0 && <details className="chat-sources"><summary>Sources consulted ({turn.sources.length})</summary><ul>{turn.sources.map(source => <li key={source.id}>{source.type === 'job' && typeof source.jobId === 'string' ?
-                  <a href={`/admin?job=${encodeURIComponent(source.jobId)}&section=overview`} onClick={event => {
+                <details className="chat-sources"><summary><span>Sources consulted</span><span className="chat-source-count">{displaySources(turn.sources).length}</span></summary>{displaySources(turn.sources).length > 0 ? <ul>{displaySources(turn.sources).map(source => <li key={source.id}>
+                  {source.title !== source.type && <span className="chat-source-type">{sourceTypes[source.type] || 'Source'}</span>}{sourceDestination(source) ?
+                  <a href={sourceDestination(source)} onClick={event => {
                     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                     event.preventDefault();
-                    const url = new URL(window.location.href); url.searchParams.set('job', source.jobId); url.searchParams.set('section', 'overview');
+                    const url = new URL(window.location.href); url.searchParams.set('job', source.jobId); url.searchParams.set('section', sourceSections[source.type]);
                     window.history.pushState({}, '', url); window.dispatchEvent(new PopStateEvent('popstate')); setOpen(false);
-                  }}>{source.title}</a> : source.title}</li>)}</ul></details>}
+                  }}>{sourceTitle(source)}<ExternalLink size={14} aria-hidden="true" /></a> : <span className="chat-source-title">{sourceTitle(source)}</span>}</li>)}</ul> : <p className="chat-source-empty">{turn.status === 'running' ? 'Sources will appear here when found.' : 'No source records were returned for this answer.'}</p>}</details>
                 {turn.status === 'stopped' && <p className="chat-notice">Stopped · partial response</p>}
                 {turn.status === 'truncated' && <p className="chat-notice">Response limit reached. Try a narrower question.</p>}
                 {turn.error && <p className="chat-error" role="alert">{turn.error}</p>}
@@ -178,7 +200,7 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
 }
 
 export function mountAdminChat(options) {
-  const host = document.createElement('div'); host.id = 'admin-chat-root'; document.body.append(host);
+  const host = document.createElement('div'); host.id = 'admin-chat-root'; (document.querySelector('.masthead') || document.body).append(host);
   const root = createRoot(host);
   return { setAuthenticated: authenticated => root.render(<ChatPanel {...options} authenticated={authenticated} />) };
 }
