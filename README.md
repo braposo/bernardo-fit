@@ -46,6 +46,24 @@ Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development 
 
 The admin chat worker emits AI SDK 7 model spans to Trigger.dev's AI metrics dashboard. Jev calls also emit GenAI spans, so automatic routing and writing appear in the same run trace. The spans include model, token, and timing data without recording prompt, retrieved context, tool content, or response text. Trigger uses `typesafe-ai:jev` as a model ID, while the direct TypeSafe API returns the pinned version `jev-1.13.0`; the span records the actual API model. Neither ID currently produces a priced Jev row in Trigger's built-in `llm_metrics` table. Custom `fit.ai.jev.*` metrics record Jev calls, tokens, estimated USD, and duration with the run ID for queries and dashboards. The existing Redis usage records remain the source for the app's admin and per-job cost estimates. Direct OpenAI and Anthropic calls made by other generators are not yet included in Trigger's AI metrics.
 
+To see Jev usage in Trigger, add a table widget to a [custom dashboard](https://trigger.dev/docs/observability/dashboards) with this tested TRQL query. Set the dashboard's environment and time range; each row is one request run. The run trace shows every Jev attempt alongside the writing model calls. The cost column is an estimate from the app's TypeSafe rate table.
+
+```sql
+SELECT
+  run_id,
+  sumIf(metric_value, metric_name = 'fit.ai.jev.calls') AS jev_calls,
+  sumIf(metric_value, metric_name = 'fit.ai.jev.input_tokens') AS jev_input_tokens,
+  sumIf(metric_value, metric_name = 'fit.ai.jev.output_tokens') AS jev_output_tokens,
+  avgIf(metric_value, metric_name = 'fit.ai.jev.duration_ms') AS jev_avg_duration_ms,
+  sumIf(metric_value, metric_name = 'fit.ai.jev.estimated_cost_usd') AS jev_estimated_cost_usd
+FROM metrics
+WHERE task_identifier = 'admin-context-chat'
+  AND metric_name LIKE 'fit.ai.jev.%'
+GROUP BY run_id
+ORDER BY jev_estimated_cost_usd DESC
+LIMIT 100
+```
+
 Set `COVER_DISPATCH_DISABLED=1` in Vercel to stop new cover runs immediately. Accepted runs can still be watched and recovered, and removing the variable re-enables dispatch.
 
 Set `PUBLIC_ANALYSIS_DISABLED=1` in Vercel to stop new public analysis admissions while cached reports remain available. Public status links use an HMAC scoped to one opaque request ID. `PUBLIC_RUN_SECRET` can provide a separate signing key; otherwise `ADMIN_SECRET` is used.
