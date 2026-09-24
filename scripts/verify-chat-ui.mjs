@@ -72,7 +72,10 @@ try {
   await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByRole('heading',{name:'Your assistant'}).waitFor();
   await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
-  assert.equal(await page.locator('#chat-toast-fixture').isVisible(),false,'notifications do not cover the modal');
+  assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications remain visible beside chat');
+  await page.locator('.topnav [data-collection="archive"]').click();
+  assert.equal(await page.getByRole('dialog').isVisible(),true,'chat remains open while browsing');
+  await page.locator('.topnav [data-collection="active"]').click();
   await page.getByLabel('Message',{exact:true}).fill('Compare my roles');
   assert.equal(await page.getByRole('dialog').getByRole('combobox').count(),0);
   await page.getByRole('button',{name:'Send',exact:true}).click();
@@ -102,7 +105,7 @@ try {
   assert.match(await page.getByRole('link',{name:'Fictional Atlas'}).getAttribute('href'), /job%20%26%20example/);
   await page.getByRole('link',{name:'Fictional Atlas'}).click();
   assert.equal(new URL(page.url()).searchParams.get('job'),'job & example');
-  await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
+  assert.equal(await page.getByRole('dialog').isVisible(),true,'source navigation keeps desktop chat open');
   await page.getByText('Sources consulted').waitFor();
   await mkdir('.chat-screenshots',{recursive:true});
   for(const width of [1280,768,390,360]) {
@@ -112,9 +115,16 @@ try {
     else assert.ok(launcherPosition.button.top>=launcherPosition.header.top&&launcherPosition.button.bottom<=launcherPosition.header.bottom&&launcherPosition.button.right<=width,`chat launcher stays in header at ${width}`);
     const panel=page.getByRole('dialog');
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    const bounds=await panel.boundingBox();assert.ok(bounds.x>=-1&&bounds.x+bounds.width<=width+1,`dialog fits ${width}: ${JSON.stringify(bounds)}`);
+    const bounds=await panel.boundingBox();assert.ok(bounds.x>=-1&&bounds.x+bounds.width<=width+1,`panel fits ${width}: ${JSON.stringify(bounds)}`);
+    if(width>=1200) {
+      assert.ok(bounds.x>=width-421,`panel docks on the right at ${width}`);
+      assert.ok(await page.locator('#app').evaluate(el=>el.getBoundingClientRect().right)<=bounds.x+1,'workspace reserves space for chat');
+    }
     const newChatBounds=await page.getByRole('button',{name:'Start a new chat'}).boundingBox();
-    const closeBounds=await panel.locator('[data-slot=dialog-close]').boundingBox();
+    const closeBounds=await panel.locator('[data-slot=sheet-close]').boundingBox();
+    assert.ok(await panel.locator('[data-slot=sheet-close]').isVisible(),`Close chat is visible at ${width}`);
+    const closeIcon=await panel.locator('[data-slot=sheet-close] svg').evaluate(el=>({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,color:getComputedStyle(el).color,stroke:getComputedStyle(el).stroke}));
+    assert.ok(closeIcon.width>=16&&closeIcon.height>=16&&closeIcon.color!=='rgba(0, 0, 0, 0)',`Close icon is visible at ${width}: ${JSON.stringify(closeIcon)}`);
     assert.ok(newChatBounds.x+newChatBounds.width+12<=closeBounds.x || newChatBounds.y>=closeBounds.y+closeBounds.height+12,`New chat stays clear of Close at ${width}`);
     assert.ok(await page.getByRole('button',{name:'Send',exact:true}).isVisible());
     assert.equal(await panel.evaluate(el=>el.scrollWidth>el.clientWidth),false,`no overflow ${width}`);
