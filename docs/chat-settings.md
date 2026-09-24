@@ -27,7 +27,7 @@ Seed the existing configuration once with `node --env-file=.env.local scripts/se
 
 The runtime loader lives inside `functions/classify-conversations/settings.js` so the Sanity Function bundle includes the same validation used by the chat worker; `lib/chat/settings.js` re-exports it. The hourly classifier loads once before processing its batch, so a temporary settings failure leaves conversations pending for the next scheduled run.
 
-Trigger remains **Development**, branch `codex/sanity-context-chat-setup`. Keep `npm run trigger:dev:chat` running on this computer. Publishing settings requires no app/worker redeploy. Studio/schema or runtime code changes still require deployment.
+Production uses the hosted Trigger **Production** worker with a `tr_prod_` key and no branch override. Preview/local use **Development**, branch `codex/sanity-context-chat-setup`; keep `npm run trigger:dev:chat` running for those environments only. Publishing settings requires no app/worker redeploy. Studio/schema or runtime code changes still require deployment.
 
 ## Verification
 

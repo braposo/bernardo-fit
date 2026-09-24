@@ -6,11 +6,12 @@ This project has Trigger.dev agent skills installed in `.agents/skills/`. Before
 
 ## Trigger environment requirement
 
-- Use Trigger.dev **Development** for this project's work, including Vercel preview apps and admin chat. This is the user's explicit environment choice.
+- Production apps and admin chat must use the hosted Trigger.dev **Production** worker. The user explicitly authorized this on 24 September 2026, superseding the previous Development-only requirement for production.
+- Use Trigger.dev **Development** for local work and Vercel preview apps.
 - Run the local `trigger dev` worker, using the existing `tr_dev_` key. For branch isolation, use a named Development branch and set the same `TRIGGER_PREVIEW_BRANCH` in the calling app (the SDK uses this variable for Development branches too).
-- Do not enable Trigger Preview environments or deploy to Preview, Staging or Production unless the user explicitly changes this instruction. Vercel Preview and Trigger Development are separate environment choices.
+- Production uses a `tr_prod_` key with no Development/Preview branch override. Keep preview/local chat scoped to its Development key and named branch. Do not enable Trigger Preview or Staging unless requested.
 - Keep app and worker Redis namespaces aligned. Reuse existing credentials without displaying them. Verify the Development worker is registered before marking it ready.
-- Development tasks execute on the machine running `trigger dev`; the worker must stay running. State this availability requirement when handing off.
+- Development tasks execute on the machine running `trigger dev`; the worker must stay running for local/preview use. Production runs on Trigger's hosted workers and must not depend on this computer.
 
 ## UI and design work
 
