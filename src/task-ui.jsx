@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useRealtimeRun } from '@trigger.dev/react-hooks';
 import { Toast } from 'radix-ui';
@@ -7,6 +7,7 @@ import { Button } from './admin/components/ui/button';
 const notices = new Map();
 const dismissTimers = new Map();
 let toastRoot;
+const SUCCESS_DISMISS_MS = 5000;
 export function taskToast(id, update, replaceId) {
   const previous = notices.get(id) || notices.get(replaceId);
   if (replaceId && replaceId !== id) {
@@ -17,13 +18,18 @@ export function taskToast(id, update, replaceId) {
   clearTimeout(dismissTimers.get(id));
   dismissTimers.delete(id);
   const notice = { ...previous, ...update };
+  notice.dismissAt = notice.terminal && notice.tone === 'ok'
+    ? previous?.dismissAt || Date.now() + SUCCESS_DISMISS_MS
+    : undefined;
   notices.set(id, notice);
-  if (notice.terminal && notice.tone === 'ok') {
+  if (notice.dismissAt) {
     dismissTimers.set(id, setTimeout(() => {
       dismissTimers.delete(id);
-      notices.delete(id);
-      paint();
-    }, 5000));
+      if (notices.get(id)?.dismissAt === notice.dismissAt) {
+        notices.delete(id);
+        paint();
+      }
+    }, Math.max(0, notice.dismissAt - Date.now())));
   }
   if (!toastRoot) {
     const host = document.createElement('div');
@@ -31,6 +37,17 @@ export function taskToast(id, update, replaceId) {
     toastRoot = createRoot(host);
   }
   paint();
+}
+function DismissCountdown({ dismissAt }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
+  useEffect(() => {
+    setRemaining(Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
+    const interval = setInterval(() => {
+      setRemaining(Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
+    }, 200);
+    return () => clearInterval(interval);
+  }, [dismissAt]);
+  return <span aria-hidden="true"> ({remaining}s)</span>;
 }
 function paint() {
   toastRoot.render(<Toast.Provider swipeDirection="right"><>
@@ -53,7 +70,7 @@ function paint() {
           if (!document.dispatchEvent(navigation)) event.preventDefault();
         }}>{notice.linkLabel || 'Open result'}</a>}
         {notice.retry && <Button variant="outline" onClick={notice.retry}>Reconnect</Button>}
-        {notice.terminal && <Toast.Close asChild><Button variant="ghost" aria-label={`Dismiss ${notice.title || 'notification'}`}>Dismiss</Button></Toast.Close>}
+        {notice.terminal && <Toast.Close asChild><Button variant="ghost" aria-label={`Dismiss ${notice.title || 'notification'}`}>Dismiss{notice.dismissAt && <DismissCountdown dismissAt={notice.dismissAt} />}</Button></Toast.Close>}
       </div>
     </Toast.Root>)}
     <Toast.Viewport className="task-toast-viewport" label="Task notifications" />
