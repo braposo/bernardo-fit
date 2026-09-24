@@ -44,6 +44,8 @@ The CLI login is stored outside the repository. Run `npm exec -- trigger.dev log
 
 Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development key in `.env.local`; the Trigger.dev Vercel integration injects the correct key into Vercel for deployed environments. Any secret read by task code must also exist in the matching Trigger.dev environment. The current integration can sync selected Vercel variables into Trigger.dev; verify the per-environment sync settings, or add the variables in Trigger.dev manually.
 
+The admin chat worker emits AI SDK 7 model spans to Trigger.dev's AI metrics dashboard. Each span includes model, token, and timing data; prompt, retrieved context, tool content, and response recording are disabled. The existing Redis usage records remain the source for the app's admin and per-job cost estimates. Other generators use direct provider requests and are not yet included in Trigger's AI metrics.
+
 Set `COVER_DISPATCH_DISABLED=1` in Vercel to stop new cover runs immediately. Accepted runs can still be watched and recovered, and removing the variable re-enables dispatch.
 
 Set `PUBLIC_ANALYSIS_DISABLED=1` in Vercel to stop new public analysis admissions while cached reports remain available. Public status links use an HMAC scoped to one opaque request ID. `PUBLIC_RUN_SECRET` can provide a separate signing key; otherwise `ADMIN_SECRET` is used.

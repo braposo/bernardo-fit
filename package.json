@@ -8,6 +8,7 @@
     "@ai-sdk/anthropic": "4.0.62",
     "@ai-sdk/mcp": "2.0.57",
     "@ai-sdk/openai": "4.0.74",
+    "@ai-sdk/otel": "1.0.113",
     "@sanity/client": "^8.6.2",
     "@shadcn/react": "^0.3.1",
     "@trigger.dev/react-hooks": "^4.5.16",
