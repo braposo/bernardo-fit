@@ -6,7 +6,9 @@ import AxeBuilder from '@axe-core/playwright';
 let mode='normal', calls=0, lastBody, enabled=true, expired=false;
 const server=createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
-  if(url.pathname==='/api/admin/jobs') { res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({jobs:[],stages:['new'],models:[],features:{jevEnabled:true}})); return; }
+  if(url.pathname==='/api/admin/jobs') { res.setHeader('Content-Type','application/json');
+    if(url.searchParams.has('id')) {res.writeHead(404).end('{"error":"Source no longer available"}');return;}
+    res.end(JSON.stringify({jobs:[],stages:['new'],models:[],features:{jevEnabled:true}})); return; }
   if(url.pathname==='/api/admin/chat') {
     if(expired){res.writeHead(401,{'Content-Type':'application/json'}).end('{"error":"Unauthorized"}');return;}
     if(req.method==='GET') { res.setHeader('Content-Type','application/json');res.end(JSON.stringify({enabled,contextConfigured:true,autoAvailable:true,insightsEnabled:true,models:[{id:'gpt-5.6-sol',label:'Sol',provider:'openai',available:true},{id:'claude-sonnet-5',label:'Sonnet',provider:'anthropic',available:true}]}));return; }
