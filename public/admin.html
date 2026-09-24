@@ -707,11 +707,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     taskToast(toastId, { title: actionTitle(id, kind), message: 'Queued…', terminal: false, tone: 'pending', href: href, linkLabel: id === 'batch' ? 'Open pipeline' : 'Open role' }, key);
     var watching = watchRun(runId, function (run) {
       var message = coverPhaseText(run);
-      if (status) status.textContent = message;
       taskToast(toastId, { message: message });
     }).then(function (out) {
       var done = kind === 'cover' ? coverCompletion(out) : workCompletion(out);
-      if (status) { status.textContent = done.text; if (status.classList.contains('row-status')) status.className = 'row-status ' + done.tone; }
       if (out.d.result && out.d.result.reportId && done.tone === 'ok') href = '/?r=' + encodeURIComponent(out.d.result.reportId);
       taskToast(toastId, { message: done.text, tone: done.tone, terminal: true, href: href, linkLabel: href.indexOf('/?r=') === 0 ? 'Open analysis' : id === 'batch' ? 'Open pipeline' : 'Open role' });
       finishedRuns.add(runId); watchedActions.delete(runId);
@@ -1013,13 +1011,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var letterActions = (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' +
       '<button class="read-link" data-act="lettercv">Open CV + letter</button>' : '') +
       '<button class="generation' + (hasLetter ? ' generation-outline' : '') + '" data-act="cover"' + (coverActive || !coverDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
-      (coverActive ? 'Writing…' : hasLetter ? 'Generate new version' : 'Generate letter') + '</button>';
+      (hasLetter ? 'Generate new version' : 'Generate letter') + '</button>';
     var briefActions = (j.hasBrief ? '<button class="read-link" data-act="briefopen">Open ' + (j.briefStale ? 'previous ' : '') + 'brief</button>' : '') +
       '<button class="generation' + (j.hasBrief ? ' generation-outline' : '') + '" data-act="briefrewrite"' + (screenActive || !screenDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
-      (screenActive ? 'Preparing…' : j.hasBrief ? 'Generate new version' : 'Generate brief') + '</button>';
+      (j.hasBrief ? 'Generate new version' : 'Generate brief') + '</button>';
     var researchActions = (j.hasResearch ? '<button class="read-link" data-act="researchopen">Open research</button>' : '') +
       '<button class="generation' + (j.hasResearch ? ' generation-outline' : '') + '" data-act="researchrefresh"' + (!screenDispatchEnabled || researchActive ? ' disabled' : '') + '>' +
-      (researchActive ? 'Researching…' : j.hasResearch ? 'Generate new version' : 'Generate research') + '</button>';
+      (j.hasResearch ? 'Generate new version' : 'Generate research') + '</button>';
 
     var panel = '';
     if (!detailed) {
@@ -1029,10 +1027,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         jevAssessmentHtml(j) +
         '<button class="generation" data-act="jevscore"' + (!jevEnabled || j.archived || (j.jevRun && ["dispatching", "queued"].indexOf(j.jevRun.status) !== -1) ? ' disabled' : '') + '>Assess fit</button>' +
         (!jevEnabled ? '<p class="field-help">Fit assessment is unavailable.</p>' : '') +
-        (j.jevRun && j.jevRun.status === 'failed' ? '<p class="notice error">Assessment failed. Try again.</p>' : '') +
         '<section class="overview-summary"><h2>Summary</h2>' +
           (j.overviewSummary && !j.jevStale && j.jevAssessment && j.overviewSummary.fingerprint === j.jevAssessment.fingerprint && j.overviewSummary.assessedAt === j.jevAssessment.assessedAt ? '<h3>The position</h3><p>' + esc(j.overviewSummary.position) + '</p><h3>Your fit</h3><p>' + esc(j.overviewSummary.fit) + '</p>' :
-            '<p class="field-help">' + (j.jevRun && ['dispatching', 'queued'].indexOf(j.jevRun.status) !== -1 ? 'Preparing summary…' : j.jevStale ? 'Reassess fit to update the summary.' : 'Assess fit to add a summary.') + '</p>') + '</section>' +
+            '<p class="field-help">' + (j.jevStale ? 'Reassess fit to update the summary.' : 'Assess fit to add a summary.') + '</p>') + '</section>' +
         owed +
         '</section>';
     } else if (workspaceSection === "materials") {
@@ -1287,7 +1284,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           showAdminError(bodyEl, out.d.error || 'Could not start generation.'); return;
         }
         close();
-        if (options.status) { options.status.textContent = 'Queued…'; options.status.className = 'row-status'; }
         if (currentReview.effectiveKind === 'cover') watchCover(options.id, out.d.runId, options.status, false);
         else {
           var watched = watchWork(options.id || 'batch', out.d.runId, options.status || options.trigger, currentReview.effectiveKind, false, options.questionId);
@@ -1409,7 +1405,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     if (adoptBtn) {
       adoptBtn.addEventListener("click", function () {
         if (!beginAction("batch", "adopt")) return;
-        adoptBtn.disabled = true; adoptBtn.textContent = "Adding…";
+        adoptBtn.disabled = true;
         api("/api/admin/cover", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

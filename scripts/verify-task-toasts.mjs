@@ -68,6 +68,8 @@ try {
   assert.equal(await page.locator('[data-act=cover]').isDisabled(), true);
   await page.evaluate(() => window.fixtureRuns.run1.onUpdate({ status: 'EXECUTING', metadata: { phase: 'writing' } }));
   await page.locator('.task-toast-message').filter({ hasText: 'Writing…' }).waitFor();
+  assert.equal(await page.locator('.row-status').textContent(), '', 'background work uses the toast instead of the role status line');
+  assert.equal(await page.locator('[data-act=cover]').textContent(), 'Generate new version', 'disabled action does not repeat the task phase');
   await page.evaluate(() => { window.pipelineBeforeSelection = document.querySelector('.pipeline'); });
   await page.locator('[data-select-job=job2]').click();
   assert.equal(await page.evaluate(() => document.querySelector('.pipeline') === window.pipelineBeforeSelection), true, 'job selection keeps pipeline mounted');
@@ -179,6 +181,8 @@ try {
   assert.equal(await secondToast.getByText('Fit assessment ready', {exact:true}).count(), 1);
   await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), nextAssessment);
   await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]').disabled);
+  await page.locator('[data-task-id="run:' + nextAssessment + '"]').waitFor({ state: 'detached', timeout: 7000 });
+  assert.equal(await page.locator('[data-task-id="run:run2"]').count(), 1, 'failed notification remains until dismissed');
   await page.evaluate(([a, b]) => sessionStorage.setItem('fit.activeTasks', JSON.stringify([
     { id: 'job1', kind: 'jev-score', runId: a }, { id: 'job2', kind: 'jev-score', runId: b }
   ])), [firstAssessment, secondAssessment]);
