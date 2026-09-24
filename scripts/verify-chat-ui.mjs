@@ -119,6 +119,31 @@ try {
   assert.equal(await page.locator('.chat-composer-footer [role=status]').textContent(),'Response complete.');
   mode='hold';await page.getByRole('button',{name:'Send',exact:true}).click();
   await page.waitForFunction(()=>JSON.parse(sessionStorage.getItem('bfit_admin_chat')).turns.at(-1).runId);
+  const streamingRun=chatRuns.get(lastBody.requestId);
+  const viewport=page.locator('[data-slot=message-scroller-viewport]');
+  const atBottom=()=>page.waitForFunction(()=>{const el=document.querySelector('[data-slot=message-scroller-viewport]');return el.scrollHeight-el.clientHeight-el.scrollTop<8;});
+  let scrollChunk=0;
+  const appendChunk=async(text)=>{
+    const marker=`Streaming check ${++scrollChunk}`;
+    streamingRun.send('text',{text:`\n\n${marker}\n\n${text}`});
+    await page.getByText(marker,{exact:true}).waitFor({state:'attached'});
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  };
+  for(const width of [1280,390]) {
+    await page.setViewportSize({width,height:900});
+    await appendChunk('Streaming evidence paragraph.\n\n'.repeat(24));
+    await atBottom();
+    await viewport.hover();await page.mouse.wheel(0,-450);
+    await page.waitForFunction(()=>{const el=document.querySelector('[data-slot=message-scroller-viewport]');return el.scrollHeight-el.clientHeight-el.scrollTop>200;});
+    // Wait for the wheel's scroll position to settle before comparing subsequent chunks.
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const readingPosition=await viewport.evaluate(el=>el.scrollTop);
+    await appendChunk('New evidence while reading older messages.\n\n'.repeat(8));
+    assert.ok(Math.abs(await viewport.evaluate(el=>el.scrollTop)-readingPosition)<8,`preserves reading position at ${width}`);
+    await page.getByRole('button',{name:'Scroll to end',exact:true}).click();await atBottom();
+    await appendChunk('Following the newest text again.\n\n'.repeat(8));
+    await atBottom();
+  }
   const beforeReload=calls;
   await page.reload();await page.getByRole('button',{name:'Chat',exact:true}).click();
   await page.getByRole('button',{name:'Stop',exact:true}).waitFor();

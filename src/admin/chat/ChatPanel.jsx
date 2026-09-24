@@ -137,7 +137,7 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
       <header className="chat-heading"><div><DialogTitle>Chat with your content</DialogTitle>
         <DialogDescription>Explore your experience, roles and application materials.</DialogDescription></div>
         <Button variant="ghost" onClick={newChat} disabled={busy || !turns.length} aria-label="Start a new chat"><Plus aria-hidden="true" />New chat</Button></header>
-      <MessageScrollerProvider key={conversation.current || 'empty'} defaultScrollPosition="end">
+      <MessageScrollerProvider key={conversation.current || 'empty'} defaultScrollPosition="end" autoScroll>
         <MessageScroller className="chat-scroll">
           <MessageScrollerViewport aria-label="Chat messages"><MessageScrollerContent className="chat-messages" aria-live="off">
             {!turns.length && <div className="chat-empty"><MessageCircle size={28} aria-hidden="true" /><h3>What would you like to explore?</h3><p>Ask about your strongest evidence, compare roles, or work through an application.</p>
