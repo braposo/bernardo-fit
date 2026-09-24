@@ -34,9 +34,9 @@ const server=createServer(async(req,res)=>{
         const runMode=mode;
         run.timer=setTimeout(()=>{
           if(runMode==='error'){run.send('snapshot',{status:'failed',error:'Synthetic upstream failure'});run.send('done',{status:'failed'});return;}
-          const ending=' evidence** for a €100 project. <script>window.chatUnsafe=true</script>\n\n- Design leadership\n- Product strategy\n\n1. Review the role\n2. Use `specific evidence`\n\n> Focus on impact.\n\n| Role | Strength | Evidence | Next step |\n| --- | --- | --- | --- |\n| Atlas | Leadership | Research and strategy | Review portfolio |\n\n```js\nconst evidence = "A long example that stays inside its own horizontally scrolling code block on mobile screens";\n```\n\n[Reference](https://example.com/evidence) · [Unsafe](javascript:alert%281%29)\n\n![Hidden image](https://example.com/tracking.png)\n';
+          const ending=' evidence** for a €100 project. <script>window.chatUnsafe=true</script>\n\n- Design leadership\n- Product strategy\n\n1. Review the role\n2. Use `specific evidence`\n\n> Focus on impact.\n\n| Role | Strength | Evidence | Next step |\n| --- | --- | --- | --- |\n| Atlas | Leadership | Research and strategy | Review portfolio |\n\n```js\nconst evidence = "A long example that stays inside its own horizontally scrolling code block on mobile screens";\n```\n\n[Reference](https://example.com/evidence) · [Unsafe](javascript:alert%281%29)\n\n![Hidden image](https://example.com/tracking.png)\n\n**Sources**\n\n- Sanity ID `fit-import-private`\n';
           run.send('text',{text:ending});
-          run.send('sources',{sources:[{id:'synthetic.job',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'}]});
+          run.send('sources',{sources:[{id:'synthetic.job',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'},{id:'synthetic.job.copy',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'},{id:'synthetic.report',type:'fitReport',title:'Role analysis',jobId:'job & example'},{id:'synthetic.evidence',type:'candidateEvidence',title:'Design leadership'}]});
           run.send('activity',{state:'saving'});run.send('snapshot',{status:'complete',storage:'saved'});run.send('done',{status:'complete'});
         },runMode==='hold'?30000:200);
       }
@@ -68,6 +68,7 @@ try {
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>sessionStorage.setItem('bfit_admin_secret','synthetic'));
   await page.goto(`http://127.0.0.1:${server.address().port}/admin.html`);
+  assert.equal(await page.locator('.masthead #admin-chat-root .admin-chat-launcher').count(),1);
   await page.getByRole('button',{name:'Chat',exact:true}).click();
   await page.getByRole('heading',{name:'Chat with your content'}).waitFor();
   await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
@@ -75,7 +76,7 @@ try {
   await page.getByLabel('Message',{exact:true}).fill('Compare my roles');
   assert.equal(await page.getByRole('dialog').getByRole('combobox').count(),0);
   await page.getByRole('button',{name:'Send',exact:true}).click();
-  await page.getByText('Sources consulted (1)').waitFor();
+  await page.getByText('Sources consulted').waitFor();
   assert.equal(lastBody.provider,'auto');assert.equal(lastBody.model,'auto');assert.equal(calls,1);
   assert.equal(loseSubmission,false);assert.equal(interruptStream,false);
   assert.equal(await page.evaluate(()=>window.chatUnsafe),undefined);
@@ -90,16 +91,23 @@ try {
   assert.equal(await markdown.getByRole('link',{name:'Reference',exact:true}).getAttribute('href'),'https://example.com/evidence');
   assert.equal(await markdown.getByRole('link',{name:'Unsafe',exact:true}).count(),0);
   assert.equal(await markdown.locator('script, img').count(),0);
+  assert.equal(await markdown.getByText('Sources', {exact:true}).count(),0);
+  assert.equal(await markdown.getByText('fit-import-private').count(),0);
   assert.equal(await page.locator('.chat-model-label').count(),0);
-  await page.getByText('Sources consulted (1)').click();
+  await page.getByText('Sources consulted').click();
+  assert.equal(await page.locator('.chat-sources li').count(),3);
+  assert.match(await page.getByRole('link',{name:'Role analysis'}).getAttribute('href'), /section=materials/);
+  assert.equal(await page.getByText('Design leadership',{exact:true}).count(),2);
   assert.match(await page.getByRole('link',{name:'Fictional Atlas'}).getAttribute('href'), /job%20%26%20example/);
   await page.getByRole('link',{name:'Fictional Atlas'}).click();
   assert.equal(new URL(page.url()).searchParams.get('job'),'job & example');
   await page.getByRole('button',{name:'Chat',exact:true}).click();
-  await page.getByText('Sources consulted (1)').waitFor();
+  await page.getByText('Sources consulted').waitFor();
   await mkdir('.chat-screenshots',{recursive:true});
   for(const width of [1280,768,390,360]) {
     await page.setViewportSize({width,height:900});
+    const headerPosition=await page.evaluate(()=>{const header=document.querySelector('.masthead').getBoundingClientRect(),button=document.querySelector('.admin-chat-launcher').getBoundingClientRect();return {header:{top:header.top,bottom:header.bottom},button:{top:button.top,bottom:button.bottom,right:button.right}};});
+    assert.ok(headerPosition.button.top>=headerPosition.header.top&&headerPosition.button.bottom<=headerPosition.header.bottom&&headerPosition.button.right<=width,`chat launcher stays in header at ${width}`);
     const panel=page.getByRole('dialog');
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const bounds=await panel.boundingBox();assert.ok(bounds.x>=-1&&bounds.x+bounds.width<=width+1,`dialog fits ${width}: ${JSON.stringify(bounds)}`);
@@ -112,7 +120,7 @@ try {
   await page.getByLabel('Message',{exact:true}).fill('Draft survives closing');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications return after closing chat');
-  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'80px');
+  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'16px');
   await page.getByRole('button',{name:'Chat',exact:true}).click();
   assert.equal(await page.getByLabel('Message',{exact:true}).inputValue(),'Draft survives closing');
   assert.equal(await page.getByText('Conversations are saved privately for Insights.').count(),0);

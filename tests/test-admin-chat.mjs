@@ -78,6 +78,8 @@ await test("sources come from retrieved objects and omit private fields", () => 
   const sources = new Map();
   collectSources({ content: [{ type: "text", text: JSON.stringify([{ _id: "job1", _type: "job", role: "Designer", legacyId: "app1", notes: "private" }]) }] }, sources);
   assert.deepEqual([...sources.values()], [{ id: "job1", type: "job", title: "Designer", jobId: "app1" }]);
+  collectSources({ content: [{ type: "text", text: JSON.stringify({ _id: "assessment1", _type: "fitAssessment", job: { legacyId: "app1" } }) }] }, sources);
+  assert.deepEqual(sources.get("assessment1"), { id: "assessment1", type: "fitAssessment", title: "fitAssessment", jobId: "app1" });
 });
 await test("SDK usage excludes cached input from uncached counts", () => {
   assert.deepEqual(providerUsage({ inputTokens: 100, inputTokenDetails: { cacheReadTokens: 30, cacheWriteTokens: 10 }, outputTokens: 20 }),

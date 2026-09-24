@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { displayAnswer } from './answer';
 
 const plugins = [remarkGfm];
 const components = {
@@ -12,5 +13,5 @@ const components = {
 };
 
 export const MarkdownMessage = memo(function MarkdownMessage({ text }) {
-  return <div className="chat-markdown"><Markdown remarkPlugins={plugins} components={components} skipHtml>{text}</Markdown></div>;
+  return <div className="chat-markdown"><Markdown remarkPlugins={plugins} components={components} skipHtml>{displayAnswer(text)}</Markdown></div>;
 });
