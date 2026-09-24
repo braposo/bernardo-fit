@@ -39,6 +39,8 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/admin.html`);
   await page.getByRole('button',{name:'Chat',exact:true}).click();
   await page.getByRole('heading',{name:'Chat with your content'}).waitFor();
+  await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
+  assert.equal(await page.locator('#chat-toast-fixture').isVisible(),false,'notifications do not cover the modal');
   await page.getByLabel('Message',{exact:true}).fill('Compare my roles');
   await page.getByLabel('Chat provider').selectOption('anthropic');
   await page.getByLabel('Chat model').selectOption('claude-sonnet-5');
@@ -61,7 +63,10 @@ try {
   const accessibility=await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   assert.deepEqual(accessibility.violations.map(v=>({id:v.id,description:v.description})),[]);
   await page.getByLabel('Message',{exact:true}).fill('Draft survives closing');
-  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Chat',exact:true}).click();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications return after closing chat');
+  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'80px');
+  await page.getByRole('button',{name:'Chat',exact:true}).click();
   assert.equal(await page.getByLabel('Message',{exact:true}).inputValue(),'Draft survives closing');
   mode='hold';await page.getByRole('button',{name:'Send',exact:true}).click();
   await page.getByRole('button',{name:'Stop',exact:true}).click();await page.getByText('Stopped · partial response').waitFor();
