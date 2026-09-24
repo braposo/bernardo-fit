@@ -10,6 +10,7 @@ This project has Trigger.dev agent skills installed in `.agents/skills/`. Before
 - Use Trigger.dev **Development** for local work and Vercel preview apps.
 - Run the local `trigger dev` worker, using the existing `tr_dev_` key. For branch isolation, use a named Development branch and set the same `TRIGGER_PREVIEW_BRANCH` in the calling app (the SDK uses this variable for Development branches too).
 - Production uses a `tr_prod_` key with no Development/Preview branch override. Keep preview/local chat scoped to its Development key and named branch. Do not enable Trigger Preview or Staging unless requested.
+- For manual Production worker deployments, pass `--external-id` with the exact Git commit SHA used by the production Vercel app. Automatic version-skew protection otherwise leaves requests in `PENDING_VERSION`; do not disable that protection globally. Verify a request through the production HTTP API, not only a directly triggered health check.
 - Keep app and worker Redis namespaces aligned. Reuse existing credentials without displaying them. Verify the Development worker is registered before marking it ready.
 - Development tasks execute on the machine running `trigger dev`; the worker must stay running for local/preview use. Production runs on Trigger's hosted workers and must not depend on this computer.
 
