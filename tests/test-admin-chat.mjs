@@ -34,8 +34,10 @@ await test("manual selection is exact and bypasses Jev", async () => {
 await test("Jev respects provider constraints and uncertain routing stays inside them", async () => {
   const route = await selectChatModel(request, { env, evaluate: choose("claude-sonnet-5") });
   assert.equal(route.model, "claude-sonnet-5");
+  assert.equal(route.jevChoice, "claude-sonnet-5"); assert.equal(route.probability, 0.95); assert.equal(route.fallbackUsed, false);
   const uncertain = await selectChatModel({ ...request, provider: "anthropic" }, { env, evaluate: choose("claude-sonnet-5", 0.4) });
   assert.equal(uncertain.model, "claude-opus-5");
+  assert.equal(uncertain.jevChoice, "claude-sonnet-5"); assert.equal(uncertain.fallbackUsed, true);
   await assert.rejects(selectChatModel({ ...request, provider: "openai" }, { env, evaluate: choose("claude-opus-5") }));
   await assert.rejects(selectChatModel(request, { env: { OPENAI_API_KEY: "fake" } }), /requires Jev/);
 });
@@ -142,6 +144,19 @@ await test("Worker streams text and route, hides raw tool data, and releases res
   const { req,res } = exchange(); await handler(req,res);
   assert.match(res.output, /event: route/); assert.match(res.output, /Hello/); assert.match(res.output, /event: done/);
   assert.ok(!res.output.includes("PRIVATE RAW RESULT")); assert.equal(closed,1); assert.equal(released,1);
+});
+await test("routing is recorded once before generation and stays out of the browser stream", async () => {
+  const decisions = [], events = [];
+  const route = { model: 'gpt-5.6-sol', provider: 'openai', source: 'jev', jevChoice: 'claude-sonnet-5', fallbackUsed: true, confidence: 0.4, probability: 0.4 };
+  const work = createChatWork({ env, admit: async () => async () => {}, connect: async () => ({ sources: new Map(), close: async () => {} }),
+    select: async () => route, makeAgent: () => {
+      assert.deepEqual(decisions, [route]);
+      return { stream: async () => ({ stream: (async function* () { yield { type: 'text-delta', text: 'Answer' }; yield { type: 'finish', finishReason: 'stop' }; })() }) };
+    } });
+  const output = await work({ request, requestId: 'routing-test' }, { onRoute: decision => decisions.push(decision), emit: async (event, data) => events.push({event,data}) });
+  assert.equal(output.status, 'complete'); assert.equal(decisions.length, 1);
+  assert.deepEqual(events.find(e => e.event === 'route').data, { requestId: 'routing-test' });
+  assert.ok(!JSON.stringify(events).includes('jevChoice'));
 });
 await test("midstream provider failures produce a safe error and cleanup", async () => {
   let closed = false;

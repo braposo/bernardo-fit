@@ -1,4 +1,4 @@
-import { task, streams, metadata, AbortTaskRunError } from '@trigger.dev/sdk';
+import { task, streams, metadata, logger, AbortTaskRunError } from '@trigger.dev/sdk';
 import { executeChatWork } from '../../lib/chat/work.js';
 import { hasKV } from '../../lib/kv.js';
 
@@ -20,7 +20,14 @@ export const adminChat = task({
     let result: any, seq = 0;
     const { waitUntilComplete } = streams.writer('chat', {
       execute: async ({ write }) => {
-        result = await executeChatWork(payload, { signal, emit: async (event: string, data: any) => {
+        result = await executeChatWork(payload, { signal, onRoute: route => {
+          const decision = { model: route.model, provider: route.provider, source: route.source,
+            jevChoice: route.jevChoice, confidence: Number.isFinite(route.confidence) ? route.confidence : null,
+            probability: Number.isFinite(route.probability) ? route.probability : null,
+            fallbackUsed: route.fallbackUsed === true, policy: route.policy };
+          logger.info(`Jev model selection: ${route.provider}/${route.model}`, { requestId: payload.requestId, ...decision });
+          metadata.set('modelSelection', decision);
+        }, emit: async (event: string, data: any) => {
           if (event === 'activity') metadata.set('phase', data.state);
           if (event === 'text') metadata.set('phase', 'writing');
           if (event === 'done') metadata.set('phase', data.status);
