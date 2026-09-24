@@ -44,23 +44,17 @@ The CLI login is stored outside the repository. Run `npm exec -- trigger.dev log
 
 Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development key in `.env.local`; the Trigger.dev Vercel integration injects the correct key into Vercel for deployed environments. Any secret read by task code must also exist in the matching Trigger.dev environment. The current integration can sync selected Vercel variables into Trigger.dev; verify the per-environment sync settings, or add the variables in Trigger.dev manually.
 
-The admin chat worker emits AI SDK 7 model spans to Trigger.dev's AI metrics dashboard. Jev calls also emit GenAI spans, so automatic routing and writing appear in the same run trace. The spans include model, token, and timing data without recording prompt, retrieved context, tool content, or response text. Trigger uses `typesafe-ai:jev` as a model ID, while the direct TypeSafe API returns the pinned version `jev-1.13.0`; the span records the actual API model. Neither ID currently produces a priced Jev row in Trigger's built-in `llm_metrics` table. Custom `fit.ai.jev.*` metrics record Jev calls, tokens, estimated USD, and duration with the run ID for queries and dashboards. The existing Redis usage records remain the source for the app's admin and per-job cost estimates. Direct OpenAI and Anthropic calls made by other generators are not yet included in Trigger's AI metrics.
+The admin chat worker emits AI SDK 7 model spans to Trigger.dev's native AI observability. Every Jev attempt and writing-model call appears in the same run trace. Successful pinned Jev calls and priced writing-model calls also get separate `llm_metrics` rows with model, tokens, latency, and cost; failed attempts without usage remain visible in the trace and custom metrics. Trigger's priced TypeSafe catalogue entry is `~typesafe/jev-latest`; the direct TypeSafe API is pinned to `jev-1.13.0`. The Jev span uses the catalogue ID for native pricing and separately records the provider's actual response model. Spans exclude prompt, retrieved context, tool content, and response text. Custom `fit.ai.jev.*` metrics provide an additional Jev breakdown; do not add their estimated cost to native `llm_metrics` cost, since that would count Jev twice. The existing Redis usage records remain the source for the app's admin and per-job cost estimates. Direct OpenAI and Anthropic calls made by other generators are not yet included in Trigger's AI metrics.
 
-To see Jev usage in Trigger, add a table widget to a [custom dashboard](https://trigger.dev/docs/observability/dashboards) with this tested TRQL query. Set the dashboard's environment and time range; each row is one request run. The run trace shows every Jev attempt alongside the writing model calls. The cost column is an estimate from the app's TypeSafe rate table.
+To list every AI call for each admin-chat request in Trigger, run this TRQL query or add it as a table widget to a [custom dashboard](https://trigger.dev/docs/observability/dashboards). Set the environment and time range in Trigger.
 
 ```sql
 SELECT
-  run_id,
-  sumIf(metric_value, metric_name = 'fit.ai.jev.calls') AS jev_calls,
-  sumIf(metric_value, metric_name = 'fit.ai.jev.input_tokens') AS jev_input_tokens,
-  sumIf(metric_value, metric_name = 'fit.ai.jev.output_tokens') AS jev_output_tokens,
-  avgIf(metric_value, metric_name = 'fit.ai.jev.duration_ms') AS jev_avg_duration_ms,
-  sumIf(metric_value, metric_name = 'fit.ai.jev.estimated_cost_usd') AS jev_estimated_cost_usd
-FROM metrics
+  run_id, gen_ai_system, request_model, response_model,
+  input_tokens, output_tokens, total_cost
+FROM llm_metrics
 WHERE task_identifier = 'admin-context-chat'
-  AND metric_name LIKE 'fit.ai.jev.%'
-GROUP BY run_id
-ORDER BY jev_estimated_cost_usd DESC
+ORDER BY start_time DESC
 LIMIT 100
 ```
 
