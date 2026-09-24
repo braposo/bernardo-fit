@@ -44,7 +44,22 @@ The CLI login is stored outside the repository. Run `npm exec -- trigger.dev log
 
 Backend code that starts a task needs `TRIGGER_SECRET_KEY`. Use the development key in `.env.local`; the Trigger.dev Vercel integration injects the correct key into Vercel for deployed environments. Any secret read by task code must also exist in the matching Trigger.dev environment. The current integration can sync selected Vercel variables into Trigger.dev; verify the per-environment sync settings, or add the variables in Trigger.dev manually.
 
-The admin chat worker emits AI SDK 7 model spans to Trigger.dev's native AI observability. Every Jev attempt and writing-model call appears in the same run trace. Successful pinned Jev calls and priced writing-model calls also get separate `llm_metrics` rows with model, tokens, latency, and cost; failed attempts without usage remain visible in the trace and custom metrics. Trigger's priced TypeSafe catalogue entry is `~typesafe/jev-latest`; the direct TypeSafe API is pinned to `jev-1.13.0`. The Jev span uses the catalogue ID for native pricing and separately records the provider's actual response model. Spans exclude prompt, retrieved context, tool content, and response text. Custom `fit.ai.jev.*` metrics provide an additional Jev breakdown; do not add their estimated cost to native `llm_metrics` cost, since that would count Jev twice. The existing Redis usage records remain the source for the app's admin and per-job cost estimates. Direct OpenAI and Anthropic calls made by other generators are not yet included in Trigger's AI metrics.
+The admin chat worker emits AI SDK 7 model spans to Trigger.dev's native AI observability. Every Jev attempt and writing-model call appears in the same run trace. Successful pinned Jev calls and priced writing-model calls also get separate `llm_metrics` rows with model, tokens, latency, and cost; failed attempts without usage remain visible in the trace and custom metrics. Trigger's priced TypeSafe catalogue entry is `~typesafe/jev-latest`; the direct TypeSafe API is pinned to `jev-1.13.0`. The Jev span uses the catalogue ID for native pricing and separately records the provider's actual response model. Spans exclude prompt, retrieved context, tool content, and response text. Custom `fit.ai.jev.*` metrics provide an additional Jev breakdown; do not add their estimated cost to native `llm_metrics` cost, since that would count Jev twice. The existing Redis usage records remain the source for the app's admin and per-job cost estimates. Direct OpenAI and Anthropic generator calls also appear in Trigger's AI metrics.
+
+Each model call carries a `fit-*` prompt slug, a numeric version derived from the SHA-256 digest of its stable prompt or Jev question rubric, and the full digest and Sanity document revision in `llm_metrics.metadata`. Job-specific inputs and chat context are excluded from the version. A changed stable prompt or rubric gets a new version; an unchanged prompt keeps its version even if another Sanity setting changes. Versions are content identifiers, not sequential release numbers. Sanity remains the prompt editor, so these metric identities do not create editable entries in Trigger's managed Prompt library. Use the full fingerprint to disambiguate the rare case of a 32-bit version collision.
+
+To compare cost and performance by prompt version, use this Trigger query with the desired environment and time range:
+
+```sql
+SELECT
+  prompt_slug, prompt_version, metadata['fit.ai.prompt.fingerprint'] AS fingerprint,
+  count() AS calls, sum(input_tokens) AS input_tokens,
+  sum(output_tokens) AS output_tokens, round(sum(total_cost), 4) AS cost_usd
+FROM llm_metrics
+WHERE prompt_slug != ''
+GROUP BY prompt_slug, prompt_version, fingerprint
+ORDER BY cost_usd DESC
+```
 
 To list every AI call for each admin-chat request in Trigger, run this TRQL query or add it as a table widget to a [custom dashboard](https://trigger.dev/docs/observability/dashboards). Set the environment and time range in Trigger.
 
