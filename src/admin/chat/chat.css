@@ -1,4 +1,6 @@
 .admin-chat-launcher { position:fixed; bottom:24px; right:24px; z-index:35; min-height:44px; border:1px solid #dddbe7; box-shadow:0 4px 18px #25263118; }
+.admin-chat-launcher[data-slot], .admin-chat-launcher[data-slot]:hover { background:#efedf5; color:#514d65; }
+.admin-chat-panel .chat-scroll-button:hover { background:#e4e1ed; color:#514d65; }
 .admin-chat-panel[data-slot=dialog-content] { width:min(800px,calc(100vw - 40px)); max-width:none; height:min(850px,calc(100dvh - 48px)); padding:0; display:flex; flex-direction:column; gap:0; background:#fff; color:#252631; overflow:hidden; }
 .chat-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:24px 56px 16px 24px; flex-shrink:0; }
 .chat-heading [data-slot=dialog-title] { font-size:20px; }
