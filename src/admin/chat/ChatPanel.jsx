@@ -153,7 +153,7 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
     !hasProvider || !config.autoAvailable || !config.workerConfigured ? 'Chat is temporarily unavailable. Please try again later.' : '');
   if (!authenticated) return null;
   return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Your assistant</Button></DialogTrigger>
+    <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Ask your assistant</Button></DialogTrigger>
     <DialogContent className="admin-chat-panel" onOpenAutoFocus={e => { e.preventDefault(); composer.current?.focus(); }}>
       <header className="chat-heading"><div><DialogTitle>Your assistant</DialogTitle>
         <DialogDescription>Ask me about your experience, roles and applications.</DialogDescription></div>

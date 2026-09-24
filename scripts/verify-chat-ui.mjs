@@ -69,7 +69,7 @@ try {
   await page.addInitScript(()=>sessionStorage.setItem('bfit_admin_secret','synthetic'));
   await page.goto(`http://127.0.0.1:${server.address().port}/admin.html`);
   assert.equal(await page.locator('.masthead #admin-chat-root .admin-chat-launcher').count(),1);
-  await page.getByRole('button',{name:'Your assistant',exact:true}).click();
+  await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByRole('heading',{name:'Your assistant'}).waitFor();
   await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),false,'notifications do not cover the modal');
@@ -102,13 +102,14 @@ try {
   assert.match(await page.getByRole('link',{name:'Fictional Atlas'}).getAttribute('href'), /job%20%26%20example/);
   await page.getByRole('link',{name:'Fictional Atlas'}).click();
   assert.equal(new URL(page.url()).searchParams.get('job'),'job & example');
-  await page.getByRole('button',{name:'Your assistant',exact:true}).click();
+  await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByText('Sources consulted').waitFor();
   await mkdir('.chat-screenshots',{recursive:true});
   for(const width of [1280,768,390,360]) {
     await page.setViewportSize({width,height:900});
-    const headerPosition=await page.evaluate(()=>{const header=document.querySelector('.masthead').getBoundingClientRect(),button=document.querySelector('.admin-chat-launcher').getBoundingClientRect();return {header:{top:header.top,bottom:header.bottom},button:{top:button.top,bottom:button.bottom,right:button.right}};});
-    assert.ok(headerPosition.button.top>=headerPosition.header.top&&headerPosition.button.bottom<=headerPosition.header.bottom&&headerPosition.button.right<=width,`chat launcher stays in header at ${width}`);
+    const launcherPosition=await page.evaluate(()=>{const header=document.querySelector('.masthead').getBoundingClientRect(),button=document.querySelector('.admin-chat-launcher').getBoundingClientRect(),root=document.querySelector('#admin-chat-root');return {header:{top:header.top,bottom:header.bottom},button:{top:button.top,bottom:button.bottom,right:button.right},position:getComputedStyle(root).position};});
+    if(width<=600) assert.ok(launcherPosition.position==='fixed'&&launcherPosition.button.bottom<=900-16&&launcherPosition.button.bottom>=900-24&&launcherPosition.button.right<=width-16&&launcherPosition.button.right>=width-24,`chat launcher stays at the bottom right at ${width}: ${JSON.stringify(launcherPosition)}`);
+    else assert.ok(launcherPosition.button.top>=launcherPosition.header.top&&launcherPosition.button.bottom<=launcherPosition.header.bottom&&launcherPosition.button.right<=width,`chat launcher stays in header at ${width}`);
     const panel=page.getByRole('dialog');
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const bounds=await panel.boundingBox();assert.ok(bounds.x>=-1&&bounds.x+bounds.width<=width+1,`dialog fits ${width}: ${JSON.stringify(bounds)}`);
@@ -118,14 +119,20 @@ try {
     assert.ok(await page.getByRole('button',{name:'Send',exact:true}).isVisible());
     assert.equal(await panel.evaluate(el=>el.scrollWidth>el.clientWidth),false,`no overflow ${width}`);
     await page.screenshot({path:`.chat-screenshots/chat-${width}.png`});
+    if(width<=600) {
+      await page.keyboard.press('Escape');
+      await panel.waitFor({state:'hidden'});
+      await page.screenshot({path:`.chat-screenshots/chat-launcher-${width}.png`});
+      await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
+    }
   }
   const accessibility=await new AxeBuilder({page}).include('[role="dialog"]').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   assert.deepEqual(accessibility.violations.map(v=>({id:v.id,description:v.description})),[]);
   await page.getByLabel('Message',{exact:true}).fill('Draft survives closing');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications return after closing chat');
-  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'16px');
-  await page.getByRole('button',{name:'Your assistant',exact:true}).click();
+  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'76px');
+  await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   assert.equal(await page.getByLabel('Message',{exact:true}).inputValue(),'Draft survives closing');
   assert.equal(await page.getByText('Conversations are saved privately for Insights.').count(),0);
   assert.equal(await page.locator('.chat-composer-footer [role=status]').textContent(),'Response complete.');
@@ -157,7 +164,7 @@ try {
     await atBottom();
   }
   const beforeReload=calls;
-  await page.reload();await page.getByRole('button',{name:'Your assistant',exact:true}).click();
+  await page.reload();await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByRole('button',{name:'Stop',exact:true}).waitFor();
   assert.equal(calls,beforeReload,'reload reconnects without regenerating');
   await page.getByRole('button',{name:'Stop',exact:true}).click();await page.getByText('Stopped · partial response').waitFor();
@@ -176,15 +183,15 @@ try {
   await page.getByText('No source records were returned for this answer.').waitFor();
   await page.getByRole('button',{name:'Start a new chat'}).click();
   mode='normal';
-  autoAvailable=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Your assistant',exact:true}).click();
+  autoAvailable=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByText('Chat is temporarily unavailable. Please try again later.').waitFor();
   await page.getByLabel('Message',{exact:true}).fill('Question while routing is unavailable');
   assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
   autoAvailable=true;
-  enabled=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Your assistant',exact:true}).click();
+  enabled=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByText('Chat is not enabled in this environment yet.').waitFor();
   assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
-  expired=true;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Your assistant',exact:true}).click();
+  expired=true;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByRole('heading',{name:'Locked',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('bfit_admin_secret')),null);

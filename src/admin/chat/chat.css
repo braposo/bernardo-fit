@@ -71,6 +71,10 @@ body:has(.admin-chat-panel[data-state=open]) .task-toast-viewport { visibility:h
 .chat-retry { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12px; margin-bottom:8px; }
 .chat-retry button { min-height:44px; }
 @media(max-width:600px) {
+  #admin-chat-root { position:fixed; right:max(16px,env(safe-area-inset-right)); bottom:max(16px,env(safe-area-inset-bottom)); margin-left:0; z-index:40; }
+  .admin-chat-launcher[data-slot] { border-color:#51448f; border-radius:999px; background:#51448f; color:#fff; box-shadow:0 4px 14px #25263133; }
+  .admin-chat-launcher[data-slot]:hover { background:#392a77; color:#fff; }
+  body:has(#admin-chat-root .admin-chat-launcher) .task-toast-viewport { bottom:calc(max(16px,env(safe-area-inset-bottom)) + 60px); max-height:calc(45vh - 60px); }
   .admin-chat-panel[data-slot=dialog-content] { width:100%; height:100dvh; max-width:100%; border-radius:0; border:0; }
   .chat-heading { padding:18px 64px 16px 16px; flex-direction:column; align-items:flex-start; gap:12px; }
   .chat-heading [data-slot=dialog-title] { font-size:18px; }
