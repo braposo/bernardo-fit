@@ -1,16 +1,23 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { validateChatRequest, CHAT_FILTER } from "../lib/chat/policy.js";
-import { selectChatModel } from "../lib/chat/models.js";
+import { selectChatModel as selectModel } from "../lib/chat/models.js";
 import { contextUrl, connectContext, collectSources, validateContextToolInput } from "../lib/chat/context.js";
-import { providerUsage, createChatAgent } from "../lib/chat/agent.js";
-import { createChatWork } from '../lib/chat/work.js';
+import { providerUsage, createChatAgent as createAgent } from "../lib/chat/agent.js";
+import { createChatWork as createWork } from '../lib/chat/work.js';
 import { createChatHandler } from "../api/admin/chat.js";
 import { admitChat } from "../lib/chat/admission.js";
 import { saveChatTurn, insightsClient } from "../lib/chat/insights.js";
-import { MODEL, GAPS, metricsFromAnswers, classifyPending } from "../functions/classify-conversations/classifier.js";
+import { metricsFromAnswers as metrics, classifyPending } from "../functions/classify-conversations/classifier.js";
 import { MockLanguageModelV4 } from "ai/test";
 
+import {initialChatSettingsDocument, MODEL, GAPS} from '../lib/chat/settings-defaults.js';
+import {chatSettingsFromDocument} from '../lib/chat/settings.js';
+const settings = chatSettingsFromDocument(initialChatSettingsDocument());
+const selectChatModel = (request, options) => selectModel(request, {settings,...options});
+const createChatAgent = options => createAgent({settings,...options});
+const createChatWork = options => createWork({loadSettings:async()=>settings,...options});
+const metricsFromAnswers = data => metrics(data,settings);
 let passed = 0, failed = 0;
 async function test(name, fn) { try { await fn(); passed++; console.log("ok " + name); } catch (error) { failed++; console.error("FAIL " + name, error); } }
 const env = { OPENAI_API_KEY: "fake", ANTHROPIC_API_KEY: "fake", TYPESAFE_API_KEY: "fake", ADMIN_CHAT_ENABLED: "1",

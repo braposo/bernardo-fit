@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 const branch = process.argv[2] || 'codex/sanity-context-chat-setup';
 const allowed = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'TYPESAFE_API_KEY', 'SANITY_CONTEXT_MCP_URL',
-  'SANITY_ORGANIZATION_TOKEN', 'SANITY_CONTEXT_WRITE_TOKEN', 'ADMIN_CHAT_INSIGHTS_ENABLED'];
+  'SANITY_ORGANIZATION_TOKEN', 'SANITY_CONTEXT_WRITE_TOKEN', 'ADMIN_CHAT_INSIGHTS_ENABLED', 'SANITY_READ_TOKEN'];
 const values = {};
-for (const file of ['.env.development.local', '.env.context.local']) {
+for (const file of ['.env.local', '.env.development.local', '.env.context.local']) {
   if (!existsSync(file)) continue;
   const parsed = parseEnv(readFileSync(file, 'utf8'));
   for (const name of allowed) if (parsed[name]) values[name] = parsed[name];

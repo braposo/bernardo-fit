@@ -1,10 +1,11 @@
+import {loadChatSettings} from '../lib/chat/settings.js';
 // Read-only preflight. Never prints credentials, schema content, or private records.
 import { connectContext } from "../lib/chat/context.js";
 import { chatModels } from "../lib/chat/models.js";
 import { jevEnabled } from "../lib/jev.js";
 let context;
 try {
-  const models = chatModels();
+  const models = chatModels(process.env, await loadChatSettings());
   console.log(JSON.stringify({ providers: { openai: models.some(m => m.provider === "openai" && m.available),
     anthropic: models.some(m => m.provider === "anthropic" && m.available) }, jev: jevEnabled(),
     enabled: process.env.ADMIN_CHAT_ENABLED === "1" }));

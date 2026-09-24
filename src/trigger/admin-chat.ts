@@ -1,4 +1,5 @@
 import { task, streams, metadata, logger, AbortTaskRunError } from '@trigger.dev/sdk';
+import { loadChatSettings } from '../../lib/chat/settings.js';
 import { executeChatWork } from '../../lib/chat/work.js';
 import { hasKV } from '../../lib/kv.js';
 
@@ -11,10 +12,11 @@ export const adminChat = task({
     // Operational probe, available through authenticated Trigger tooling only.
     // The app dispatcher never copies this flag from user input.
     if (payload.healthcheck === true) {
+      const settings = await loadChatSettings();
       const checks = { storage: hasKV, context: !!process.env.SANITY_CONTEXT_MCP_URL && !!process.env.SANITY_ORGANIZATION_TOKEN,
         jev: !!process.env.TYPESAFE_API_KEY, openai: !!process.env.OPENAI_API_KEY, anthropic: !!process.env.ANTHROPIC_API_KEY,
         insights: process.env.ADMIN_CHAT_INSIGHTS_ENABLED === '1' && !!process.env.SANITY_CONTEXT_WRITE_TOKEN };
-      return { ready: Object.values(checks).every(Boolean), checks };
+      return { ready: Object.values(checks).every(Boolean), checks, settingsRevision:settings.revision };
     }
     if (!hasKV) throw new AbortTaskRunError('Chat storage is unavailable.');
     let result: any, seq = 0;
@@ -24,7 +26,8 @@ export const adminChat = task({
           const decision = { model: route.model, provider: route.provider, source: route.source,
             jevChoice: route.jevChoice, confidence: Number.isFinite(route.confidence) ? route.confidence : null,
             probability: Number.isFinite(route.probability) ? route.probability : null,
-            fallbackUsed: route.fallbackUsed === true, policy: route.policy };
+            fallbackUsed: route.fallbackUsed === true, policy: route.policy, jevModel:route.jevModel,
+            settingsRevision:route.settingsRevision,settingsFingerprint:route.settingsFingerprint };
           logger.info(`Jev model selection: ${route.provider}/${route.model}`, { requestId: payload.requestId, ...decision });
           metadata.set('modelSelection', decision);
         }, emit: async (event: string, data: any) => {

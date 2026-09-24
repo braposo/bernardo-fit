@@ -31,7 +31,7 @@
   },
   "scripts": {
     "test:chat-ui": "node scripts/verify-chat-ui.mjs",
-    "chat:evaluate": "node --env-file-if-exists=.env.development.local scripts/evaluate-chat.mjs",
+    "chat:evaluate": "node --env-file-if-exists=.env.local --env-file-if-exists=.env.development.local scripts/evaluate-chat.mjs",
     "chat:check": "node --env-file-if-exists=.env.local --env-file-if-exists=.env.development.local --env-file-if-exists=.env.context.local scripts/check-chat.mjs",
     "jev:check": "node --env-file-if-exists=.env.local scripts/check-jev.mjs",
     "build": "node scripts/build-admin.mjs",

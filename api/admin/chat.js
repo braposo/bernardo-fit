@@ -3,7 +3,6 @@ import { once } from 'node:events';
 import { tasks, runs, streams, idempotencyKeys, auth } from '@trigger.dev/sdk';
 import { requireAdmin } from '../../lib/admin.js';
 import { jevEnabled } from '../../lib/jev.js';
-import { chatModels } from '../../lib/chat/models.js';
 import { validateChatRequest, chatError } from '../../lib/chat/policy.js';
 import { getRunReceipt, getReceiptForRequest, saveRunReceipt } from '../../lib/run-receipts.js';
 import { hasKV } from '../../lib/kv.js';
@@ -24,7 +23,10 @@ export function createChatHandler({ env = process.env, storage = hasKV, trigger 
       const workerReady = env.ADMIN_CHAT_WORKER_READY === '1' && workerKey?.startsWith('tr_dev_') && storage &&
         (env.VERCEL_ENV !== 'preview' || !!workerBranch);
       if (req.method === 'GET' && !req.query?.run) return res.status(200).json({
-        models: chatModels(env), autoAvailable: jevEnabled(env), enabled: env.ADMIN_CHAT_ENABLED === '1',
+        models: [
+          {provider:"openai",available:!!env.OPENAI_API_KEY?.trim()},
+          {provider:"anthropic",available:!!env.ANTHROPIC_API_KEY?.trim()}
+        ], autoAvailable: jevEnabled(env), enabled: env.ADMIN_CHAT_ENABLED === '1',
         insightsEnabled: env.ADMIN_CHAT_INSIGHTS_ENABLED === '1',
         contextConfigured: !!env.SANITY_CONTEXT_MCP_URL && !!env.SANITY_ORGANIZATION_TOKEN,
         workerConfigured: workerReady, transport: 'trigger',
