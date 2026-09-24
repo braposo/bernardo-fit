@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+export { mountAdminChat } from './chat/ChatPanel';
 import { flushSync } from 'react-dom';
 import parse, { attributesToProps, domToReact, Element } from 'html-react-parser';
 import { Sparkles, FileText, ExternalLink, SlidersHorizontal, ChevronDown } from 'lucide-react';

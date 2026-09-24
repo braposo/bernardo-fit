@@ -30,6 +30,9 @@
     }
   ],
   "functions": {
+    "api/admin/chat.js": {
+      "maxDuration": 240
+    },
     "api/site.js": {
       "includeFiles": "lib/templates/*.html"
     }

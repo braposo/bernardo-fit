@@ -47,3 +47,6 @@ jobs:
 
       - name: Verify realtime task notifications
         run: npm run test:task-ui
+
+      - name: Verify admin chat
+        run: npm run test:chat-ui
