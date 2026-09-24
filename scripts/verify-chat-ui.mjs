@@ -69,8 +69,8 @@ try {
   await page.addInitScript(()=>sessionStorage.setItem('bfit_admin_secret','synthetic'));
   await page.goto(`http://127.0.0.1:${server.address().port}/admin.html`);
   assert.equal(await page.locator('.masthead #admin-chat-root .admin-chat-launcher').count(),1);
-  await page.getByRole('button',{name:'Chat',exact:true}).click();
-  await page.getByRole('heading',{name:'Chat with your content'}).waitFor();
+  await page.getByRole('button',{name:'Your assistant',exact:true}).click();
+  await page.getByRole('heading',{name:'Your assistant'}).waitFor();
   await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),false,'notifications do not cover the modal');
   await page.getByLabel('Message',{exact:true}).fill('Compare my roles');
@@ -102,7 +102,7 @@ try {
   assert.match(await page.getByRole('link',{name:'Fictional Atlas'}).getAttribute('href'), /job%20%26%20example/);
   await page.getByRole('link',{name:'Fictional Atlas'}).click();
   assert.equal(new URL(page.url()).searchParams.get('job'),'job & example');
-  await page.getByRole('button',{name:'Chat',exact:true}).click();
+  await page.getByRole('button',{name:'Your assistant',exact:true}).click();
   await page.getByText('Sources consulted').waitFor();
   await mkdir('.chat-screenshots',{recursive:true});
   for(const width of [1280,768,390,360]) {
@@ -112,6 +112,9 @@ try {
     const panel=page.getByRole('dialog');
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const bounds=await panel.boundingBox();assert.ok(bounds.x>=-1&&bounds.x+bounds.width<=width+1,`dialog fits ${width}: ${JSON.stringify(bounds)}`);
+    const newChatBounds=await page.getByRole('button',{name:'Start a new chat'}).boundingBox();
+    const closeBounds=await panel.locator('[data-slot=dialog-close]').boundingBox();
+    assert.ok(newChatBounds.x+newChatBounds.width+12<=closeBounds.x || newChatBounds.y>=closeBounds.y+closeBounds.height+12,`New chat stays clear of Close at ${width}`);
     assert.ok(await page.getByRole('button',{name:'Send',exact:true}).isVisible());
     assert.equal(await panel.evaluate(el=>el.scrollWidth>el.clientWidth),false,`no overflow ${width}`);
     await page.screenshot({path:`.chat-screenshots/chat-${width}.png`});
@@ -122,7 +125,7 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications return after closing chat');
   assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'16px');
-  await page.getByRole('button',{name:'Chat',exact:true}).click();
+  await page.getByRole('button',{name:'Your assistant',exact:true}).click();
   assert.equal(await page.getByLabel('Message',{exact:true}).inputValue(),'Draft survives closing');
   assert.equal(await page.getByText('Conversations are saved privately for Insights.').count(),0);
   assert.equal(await page.locator('.chat-composer-footer [role=status]').textContent(),'Response complete.');
@@ -154,7 +157,7 @@ try {
     await atBottom();
   }
   const beforeReload=calls;
-  await page.reload();await page.getByRole('button',{name:'Chat',exact:true}).click();
+  await page.reload();await page.getByRole('button',{name:'Your assistant',exact:true}).click();
   await page.getByRole('button',{name:'Stop',exact:true}).waitFor();
   assert.equal(calls,beforeReload,'reload reconnects without regenerating');
   await page.getByRole('button',{name:'Stop',exact:true}).click();await page.getByText('Stopped · partial response').waitFor();
@@ -173,15 +176,15 @@ try {
   await page.getByText('No source records were returned for this answer.').waitFor();
   await page.getByRole('button',{name:'Start a new chat'}).click();
   mode='normal';
-  autoAvailable=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Chat',exact:true}).click();
+  autoAvailable=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Your assistant',exact:true}).click();
   await page.getByText('Chat is temporarily unavailable. Please try again later.').waitFor();
   await page.getByLabel('Message',{exact:true}).fill('Question while routing is unavailable');
   assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
   autoAvailable=true;
-  enabled=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Chat',exact:true}).click();
+  enabled=false;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Your assistant',exact:true}).click();
   await page.getByText('Chat is not enabled in this environment yet.').waitFor();
   assert.equal(await page.getByRole('button',{name:'Send',exact:true}).isDisabled(),true);
-  expired=true;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Chat',exact:true}).click();
+  expired=true;await page.keyboard.press('Escape');await page.getByRole('button',{name:'Your assistant',exact:true}).click();
   await page.getByRole('heading',{name:'Locked',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('bfit_admin_secret')),null);

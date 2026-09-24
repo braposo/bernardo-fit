@@ -153,11 +153,11 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
     !hasProvider || !config.autoAvailable || !config.workerConfigured ? 'Chat is temporarily unavailable. Please try again later.' : '');
   if (!authenticated) return null;
   return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Chat</Button></DialogTrigger>
+    <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Your assistant</Button></DialogTrigger>
     <DialogContent className="admin-chat-panel" onOpenAutoFocus={e => { e.preventDefault(); composer.current?.focus(); }}>
-      <header className="chat-heading"><div><DialogTitle>Chat with your content</DialogTitle>
-        <DialogDescription>Explore your experience, roles and application materials.</DialogDescription></div>
-        <Button variant="ghost" onClick={newChat} disabled={busy || !turns.length} aria-label="Start a new chat"><Plus aria-hidden="true" />New chat</Button></header>
+      <header className="chat-heading"><div><DialogTitle>Your assistant</DialogTitle>
+        <DialogDescription>Ask me about your experience, roles and applications.</DialogDescription></div>
+        <Button className="chat-new-button" variant="outline" onClick={newChat} disabled={busy || !turns.length} aria-label="Start a new chat"><Plus aria-hidden="true" />New chat</Button></header>
       <MessageScrollerProvider key={conversation.current || 'empty'} defaultScrollPosition="end" autoScroll>
         <MessageScroller className="chat-scroll">
           <MessageScrollerViewport aria-label="Chat messages"><MessageScrollerContent className="chat-messages" aria-live="off">
