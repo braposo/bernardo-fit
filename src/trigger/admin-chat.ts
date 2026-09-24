@@ -1,7 +1,13 @@
 import { task, streams, metadata, logger, AbortTaskRunError } from '@trigger.dev/sdk';
+import { registerTelemetry } from 'ai';
+import { OpenTelemetry } from '@ai-sdk/otel';
 import { loadChatSettings } from '../../lib/chat/settings.js';
 import { executeChatWork } from '../../lib/chat/work.js';
 import { hasKV } from '../../lib/kv.js';
+
+// This chat uses a regular task rather than chat.agent(), so AI SDK 7 needs
+// its OpenTelemetry adapter registered in the worker process.
+registerTelemetry(new OpenTelemetry());
 
 export const adminChat = task({
   id: 'admin-context-chat',
