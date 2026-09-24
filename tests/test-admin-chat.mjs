@@ -4,6 +4,7 @@ import { validateChatRequest, CHAT_FILTER } from "../lib/chat/policy.js";
 import { selectChatModel } from "../lib/chat/models.js";
 import { contextUrl, connectContext, collectSources, validateContextToolInput } from "../lib/chat/context.js";
 import { providerUsage, createChatAgent } from "../lib/chat/agent.js";
+import { createChatWork } from '../lib/chat/work.js';
 import { createChatHandler } from "../api/admin/chat.js";
 import { admitChat } from "../lib/chat/admission.js";
 import { saveChatTurn, insightsClient } from "../lib/chat/insights.js";
@@ -120,9 +121,19 @@ await test("HTTP guard blocks unauthenticated and disabled calls before upstream
   const denied = exchange("POST", false); await handler(denied.req, denied.res); assert.equal(denied.res.statusCode, 401);
   const disabled = exchange(); await createChatHandler({ env: {} })(disabled.req, disabled.res); assert.equal(disabled.res.statusCode, 503);
 });
-await test("SSE streams text and route, hides raw tool data, and releases resources", async () => {
+function createWorkHarness(options) {
+  return async (req, res) => {
+    const controller = new AbortController();
+    res.on('close', () => controller.abort());
+    await createChatWork(options)({ request: req.body, requestId: 'test-turn' }, {
+      signal: controller.signal,
+      emit: async (event, data) => { res.output += 'event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'; },
+    });
+  };
+}
+await test("Worker streams text and route, hides raw tool data, and releases resources", async () => {
   let closed = 0, released = 0;
-  const handler = createChatHandler({ env, connect: async () => ({ sources: new Map(), close: async () => { closed++; } }),
+  const handler = createWorkHarness({ env, connect: async () => ({ sources: new Map(), close: async () => { closed++; } }),
     select: async () => ({ model: "gpt-5.6-sol", provider: "openai", source: "manual" }),
     admit: async () => async () => { released++; }, makeAgent: () => ({ stream: async () => ({ stream: (async function* () {
       yield { type: "tool-result", output: "PRIVATE RAW RESULT" }; yield { type: "text-delta", text: "Hello" };
@@ -134,16 +145,16 @@ await test("SSE streams text and route, hides raw tool data, and releases resour
 });
 await test("midstream provider failures produce a safe error and cleanup", async () => {
   let closed = false;
-  const handler = createChatHandler({ env, connect: async () => ({ sources: new Map(), close: async () => { closed = true; } }),
+  const handler = createWorkHarness({ env, connect: async () => ({ sources: new Map(), close: async () => { closed = true; } }),
     select: async () => ({ model: "gpt-5.6-sol", provider: "openai" }), admit: async () => async () => {},
     makeAgent: () => ({ stream: async () => ({ stream: (async function* () { yield { type: "error", error: new Error("SECRET") }; })() }) }) });
   const {req,res} = exchange(); await handler(req,res);
-  assert.match(res.output, /event: error/); assert.ok(!res.output.includes("SECRET")); assert.ok(closed);
+  assert.match(res.output, /"status":"failed"/); assert.ok(!res.output.includes("SECRET")); assert.ok(closed);
 });
 await test("Insights saves completed responses before done and reports storage failures safely", async () => {
   for (const fail of [false, true]) {
     let saved;
-    const handler = createChatHandler({ env: { ...env, ADMIN_CHAT_INSIGHTS_ENABLED: "1", SANITY_CONTEXT_WRITE_TOKEN: "fake" },
+    const handler = createWorkHarness({ env: { ...env, ADMIN_CHAT_INSIGHTS_ENABLED: "1", SANITY_CONTEXT_WRITE_TOKEN: "fake" },
       connect: async () => ({ sources: new Map(), close: async () => {} }),
       select: async () => ({ model: "gpt-5.6-sol", provider: "openai" }), admit: async () => async () => {},
       saveTurn: async value => { saved = value; if (fail) throw Error("SECRET"); },
@@ -152,8 +163,8 @@ await test("Insights saves completed responses before done and reports storage f
       })() }) }) });
     const {req,res} = exchange(); await handler(req,res);
     assert.equal(saved.text, "Answer"); assert.equal(saved.outcome, "complete");
-    assert.ok(res.output.indexOf("event: persistence") < res.output.indexOf("event: done"));
-    assert.ok(res.output.includes(fail ? '"state":"failed"' : '"state":"saved"'));
+    assert.ok(res.output.indexOf("event: snapshot") < res.output.indexOf("event: done"));
+    assert.ok(res.output.includes(fail ? '"storage":"failed"' : '"storage":"saved"'));
     assert.ok(!res.output.includes("SECRET"));
   }
 });
@@ -162,10 +173,10 @@ await test("concurrent request limit releases admission slots", async () => {
   await assert.rejects(admitChat("three"), /busy/);
   await release1(); const release3 = await admitChat("three"); await release2(); await release3();
 });
-await test("disconnect aborts an active stream and releases its connection and lease", async () => {
+await test("explicit task cancellation aborts generation and releases its connection and lease", async () => {
   let closed = false, released = false, observedSignal;
   const {req,res} = exchange();
-  const handler = createChatHandler({ env, connect: async () => ({ sources: new Map(), close: async () => { closed = true; } }),
+  const handler = createWorkHarness({ env, connect: async () => ({ sources: new Map(), close: async () => { closed = true; } }),
     select: async () => ({ model: "gpt-5.6-sol", provider: "openai" }), admit: async () => async () => { released = true; },
     makeAgent: () => ({ stream: async ({abortSignal}) => { observedSignal = abortSignal; return { stream: (async function* () {
       res.destroyed = true; res.emit("close"); abortSignal.throwIfAborted();

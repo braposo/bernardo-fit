@@ -52,7 +52,7 @@ body:has(.admin-chat-panel[data-state=open]) .task-toast-viewport { visibility:h
 .chat-status { font-size:12px; color:#666d7b; min-height:24px; padding:3px 0; }
 .chat-composer textarea { min-height:76px; max-height:160px; resize:vertical; font-size:15px; }
 .chat-composer-footer { display:flex; justify-content:space-between; align-items:center; gap:16px; padding-top:12px; }
-.chat-composer-footer p { font-size:11px; line-height:1.5; color:#666d7b; max-width:420px; margin:0; }
+.chat-composer-footer p { font-size:12px; line-height:1.5; color:#666d7b; max-width:420px; margin:0; }
 .chat-composer-footer button { min-height:44px; flex-shrink:0; }
 .chat-error { color:#a02929; font-size:13px; margin:4px 0; }
 .chat-notice { font-size:12px; color:#666d7b; }

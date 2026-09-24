@@ -1,8 +1,10 @@
 # Admin chat with Sanity Context
 
-Status: backend, service configuration and admin chat interface implemented on 24 September 2026. The interface is mounted separately from legacy workspace renders and available from the authenticated Chat launcher. `ADMIN_CHAT_ENABLED` defaults off; rollout is controlled per environment.
+Status: Trigger task migration implemented and locally verified; cloud deployment awaits approval to upload the source bundle. The existing preview has not been updated with this migration.
 
-UI implementation: `src/admin/chat/ChatPanel.jsx`, `stream.js` and `chat.css`. Uses installed shadcn Message Scroller, Message/Bubble, Dialog, Textarea and Button. Renders safe Markdown, validates source links, retains drafts across closing, supports Stop/Retry/New chat, and clears memory on session expiry. `tests/test-chat-stream.mjs` covers fragmented UTF-8/SSE and history limits. `npm run test:chat-ui` exercises synthetic streaming, automatic Jev routing, Markdown, sources, stop/retry, session expiry, disabled state and accessibility at 1280/768/390/360 px. Below is the design and rollout reference for the implemented feature; optional selected-role context and durable-history browsing are future additions.
+Original setup: backend, service configuration and admin chat interface implemented on 24 September 2026. The interface is mounted separately from legacy workspace renders and available from the authenticated Chat launcher. `ADMIN_CHAT_ENABLED` defaults off; rollout is controlled per environment.
+
+UI implementation: `src/admin/chat/ChatPanel.jsx`, `stream.js`, `transport.js` and `chat.css`. Uses installed shadcn Message Scroller, Message/Bubble, Dialog, Textarea and Button. Renders safe Markdown, validates source links, retains drafts across closing, supports Stop/Retry/New chat, recovers active work after reload, and clears browser session state on session expiry. `tests/test-chat-stream.mjs` covers fragmented UTF-8/SSE and history limits. `npm run test:chat-ui` exercises synthetic streaming, automatic Jev routing, Markdown, sources, stop/retry, session expiry, disabled state and accessibility at 1280/768/390/360 px. Below is the design and rollout reference for the implemented feature; optional selected-role context and durable-history browsing are future additions.
 
 ## Intended experience
 
@@ -27,22 +29,23 @@ Use GROQ retrieval for the existing structured dataset. A semantic Knowledge Bas
 
 ```mermaid
 flowchart LR
-  UI[Authenticated admin chat] --> API[POST /api/admin/chat]
-  API --> Limit[Admission and input validation]
-  Limit --> Context[Sanity Context: schema and read tools]
-  Context --> Route{Model selection}
-  Route -->|Auto| Jev[Jev classifier]
-  Route -->|Manual| Agent[AI SDK tool loop]
-  Jev --> Agent
-  Agent --> Provider[Direct OpenAI or Anthropic API]
-  Agent --> Context
-  Agent --> SSE[Text, status and source stream]
-  SSE --> UI
+  UI[Authenticated admin chat] --> API[Idempotent task submission]
+  API --> Task[Trigger: admin-context-chat]
+  Task --> Context[Sanity Context read tools]
+  Task --> Jev[Automatic model selection]
+  Jev --> Provider[OpenAI or Anthropic]
+  Task --> Stream[Trigger persisted response stream]
+  Stream --> Relay[Authenticated reconnectable SSE relay]
+  Relay --> UI
+  Task --> Snapshot[Final response snapshot and Insights]
 ```
 
 | File | Responsibility |
 | --- | --- |
-| `api/admin/chat.js` | Admin auth, capability discovery, request lifecycle, SSE and cancellation |
+| `api/admin/chat.js` | Admin auth, idempotent dispatch, receipted run access, SSE relay and explicit cancellation |
+| `src/trigger/admin-chat.ts` | Two-slot queue, one paid attempt, 210-second worker budget, response stream |
+| `lib/chat/work.js` | Context, Jev, model streaming, sanitized snapshots and Insights persistence |
+| `tests/test-chat-durable.mjs` | Ambiguous dispatch, receipt ownership, reconnect cursor, cancellation and crash recovery |
 | `lib/chat/policy.js` | Accepted request shape, content scope, instructions and limits |
 | `lib/chat/context.js` | Organization MCP connection, initial context, read-tool allowlist, source extraction |
 | `lib/chat/models.js` | Existing model catalog, Jev decisions, explicit selection, direct provider adapters |
@@ -55,31 +58,15 @@ flowchart LR
 
 Both methods require the existing `x-admin-secret` header. The browser must use the existing session authentication helper; never put secrets in URLs. Responses are private and uncached.
 
-`GET /api/admin/chat` returns `enabled`, `contextConfigured`, `autoAvailable`, and models with IDs, labels, provider and availability. This is configuration discovery, not a live health check. The UI must populate choices from this response.
+`GET /api/admin/chat` returns availability flags including `workerConfigured`. The app always submits automatic routing. `ADMIN_CHAT_WORKER_READY=1` is required after deploying a matching worker; Preview requires a preview key and branch.
 
-`POST /api/admin/chat` accepts:
+`POST /api/admin/chat` accepts a UUID `requestId`, UUID `conversationId`, and alternating text `messages`. It returns 202 with a run ID. A global, 30-day Trigger idempotency key recovers ambiguous submissions; receipts bind the ID to the exact request hash. Reusing it with different content fails. The endpoint and worker force automatic Jev routing. Existing limits remain 40 messages, 12,000 characters per message and 48 KB overall.
 
-```json
-{
-  "provider": "auto",
-  "model": "auto",
-  "messages": [{"role": "user", "content": "Which roles fit my strongest evidence?"}]
-}
-```
+`GET /api/admin/chat?run=<id>&cursor=<next-chunk>` relays the Trigger response stream, after checking its chat receipt. A disconnected browser cancels only this subscription. Connections rotate after 45 seconds; reconnects resume by sequence number. Completed runs return their final response snapshot even if their stream has expired. Crashed, expired and cancelled runs return safe terminal states. Raw task errors never reach the client.
 
-The admin UI always uses `auto` for both fields. The lower-level API also supports diagnostic overrides: provider is `auto`, `openai` or `anthropic`. Model is `auto` or an ID from the server catalog. Text history must alternate user/assistant, begin and end with user, contain at most 40 messages, at most 12,000 characters per message and 48 KB of text overall. System messages, credentials and tool results cannot be supplied by the client.
+`POST /api/admin/chat` with `{action: "stop", runId}` cancels that receipted task. The UI remains locked until terminal status is confirmed. Closing the dialog or reloading does not cancel work.
 
-Before streaming, errors are JSON with an HTTP error status. After streaming begins, errors are SSE events and do not change HTTP status. Each event contains one JSON `data` field:
-
-| Event | Data | UI treatment |
-| --- | --- | --- |
-| `route` | requestId, conversationId, model, provider, source, policy; optional confidence/reason | Record actual model and stable conversation ID |
-| `text` | text | Append delta to current assistant message |
-| `activity` | state, tool | Map to brief Reading content / Query unsuccessful status |
-| `sources` | sources array | Replace source collection for this answer; IDs, types, titles and optional revision/jobId |
-| `persistence` | state (saved/failed), optional error | Show transcript-storage status without discarding the answer |
-| `done` | finishReason, truncated | Mark complete, or show output-limit notice |
-| `error` | error, code | Preserve partial text and offer explicit retry |
+Events are `activity` (phase), `route` (request ID only), `text` (delta), `sources`, `snapshot` (text, sources, status, storage and safe error) and `done`. Persisted chunks carry `seq`; the browser stores its next cursor with the partial answer. Missing network events cause reconnection, not a new generation. A failed paid attempt requires explicit Retry with a new request ID.
 
 No raw tool payloads, credentials or hidden reasoning are streamed. The source list records retrieved documents; it is not yet a claim-by-claim citation verifier. Aggregations can legitimately yield no document source entries.
 
@@ -87,7 +74,7 @@ No raw tool payloads, credentials or hidden reasoning are streamed. The source l
 
 The catalog reuses the app's Sol, Astra, Sonnet and Opus models. Jev receives the bounded conversation and selects among available models within the provider constraint. Confidence or selected probability below 0.8 chooses Sol, or Opus within an Anthropic-only request. Routing failure gives an explicit error and the UI offers retry; it never silently switches providers. The selected model remains fixed through the turn's tool loop.
 
-Each request has a 180-second deadline, 20-second Context HTTP deadlines, up to six model steps, ten executed read tools and 4,096 output tokens per model step. The last step disables tools so the model can answer with collected evidence. Provider retries are disabled. Redis permits two concurrent requests and 60 admissions per UTC hour; failed setup attempts count. Leases expire after 240 seconds if a process dies. Client disconnect aborts generation; normal completion and errors close MCP and release the lease.
+Each request has a 180-second deadline, 20-second Context HTTP deadlines, up to six model steps, ten executed read tools and 4,096 output tokens per model step. The last step disables tools so the model can answer with collected evidence. Provider retries are disabled. Redis permits two concurrent requests and 60 admissions per UTC hour; failed setup attempts count. Leases expire after 240 seconds if a process dies. The Trigger task runs independently of browser connections and has a 210-second overall limit plus a five-minute queue TTL. Responses are capped at 100,000 characters. Normal completion and errors close MCP and release the lease. Task retries are disabled to avoid duplicate paid answers after worker crashes; explicit Retry starts a new turn attempt.
 
 Usage is recorded per completed model step through the existing ledger, with cache reads/writes separated from uncached input. Provider billing for an aborted or failed step can exceed recorded usage if the provider never supplies final usage. Request IDs correlate ledger entries; prompts and transcripts are not added to the ledger by this implementation.
 
@@ -121,7 +108,7 @@ Send every question and retry to Jev for automatic provider/model selection. Kee
 
 Use authenticated `fetch` POST plus `ReadableStream`, `TextDecoder` and an incremental SSE parser. The server uses a custom SSE contract, so `useChat` cannot consume it without a matching transport adapter. Prefer a small focused hook for this text-only version. Handle partial UTF-8 characters, multiple events per chunk, events spanning chunks, CRLF, HTTP JSON errors and EOF before `done`. Batch text updates per animation frame to avoid whole-panel rerenders per token.
 
-States: idle, connecting/routing, reading, streaming, complete, stopped, failed. Stop calls `AbortController.abort()` and preserves partial text marked incomplete. Retry resubmits the same user turn with the previous completed history, replacing the failed attempt rather than duplicating the user message. Do not automatically retry a paid request. Discard late events after stop, retry, New chat, logout or unmount. Keep incomplete turns out of subsequent request history unless deliberately incorporated into a valid user turn. Enforce server history limits before sending; offer New chat instead of silently discarding context.
+States: idle, connecting/routing, reading, streaming, complete, stopped, failed. Stop requests server-side task cancellation and preserves partial text marked incomplete after confirmation. Connection loss displays Reconnecting and keeps the action locked. Retry resubmits the same user turn with the previous completed history, replacing the failed attempt rather than duplicating the user message. Do not automatically retry a paid request. Discard late events after a terminal stop, retry, New chat, logout or unmount. Keep incomplete turns out of subsequent request history unless deliberately incorporated into a valid user turn. Enforce server history limits before sending; offer New chat instead of silently discarding context.
 
 ### 5. Safe rendering and sources
 
@@ -131,7 +118,7 @@ Render assistant text with react-markdown and remark-gfm, with raw HTML disabled
 
 The user explicitly enabled stored transcripts and Insights. `lib/chat/insights.js` now saves user/assistant text to the organization's Context store. The browser supplies a UUID `conversationId` (or adopts the one returned by `route`) and retains it across turns. Each request saves an immutable full-history snapshot under `admin-chat.<requestId>`, grouped by conversationId metadata. This avoids late-request overwrites and lets each new turn be classified even when earlier turns already have verdicts. Insights metrics are per turn snapshot, not unique conversations. Raw tool results and hidden reasoning are excluded; Sanity's optional telemetry sharing remains off.
 
-`ADMIN_CHAT_INSIGHTS_ENABLED=1` enables saving with the separate `SANITY_CONTEXT_WRITE_TOKEN` Context Editor credential. Completed, truncated, stopped and failed turns are labelled. The `persistence` SSE event reports `saved` or `failed` before successful `done`; a save failure preserves the answer and shows a local notice. Rejected admissions are not stored. The UI must explain that conversations are retained privately for Insights. No expiry has been configured: saved transcripts remain until explicitly deleted from the Context store. Do not put transcripts in localStorage, URLs or application logs. In-app history browsing/restoration and deletion controls still need implementation; Insights storage alone does not provide those UI features.
+`ADMIN_CHAT_INSIGHTS_ENABLED=1` enables saving with the separate `SANITY_CONTEXT_WRITE_TOKEN` Context Editor credential. Completed, truncated, stopped and failed turns are labelled. The final snapshot reports `storage: saved` or `failed` before `done`; a save failure preserves the answer and shows a local notice. Rejected admissions are not stored. Per the user’s updated preference, the footer displays processing status instead of a permanent storage notice. Forced worker termination may prevent final transcript saving; cancellation persistence is best effort. No expiry has been configured: saved transcripts remain until explicitly deleted from the Context store. Do not put transcripts in localStorage, URLs or application logs. The current browser tab restores its conversation and active run from sessionStorage; cross-session history browsing and deletion controls still need implementation; Insights storage alone does not provide those UI features.
 
 The organization-scoped `bernardo-admin-chat` Blueprint defines an hourly classifier; Sanity's current plan rejects more frequent schedules. Per the user's choice, it processes up to three idle snapshots per run using **Jev (`jev-1.13.0`)**, with a 360-second function deadline and 30-second classification requests. It uses Jev's native score/choice/noul API and Sanity's direct classification API; no generative-model adapter or second AI SDK version is needed. Success scores map from Jev's zero-based rubric to Sanity's 1–10 scale. Sentiment is positive/neutral/negative. Content gaps use eight domain categories and a probability threshold of 0.8; this provides consistent labels but does not discover arbitrary new topic names. Classifier failures are recorded safely rather than automatically retried; inspect them in Context Insights before explicit reprocessing. Backlog remains pending for later runs.
 
@@ -145,12 +132,12 @@ Completed: dedicated Context token read connection and query; synthetic streamin
 
 The existing Jev key was obtained from the authorized Trigger environment and stored only in the ignored local environment and the classification function. `npm run chat:check` now passes with both providers, Jev and Context configured. It performs a read-only Context query and no model generation. Synthetic live Jev classification was saved successfully into Insights, and six synthetic provider/tool evaluations pass. Anthropic sometimes describes an ignored injected instruction while still answering correctly; this verbosity remains a tuning opportunity.
 
-Before enabling the feature:
+Before deploying this Trigger migration:
 
-1. Finish the UI milestones and add targeted parser/lifecycle tests for split events, cancellation, stale streams, history limits and errors.
+1. Approve uploading the source bundle to Trigger.dev, then deploy `admin-context-chat` to preview branch `codex/sanity-context-chat-setup`. Configure that worker with the existing OpenAI/Anthropic, Jev, Redis and Sanity Context read/write credentials, `ADMIN_CHAT_INSIGHTS_ENABLED=1`, and matching `KV_NAMESPACE`. Never put the admin secret in the task payload.
 2. Browser-check 1280, 768, 390 and 360 px; long messages, keyboard operation, mobile composer, scroll anchoring, empty/disabled states, errors, retry and sources. Use synthetic fixtures for visual verification.
-3. Verify deployed admin auth, disabled POST behavior, Jev Auto, each provider's manual selection, live streaming, Redis admission and cancellation. A combined private-content/provider test remains outstanding; obtain approval for that test if required by the execution environment.
-4. Run full pull-request CI. Enable `ADMIN_CHAT_ENABLED=1` on the tested preview first, then Production only with the finished UI and successful checks. Redeploy after environment changes.
+3. Verify deployed admin auth, disabled POST behavior, automatic Jev routing, live streaming, Redis admission, reconnect and cancellation. A combined private-content/provider test remains outstanding; obtain approval for that test if required by the execution environment.
+4. Set the matching Trigger preview key and branch in Vercel, enable `ADMIN_CHAT_WORKER_READY=1`, and run full pull-request CI. Enable `ADMIN_CHAT_ENABLED=1` on the tested preview first, then Production only with the finished UI and successful checks. Redeploy after environment changes.
 
 Rollback: unset `ADMIN_CHAT_ENABLED` or set it to `0` and redeploy. POST fails closed while existing app functionality remains available. Revoke the dedicated Sanity robot token if the integration is retired or its credential is compromised.
 

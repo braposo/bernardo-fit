@@ -8,21 +8,44 @@ import { Message, MessageContent, MessageHeader } from '../components/ui/message
 import { Bubble, BubbleContent } from '../components/ui/bubble';
 import { MessageScrollerProvider, MessageScroller, MessageScrollerViewport, MessageScrollerContent,
   MessageScrollerItem, MessageScrollerButton } from '../components/ui/message-scroller';
-import { readChatStream, historyForTurns } from './stream';
+import { historyForTurns } from './stream';
+import { followChatRequest } from './transport';
 import { MarkdownMessage } from './MarkdownMessage';
+
+const SESSION_KEY = 'bfit_admin_chat';
+const phases = { queued: 'Queued…', connecting: 'Connecting to your content…', routing: 'Thinking…', reading: 'Reading content…', 'query-failed': 'Checking another source…', writing: 'Writing…', saving: 'Saving…', complete: 'Response complete.', truncated: 'Response limit reached.', failed: 'Response failed.', stopped: 'Response stopped.' };
 
 function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
   const [open, setOpen] = useState(false), [config, setConfig] = useState(null), [configError, setConfigError] = useState('');
   const [turns, setTurns] = useState([]), [draft, setDraft] = useState(''), [error, setError] = useState('');
+  const [restored, setRestored] = useState(false);
   const [busy, setBusy] = useState(false), [phase, setPhase] = useState('');
   const active = useRef(null), conversation = useRef(null), composer = useRef(null), generation = useRef(0);
   const headers = () => ({ 'x-admin-secret': getSecret(), 'Content-Type': 'application/json' });
   useEffect(() => {
     if (!authenticated) {
       generation.current++; active.current?.abort(); active.current = null;
+      sessionStorage.removeItem(SESSION_KEY); setRestored(false);
       setOpen(false); setTurns([]); setDraft(''); setConfig(null); setBusy(false); setError(''); conversation.current = null;
+    } else {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+        if (saved && Array.isArray(saved.turns)) {
+          conversation.current = saved.conversationId; setTurns(saved.turns); setDraft(saved.draft || '');
+        }
+      } catch { sessionStorage.removeItem(SESSION_KEY); }
+      setRestored(true);
     }
   }, [authenticated]);
+  useEffect(() => {
+    if (authenticated && restored) {
+      try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ conversationId: conversation.current, turns, draft })); } catch { /* Chat still works if browser storage is full. */ }
+    }
+  }, [authenticated, restored, turns, draft]);
+  useEffect(() => {
+    const pending = turns.at(-1);
+    if (authenticated && restored && pending?.status === 'running' && pending.request && !active.current) runTurn(pending.request, { ...pending });
+  }, [authenticated, restored]);
   useEffect(() => () => { generation.current++; active.current?.abort(); }, []);
   useEffect(() => {
     if (!open || !authenticated) return;
@@ -39,39 +62,59 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
   }, [open, authenticated]);
 
   const hasProvider = config?.models?.some(m => m.available);
-  const canSend = config?.enabled && config.contextConfigured && hasProvider && config.autoAvailable;
+  const canSend = config?.enabled && config.contextConfigured && hasProvider && config.autoAvailable && config.workerConfigured;
   const updateTurn = turn => setTurns(previous => previous.map(item => item.id === turn.id ? { ...turn } : item));
   async function send(question, retry = false) {
     if (active.current || !canSend || !question.trim()) return;
     const previous = retry ? turns.slice(0, -1) : turns;
     let messages;
     try { messages = historyForTurns(previous, question.trim()); } catch (e) { setError(e.message); return; }
-    const controller = new AbortController(), epoch = ++generation.current;
-    active.current = controller;
     conversation.current ||= crypto.randomUUID();
-    const turn = { id: crypto.randomUUID(), question: question.trim(), text: '', sources: [], status: 'running' };
-    setTurns([...previous, turn]); if (!retry) setDraft(''); setError(''); setBusy(true); setPhase('Connecting…');
+    const request = { messages, provider: 'auto', model: 'auto', conversationId: conversation.current, requestId: crypto.randomUUID() };
+    const turn = { id: request.requestId, request, question: question.trim(), text: '', sources: [], status: 'running' };
+    // Persist the idempotency key before the first network call, including ambiguous submissions.
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ conversationId: conversation.current, turns: [...previous, turn], draft: retry ? draft : '' })); } catch { /* Storage can be unavailable. */ }
+    setTurns([...previous, turn]); if (!retry) setDraft('');
+    await runTurn(request, turn);
+  }
+  async function stop() {
+    const controller = active.current;
+    if (!controller) return;
+    controller.stopRequested = true; setPhase('Stopping…');
+    if (!controller.runId) return;
+    try {
+      const response = await fetch('/api/admin/chat', { method: 'POST', headers: headers(), body: JSON.stringify({ action: 'stop', runId: controller.runId }) });
+      if (response.status === 401) { onUnauthorized(); return; }
+      if (!response.ok) throw Error('Stop failed');
+    } catch { setPhase('Could not stop. Try Stop again.'); }
+  }
+  async function runTurn(request, turn) {
+    const controller = new AbortController(), epoch = ++generation.current;
+    active.current = controller; controller.runId = turn.runId; setError(''); setBusy(true); setPhase(turn.runId ? 'Reconnecting…' : 'Submitting…');
     let frame;
     const flush = () => { frame = undefined; if (generation.current === epoch) updateTurn(turn); };
     try {
-      const response = await fetch('/api/admin/chat', { method: 'POST', headers: headers(), signal: controller.signal,
-        body: JSON.stringify({ messages, provider: 'auto', model: 'auto', conversationId: conversation.current }) });
-      if (response.status === 401) { onUnauthorized(); return; }
-      await readChatStream(response, (event, value) => {
-        if (generation.current !== epoch) return;
-        if (event === 'route') setPhase('Thinking…');
-        if (event === 'text' && typeof value.text === 'string') { turn.text += value.text; setPhase('Writing…'); }
-        if (event === 'activity') setPhase(value.state === 'query-failed' ? 'Checking another source…' : 'Reading content…');
-        if (event === 'sources' && Array.isArray(value.sources)) turn.sources = value.sources.filter(s => typeof s?.id === 'string' && typeof s.title === 'string');
-        if (event === 'persistence') turn.storage = value.state;
-        if (event === 'done') turn.status = value.truncated ? 'truncated' : 'complete';
-        if (!frame) frame = requestAnimationFrame(flush);
+      await followChatRequest({ request, runId: turn.runId, cursor: turn.cursor || 0, headers, signal: controller.signal,
+        onRun: runId => { controller.runId = runId; turn.runId = runId; flush(); if (controller.stopRequested) stop(); },
+        onReconnect: () => setPhase('Reconnecting… Your request is still being tracked.'),
+        onEvent: (event, value) => {
+          if (generation.current !== epoch) return;
+          if (Number.isSafeInteger(value.seq)) turn.cursor = value.seq + 1;
+          if (event === 'route') setPhase('Thinking…');
+          if (event === 'text' && typeof value.text === 'string') { turn.text += value.text; setPhase('Writing…'); }
+          if (event === 'activity') setPhase(phases[value.state] || 'Processing…');
+          if (event === 'sources' && Array.isArray(value.sources)) turn.sources = value.sources;
+          if (event === 'snapshot') {
+            for (const field of ['text', 'sources', 'status', 'storage', 'error']) if (value[field] !== undefined) turn[field] = value[field];
+          }
+          if (event === 'done') turn.status = value.status || (value.truncated ? 'truncated' : 'complete');
+          if (!frame) frame = requestAnimationFrame(flush);
+        },
       });
-      if (!turn.text.trim()) throw new Error('The response contained no text. Please retry.');
     } catch (e) {
       if (generation.current !== epoch) return;
-      turn.status = controller.signal.aborted ? 'stopped' : 'failed';
-      if (!controller.signal.aborted) turn.error = e.code === 'CHAT_ROUTER_UNAVAILABLE' ? 'Chat is temporarily unavailable. Please retry.' : e.message;
+      if (e.status === 401 || e.status === 403) { onUnauthorized(); return; }
+      turn.status = 'failed'; turn.error = e.message;
     } finally {
       cancelAnimationFrame(frame);
       if (generation.current === epoch) {
@@ -86,7 +129,7 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
   const last = turns.at(-1), incomplete = last && last.status !== 'complete';
   const unavailable = config && (!config.enabled ? 'Chat is not enabled in this environment yet.' :
     !config.contextConfigured ? 'The content connection is unavailable.' :
-    !hasProvider || !config.autoAvailable ? 'Chat is temporarily unavailable. Please try again later.' : '');
+    !hasProvider || !config.autoAvailable || !config.workerConfigured ? 'Chat is temporarily unavailable. Please try again later.' : '');
   if (!authenticated) return null;
   return <Dialog open={open} onOpenChange={setOpen}>
     <DialogTrigger asChild><Button className="admin-chat-launcher" variant="secondary"><MessageCircle aria-hidden="true" />Chat</Button></DialogTrigger>
@@ -121,14 +164,13 @@ function ChatPanel({ authenticated, getSecret, onUnauthorized }) {
         </MessageScroller>
       </MessageScrollerProvider>
       <form className="chat-composer" onSubmit={e => { e.preventDefault(); send(draft); }}>
-        <div className="chat-status" role="status">{busy ? phase : configError || unavailable || (!config ? 'Loading chat settings…' : last?.status === 'complete' ? 'Response complete.' : '')}</div>
         {error && <p className="chat-error" role="alert">{error}</p>}
         {!busy && incomplete && <div className="chat-retry"><span>Retry this question or start a new chat to continue.</span><Button type="button" variant="outline" disabled={!canSend} onClick={() => send(last.question, true)}>Retry</Button></div>}
         <label className="sr-only" htmlFor="chat-question">Message</label>
         <Textarea id="chat-question" ref={composer} value={draft} maxLength={12000} placeholder="Ask about your content…" rows={2}
           onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (!busy && !incomplete) send(draft); } }} />
-        <div className="chat-composer-footer"><p>{config?.insightsEnabled ? 'Conversations are saved privately for Insights.' : 'Conversation stays in this session.'} Answers don’t change your content.</p>
-          {busy ? <Button type="button" variant="outline" onClick={() => active.current?.abort()}><Square aria-hidden="true" />Stop</Button> :
+        <div className="chat-composer-footer"><p className="chat-status" role="status" aria-live="polite">{busy ? phase : configError || unavailable || (!config ? 'Loading chat…' : phases[last?.status] || 'Ready when you are.')}</p>
+          {busy ? <Button type="button" variant="outline" onClick={stop}><Square aria-hidden="true" />Stop</Button> :
             <Button type="submit" disabled={!canSend || !draft.trim() || incomplete}><Send aria-hidden="true" />Send</Button>}</div>
       </form>
     </DialogContent>

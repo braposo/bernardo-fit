@@ -1,100 +1,121 @@
-import { randomUUID } from "node:crypto";
-import { once } from "node:events";
-import { requireAdmin } from "../../lib/admin.js";
-import { jevEnabled } from "../../lib/jev.js";
-import { chatModels, selectChatModel } from "../../lib/chat/models.js";
-import { connectContext } from "../../lib/chat/context.js";
-import { createChatAgent } from "../../lib/chat/agent.js";
-import { admitChat } from "../../lib/chat/admission.js";
-import { validateChatRequest } from "../../lib/chat/policy.js";
-import { insightsClient, saveChatTurn } from "../../lib/chat/insights.js";
+import { createHash } from 'node:crypto';
+import { once } from 'node:events';
+import { tasks, runs, streams, idempotencyKeys } from '@trigger.dev/sdk';
+import { requireAdmin } from '../../lib/admin.js';
+import { jevEnabled } from '../../lib/jev.js';
+import { chatModels } from '../../lib/chat/models.js';
+import { validateChatRequest, chatError } from '../../lib/chat/policy.js';
+import { getRunReceipt, getReceiptForRequest, saveRunReceipt } from '../../lib/run-receipts.js';
+import { hasKV } from '../../lib/kv.js';
 
-// Native Node/Vercel SSE transport, independent of the eventual React renderer.
-// Only safe status, text and source metadata cross this boundary; never raw tools.
-export function createChatHandler({ connect = connectContext, select = selectChatModel,
-  makeAgent = createChatAgent, admit = admitChat, saveTurn = saveChatTurn, env = process.env } = {}) {
+const terminal = new Set(['COMPLETED', 'FAILED', 'CANCELED', 'CRASHED', 'SYSTEM_FAILURE', 'EXPIRED', 'TIMED_OUT']);
+const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+
+export function createChatHandler({ env = process.env, storage = hasKV, trigger = tasks.trigger,
+  retrieve = runs.retrieve, cancel = runs.cancel, read = streams.read, key = idempotencyKeys.create,
+  receiptForRun = getRunReceipt, receiptForRequest = getReceiptForRequest, saveReceipt = saveRunReceipt } = {}) {
   return async function handler(req, res) {
-    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader('Cache-Control', 'private, no-store');
     if (!requireAdmin(req, res)) return;
-    if (req.method === "GET") return res.status(200).json({ models: chatModels(env), autoAvailable: jevEnabled(env),
-      enabled: env.ADMIN_CHAT_ENABLED === "1", insightsEnabled: env.ADMIN_CHAT_INSIGHTS_ENABLED === "1",
-      contextConfigured: !!env.SANITY_CONTEXT_MCP_URL && !!env.SANITY_ORGANIZATION_TOKEN });
-    if (req.method !== "POST") { res.setHeader("Allow", "GET, POST"); return res.status(405).json({ error: "Method not allowed" }); }
-    if (env.ADMIN_CHAT_ENABLED !== "1") return res.status(503).json({ error: "Chat is not enabled yet.", code: "CHAT_DISABLED" });
-    const abort = new AbortController();
-    const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(180000)]);
-    const disconnect = () => { if (!res.writableEnded) abort.abort(); };
-    res.on("close", disconnect);
-    req.on("aborted", disconnect);
-    let context, release, streaming = false;
-    let request, ref, route, transcript = "", outcome = "failed", saved = false;
-    const persist = async () => {
-      if (saved || !request || !ref || !release || env.ADMIN_CHAT_INSIGHTS_ENABLED !== "1") return;
-      saved = true;
-      try {
-        await saveTurn({ request, ref, route, text: transcript, outcome, env });
-        if (streaming && !signal.aborted) await send("persistence", { state: "saved" });
-      } catch {
-        // Never leak a transcript or credential through errors or logs.
-        console.error("[admin-chat] Conversation storage failed", ref);
-        if (streaming && !signal.aborted) await send("persistence", { state: "failed", error: "Conversation could not be saved." });
-      }
-    };
-    const send = async (event, data) => {
-      signal.throwIfAborted();
-      if (!res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)) await once(res, "drain", { signal });
-    };
     try {
-      request = validateChatRequest(req.body);
-      if (env.ADMIN_CHAT_INSIGHTS_ENABLED === "1") insightsClient(env);
-      ref = randomUUID();
-      request.conversationId ||= ref;
-      release = await admit(ref);
-      // Check Context before incurring a routing/model call.
-      context = await connect({ signal, env });
-      route = await select(request, { env, ref, signal });
-      signal.throwIfAborted();
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-      res.setHeader("X-Accel-Buffering", "no");
-      res.flushHeaders?.();
-      streaming = true;
-      await send("route", { requestId: ref, conversationId: request.conversationId, ...route });
-      const result = await makeAgent({ route, context, ref }).stream({ messages: request.messages, abortSignal: signal });
-      let finish;
-      for await (const part of result.stream) {
-        if (part.type === "error" || part.type === "abort") throw new Error("Generation interrupted");
-        if (part.type === "text-delta") { transcript += part.text; await send("text", { text: part.text }); }
-        if (part.type === "tool-call") await send("activity", { state: "reading", tool: part.toolName });
-        if (part.type === "tool-error") await send("activity", { state: "query-failed", tool: part.toolName });
-        if (part.type === "tool-result") await send("sources", { sources: [...context.sources.values()] });
-        if (part.type === "finish") {
-          if (["error", "content-filter", "other", "tool-calls"].includes(part.finishReason)) throw new Error("No final answer");
-          finish = { finishReason: part.finishReason, truncated: part.finishReason === "length" };
+      const workerReady = env.ADMIN_CHAT_WORKER_READY === '1' && !!env.TRIGGER_SECRET_KEY && storage &&
+        (env.VERCEL_ENV !== 'preview' || (!!env.TRIGGER_PREVIEW_BRANCH && env.TRIGGER_SECRET_KEY.startsWith('tr_preview_')));
+      if (req.method === 'GET' && !req.query?.run) return res.status(200).json({
+        models: chatModels(env), autoAvailable: jevEnabled(env), enabled: env.ADMIN_CHAT_ENABLED === '1',
+        insightsEnabled: env.ADMIN_CHAT_INSIGHTS_ENABLED === '1',
+        contextConfigured: !!env.SANITY_CONTEXT_MCP_URL && !!env.SANITY_ORGANIZATION_TOKEN,
+        workerConfigured: workerReady, transport: 'trigger',
+      });
+      if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed' });
+      // Existing runs remain readable/cancellable when new submissions are disabled.
+      const runId = req.query?.run || req.body?.runId;
+      if (runId) {
+        const receipt = await receiptForRun(String(runId));
+        if (receipt?.kind !== 'admin-chat') return res.status(404).json({ error: 'Chat request not found.' });
+        if (req.method === 'POST') {
+          if (req.body.action !== 'stop') throw chatError('Unknown action.');
+          await cancel(receipt.runId);
+          return res.status(202).json({ stopping: true });
         }
+        return await relayChatRun(req, res, receipt.runId, { retrieve, read });
       }
-      if (!finish) throw new Error("Incomplete stream");
-      outcome = finish.truncated ? "truncated" : "complete";
-      await persist();
-      await send("done", finish);
+      if (env.ADMIN_CHAT_ENABLED !== '1') throw chatError('Chat is not enabled yet.', 503, 'CHAT_DISABLED');
+      if (!workerReady) throw chatError('Chat processing is unavailable.', 503, 'CHAT_WORKER_UNAVAILABLE');
+      const requestId = req.body?.requestId;
+      if (!uuid(requestId)) throw chatError('Request ID must be a UUID.');
+      const request = validateChatRequest({ ...req.body, provider: 'auto', model: 'auto' });
+      request.conversationId ||= requestId;
+      const fingerprint = digest(request);
+      const prior = await receiptForRequest('admin-chat', request.conversationId, requestId);
+      if (prior) {
+        if (prior.fingerprint !== fingerprint) throw chatError('This request ID belongs to another question.', 409);
+        return res.status(202).json({ runId: prior.runId, requestId, recovered: true });
+      }
+      const idempotencyKey = await key(`admin-chat:${requestId}`, { scope: 'global' });
+      const handle = await trigger('admin-context-chat', { requestId, request }, {
+        idempotencyKey, idempotencyKeyTTL: '30d', ttl: '5m', maxAttempts: 1,
+        metadata: { phase: 'queued' }, tags: [`request:${requestId}`],
+      });
+      // Validate the accepted payload even after an ambiguous dispatch or concurrent retry.
+      const accepted = await retrieve(handle.id);
+      if (accepted.taskIdentifier !== 'admin-context-chat' || digest(accepted.payload?.request) !== fingerprint)
+        throw chatError('This request ID belongs to another question.', 409);
+      await saveReceipt({ kind: 'admin-chat', jobId: request.conversationId, requestId, runId: handle.id, fingerprint });
+      return res.status(202).json({ runId: handle.id, requestId, recovered: false });
     } catch (error) {
-      if (!abort.signal.aborted && !res.destroyed) {
-        const safe = typeof error.code === "string" && error.code.startsWith("CHAT_");
-        const body = { error: safe ? error.message : signal.aborted ? "The response timed out. Try a shorter question." : "Chat could not complete the response. Please retry.",
-          code: safe ? error.code : "CHAT_FAILED" };
-        if (streaming) res.write(`event: error\ndata: ${JSON.stringify(body)}\n\n`);
-        else res.status(safe ? error.status : 502).json(body);
-      }
-    } finally {
-      if (signal.aborted) outcome = abort.signal.aborted ? "stopped" : "timed-out";
-      await persist();
-      await context?.close().catch(() => {});
-      await release?.().catch(() => {});
-      res.off("close", disconnect);
-      req.off("aborted", disconnect);
-      if (streaming && !res.writableEnded && !res.destroyed) res.end();
+      if (res.headersSent) { if (!res.writableEnded) res.end(); return; }
+      const safe = error.code?.startsWith('CHAT_');
+      return res.status(safe ? error.status : 503).json({ error: safe ? error.message : 'Chat is temporarily unavailable. Please retry.', code: safe ? error.code : 'CHAT_UNAVAILABLE' });
     }
   };
+}
+
+// This connection only observes a durable run. Closing it never cancels generation.
+export async function relayChatRun(req, res, runId, { retrieve, read }) {
+  const startIndex = Number(req.query?.cursor || 0);
+  if (!Number.isSafeInteger(startIndex) || startIndex < 0 || startIndex > 1000000) throw chatError('Invalid stream cursor.');
+  const abort = new AbortController();
+  const disconnect = () => abort.abort();
+  res.on('close', disconnect); req.on('aborted', disconnect);
+  const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(45000)]);
+  let started = false;
+  const send = async (event, data) => {
+    signal.throwIfAborted();
+    if (!started) {
+      res.statusCode = 200; res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('X-Accel-Buffering', 'no'); res.flushHeaders?.(); started = true;
+    }
+    if (!res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)) await once(res, 'drain', { signal });
+  };
+  const finish = async run => {
+    if (!terminal.has(run.status)) return false;
+    const snapshot = run.status === 'COMPLETED' && run.output ? run.output : {
+      status: run.status === 'CANCELED' ? 'stopped' : 'failed',
+      error: run.status === 'CANCELED' ? '' : 'Chat could not complete the response. Please retry.',
+    };
+    await send('snapshot', snapshot);
+    await send('done', { status: snapshot.status, truncated: snapshot.status === 'truncated' });
+    return true;
+  };
+  try {
+    const run = await retrieve(runId);
+    if (await finish(run)) return;
+    await send('activity', { state: run.metadata?.phase || 'queued' });
+    const stream = await read(runId, 'chat', { startIndex, timeoutInSeconds: 20, signal });
+    for await (const part of stream) {
+      if (!['text', 'route', 'activity', 'sources', 'snapshot', 'done'].includes(part.event)) continue;
+      await send(part.event, { ...part.data, seq: part.seq });
+      if (part.event === 'done') return;
+    }
+    await finish(await retrieve(runId));
+  } catch {
+    // Reconnect to the same run on timeout, network interruption or a not-yet-created stream.
+    // Never manufacture a generation failure from a failed subscription.
+  } finally {
+    abort.abort(); res.off('close', disconnect); req.off('aborted', disconnect);
+    if (!res.writableEnded && !res.destroyed) res.end();
+  }
 }
 
 export default createChatHandler();

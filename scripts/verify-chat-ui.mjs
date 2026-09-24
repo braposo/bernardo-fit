@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 let mode='normal', calls=0, lastBody, enabled=true, expired=false, autoAvailable=true;
+const chatRuns=new Map();
+let loseSubmission=true, interruptStream=true;
 const server=createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname==='/api/admin/jobs') { res.setHeader('Content-Type','application/json');
@@ -11,19 +13,46 @@ const server=createServer(async(req,res)=>{
     res.end(JSON.stringify({jobs:[],stages:['new'],models:[],features:{jevEnabled:true}})); return; }
   if(url.pathname==='/api/admin/chat') {
     if(expired){res.writeHead(401,{'Content-Type':'application/json'}).end('{"error":"Unauthorized"}');return;}
-    if(req.method==='GET') { res.setHeader('Content-Type','application/json');res.end(JSON.stringify({enabled,contextConfigured:true,autoAvailable,insightsEnabled:true,models:[{id:'gpt-5.6-sol',label:'Sol',provider:'openai',available:true},{id:'claude-sonnet-5',label:'Sonnet',provider:'anthropic',available:true}]}));return; }
-    let body='';for await(const chunk of req)body+=chunk; lastBody=JSON.parse(body); calls++;
+    if(req.method==='GET' && !url.searchParams.has('run')) { res.setHeader('Content-Type','application/json');res.end(JSON.stringify({enabled,contextConfigured:true,workerConfigured:true,autoAvailable,insightsEnabled:true,models:[{id:'gpt-5.6-sol',label:'Sol',provider:'openai',available:true},{id:'claude-sonnet-5',label:'Sonnet',provider:'anthropic',available:true}]}));return; }
+    if(req.method==='POST') {
+      let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);
+      if(input.action==='stop') {
+        const run=chatRuns.get(input.runId);clearTimeout(run.timer);
+        run.send('snapshot',{status:'stopped'});run.send('done',{status:'stopped'});
+        res.writeHead(202,{'Content-Type':'application/json'}).end('{}');return;
+      }
+      lastBody=input;
+      let run=chatRuns.get(input.requestId);
+      if(!run) {
+        calls++;run={events:[],listeners:new Set()};chatRuns.set(input.requestId,run);
+        run.send=(event,data)=>{
+          const part={event,data:{...data,seq:run.events.length}};run.events.push(part);
+          for(const listener of run.listeners)listener(part);
+        };
+        run.send('activity',{state:'queued'});
+        run.send('text',{text:'## Role comparison\n\n**Strong'});
+        const runMode=mode;
+        run.timer=setTimeout(()=>{
+          if(runMode==='error'){run.send('snapshot',{status:'failed',error:'Synthetic upstream failure'});run.send('done',{status:'failed'});return;}
+          const ending=' evidence** for a €100 project. <script>window.chatUnsafe=true</script>\n\n- Design leadership\n- Product strategy\n\n1. Review the role\n2. Use `specific evidence`\n\n> Focus on impact.\n\n| Role | Strength | Evidence | Next step |\n| --- | --- | --- | --- |\n| Atlas | Leadership | Research and strategy | Review portfolio |\n\n```js\nconst evidence = "A long example that stays inside its own horizontally scrolling code block on mobile screens";\n```\n\n[Reference](https://example.com/evidence) · [Unsafe](javascript:alert%281%29)\n\n![Hidden image](https://example.com/tracking.png)\n';
+          run.send('text',{text:ending});
+          run.send('sources',{sources:[{id:'synthetic.job',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'}]});
+          run.send('activity',{state:'saving'});run.send('snapshot',{status:'complete',storage:'saved'});run.send('done',{status:'complete'});
+        },runMode==='hold'?30000:200);
+      }
+      if(loseSubmission){loseSubmission=false;res.destroy();return;}
+      res.writeHead(202,{'Content-Type':'application/json'}).end(JSON.stringify({runId:input.requestId}));return;
+    }
+    const run=chatRuns.get(url.searchParams.get('run'));
+    if(!run){res.writeHead(404,{'Content-Type':'application/json'}).end('{"error":"Missing run"}');return;}
     res.writeHead(200,{'Content-Type':'text/event-stream'});
-    const send=(event,data)=>res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    send('route',{model:lastBody.model==='auto'?'gpt-5.6-sol':lastBody.model});
-    send('text',{text:'## Role comparison\n\n**Strong'});
-    const timer=setTimeout(()=>{
-      if(mode==='error'){send('error',{error:'Synthetic upstream failure'});res.end();return;}
-      send('text',{text:' evidence** for a €100 project. <script>window.chatUnsafe=true</script>\n\n- Design leadership\n- Product strategy\n\n1. Review the role\n2. Use `specific evidence`\n\n> Focus on impact.\n\n| Role | Strength | Evidence | Next step |\n| --- | --- | --- | --- |\n| Atlas | Leadership | Research and strategy | Review portfolio |\n\n```js\nconst evidence = "A long example that stays inside its own horizontally scrolling code block on mobile screens";\n```\n\n[Reference](https://example.com/evidence) · [Unsafe](javascript:alert%281%29)\n\n![Hidden image](https://example.com/tracking.png)\n'});
-      send('sources',{sources:[{id:'synthetic.job',type:'job',title:'Fictional Atlas · Principal Designer',jobId:'job & example'}]});
-      send('persistence',{state:'saved'});send('done',{finishReason:'stop'});res.end();
-    },mode==='hold'?30000:200);
-    res.on('close',()=>clearTimeout(timer));return;
+    const send=({event,data})=>{res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);if(event==='done')res.end();};
+    for(const part of run.events.slice(Number(url.searchParams.get('cursor')||0))) {
+      send(part);
+      if(interruptStream && part.event==='text'){interruptStream=false;res.end();return;}
+    }
+    if(!res.writableEnded)run.listeners.add(send);
+    res.on('close',()=>run.listeners.delete(send));return;
   }
   const allowed=['/admin.html','/admin-run.js','/admin-usage.js','/assets/admin-ui.js','/assets/admin-ui.css','/assets/task-ui.js','/task-ui.css'];
   if(!allowed.includes(url.pathname)){res.writeHead(404).end();return;}
@@ -48,6 +77,7 @@ try {
   await page.getByRole('button',{name:'Send',exact:true}).click();
   await page.getByText('Sources consulted (1)').waitFor();
   assert.equal(lastBody.provider,'auto');assert.equal(lastBody.model,'auto');assert.equal(calls,1);
+  assert.equal(loseSubmission,false);assert.equal(interruptStream,false);
   assert.equal(await page.evaluate(()=>window.chatUnsafe),undefined);
   const markdown=page.locator('.chat-markdown');
   assert.equal(await markdown.locator('h2').textContent(),'Role comparison');
@@ -85,7 +115,14 @@ try {
   assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'80px');
   await page.getByRole('button',{name:'Chat',exact:true}).click();
   assert.equal(await page.getByLabel('Message',{exact:true}).inputValue(),'Draft survives closing');
+  assert.equal(await page.getByText('Conversations are saved privately for Insights.').count(),0);
+  assert.equal(await page.locator('.chat-composer-footer [role=status]').textContent(),'Response complete.');
   mode='hold';await page.getByRole('button',{name:'Send',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(sessionStorage.getItem('bfit_admin_chat')).turns.at(-1).runId);
+  const beforeReload=calls;
+  await page.reload();await page.getByRole('button',{name:'Chat',exact:true}).click();
+  await page.getByRole('button',{name:'Stop',exact:true}).waitFor();
+  assert.equal(calls,beforeReload,'reload reconnects without regenerating');
   await page.getByRole('button',{name:'Stop',exact:true}).click();await page.getByText('Stopped · partial response').waitFor();
   mode='error';await page.getByRole('button',{name:'Retry',exact:true}).click();await page.getByText('Synthetic upstream failure',{exact:true}).waitFor();
   mode='normal';await page.getByRole('button',{name:'Retry',exact:true}).click();
@@ -107,5 +144,5 @@ try {
   assert.equal(await page.getByRole('dialog').count(),0);
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('bfit_admin_secret')),null);
   assert.deepEqual(errors,[]);
-  console.log('Chat UI passed: automatic routing, streamed Markdown, safe links and HTML, source links, responsive layout, accessibility, draft retention, stop, retry and new chat.');
-} finally {await browser.close();await new Promise(resolve=>server.close(resolve));}
+  console.log('Chat UI passed: idempotent dispatch recovery, stream reconnection, reload recovery, status footer, automatic routing, Markdown, sources, accessibility, stop and retry.');
+} finally {for(const run of chatRuns.values())clearTimeout(run.timer);await browser.close();await new Promise(resolve=>server.close(resolve));}
