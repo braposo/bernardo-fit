@@ -218,7 +218,7 @@ Typography entries name concrete roles rather than imposing a new global scale. 
 
 ## Layout
 
-The desktop shell fills the viewport width, with a 74px masthead and a 370px pipeline beside a flexible workspace. At 901–1100px the pipeline is 330px and workspace padding is 24px 20px. At 900px and below, use list/detail navigation and 17px shell side padding; the workspace has 22px top and 48px bottom padding.
+The desktop shell fills the viewport width, with a 74px masthead and a 370px pipeline beside a flexible workspace. At 901–1100px the pipeline is 330px and workspace padding is 24px 20px. The desktop pipeline can collapse to a 56px rail with an always available expand control; remember that choice across reloads. At 900px and below, use list/detail navigation and 17px shell side padding; the workspace has 22px top and 48px bottom padding.
 
 Document cards form two columns on wide desktop and one at 1100px and below. Desktop workspace padding is 28px 32px 48px. Spacing tokens capture actual recurring gaps and padding, not an invented uniform spacing scale. Preserve component-specific values where they differ.
 
@@ -252,7 +252,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 ## Pipeline and navigation
 
-- Desktop has an independently scrolling job list and reading pane. Mobile uses list/detail navigation, with Back to pipeline and browser Back restoring search, stage and list position.
+- Desktop has an independently scrolling job list and reading pane. Its collapse control enlarges the reading pane without changing the selected job or filters. Mobile uses list/detail navigation, with Back to pipeline and browser Back restoring search, stage and list position.
 - Keep full-width search and one compact stage dropdown in two sticky control rows. The dropdown includes the selected count; do not add wrapping stage chips, a duplicate matching-count line or an extra Filters button.
 - Search and stage combine. Counts reflect the current active/archive collection and search before stage filtering, using the real data contract. Distinguish loading, empty pipeline, empty stage and no search matches.
 - Bulk assessment uses the active roles currently displayed after search and stage filtering. Review that fixed set and write each role's private fit score and Overview summary. Wait for search results before offering the action. Fit page generation remains a separate per-role action.
