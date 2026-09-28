@@ -1,6 +1,6 @@
 # Editable chat configuration
 
-Open [Fit Studio](https://job-fit-app.sanity.studio/) → **Chat settings**. Changes become active after **Publish**, on the next chat request or Insights classification batch. Drafts never affect the app. A running response keeps its original snapshot.
+Open [Fit Studio](https://job-fit-app.sanity.studio/) → **Chat settings**. Changes become active after **Publish**, on the next chat request or Insights classification task. Drafts never affect the app. A running response keeps its original snapshot.
 
 - **Assistant:** assistant and Context instructions, policy label, maximum response tokens per step, maximum agent steps.
 - **Models & routing:** Jev API model, routing instructions, confidence/probability thresholds, OpenAI/Anthropic model IDs, labels, routing descriptions, enabled flags, and fallback priorities. Lower fallback priorities win when Jev is uncertain; equal priorities use list order. Credentials must exist for the selected provider. Model IDs must be valid for the provider account; syntax validation cannot verify account access.
@@ -8,9 +8,9 @@ Open [Fit Studio](https://job-fit-app.sanity.studio/) → **Chat settings**. Cha
 
 The published singleton is `chatSettings` / `fit-chat-settings` in project `quli96gc`, dataset `production`. It is fetched without CDN caching, validated, copied and deeply frozen once per turn. Missing or invalid settings stop the request before Context/AI calls. There is no silent runtime fallback to code defaults. `lib/chat/settings-defaults.js` exists only as a seed and test fixture. The non-chat analysis instructions continue to use the existing **Analysis settings** singleton.
 
-Trigger's Jev model span records its request and answer; the following writing-model span shows which model was used. Both carry their prompt identity, and native AI metrics retain usage and cost. The separate `modelSelection` log and run metadata are no longer emitted. Saved Insights turns retain the settings revision/fingerprint. The classifier logs the revision for each batch. The browser receives neither prompts nor the model catalog; its capabilities response reports provider availability only.
+Trigger's Jev model span records its request and answer; the following writing-model span shows which model was used. Both carry their prompt identity, and native AI metrics retain usage and cost. The separate `modelSelection` log and run metadata are no longer emitted. Saved Insights turns retain the settings revision/fingerprint. Each classification task returns the settings revision in its output. The browser receives neither prompts nor the model catalog; its capabilities response reports provider availability only.
 
-Credentials, API endpoints, admin authentication, document/tool access restrictions, input/output safety bounds, transport timeouts, concurrency and paid-retry protections remain in code/environment settings. Changing prompts cannot grant tools additional access. `SANITY_READ_TOKEN` is required by the chat Development worker and the existing Sanity classifier; the launcher copies only allowlisted credentials to its ignored worker environment file.
+Credentials, API endpoints, admin authentication, document/tool access restrictions, input/output safety bounds, transport timeouts, concurrency and paid-retry protections remain in code/environment settings. Changing prompts cannot grant tools additional access. `SANITY_READ_TOKEN` is required by the chat and classification Trigger workers; the launcher copies only allowlisted credentials to its ignored worker environment file.
 
 ## Studio schema and initial setup
 
@@ -25,7 +25,7 @@ Exclude `chatSettings` from generated document lists and creation templates, and
 
 Seed the existing configuration once with `node --env-file=.env.local scripts/seed-chat-settings.mjs`. It validates the fixture and uses `createIfNotExists`; it never overwrites existing published edits or drafts. Revert an unwanted edit through Studio history and publish it again.
 
-The runtime loader lives inside `functions/classify-conversations/settings.js` so the Sanity Function bundle includes the same validation used by the chat worker; `lib/chat/settings.js` re-exports it. The hourly classifier loads once before processing its batch, so a temporary settings failure leaves conversations pending for the next scheduled run.
+The shared runtime loader lives in `functions/classify-conversations/settings.js`; `lib/chat/settings.js` re-exports it. Each Trigger classification task loads one published settings snapshot and reuses it for its Jev retries. The Sanity scheduler only dispatches IDs and no longer loads settings or calls Jev. See [classification execution and rollout](chat-classification.md).
 
 Production uses the hosted Trigger **Production** worker with a `tr_prod_` key and no branch override. Preview/local use **Development**, branch `codex/sanity-context-chat-setup`; keep `npm run trigger:dev:chat` running for those environments only. Publishing settings requires no app/worker redeploy. Studio/schema or runtime code changes still require deployment.
 

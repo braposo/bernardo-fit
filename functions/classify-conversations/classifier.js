@@ -1,4 +1,5 @@
 import { loadChatSettings } from './settings.js';
+const failure = (message, retryable = false) => Object.assign(new Error(message), { retryable });
 const probability = value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 export function metricsFromAnswers(data, settings) {
   if (data?.model !== settings.classifierModel) throw new Error("Jev returned an unsupported classifier model");
@@ -20,38 +21,60 @@ export function metricsFromAnswers(data, settings) {
 }
 
 export async function classifyWithJev(messages, { apiKey = process.env.TYPESAFE_API_KEY, fetchImpl = fetch, settings } = {}) {
-  if (!apiKey?.trim()) throw new Error("Jev classifier credential is missing");
+  if (!apiKey?.trim()) throw failure("Jev classifier credential is missing");
   settings ||= await loadChatSettings();
   const body = JSON.stringify({ model: settings.classifierModel, state: { messages }, questions: settings.questions });
-  if (Buffer.byteLength(body) > 100000) throw new Error("Conversation exceeds Jev classification limit");
-  const response = await fetchImpl("https://api.typesafe.ai/v1/systemone", { method: "POST",
-    headers: { Authorization: `Bearer ${apiKey.trim()}`, "Content-Type": "application/json" },
-    body, signal: AbortSignal.timeout(30000) });
-  if (!response.ok) throw new Error("Jev classification request failed");
-  return metricsFromAnswers(await response.json(), settings);
+  if (Buffer.byteLength(body) > 100000) throw failure("Conversation exceeds Jev classification limit");
+  let response;
+  try {
+    response = await fetchImpl("https://api.typesafe.ai/v1/systemone", { method: "POST",
+      headers: { Authorization: `Bearer ${apiKey.trim()}`, "Content-Type": "application/json" },
+      body, signal: AbortSignal.timeout(30000) });
+  } catch { throw failure('Jev classification transport failed', true); }
+  if (!response.ok) throw failure('Jev classification request failed', response.status === 429 || response.status >= 500);
+  try { return metricsFromAnswers(await response.json(), settings); }
+  catch { throw failure('Invalid Jev classification response'); }
 }
 
-export async function classifyPending(client, classify = classifyWithJev) {
-  const pending = await client.context.fetch(`*[_type == "sanity.context.conversation" && organizationId == $org
-    && !defined(classifiedAt) && !defined(classificationError) && count(messages) > 0
-    && messagesUpdatedAt < $before && $endpoint in metadata.mcpEndpoints]
-    | order(messagesUpdatedAt asc)[0...3]{threadId}`, {
-    org: client.config().context.organizationId, endpoint: "bernardo-fit-admin",
-    before: new Date(Date.now() - 10 * 60000).toISOString(),
-  });
-  let successCount = 0, errorCount = 0;
-  for (const { threadId } of pending) {
-    try {
-      const conversation = await client.context.conversations.get({ threadId });
-      if (!conversation?.messages?.length) throw new Error("Empty conversation");
-      const coreMetrics = await classify(conversation.messages);
-      await client.context.conversations.classify({ threadId, coreMetrics });
-      successCount++;
-    } catch {
-      errorCount++;
-      // Stable safe errors; no transcript/provider error body in stored diagnostics.
-      await client.context.conversations.classify({ threadId, classificationError: "Jev classification failed (jev-insights-1). Review and retry explicitly." });
-    }
+export function classificationPayload(value) {
+  if (!value || typeof value.threadId !== 'string' || !value.threadId.startsWith('admin-chat.') || value.threadId.length > 200)
+    throw failure('Invalid classification snapshot ID');
+  return { threadId: value.threadId };
+}
+
+async function storageOperation(operation) {
+  try { return await operation(); }
+  catch (error) {
+    const status = error?.statusCode;
+    throw failure('Insights storage request failed', !status || status === 429 || status >= 500);
   }
-  return { successCount, errorCount, totalFound: pending.length };
+}
+
+export async function classifyConversation(client, { threadId }, {
+  classify = classifyWithJev, loadSettings = loadChatSettings, retryStage = operation => operation(),
+} = {}) {
+  const conversation = await retryStage(() => storageOperation(() => client.context.conversations.get({ threadId })));
+  if (!conversation) return { status: 'missing' };
+  // A late duplicate, or replay after an ambiguous write, must not pay for Jev again.
+  if (conversation.classifiedAt || conversation.classificationError) return { status: 'skipped' };
+  if (!conversation.metadata?.mcpEndpoints?.includes('bernardo-fit-admin')) throw failure('Snapshot is outside admin chat');
+  if (!conversation.messages?.length) throw failure('Empty conversation');
+  const settings = await retryStage(async () => {
+    try { return await loadSettings(); }
+    catch (error) { throw failure('Chat settings could not be loaded', error?.code !== 'CHAT_SETTINGS_INVALID'); }
+  });
+  const coreMetrics = await retryStage(() => classify(conversation.messages, { settings }));
+  // Retry the write independently, retaining the successful paid result in memory.
+  await retryStage(() => storageOperation(() => client.context.conversations.classify({ threadId, coreMetrics })));
+  return { status: 'classified', settingsRevision: settings.revision };
+}
+
+export async function recordClassificationFailure(client, payload) {
+  const { threadId } = classificationPayload(payload);
+  const conversation = await storageOperation(() => client.context.conversations.get({ threadId }));
+  if (!conversation || conversation.classifiedAt || conversation.classificationError ||
+      !conversation.metadata?.mcpEndpoints?.includes('bernardo-fit-admin')) return;
+  await storageOperation(() => client.context.conversations.classify({ threadId,
+    classificationError: 'Jev classification failed (jev-insights-2). Review the Trigger run and retry explicitly.',
+  }));
 }
