@@ -8,7 +8,7 @@ import { createChatWork as createWork } from '../lib/chat/work.js';
 import { createChatHandler } from "../api/admin/chat.js";
 import { admitChat } from "../lib/chat/admission.js";
 import { saveChatTurn, insightsClient } from "../lib/chat/insights.js";
-import { metricsFromAnswers as metrics, classifyPending } from "../functions/classify-conversations/classifier.js";
+import { metricsFromAnswers as metrics, classifyConversation, recordClassificationFailure } from "../functions/classify-conversations/classifier.js";
 import { MockLanguageModelV4 } from "ai/test";
 
 import {initialChatSettingsDocument, MODEL, GAPS} from '../lib/chat/settings-defaults.js';
@@ -126,11 +126,13 @@ await test("Jev Insights validates native classifications and maps scores to San
 });
 await test("Insights records verdicts and safe failures without leaking model errors", async () => {
   const writes = [];
-  const client = { config: () => ({ context: { organizationId: "org" } }), context: {
-    fetch: async (query, params) => { assert.equal(params.endpoint, "bernardo-fit-admin"); assert.match(query, /!defined\(classifiedAt\)/); return [{threadId:"one"}, {threadId:"two"}]; },
-    conversations: { get: async ({threadId}) => ({messages:[{role:"user",content:threadId}]}), classify: async value => { writes.push(value); } } } };
-  const counts = await classifyPending(client, async messages => { if(messages[0].content === "two") throw Error("PRIVATE CONTENT"); return {successScore:8,sentiment:"neutral",contentGaps:[]}; });
-  assert.deepEqual(counts, {successCount:1,errorCount:1,totalFound:2});
+  const client = { context: {
+    conversations: { get: async ({threadId}) => ({metadata:{mcpEndpoints:['bernardo-fit-admin']},messages:[{role:"user",content:threadId}]}), classify: async value => { writes.push(value); } } } };
+  const options = {loadSettings:async()=>settings, classify:async messages => { if(messages[0].content === "admin-chat.two") throw Error("PRIVATE CONTENT"); return {successScore:8,sentiment:"neutral",contentGaps:[]}; }};
+  assert.equal((await classifyConversation(client, {threadId:'admin-chat.one'}, options)).status, 'classified');
+  await assert.rejects(classifyConversation(client, {threadId:'admin-chat.two'}, options));
+  assert.equal(writes.length, 1); // Failure is recorded only by the terminal task hook.
+  await recordClassificationFailure(client, {threadId:'admin-chat.two'});
   assert.ok(writes[0].coreMetrics); assert.ok(writes[1].classificationError); assert.ok(!JSON.stringify(writes).includes("PRIVATE CONTENT"));
 });
 
