@@ -92,6 +92,20 @@ try {
   };
   check('pipeline controls use shadcn components', await page.locator('#search').getAttribute('data-slot') === 'input' &&
     await page.locator('#stagefilter').getAttribute('data-slot') === 'native-select');
+  await page.getByRole('button', { name: 'Collapse pipeline sidebar' }).focus();
+  await page.keyboard.press('Enter');
+  check('desktop pipeline collapses and workspace expands', await page.locator('.admin-shell').evaluate(el =>
+    el.classList.contains('pipeline-collapsed') && el.querySelector('.pipeline').getBoundingClientRect().width === 64 &&
+    getComputedStyle(el.querySelector('.pipeline-list')).display === 'none' && el.querySelector('.workspace').getBoundingClientRect().width > 1000));
+  check('toggle uses a secondary icon button', await page.locator('.pipeline-toggle').getAttribute('data-variant') === 'secondary' &&
+    await page.locator('.pipeline-toggle svg').count() === 1);
+  check('collapsed pipeline retains the selected role', await page.locator('.role-header').isVisible() && await page.locator('.pipeline-toggle').getAttribute('aria-expanded') === 'false');
+  if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: `${process.env.ADMIN_UX_SCREENSHOTS}/pipeline-collapsed.png` });
+  await page.reload();
+  check('collapsed pipeline survives reload', await page.getByRole('button', { name: 'Expand pipeline sidebar' }).isVisible());
+  await page.getByRole('button', { name: 'Expand pipeline sidebar' }).click();
+  check('pipeline expands with controls available', await page.locator('#search').isVisible() && await page.locator('.pipeline-toggle').getAttribute('aria-expanded') === 'true');
+  if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: `${process.env.ADMIN_UX_SCREENSHOTS}/pipeline-expanded.png` });
   check('approved tab names', (await page.locator('[role="tab"]').allTextContents()).join('|') === 'Overview|Documents|Role details|Activity');
   check('job card score has no repeated label', await page.locator('.pipeline-item .score-tile').first().textContent() === '80');
   check('listing uses an unboxed link variant', await page.locator('.listing-link').getAttribute('data-variant') === 'link');
@@ -240,6 +254,7 @@ try {
   await page.locator('[data-select-job="job0"]').click();
   for (const width of [1280, 768, 390, 360]) {
     await page.setViewportSize({ width, height: 900 });
+    if (width <= 900) check('desktop collapse control is hidden on mobile at ' + width, !(await page.locator('.pipeline-toggle').isVisible()));
     const fitHistory = page.locator('[data-document="fit"] [data-slot="collapsible"]');
     if (await fitHistory.getAttribute('data-state') !== 'open') await page.locator('[data-document="fit"] [data-act="versions-toggle"]').click();
     await page.locator('[data-document="fit"] .ver').first().waitFor();
