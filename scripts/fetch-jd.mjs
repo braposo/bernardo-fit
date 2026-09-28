@@ -143,6 +143,10 @@ export async function fetchDescription(id, { retries = 3 } = {}) {
 
 async function extractFrom(res) {
   const html = await res.text();
+  return descriptionFromHtml(html);
+}
+
+export function descriptionFromHtml(html) {
   const markup = extract(html);
   if (!markup) return "";
   const text = htmlToText(markup);

@@ -150,9 +150,17 @@ Jev is the sole producer of new fit scores. Ingestion uses its five rubric asses
 
 These are a model-generated read against the profile, for triage. They are not employer assessments and no company ever sees one.
 
-## Recurring inbox review
+## Daily LinkedIn discovery
 
-A recurring agent-side workflow scans Gmail, pulls out individual roles (including the ones buried inside LinkedIn alert digests), fetches each posting's public description, and posts the batch to `POST /api/admin/ingest`. Its schedule lives outside this repository. The endpoint returns HTTP 202 and the CLI follows the background run to completion. Existing jobs retain their stage, notes, score, linked analysis and archived state. New jobs are scored by Jev before admission. Candidates that pass receive a private Overview summary using the existing summary generator, then enter the pipeline with both their assessment and summary attached. Rejected candidates do not incur summary-generation costs. This does not generate a full fit report.
+Sanity's `discover-linkedin` scheduled function dispatches the hosted Trigger `linkedin-job-discovery` task daily at **09:00 Europe/London**. Sanity's UTC cron fires at 08:00 and 09:00; a London-time guard selects the correct one across daylight-saving changes. A global date-based idempotency key prevents duplicate dispatches. The worker searches the same eight public LinkedIn queries, with up to 60 results per query. It does not scan email or depend on a desktop agent.
+
+Discovery uses the last successful scan with a 24-hour overlap (seven days on a fresh installation), deduplicates posting IDs and company/role across active and archived jobs, and leaves existing entries untouched. Each new candidate needs the original full public description; there is no independent fit filter. Jev uses the published Sanity profile and rubric and the existing **inclusive 50-point** admission rule, including hard constraints. Accepted jobs receive both Overview summaries and enter at `new`. Rejected candidates incur no summary cost; no full fit reports or applications are generated.
+
+The worker verifies saved assessments and summaries before advancing `linkedin-discovery:last-success` in KV. Access restrictions, rate limits, missing descriptions, invalid assessments or generation failures leave the run incomplete and its checkpoint unchanged. It does not bypass login or challenges. Run reports (including archive resurfacing and bounded-search coverage) are retained at `linkedin-discovery:report:<runId>` for 90 days. Assessment/summary caches are reused across overlapping daily scans for 30 days and invalidated by changed scoring inputs. Trigger shows incomplete scans as failed runs requiring attention.
+
+Rollout: merge and deploy the matching app/Trigger commit first, verify `SANITY_CONTENT_ENABLED=1`, `SANITY_ANALYSIS_ENABLED=1` and `JEV_INGEST_MIN_SCORE=50` in the hosted worker, then deploy the Sanity Blueprint. Set only the existing Production `TRIGGER_SECRET_KEY` on `discover-linkedin` (no preview branch). Before activating the new schedule, pause the old **Daily job opportunities** Codex automation and seed the worker checkpoint using `scripts/migrate-linkedin-checkpoint.mjs <old-checkpoints.json>` with the existing production KV credentials. The script reads only the LinkedIn checkpoint and never overwrites a newer worker checkpoint. Verify a scheduled Sanity dispatch, its completed Trigger run, and saved jobs/summaries; a successful build alone does not prove LinkedIn allows access from the hosted worker.
+
+The existing manual `POST /api/admin/ingest` and ingestion CLI remain available. They return/follow the asynchronous ingest run and use the same scoring and summary pipeline.
 
 Assessment and summary results are checkpointed separately for 30 days. A summary failure is reported as `summary-failed`, increments `failed`, and leaves the candidate out of the pipeline. Retrying the same request reuses the successful assessment and any completed summary. Existing jobs and archive decisions are not rewritten by this summary step. Deploy the updated ingest worker to enable automatic summaries.
 
@@ -162,7 +170,7 @@ The batch result and ingest CLI distinguish `filtered` (below threshold or a har
 
 Ingest scoring uses up to four concurrent evaluations. A successful assessment is reused on retry within the same request when the candidate input, profile and rubric are unchanged. Re-importing an existing row does not rescore or remove it; changed scoring inputs mark its retained assessment stale, and **Assess fit with Jev** refreshes it manually. Deploy the updated ingest worker as well as the web branch before testing this flow.
 
-The server still holds no mail credentials. The scan runs agent-side and only the resulting JSON is posted. `scripts/ingest-opportunities.mjs` reads `ADMIN_SECRET` from `.env.local` itself and never prints or forwards it, so whatever assembles the JSON never handles the credential. Populate it once with `vercel env pull`.
+The server holds no mail credentials. `scripts/ingest-opportunities.mjs` reads `ADMIN_SECRET` from `.env.local` itself and never prints it. The scheduled discovery worker uses its existing Sanity, KV and generation credentials directly.
 
 ## Cover letters
 

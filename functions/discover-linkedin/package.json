@@ -1,0 +1,9 @@
+{
+  "name": "bernardo-linkedin-scheduler",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@sanity/functions": "1.8.0",
+    "@trigger.dev/sdk": "4.5.16"
+  }
+}
