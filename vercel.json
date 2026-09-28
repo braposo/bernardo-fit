@@ -25,6 +25,14 @@
       "destination": "/api/site?page=cv"
     },
     {
+      "source": "/letter",
+      "destination": "/api/site?page=letter"
+    },
+    {
+      "source": "/letter.html",
+      "destination": "/api/site?page=letter"
+    },
+    {
       "source": "/bernardo-raposo-cv.pdf",
       "destination": "/api/site?page=download"
     }

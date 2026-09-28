@@ -6,6 +6,7 @@ import {
   homeContent,
   cvHeader,
   cvBody,
+  contactHtml,
   escapeHtml,
   scriptJson,
 } from "../lib/sanity/public-pages.js";
@@ -17,12 +18,13 @@ export function createSiteHandler(getClient = createContentClient) {
       return res.status(405).end();
     }
     const slug = req.query?.page || "home";
-    if (!["home", "cv", "download"].includes(slug))
+    if (!["home", "cv", "letter", "download"].includes(slug))
       return res.status(404).end();
     try {
       const client = getClient(),
-        page = await loadPublicPage(slug === "download" ? "cv" : slug, client);
-      if (!page || (slug !== "download" && !page[slug]))
+        sourceSlug = ["download", "letter"].includes(slug) ? "cv" : slug,
+        page = await loadPublicPage(sourceSlug, client);
+      if (!page || (slug !== "download" && !page[sourceSlug]))
         return res
           .status(503)
           .send(
@@ -40,22 +42,31 @@ export function createSiteHandler(getClient = createContentClient) {
       }
       let html = await readFile(
         new URL(
-          `../lib/templates/${slug === "home" ? "home" : "cv"}.html`,
+          `../lib/templates/${slug}.html`,
           import.meta.url,
         ),
         "utf8",
       );
       html = html.replace(
         /<title>[\s\S]*?<\/title>/,
-        () => `<title>${escapeHtml(page.title)}</title>`,
+        () => `<title>${escapeHtml(slug === "letter" ? page.cv.name + " · Cover Letter" : page.title)}</title>`,
       );
       if (slug === "home") {
+        const identityPage = await loadPublicPage("cv", client);
+        if (!identityPage?.cv) throw new Error("Public identity unavailable");
+        const content = {
+          ...homeContent(page.home),
+          identity: {
+            name: identityPage.cv.name,
+            contactsHtml: contactHtml(identityPage.cv.contacts),
+          },
+        };
         const demoReport =
           req.query?.demo === "1" ? await client.fetch(DEMO_QUERY) : null;
         html = html.replace(
           "/* SANITY_PUBLIC_CONTENT */",
           () =>
-            `window.PUBLIC_CONTENT=${scriptJson(homeContent(page.home))};window.PUBLIC_DEMO=${scriptJson(demoReport)};`,
+            `window.PUBLIC_CONTENT=${scriptJson(content)};window.PUBLIC_DEMO=${scriptJson(demoReport)};`,
         );
         html = html.replace(
           /<meta name="description"[^>]*>/,

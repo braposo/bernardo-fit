@@ -7,7 +7,7 @@ A small tool you can host on your own site. Someone pastes a job description, an
 ```
 public/index.html          ← public fit page
 public/admin.html          ← admin pipeline; imports small run helpers from admin-run.js
-public/letter.html         ← printable A4 letter
+lib/templates/letter.html ← printable A4 letter, with the shared Sanity CV identity
 api/*.js                   ← public analysis, report, letter and aggregate analytics endpoints
 api/admin/*.js             ← authenticated job, version and task-dispatch endpoints
 lib/store.js               ← atomic report and opportunity storage

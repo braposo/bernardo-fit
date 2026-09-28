@@ -71,8 +71,7 @@ check("keeps span.em", out.paragraphs[0].html.includes('<span class="em">'));
 check("keeps <em>", out.paragraphs[2].html.includes("<em>"));
 check("strips injected script tag", !JSON.stringify(out.paragraphs).includes("<script"));
 check("keeps the injected text content", out.paragraphs[3].html.includes("Injected markup"));
-check("appends the fit paragraph", out.paragraphs[out.paragraphs.length - 1].fit === true);
-check("fit paragraph links correctly", out.paragraphs[out.paragraphs.length - 1].html.includes('href="https://fit.bernardoraposo.com/?r=abc"'));
+check("does not append unrequested promotional copy", out.paragraphs.length === LETTER.paragraphs.length && !out.paragraphs.some(p => p.fit));
 check("counts words", typeof out.words === "number" && out.words > 0, out.words);
 check("budget is enforced in the prompt", COVER_MAX_WORDS === 430);
 

@@ -26,6 +26,7 @@ public/assets/task-ui.*
 
 .toast-screenshots/
 .chat-screenshots/
+output/
 
 # Sanity Function bundles (source and lockfile are tracked)
 functions/*/.build/
