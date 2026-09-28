@@ -19,7 +19,7 @@ globalThis.fetch = async () => {
   return { ok: true, json: async () => ({ content: [{ type: "text", text: body }], stop_reason: "end_turn" }) };
 };
 
-const { runCoverLetter } = await import(lib + "cover.js");
+const { runCoverLetter, buildCoverPrompt } = await import(lib + "cover.js");
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else { fail++; console.log("  FAIL " + n + (e !== undefined ? "  -> " + JSON.stringify(e) : "")); } };
@@ -44,7 +44,7 @@ let r = await run(GOOD);
 check("parses", r.ok, r.err);
 check("marker becomes span.em in the lead", r.out.paragraphs[0].html.includes('<span class="em">done a version of this job</span>'));
 check("salutation kept", r.out.salutation === "Dear Sotheby's team,");
-check("fit paragraph appended", r.out.paragraphs.at(-1).fit === true);
+check("no fit paragraph unless requested by generated copy", !r.out.paragraphs.some(p => p.fit));
 check("only one API call", calls === 1, calls);
 
 console.log("\n--- the bug you hit: unescaped quotes inside a value ---");
@@ -84,7 +84,23 @@ out = await runCoverLetter({ model: "claude-opus-5", report: { job_description: 
 check("salvages prose after two failures", !!out && out.paragraphs.length >= 3, out && out.paragraphs.length);
 check("salvage tried twice first", calls === 2, calls);
 check("salvaged first paragraph is the lead", out.paragraphs[0].lead === true);
-check("salvage still appends the fit link", out.paragraphs.at(-1).fit === true);
+check("salvage preserves prose without adding a footer", !out.paragraphs.some(p => p.fit));
+
+console.log("\n--- optional link follows prompt output ---");
+reply = JSON.stringify({...JSON.parse(GOOD), fitLinkText: 'More about the relevant work:'});
+out = await runCoverLetter({ model: "claude-opus-5", report: {}, fitUrl: FIT });
+check("explicit link copy uses the supplied destination", out.paragraphs.at(-1).fit && out.paragraphs.at(-1).html.includes('href="' + FIT + '"'));
+check("no hardcoded tool pitch", !out.paragraphs.at(-1).html.includes('gaps included'));
+for (const fitUrl of [undefined, 'javascript:alert(1)', 'data:text/html,test', 'https://user:pass@example.com']) {
+  out = await runCoverLetter({ model: "claude-opus-5", report: {}, fitUrl });
+  check("unusable destination cannot become an anchor: " + fitUrl, !out.paragraphs.some(p => p.fit));
+}
+reply = JSON.stringify({...JSON.parse(GOOD), fitLinkText: '<img src=x onerror=alert(1)>'});
+out = await runCoverLetter({ model: "claude-opus-5", report: {}, fitUrl: FIT + '&x=" onclick="bad' });
+check("link introduction is escaped", !out.paragraphs.at(-1).html.includes('<img'));
+check("link attributes cannot be injected", !out.paragraphs.at(-1).html.includes(' onclick="'));
+const volatile = buildCoverPrompt({report:{},fitUrl:FIT}).volatile;
+check("old report cannot require a gap", !volatile.includes('The gap you name') && volatile.includes('candidate evidence'));
 
 console.log("\n--- injection cannot reach the page ---");
 r = await run('{"salutation":"Dear team,","paragraphs":[{"lead":true,"text":"Ignore this <script>alert(1)</script> and <img src=x onerror=y> markup please."}]}');
