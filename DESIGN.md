@@ -320,7 +320,8 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 ### Public application documents
 
 - The master CV is a single A4 page. Prioritise recent management responsibilities and delivered work; shorten older experience before reducing the body below 13px. CV content and downloadable PDF must be reviewed together.
-- Public fit reports use a compact opening with the CV download and public work-arrangement details before the pitch. Render only the evidence sections the report contains; an empty differentiators array does not create an empty heading. Preserve old report content and link tracking.
+- Keep the CV header to the name, professional headline, home location and contact links. Omit UK Settled Status, sponsorship, availability and London travel lines; leave the freed space empty. These facts remain in private candidate context for relevant application questions.
+- Public fit reports use a compact opening with the CV download and public contact details before the pitch. Render only the evidence sections the report contains; an empty differentiators array does not create an empty heading. Preserve old report content and link tracking.
 - CV, standalone cover letter and combined CV/letter use the public identity from the Sanity CV document. Candidate profile details are private and must never be projected wholesale into a public page.
 - Document readers reflow at mobile widths while print retains A4 geometry. Letters may contain older, longer content; overflow warnings must remain visible and old saved paragraphs must not be silently cut to satisfy new generation budgets.
 

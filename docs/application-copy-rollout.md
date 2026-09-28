@@ -10,7 +10,7 @@ The September 2026 editorial update changes reusable candidate context, prompts 
 | Motivation and interview context | Candidate profile specialised summaries | Overrides the corresponding baseline entries in Analysis settings. Keep repeated facts aligned. |
 | Writing rules and output shape | Analysis settings, `texts[]` by key | Shared prose rules plus fit, cover, answer and brief instructions. |
 | Practical-fit rules | Analysis settings, `questions[]` | Distinguish employer requirements from imported labels, and preferences from hard constraints. |
-| Public identity and master CV | Site page / CV, slug `cv` | Public contact/travel text, CV sections, shared letter header and PDF asset. |
+| Public identity and master CV | Site page / CV, slug `cv` | Public contact details, CV sections, shared letter header and PDF asset. |
 | Public introduction | Site page / CV, slug `home` | Homepage copy; the app template controls layout. |
 
 `sourcePayload`, migration snapshots and code-baseline fixtures are historical recovery or compatibility data, not the editing surface for current connected generation. Writing guidance documents are not consumed automatically. Do not seed over edited Analysis settings.
@@ -31,6 +31,7 @@ Candidate facts, specialised summaries, chat context and the master CV/PDF have 
 - The proposed SingleStore Next.js/Sanity migration was a plan only and had not started on departure. Never present it as implemented, underway or a delivered saving.
 - Preserve the user's prohibition on public direct-report, hiring and promotion counts. Use specific work without implying management of managers or inflated organisational responsibility.
 - The master CV stays on one A4 page. The export workflow and source/PDF checks are documented in [sanity-public-pages.md](sanity-public-pages.md).
+- The CV header contains identity, home location and contact links. Leave out eligibility, sponsorship, availability and London travel details, keeping the freed space empty. Retain these facts in private candidate context for relevant application questions.
 - Default cover letters target 180-250 words in 3-4 paragraphs. Gaps, AI discussion and fit-link copy are conditional. The existing 430-word ceiling is a prompt/layout budget, not a truncation step.
 - Fit reports use 3-4 relevant evidence sections and 0-2 additional differentiators. Keep existing JSON field names and support historical reports with more sections.
 - Harrogate residence, UK eligibility and recorded London travel flexibility must remain distinct. Do not infer London residency, a fixed multi-day commute or a remote-only requirement.
