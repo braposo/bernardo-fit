@@ -95,8 +95,10 @@ try {
   await page.getByRole('button', { name: 'Collapse pipeline sidebar' }).focus();
   await page.keyboard.press('Enter');
   check('desktop pipeline collapses and workspace expands', await page.locator('.admin-shell').evaluate(el =>
-    el.classList.contains('pipeline-collapsed') && el.querySelector('.pipeline').getBoundingClientRect().width === 56 &&
+    el.classList.contains('pipeline-collapsed') && el.querySelector('.pipeline').getBoundingClientRect().width === 64 &&
     getComputedStyle(el.querySelector('.pipeline-list')).display === 'none' && el.querySelector('.workspace').getBoundingClientRect().width > 1000));
+  check('toggle uses a secondary icon button', await page.locator('.pipeline-toggle').getAttribute('data-variant') === 'secondary' &&
+    await page.locator('.pipeline-toggle svg').count() === 1);
   check('collapsed pipeline retains the selected role', await page.locator('.role-header').isVisible() && await page.locator('.pipeline-toggle').getAttribute('aria-expanded') === 'false');
   if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: `${process.env.ADMIN_UX_SCREENSHOTS}/pipeline-collapsed.png` });
   await page.reload();

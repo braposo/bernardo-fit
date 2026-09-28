@@ -1376,7 +1376,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       });
       renderAdmin(shell.querySelector('.workspace'), workspaceHtml);
     } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="' + (showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
-      '<button class="ghost pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '">' + (pipelineCollapsed ? '›' : '‹') + '</button>' +
+      '<button class="pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '"><span data-icon="sidebar-toggle"></span></button>' +
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
       '<span class="pipeline-total">'+shown.length+' opportunities</span>' + '</div>' +
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
@@ -1411,7 +1411,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       pipelineToggle.setAttribute('aria-expanded', String(!pipelineCollapsed));
       pipelineToggle.setAttribute('aria-label', pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar');
       pipelineToggle.title = pipelineToggle.getAttribute('aria-label');
-      pipelineToggle.textContent = pipelineCollapsed ? '›' : '‹';
       if (!pipelineCollapsed) restorePipelineScroll();
     });
 

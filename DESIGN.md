@@ -218,7 +218,7 @@ Typography entries name concrete roles rather than imposing a new global scale. 
 
 ## Layout
 
-The desktop shell fills the viewport width, with a 74px masthead and a 370px pipeline beside a flexible workspace. At 901–1100px the pipeline is 330px and workspace padding is 24px 20px. The desktop pipeline can collapse to a 56px rail with an always available expand control; remember that choice across reloads. At 900px and below, use list/detail navigation and 17px shell side padding; the workspace has 22px top and 48px bottom padding.
+The desktop shell fills the viewport width, with a 74px masthead and a 370px pipeline beside a flexible workspace. At 901–1100px the pipeline is 330px and workspace padding is 24px 20px. The desktop pipeline can collapse to a 64px rail with an always available secondary expand control; remember that choice across reloads. At 900px and below, use list/detail navigation and 17px shell side padding; the workspace has 22px top and 48px bottom padding.
 
 Document cards form two columns on wide desktop and one at 1100px and below. Desktop workspace padding is 28px 32px 48px. Spacing tokens capture actual recurring gaps and padding, not an invented uniform spacing scale. Preserve component-specific values where they differ.
 
