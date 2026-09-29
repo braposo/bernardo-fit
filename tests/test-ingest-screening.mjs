@@ -38,13 +38,12 @@ globalThis.fetch = async (url, options) => {
   if (company.includes("malformed")) return { ok: true, status: 200, json: async () => ({ answers: {} }) };
   const score = company.includes("below") ? 59 : company.includes("boundary") ? 60 : 85;
   const answers = Object.fromEntries(Object.entries(questions).map(([key, q]) => {
-    if (q.type === "noul") return [key, { type: "noul", noul: company.includes("unknown") && key === "practicalKnown" ? 0.1 : 0.99 }];
     if (q.type === "score") {
       const points = [0, 20, 40, 65, 100];
       const low = points.findIndex((point, i) => i < 4 && point <= score && score <= points[i + 1]);
       const rung = low + (score - points[low]) / (points[low + 1] - points[low]);
       const high = Math.ceil(rung);
-      return [key, { type: "score", score: rung, confidence: 0.9,
+      return [key, { type: "score", score: rung, confidence: company.includes("unknown") && key === "practical" ? 0.1 : 0.9,
         probabilities: Object.fromEntries(q.criteria.map((_, i) => [i, low === high ? Number(i === low) : i === low ? high - rung : i === high ? rung - low : 0])) }];
     }
     const choice = key === "posting" ? company.includes("inaccessible") ? "inaccessible" : company.includes("unrelated") ? "unrelated" : company.includes("partial") ? "partial" : "complete" : company.includes("conflict") ? "conflict" : "clear";
@@ -74,7 +73,11 @@ await test("only qualifying new jobs enter the pipeline with a fresh five-dimens
   }
   assert.equal(result.screeningRows.find(r => r.company === "below").score, 59);
   assert.equal(result.screeningRows.find(r => r.company === "conflict").decision, "constraint-conflict");
-  assert.equal(jobs.find(j => j.company === "unknown").jevAssessment.dimensions[4].evidenceLimited, true);
+  const uncertain = jobs.find(j => j.company === "unknown").jevAssessment;
+  assert.equal(uncertain.dimensions[4].confidence, 0.1);
+  assert.equal(uncertain.score, 85, "low confidence does not penalise ingestion fit scores");
+  assert.equal(uncertain.status, "complete");
+  assert.equal(uncertain.dimensions[4].evidenceLimited, undefined);
   assert.equal(jobs.find(j => j.company === "partial").jevAssessment.status, "provisional");
   assert.equal(result.screeningRows.find(r => r.company === "inaccessible").postingQuality, "inaccessible");
   assert.equal(admissionDecision({ status: "provisional", score: 59, posting: { choice: "partial" } }, 60), "below-threshold");

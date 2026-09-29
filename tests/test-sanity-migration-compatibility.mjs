@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {legacyScoringFingerprint,scoringFingerprint,scoringInput,scoringQuestions,FIT_DIMENSIONS} from '../lib/jev-scoring.js';
+import {scoringFingerprint,scoringInput,scoringQuestions,FIT_DIMENSIONS} from '../lib/jev-scoring.js';
 import {JEV_MODEL,JEV_POLICY_VERSION} from '../lib/jev.js';
 import {jobSummary,jobDetail} from '../lib/job-view.js';
 import {initialSettingsDocument} from '../lib/sanity/settings-document.js';
@@ -16,10 +16,9 @@ const input={company:'Example',role:'Engineering Manager',jobDescription:'Manage
 const oldFingerprint='e08ca8051db688fc83288f009ae16d98b0e975b49cf2cc4ee9e067e2e1b9179f';
 const job={...input,jevAssessment:{fingerprint:oldFingerprint,score:57,dimensions:[],assessedAt:'2026-09-21'},
   overviewSummary:{fingerprint:oldFingerprint,assessedAt:'2026-09-21',position:'Saved position',fit:'Saved interpretation'}};
-await test(()=>assert.equal(legacyScoringFingerprint(input),oldFingerprint));
 await test(()=>withSettingsSnapshot(settings,()=>{
-  assert.equal(jobSummary(job).score,57);assert.equal(jobSummary(job).jevStale,false);
-  assert.equal(jobDetail(job).overviewSummary.position,'Saved position');
+  assert.equal(jobSummary(job).score,57);assert.equal(jobSummary(job).jevStale,true);
+  assert.equal(jobDetail(job).overviewSummary,null,'Old capped assessments need a new assessment and summary');
 }));
 await test(()=>withSettingsSnapshot(settings,()=>{
   const edited={...job,salary:'Changed salary'};
@@ -45,9 +44,11 @@ await test(()=>{
   const fingerprint=withSettingsSnapshot(settings,()=>scoringFingerprint(input));
   withSettingsSnapshot(changed,()=>{
     assert.equal(scoringFingerprint(input),fingerprint,'Unrelated writing changes do not invalidate scores');
-    assert.equal(jobSummary(job).jevStale,false,'Pre-migration assessments remain current');
-    assert.equal(jobDetail(job).overviewSummary.position,'Saved position');
-    assert.equal(jobSummary({...job,score:null,scoreBreakdown:null}).jevStale,false,'Removing historical scores does not affect freshness');
+    const current = {...job,jevAssessment:{...job.jevAssessment,fingerprint},overviewSummary:{...job.overviewSummary,fingerprint}};
+    assert.equal(jobSummary(current).jevStale,false,'Writing changes leave current-policy assessments current');
+    assert.equal(jobDetail(current).overviewSummary.position,'Saved position');
+    assert.equal(jobSummary({...current,score:null,scoreBreakdown:null}).jevStale,false,'Removing historical scores does not affect freshness');
+    assert.equal(jobSummary(job).jevStale,true,'Writing changes must not revive an old scoring policy');
   });
 });
 await test(()=>{
@@ -57,8 +58,8 @@ await test(()=>{
     policy:'2026-09-21-stricter-fit-1',transportPolicy:JEV_POLICY_VERSION,dimensions:FIT_DIMENSIONS,questions:scoringQuestions()}));
   const saved={...job,jevAssessment:{...job.jevAssessment,fingerprint},overviewSummary:{...job.overviewSummary,fingerprint}};
   withSettingsSnapshot(settings,()=>{
-    assert.equal(jobSummary(saved).jevStale,false);
-    assert.equal(jobDetail(saved).overviewSummary.position,'Saved position');
+    assert.equal(jobSummary(saved).jevStale,true);
+    assert.equal(jobDetail(saved).overviewSummary,null);
     assert.equal(jobSummary({...saved,salary:'Changed'}).jevStale,true);
   });
   withSettingsSnapshot({...settings,legacyFitCompatible:false},()=>assert.equal(jobSummary(saved).jevStale,true));

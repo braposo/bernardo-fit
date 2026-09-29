@@ -98,6 +98,13 @@ await test("settings changes invalidate review, scoring, prose and research reus
   assert.ok(a.every((value, i) => value !== b[i]));
   assert.equal(withSettingsSnapshot(changed, () => jobSummary({...job, jevAssessment: {fingerprint: a[0], dimensions: []}}).jevStale), true);
 });
+await test("retired sufficiency questions and gap copy do not affect fit freshness", () => {
+  const doc = structuredClone(original);
+  doc.questions.find(q => q.key === "practicalKnown").instructions = "Unused legacy question";
+  doc.dimensions.find(d => d.id === "practical").gap = "Unused legacy warning";
+  const edited = settingsFromDocument(doc);
+  assert.equal(withSettingsSnapshot(snapshot, () => scoringFingerprint(job)), withSettingsSnapshot(edited, () => scoringFingerprint(job)));
+});
 
 process.env.TYPESAFE_API_KEY = "synthetic";
 process.env.ANTHROPIC_API_KEY = "synthetic";
