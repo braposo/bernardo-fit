@@ -11,7 +11,7 @@ The three tabs contain:
   cover letters, answers, research, briefs and Jev overview summaries.
 - **Jev rubric and routing:** scoring instructions for all five dimensions,
   five rating descriptions for each, posting and constraint checks,
-  writing-model selection, routine-answer routing and weights. Weights must
+  writing-model selection, routine-answer routing, minimum job admission score and weights. Weights must
   total 100. The existing Studio document also retains five legacy `*Known`
   entries and dimension `gap` messages for schema compatibility. Fit assessment
   no longer requests these checks, applies their caps or displays their messages;
@@ -56,6 +56,19 @@ code baseline is used. When on, a failed fetch or invalid/missing published sett
 returns an error rather than silently using obsolete instructions.
 
 ## Snapshots, retries and staleness
+
+**Minimum job admission score** starts at **50/100** and accepts integers from
+0 to 100. A score equal to the minimum passes, subject to posting validation and
+hard constraints. Publish the field under **Jev rubric and routing** to change it.
+Each new ingest batch saves the published value; retries keep that saved policy.
+Changing only this field does not invalidate scoring or generated content.
+The old `JEV_INGEST_MIN_SCORE` environment variable is ignored. Older documents
+without the field, and offline baseline operation, use 50; malformed values fail
+validation. Seed the existing published singleton with
+`node --env-file=.env.local scripts/set-ingest-minimum-score.mjs --apply`.
+The script also updates the field on an existing draft without publishing other
+draft edits. Apply `migration/admission-threshold-studio.patch` in the standalone
+Studio and deploy it. Deploy the app and worker after the PR is merged.
 
 Each authenticated API request and task attempt loads one immutable published
 snapshot. Concurrent tasks cannot mix snapshots. A publication affects the next

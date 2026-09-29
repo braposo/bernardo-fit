@@ -32,6 +32,24 @@ revised.dimensions[1].weight = 20;
 const changed = settingsFromDocument(revised);
 const job = {company: "Example", role: "Engineer", jobDescription: "Build a product with a small engineering team."};
 
+await test("admission threshold is validated without changing content or scoring fingerprints", async () => {
+  assert.equal(snapshot.ingestMinimumScore, 50);
+  const legacy = structuredClone(original); delete legacy.ingestMinimumScore;
+  assert.equal(settingsFromDocument(legacy).ingestMinimumScore, 50);
+  for (const value of [0, 50, 70, 100]) {
+    const edited = await loadAnalysisSettings({SANITY_ANALYSIS_ENABLED: "1"}, {
+      fetch: async () => ({...original, ingestMinimumScore: value}),
+    });
+    assert.equal(edited.ingestMinimumScore, value);
+    assert.equal(edited.fingerprint, snapshot.fingerprint);
+    assert.equal(edited.legacyScoringCompatible, true);
+    assert.equal(withSettingsSnapshot(edited, () => scoringFingerprint(job)), withSettingsSnapshot(snapshot, () => scoringFingerprint(job)));
+  }
+  for (const value of [-1, 101, 50.5, "50", null, NaN]) {
+    assert.throws(() => settingsFromDocument({...original, ingestMinimumScore: value}), {code: "SANITY_SETTINGS_INVALID"});
+  }
+});
+
 await test("seeding retains baseline semantics and fingerprint", () => {
   assert.equal(snapshot.fingerprint, settingsFingerprint());
   assert.notEqual(snapshot.fingerprint, changed.fingerprint);

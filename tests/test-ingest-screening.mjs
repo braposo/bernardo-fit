@@ -7,6 +7,8 @@ import { jobSummary, jobDetail } from "../lib/job-view.js";
 import { scoringFingerprint } from "../lib/jev-scoring.js";
 import { getTaskInput } from "../lib/task-results.js";
 import handler from "../api/admin/ingest.js";
+import { settingsFromDocument, withSettingsSnapshot } from "../lib/sanity/analysis-settings.js";
+import { initialSettingsDocument } from "../lib/sanity/settings-document.js";
 
 process.env.TYPESAFE_API_KEY = "synthetic-key";
 process.env.OPENAI_API_KEY = "synthetic-openai";
@@ -36,7 +38,7 @@ globalThis.fetch = async (url, options) => {
   const company = state.opportunity.company;
   if (company.includes("failure")) return { ok: false, status: 503 };
   if (company.includes("malformed")) return { ok: true, status: 200, json: async () => ({ answers: {} }) };
-  const score = company.includes("below") ? 59 : company.includes("boundary") ? 60 : 85;
+  const score = company.includes("below") ? 49 : company.includes("boundary") ? 50 : 85;
   const answers = Object.fromEntries(Object.entries(questions).map(([key, q]) => {
     if (q.type === "score") {
       const points = [0, 20, 40, 65, 100];
@@ -52,12 +54,12 @@ globalThis.fetch = async (url, options) => {
   return { ok: true, status: 200, json: async () => ({ model: "jev-1.13.0", answers, usage: { input_tokens: 200, output_tokens: 20 } }) };
 };
 
-await test("minimum is inclusive, defaults to 60 and rejects invalid configuration", async () => {
-  assert.equal(ingestMinimumScore({}), 60);
-  assert.equal(ingestMinimumScore({ JEV_INGEST_MIN_SCORE: "70" }), 70);
-  for (const v of ["-1", "101", "NaN", "60.5"]) assert.throws(() => ingestMinimumScore({ JEV_INGEST_MIN_SCORE: v }));
-  assert.equal(admissionDecision({ status: "complete", score: 60 }, 60), "accepted");
-  assert.equal(admissionDecision({ status: "complete", score: 59 }, 60), "below-threshold");
+await test("minimum is inclusive, defaults to 50 and ignores the retired environment override", async () => {
+  assert.equal(ingestMinimumScore(), 50);
+  process.env.JEV_INGEST_MIN_SCORE = "90";
+  try { assert.equal(ingestMinimumScore(), 50); } finally { delete process.env.JEV_INGEST_MIN_SCORE; }
+  assert.equal(admissionDecision({ status: "complete", score: 50 }, 50), "accepted");
+  assert.equal(admissionDecision({ status: "complete", score: 49 }, 50), "below-threshold");
 });
 await test("only qualifying new jobs enter the pipeline with a fresh five-dimension assessment", async () => {
   const result = await executeIngestBatch([opportunity("good"), opportunity("boundary"), opportunity("below"),
@@ -67,11 +69,11 @@ await test("only qualifying new jobs enter the pipeline with a fresh five-dimens
   assert.equal(summaryCalls, 4, "only passing candidates generate summaries");
   const jobs = await listJobs(); assert.equal(jobs.length, 4);
   for (const job of jobs) {
-    const view = jobSummary(job); assert.equal(view.jevStale, false); assert.ok(view.score >= 60);
+    const view = jobSummary(job); assert.equal(view.jevStale, false); assert.ok(view.score >= 50);
     assert.equal(job.jevAssessment.dimensions.length, 5); assert.equal(job.fitReportId, "");
     assert.equal(jobDetail(job).overviewSummary.position, "Lead the engineering team.");
   }
-  assert.equal(result.screeningRows.find(r => r.company === "below").score, 59);
+  assert.equal(result.screeningRows.find(r => r.company === "below").score, 49);
   assert.equal(result.screeningRows.find(r => r.company === "conflict").decision, "constraint-conflict");
   const uncertain = jobs.find(j => j.company === "unknown").jevAssessment;
   assert.equal(uncertain.dimensions[4].confidence, 0.1);
@@ -97,8 +99,8 @@ await test("successful screening is cached for retries, while changed inputs are
   const before = calls;
   await screenOpportunity(opp, options); await screenOpportunity(opp, options); assert.equal(calls, before + 1);
   const retained = await getTaskInput("ingest-assessment", `${options.requestId}:${scoringFingerprint(opp)}`);
-  assert.equal(retained.score, 59);
-  assert.equal((await screenOpportunity(opp, { ...options, minimumScore: 50 })).decision, "accepted"); assert.equal(calls, before + 1);
+  assert.equal(retained.score, 49);
+  assert.equal((await screenOpportunity(opp, { ...options, minimumScore: 40 })).decision, "accepted"); assert.equal(calls, before + 1);
   await screenOpportunity({ ...opp, salary: "changed" }, options); assert.equal(calls, before + 2);
 });
 await test("failures are retryable and missing credentials never admit unscored jobs", async () => {
@@ -138,13 +140,12 @@ await test("admission snapshots the server threshold and a recovered request kee
     await handler({ method: "POST", headers: { "x-admin-secret": "synthetic-admin" }, body }, res); return res;
   };
   try {
-    process.env.JEV_INGEST_MIN_SCORE = "70";
+    const snapshot = score => settingsFromDocument({ ...initialSettingsDocument(), ingestMinimumScore: score });
     const body = { opportunities: [opportunity("api")], requestId: "threshold-snapshot", minimumScore: 0 };
-    assert.equal((await call(body)).code, 202);
+    assert.equal((await withSettingsSnapshot(snapshot(70), () => call(body))).code, 202);
     assert.deepEqual(dispatched, { requestId: body.requestId });
     assert.equal((await getTaskInput("ingest-policy", body.requestId)).minimumScore, 70);
-    process.env.JEV_INGEST_MIN_SCORE = "80";
-    assert.equal((await call(body)).body.recovered, true);
+    assert.equal((await withSettingsSnapshot(snapshot(80), () => call(body))).body.recovered, true);
     assert.equal((await getTaskInput("ingest-policy", body.requestId)).minimumScore, 70);
   } finally { tasks.trigger = trigger; idempotencyKeys.create = key; delete process.env.JEV_INGEST_MIN_SCORE; }
 });

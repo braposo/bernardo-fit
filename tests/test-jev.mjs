@@ -77,7 +77,7 @@ await test("rubrics normalise zero-indexed scores and retain reported confidence
   assert.deepEqual(Object.keys(scoringQuestions()), ["responsibilities", "evidence", "scope", "direction", "practical", "posting", "constraint"]);
   const usage = await readUsage("fit"); assert.equal(usage[0].input, 150); assert.equal(usage[0].estimatedCostMicros, 6);
 });
-await test("strong matches can still score highly, while plausible matches stay below screening threshold", async () => {
+await test("strong matches can still score highly, while plausible matches remain calibrated", async () => {
   try {
     transform = d => { for (const key of Object.keys(d.answers).filter(k => d.answers[k].type === "score")) {
       d.answers[key].score = 4; d.answers[key].probabilities = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 1 };
@@ -96,7 +96,7 @@ await test("a weak central match cannot be hidden by high scores elsewhere", asy
       d.answers[key].score = rung;
       d.answers[key].probabilities = Object.fromEntries([0, 1, 2, 3, 4].map(i => [i, Number(i === rung)]));
     } return d; };
-    assert.equal((await assessFit(job)).score, 55, "poor daily work fit stays below the default ingest threshold");
+    assert.equal((await assessFit(job)).score, 55, "poor daily work fit retains its scoring ceiling independently of admission policy");
     transform = d => { for (const key of Object.keys(d.answers).filter(k => d.answers[k].type === "score")) {
       const rung = key === "evidence" ? 2 : 4;
       d.answers[key].score = rung;
