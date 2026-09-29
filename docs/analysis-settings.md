@@ -92,10 +92,47 @@ as a Review rating cue without changing scores or declaring information missing.
 The Overview prompt must not invent missing facts or capability gaps to explain
 confidence values, and must distinguish essential requirements from bonuses.
 
-The `2026-09-29-fit-confidence-1` scoring policy makes older capped assessments
+The `2026-09-29-context-evidence-1` scoring policy makes older assessments
 outdated while retaining their saved scores and provenance. An explicit
 reassessment produces new scores and a matching Overview summary; publication
 of instructions never triggers that model work by itself.
+
+## Assessment context and dimension boundaries
+
+Scoring and the Overview receive the same candidate snapshot, job-specific
+instructions, recruiter notes, company, role, full description, location,
+location mode and salary. Notes can supply factual clarifications omitted from
+structured fields. A recruiter salary discussion remains tentative; it is not
+a confirmed offer or necessarily base compensation. Notes cannot override the
+rubric, and candidate optimism or recruiter enthusiasm does not establish fit.
+Conflicting sources remain uncertain unless a later clarification is identified.
+
+Candidate context includes the profile summary, referenced evidence, headline,
+location, availability, work eligibility, notice period, career direction,
+working preferences, salary preferences and constraints. Application stage,
+recruiter contact details and previous generated assessments are not fit evidence.
+Changing any included job field invalidates scoring reuse and generation review;
+editing notes while scoring or summarising prevents a stale result from attaching.
+
+Across all five dimensions, missing detail affects confidence rather than
+automatically forcing a lower rating. Strong ratings still need relevant positive
+evidence. With no usable evidence at all, use a neutral midpoint and low confidence.
+
+- Responsibilities use actual duties, without inferring a management/coding split
+  or direct reports from a title.
+- Evidence uses essential capabilities and delivered work. A requested portfolio
+  is an application follow-up; its absence from context does not erase documented
+  experience. Do not assume the portfolio exists or treat bonuses as essentials.
+- Scope uses ownership, complexity and influence, without assuming a Principal
+  title requires manager-of-managers experience.
+- Direction retains Engineering Manager as the first preference while recognising
+  the explicitly acceptable senior IC and smaller-company leadership paths.
+- Practical compatibility credits supported UK remote arrangements. Unknown pay
+  or hours do not themselves negate that fit; explicit country restrictions,
+  required attendance and other supported conflicts still matter. A distributed
+  company alone does not establish that a particular role permits UK work.
+
+Count a concern in multiple dimensions only when it independently affects each.
 
 ## Maintaining the setup
 

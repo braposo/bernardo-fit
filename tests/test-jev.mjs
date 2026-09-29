@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { tasks, idempotencyKeys } from "@trigger.dev/sdk";
 import { evaluateJev, validateAnswers, jevEnabled } from "../lib/jev.js";
-import { assessFit, scoringQuestions, scoringFingerprint } from "../lib/jev-scoring.js";
+import { assessFit, scoringQuestions, scoringFingerprint, scoringInput } from "../lib/jev-scoring.js";
+import { summariseOverview } from "../lib/overview-summary.js";
 import { executeJevWork } from "../lib/jev-work.js";
 import { routeAnswer } from "../lib/jev-routing.js";
 import { answerPolicy } from "../lib/answer-policy.js";
@@ -73,7 +74,6 @@ await test("rubrics normalise zero-indexed scores and retain reported confidence
   const a = await assessFit(job, "fit"); assert.equal(a.score, 65); assert.equal(a.dimensions.length, 5);
   assert.equal(a.dimensions[0].confidence, 0.9); assert.equal(a.status, "complete");
   assert.deepEqual(a.dimensions[0].probabilities, { 0: 0, 1: 0, 2: 0, 3: 1, 4: 0 });
-  assert.match(scoringQuestions().responsibilities.instructions, /level 3 requires clear evidence/);
   assert.deepEqual(Object.keys(scoringQuestions()), ["responsibilities", "evidence", "scope", "direction", "practical", "posting", "constraint"]);
   const usage = await readUsage("fit"); assert.equal(usage[0].input, 150); assert.equal(usage[0].estimatedCostMicros, 6);
 });
@@ -142,6 +142,36 @@ await test("model confidence never caps a fit rating or makes a complete posting
       assert.ok(a.dimensions.every(d => !('evidenceLimited' in d) && !('evidenceProbability' in d) && !('evidenceNote' in d)));
     }
   } finally { transform = x => x; }
+});
+await test("all factual job fields invalidate assessments, but workflow metadata does not", () => {
+  const original = scoringFingerprint(job);
+  for (const field of ["company", "role", "jobDescription", "location", "locationMode", "salary", "instructions", "notes"]) {
+    assert.notEqual(scoringFingerprint({ ...job, [field]: "Changed context" }), original, field);
+  }
+  for (const field of ["stage", "recruiter", "score", "overviewSummary", "answers"]) {
+    assert.equal(scoringFingerprint({ ...job, [field]: "Unrelated metadata" }), original, field);
+  }
+  assert.equal(scoringInput({}).notes, "");
+});
+await test("scoring and overview receive the same factual recruiter notes", async () => {
+  const contextualJob = { ...job, notes: "Recruiter discussed £120k+; base versus total not confirmed. UK remote permitted." };
+  const originalFetch = globalThis.fetch;
+  const inputs = {};
+  globalThis.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    if (url.includes("typesafe.ai")) inputs.score = body.state;
+    else inputs.overview = JSON.parse(body.input[0].content);
+    return originalFetch(url, options);
+  };
+  try {
+    const assessment = await assessFit(contextualJob);
+    await summariseOverview(contextualJob, assessment);
+    assert.deepEqual(inputs.score, scoringInput(contextualJob));
+    assert.equal(inputs.overview.notes, contextualJob.notes);
+    assert.deepEqual(inputs.overview.opportunity, inputs.score.opportunity);
+    assert.equal(inputs.overview.preferences, inputs.score.preferences);
+    assert.equal(inputs.overview.candidate, inputs.score.candidate);
+  } finally { globalThis.fetch = originalFetch; }
 });
 await test("previously borderline sufficiency no longer lowers supported ratings", async () => {
   try {
@@ -249,7 +279,7 @@ await test("edits mark saved scores outdated and stale in-flight results cannot 
   assert.equal(jobDetail(await getJob(job.id)).overviewSummary, null);
   const payload = await claim(job.id, "jev-work-two");
   const fetch = globalThis.fetch;
-  globalThis.fetch = async (...args) => { await mutateJob(job.id, () => ({ location: "Changed mid-flight" })); return fetch(...args); };
+  globalThis.fetch = async (...args) => { await mutateJob(job.id, () => ({ notes: "Recruiter clarification changed mid-flight" })); return fetch(...args); };
   assert.equal((await executeJevWork(payload)).outcome, "superseded"); globalThis.fetch = fetch;
   assert.equal(jobSummary(await getJob(job.id)).jevStale, true);
 });
@@ -273,7 +303,7 @@ await test("summary completion cannot overwrite edited job context", async () =>
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (...args) => {
     const response = await originalFetch(...args);
-    if (args[0].includes("openai.com")) await mutateJob(job.id, () => ({ salary: "Edited during summary" }));
+    if (args[0].includes("openai.com")) await mutateJob(job.id, () => ({ notes: "Recruiter clarification edited during summary" }));
     return response;
   };
   try { assert.equal((await executeJevWork(payload)).outcome, "superseded");
@@ -297,7 +327,7 @@ await test("review and dispatch require auth, a current fingerprint and the fixe
     assert.equal(review.model, "jev-1.13.0"); assert.equal(payload, undefined);
     assert.equal((await call({ ...body, reviewFingerprint: review.fingerprint })).code, 202);
     assert.equal(payload.model, "jev-1.13.0"); assert.equal(payload.jobDescription, undefined);
-    await mutateJob(job.id, () => ({ instructions: "Changed preferences" }));
+    await mutateJob(job.id, () => ({ notes: "Recruiter clarification after review" }));
     assert.equal((await call({ ...body, requestId: "jev-dispatch-stale", reviewFingerprint: review.fingerprint })).code, 409);
   } finally { tasks.trigger = trigger; idempotencyKeys.create = key; }
 });
