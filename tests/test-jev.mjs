@@ -74,6 +74,7 @@ await test("rubrics normalise zero-indexed scores and retain reported confidence
   assert.equal(a.dimensions[0].confidence, 0.9); assert.equal(a.status, "complete");
   assert.deepEqual(a.dimensions[0].probabilities, { 0: 0, 1: 0, 2: 0, 3: 1, 4: 0 });
   assert.match(scoringQuestions().responsibilities.instructions, /level 3 requires clear evidence/);
+  assert.deepEqual(Object.keys(scoringQuestions()), ["responsibilities", "evidence", "scope", "direction", "practical", "posting", "constraint"]);
   const usage = await readUsage("fit"); assert.equal(usage[0].input, 150); assert.equal(usage[0].estimatedCostMicros, 6);
 });
 await test("strong matches can still score highly, while plausible matches stay below screening threshold", async () => {
@@ -127,24 +128,44 @@ await test("rejects mismatched model and malformed native Noul answers", async (
   try {
     transform = d => ({ ...d, model: "jev-unexpected" });
     await assert.rejects(assessFit(job, "model-mismatch"), /invalid assessment/);
-    transform = d => { d.answers.practicalKnown = { type: "noul", noul: 1.5 }; return d; };
-    await assert.rejects(assessFit(job, "invalid-noul"), /invalid assessment/);
+    assert.throws(() => validateAnswers({ answers: { check: { type: "noul", noul: 1.5 } } },
+      { check: { type: "boolean" } }), /invalid assessment/);
   } finally { transform = x => x; }
 });
-await test("sparse evidence retains all ratings and weights with visible uncertainty", async () => {
+await test("model confidence never caps a fit rating or makes a complete posting provisional", async () => {
   try {
-    transform = d => { for (const key of Object.keys(d.answers).filter(k => k.endsWith("Known"))) d.answers[key].noul = 0.2;
-      d.answers.practical.score = 1; d.answers.practical.probabilities = { 0: 0, 1: 1, 2: 0, 3: 0, 4: 0 }; return d; };
-    const a = await assessFit({ ...job, jobDescription: "" });
-    assert.equal(a.score, 38); assert.equal(a.dimensions[4].score, 20);
-    assert.equal(a.status, "provisional"); assert.equal(a.provisional, true);
-    assert.ok(a.dimensions.every(d => Number.isFinite(d.score) && d.evidenceLimited && d.evidenceNote));
+    for (const confidence of [0, 0.59, 0.69, 0.7, 0.79, 0.8, null]) {
+      transform = d => { for (const answer of Object.values(d.answers).filter(a => a.type === "score")) answer.confidence = confidence; return d; };
+      const a = await assessFit(job);
+      assert.equal(a.score, 65); assert.equal(a.status, "complete"); assert.equal(a.provisional, false);
+      assert.ok(a.dimensions.every(d => d.score === 65 && d.confidence === confidence));
+      assert.ok(a.dimensions.every(d => !('evidenceLimited' in d) && !('evidenceProbability' in d) && !('evidenceNote' in d)));
+    }
+  } finally { transform = x => x; }
+});
+await test("previously borderline sufficiency no longer lowers supported ratings", async () => {
+  try {
+    const ratings = [3.28, 3.04, 2.92, 3.39, 3.3];
+    const confidences = [0.7, 0.81, 0.67, 0.59, 0.59];
+    transform = d => {
+      Object.values(d.answers).filter(a => a.type === "score").forEach((answer, i) => {
+        answer.score = ratings[i]; answer.confidence = confidences[i];
+      });
+      return d;
+    };
+    const a = await assessFit(job);
+    assert.deepEqual(a.dimensions.map(d => d.score), [75, 66, 63, 79, 76]);
+    assert.equal(a.score, 71); assert.equal(a.status, "complete");
+  } finally { transform = x => x; }
+});
+await test("incomplete postings retain their separate conservative guard", async () => {
+  try {
     transform = d => { d.answers.posting.choice = "partial"; d.answers.posting.probabilities = { complete: 0, partial: 1, inaccessible: 0, unrelated: 0 }; return d; };
     const partial = await assessFit(job); assert.equal(partial.score, 65); assert.equal(partial.provisional, true);
     transform = d => { for (const key of Object.keys(d.answers).filter(k => d.answers[k].type === "score")) {
       d.answers[key].score = 4; d.answers[key].probabilities = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 1 };
     } d.answers.posting.choice = "partial"; d.answers.posting.probabilities = { complete: 0, partial: 1, inaccessible: 0, unrelated: 0 }; return d; };
-    assert.equal((await assessFit(job)).score, 70, "a partial posting cannot claim a near-certain overall fit");
+    assert.equal((await assessFit(job)).score, 70, "an explicitly partial posting retains its separate cap");
   } finally { transform = x => x; }
 });
 await test("bad posting and hard constraints remain distinct from capability scores", async () => {

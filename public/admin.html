@@ -1178,17 +1178,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       else if (posting.choice === 'inaccessible') reasons.push('The job description was inaccessible.');
       else if (posting.choice === 'unrelated') reasons.push('The supplied content was not a job description.');
       else if (posting.probabilities && posting.probabilities.complete < 0.8) reasons.push('It is uncertain whether the job description is complete.');
-      (a.dimensions || []).forEach(function (d) {
-        if (d.evidenceLimited) reasons.push(d.label + ': ' + (d.evidenceNote || 'More role detail is needed to assess this area confidently.'));
-      });
-      if (!reasons.length) reasons.push('The available role information does not fully support this assessment.');
     }
     return '<h2>Fit assessment</h2>' + (a.assessedAt ? '<p class="field-help">' + esc(fmtDateTime(a.assessedAt)) + '</p>' : '') +
       (j.jevStale ? '<p class="field-help">Outdated · reassess fit</p>' : '') +
-      (reasons.length ? '<div class="assessment-warning"><strong>Why this score is provisional</strong><ul>' + reasons.map(function (reason) { return '<li>' + esc(reason) + '</li>'; }).join('') + '</ul></div>' : '') +
+      (reasons.length ? '<div class="assessment-warning"><strong>Review the job description</strong><ul>' + reasons.map(function (reason) { return '<li>' + esc(reason) + '</li>'; }).join('') + '</ul></div>' : '') +
       '<div class="score-gauges jev-gauges">' + a.dimensions.map(function (d) {
-        return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-value="' + (d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div>' + (j.jevAssessment ? '<p class="field-help" title="Confidence in the assessment, not the chance of an offer">' +
-          (j.jevStale ? 'Outdated' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') + '</p>' : '') + '</div>';
+        var reviewConfidence = !j.jevStale && (d.confidence == null || d.confidence < 0.7);
+        return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-value="' + (d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div>' + (j.jevAssessment ? '<p class="field-help' + (reviewConfidence ? ' assessment-confidence-warning' : '') + '" title="Confidence in this rating, not the chance of an offer. Lower confidence is a cue to review the rating; it does not reduce the fit score.">' +
+          (j.jevStale ? 'Outdated' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') + (reviewConfidence ? '<span>Review rating</span>' : '') + '</p>' : '') + '</div>';
       }).join('') + '</div>';
   }
 

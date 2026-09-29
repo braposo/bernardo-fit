@@ -9,10 +9,10 @@ try {
     const prompt = buildSystemPrompt();
     const questions = scoringQuestions();
     const state = scoringInput({});
-    if (!prompt.stable || !state.candidate || Object.keys(questions).length !== 12) throw Error("Invalid task inputs");
+    if (!prompt.stable || !state.candidate || Object.keys(questions).length !== 7) throw Error("Invalid task inputs");
     console.log(JSON.stringify({source: "sanity", revision: snapshot.revision,
       fingerprint: settingsFingerprint(), prompts: Object.keys(snapshot.texts).length,
-      jevQuestions: Object.keys(snapshot.questions).length, generationReady: true}, null, 2));
+      jevQuestions: Object.keys(snapshot.questions).length, fitQuestions: Object.keys(questions).length, generationReady: true}, null, 2));
   });
 } catch (error) {
   console.error(String(error.code || "").startsWith("SANITY_SETTINGS_") ? error.message : "Analysis settings check failed.");

@@ -824,6 +824,8 @@ body {
 .overview-summary h3 { font-size:14px; font-weight:600; margin:20px 0 6px; }
 .overview-summary p { font-size:15px; line-height:1.7; margin:0 0 16px; overflow-wrap:anywhere; }
 .assessment-dimension .field-help { margin:8px 0; font-size:12px; }
+.assessment-dimension .assessment-confidence-warning { color:#7a4810; background:#fff0d4; border-radius:8px; padding:6px 8px; }
+.assessment-confidence-warning span { display:block; font-weight:600; }
 .assessment-warning, .dimension-warning { background:#fff0d4; color:#7a4810; border:1px solid #dfc18c; border-radius:var(--radius); padding:12px; overflow-wrap:anywhere; }
 .assessment-warning { margin:14px 0; font-size:14px; }
 .assessment-warning strong { display:block; margin-bottom:4px; }

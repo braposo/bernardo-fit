@@ -9,10 +9,13 @@ The three tabs contain:
 - **Prompts and candidate context:** full candidate evidence, compact motivation
   and interview context, shared writing rules, and prompts for fit analysis,
   cover letters, answers, research, briefs and Jev overview summaries.
-- **Jev rubric and routing:** scoring and evidence-sufficiency instructions for
-  all five dimensions, five rating descriptions for each, posting and constraint
-  checks, writing-model selection, routine-answer routing, weights, and messages
-  for limited evidence. Weights must total 100.
+- **Jev rubric and routing:** scoring instructions for all five dimensions,
+  five rating descriptions for each, posting and constraint checks,
+  writing-model selection, routine-answer routing and weights. Weights must
+  total 100. The existing Studio document also retains five legacy `*Known`
+  entries and dimension `gap` messages for schema compatibility. Fit assessment
+  no longer requests these checks, applies their caps or displays their messages;
+  editing them does not change fit freshness.
 - **Confirmed facts:** exact factual answers that may bypass a model, the list
   of routine motivation questions, and personal facts used in interview briefs.
 
@@ -72,14 +75,36 @@ Output parsing, TypeSafe response validation, score calibration, probability
 thresholds, model IDs, rate limits and orchestration remain in code. The Studio
 edits instructions and rubric descriptions/weights, not executable policy.
 
+## Remote preference and model confidence
+
+The Practical compatibility instructions and rating descriptions favour
+explicit UK remote work from Harrogate over otherwise comparable arrangements
+requiring regular office attendance. Optional office access and occasional
+company visits remain compatible with remote work. Workable regular commuting
+is a trade-off; foreign-only remote roles are not assumed to permit UK work.
+Keep the candidate profile's `workingPreferences` aligned with that preference.
+The five weights and the existing guards for weak core fit, incomplete postings
+and explicit hard constraints remain unchanged.
+
+Each dimension uses the reported fit rating directly. Model confidence is kept
+separate: the admin highlights values below 70%, or unavailable confidence,
+as a Review rating cue without changing scores or declaring information missing.
+The Overview prompt must not invent missing facts or capability gaps to explain
+confidence values, and must distinguish essential requirements from bonuses.
+
+The `2026-09-29-fit-confidence-1` scoring policy makes older capped assessments
+outdated while retaining their saved scores and provenance. An explicit
+reassessment produces new scores and a matching Overview summary; publication
+of instructions never triggers that model work by itself.
+
 ## Maintaining the setup
 
 For the opening and STAR answer structure used in interview briefs, see
 [Interview preparation](interview-preparation.md), including the source resources,
 evidence-led examples and the supplement to publish into the existing brief prompt.
 
-`lib/sanity/analysis-defaults.js` preserves the prior behavior for offline tests,
-rollback and initial creation. Updating it does not overwrite published content.
+`lib/sanity/analysis-defaults.js` supplies the baseline for offline tests and
+initial creation. Updating it does not overwrite published content.
 The repeatable Studio command below uses `createIfNotExists`; subsequent runs
 leave the existing document untouched:
 

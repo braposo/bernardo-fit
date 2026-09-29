@@ -276,8 +276,7 @@ try {
   await page.locator('[data-act="back"]').click();
   check('mobile back shows pipeline', await page.locator('.pipeline').isVisible());
   jobs[0].jevAssessment = { assessedAt: '2026-09-19T12:00:00Z', score: 73, provisional: true,
-    dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility'].map((label, i) => ({ label, score: i === 4 ? 50 : 75, weight: [25,25,20,20,10][i], confidence: 0.9,
-      evidenceLimited: i === 4, evidenceNote: i === 4 ? 'Travel and working arrangements may need clarification.' : '' })),
+    dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility'].map((label, i) => ({ label, score: i === 4 ? 50 : 75, weight: [25,25,20,20,10][i], confidence: i === 4 ? 0.59 : 0.9 })),
     posting: { choice: 'partial' }, constraint: { choice: 'unknown' } };
   jobs[0].score = 73;
   jobs[0].overviewSummary = {assessedAt: jobs[0].jevAssessment.assessedAt, position: 'Lead the engineering team building a content platform. Partner with product and design on developer workflows.', fit: 'Leadership and developer experience align well. Confirm travel expectations before proceeding; practical compatibility is the main trade-off.'};
@@ -288,9 +287,11 @@ try {
   check('Assess fit has an AI icon and neutral label', await page.locator('[data-act="jevscore"] svg').count() === 1 && (await page.locator('[data-act="jevscore"]').textContent()).trim() === 'Assess fit');
   check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
   check('repeated evidence explanation is absent', await page.locator('.dimension-warning').count() === 0);
-  check('limited evidence retains a practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
-  check('confidence remains visible', await page.getByText('Model confidence: 90%', {exact:true}).count() === 5);
-  check('provisional reasons appear in Fit assessment', await page.locator('#panel-overview .assessment-warning').textContent().then(t => t.includes('Why this score is provisional') && t.includes('The job description has too little detail') && t.includes('Travel and working arrangements may need clarification')));
+  check('lower confidence retains the saved practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
+  check('confidence remains visible', await page.getByText('Model confidence: 90%', {exact:true}).count() === 4);
+  check('lower confidence has a visible review cue', await page.locator('.assessment-confidence-warning').count() === 1 &&
+    await page.locator('.assessment-confidence-warning').textContent().then(t => t.includes('Model confidence: 59%') && t.includes('Review rating')));
+  check('posting warnings avoid invented dimension gaps', await page.locator('#panel-overview .assessment-warning').textContent().then(t => t.includes('Review the job description') && t.includes('The job description has too little detail') && !t.includes('Travel and working arrangements')));
   check('pipeline shows a compact accessible warning', await page.locator('[data-select-job="job0"] .assessment-status').getAttribute('aria-label') === 'Provisional score; see Fit assessment for details' && await page.locator('[data-select-job="job0"] .assessment-status').textContent() === '⚠');
   check('role header shows a compact accessible warning', await page.locator('.role-header .assessment-status').getAttribute('aria-label') === 'Provisional score; see Fit assessment for details' && await page.locator('.role-header .assessment-status').textContent() === '⚠');
   for (const width of [360, 390, 768, 1280]) {
