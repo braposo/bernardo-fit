@@ -142,14 +142,10 @@
   /* Differentiators */
   .diffs { display: flex; flex-direction: column; }
   .diff {
-    display: grid; grid-template-columns: clamp(54px, 9vw, 96px) 1fr; column-gap: clamp(20px, 4.5vw, 56px); row-gap: 8px;
+    display: grid; grid-template-columns: 1fr; row-gap: 8px;
     padding: 22px 0; border-top: 1px solid var(--hair); align-items: start;
   }
   .diff:last-child { border-bottom: 1px solid var(--hair); }
-  .diff-idx {
-    font-family: var(--display); font-size: clamp(30px, 5vw, 50px); color: var(--accent); font-weight: 500;
-    grid-row: span 2; line-height: 0.85; letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
-  }
   .diff-headline { font-family: var(--display); font-size: clamp(18px, 2.6vw, 24px); font-weight: 600; line-height: 1.28; letter-spacing: -0.015em; }
   .diff-detail { font-size: clamp(15px, 1.5vw, 16px); line-height: 1.72; color: var(--sub); margin-top: 10px; max-width: 50ch; }
 
@@ -191,9 +187,7 @@
 
   @media (max-width: 560px) {
     .cat { grid-template-columns: 1fr; row-gap: 8px; }
-    /* Stack the index above the headline so the detail keeps a readable measure */
-    .diff { grid-template-columns: 1fr; row-gap: 4px; }
-    .diff-idx { grid-row: auto; font-size: 26px; }
+    .diff { row-gap: 4px; }
     .diff-detail { margin-top: 8px; }
   }
 </style>
@@ -290,10 +284,9 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
       );
     }).join("");
 
-    var diffs = (r.differentiators || []).map(function (d, i) {
+    var diffs = (r.differentiators || []).map(function (d) {
       return (
         '<div class="diff">' +
-          '<div class="diff-idx">' + String(i + 1).padStart(2, "0") + '</div>' +
           '<div class="diff-headline">' + esc(d.headline) + '</div>' +
           '<div class="diff-detail">' + esc(d.detail) + '</div>' +
         '</div>'
@@ -319,7 +312,7 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
         '<div class="section-label">Where I land</div>' +
         '<div class="cats">' + cats + '</div>' +
 
-        (diffs ? '<div class="section-label">Additional experience</div><div class="diffs">' + diffs + '</div>' : '') +
+        (diffs ? '<div class="section-label">Relevant experience</div><div class="diffs">' + diffs + '</div>' : '') +
 
         '<div class="closing-wrap">' +
           (r.closing ? '<p class="closing">' + esc(r.closing) + '</p>' : '') +
