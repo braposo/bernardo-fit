@@ -32,6 +32,51 @@ export type ContentRegistry = {
   sequence?: number;
 };
 
+export type ChatSettings = {
+  _id: string;
+  _type: "chatSettings";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title?: string;
+  policy?: string;
+  assistantInstructions?: string;
+  contextInstructions?: string;
+  maxOutputTokens?: number;
+  maxSteps?: number;
+  jevModel?: string;
+  routingInstructions?: string;
+  confidenceThreshold?: number;
+  probabilityThreshold?: number;
+  models?: Array<{
+    id?: string;
+    provider?: "openai" | "anthropic";
+    label?: string;
+    enabled?: boolean;
+    description?: string;
+    fallbackPriority?: number;
+    _type: "chatModel";
+    _key: string;
+  }>;
+  classifierModel?: string;
+  gapThreshold?: number;
+  classificationQuestions?: Array<{
+    key?: string;
+    type?: "score" | "choice" | "noul";
+    instructions?: string;
+    label?: string;
+    criteria?: Array<string>;
+    options?: Array<{
+      key?: "positive" | "neutral" | "negative";
+      text?: string;
+      _type: "classificationOption";
+      _key: string;
+    }>;
+    _type: "classificationQuestion";
+    _key: string;
+  }>;
+};
+
 export type AnalysisSettings = {
   _id: string;
   _type: "analysisSettings";
@@ -46,6 +91,7 @@ export type AnalysisSettings = {
     _type: "promptText";
     _key: string;
   }>;
+  ingestMinimumScore?: number;
   questions?: Array<{
     key?: string;
     type?: string;
@@ -1011,6 +1057,7 @@ export type Geopoint = {
 export type AllSanitySchemaTypes =
   | Migration
   | ContentRegistry
+  | ChatSettings
   | AnalysisSettings
   | MigrationRecord
   | WritingGuidance
@@ -1049,10 +1096,11 @@ export type AllSanitySchemaTypes =
 
 // Source: ../fit-app/lib/sanity/analysis-settings.js
 // Variable: ANALYSIS_SETTINGS_QUERY
-// Query: *[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{  _id, _rev, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,  personalFacts{availability, location, sponsorship}}
+// Query: *[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{  _id, _rev, ingestMinimumScore, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,  personalFacts{availability, location, sponsorship}}
 export type ANALYSIS_SETTINGS_QUERY_RESULT = {
   _id: "fit-analysis-settings";
   _rev: string;
+  ingestMinimumScore: number | null;
   texts: Array<{
     key: string | null;
     text: string | null;
@@ -1087,8 +1135,10 @@ export type ANALYSIS_SETTINGS_QUERY_RESULT = {
 
 // Source: ../fit-app/lib/sanity/public-pages.js
 // Variable: PUBLIC_PAGE_QUERY
-// Query: *[_type == "sitePage" && slug.current == $slug][0]{  title, description,  home{name, heading, introduction, buttonLabel, placeholder, hint, contacts[]{label, href}},  cv{name, headline, contacts[]{label, href}, sections[]{label, items[]{kind, title, dates, location, body}}},  "downloadUrl": download.asset->url}
+// Query: *[_type == "sitePage" && slug.current == $slug][0]{  _id, _rev, title, description,  home{name, heading, introduction, buttonLabel, placeholder, hint, contacts[]{label, href}},  cv{name, headline, contacts[]{label, href}, sections[]{label, items[]{kind, title, dates, location, body}}},  "downloadUrl": download.asset->url}
 export type PUBLIC_PAGE_QUERY_RESULT = {
+  _id: string;
+  _rev: string;
   title: string | null;
   description: string | null;
   home: {
@@ -1821,6 +1871,20 @@ export type CONTENT_LIST_QUERY_RESULT = Array<
     }
   | {
       _id: string;
+      _type: "chatSettings";
+      _rev: string;
+      _updatedAt: string;
+      title: string | null;
+      name: null;
+      role: null;
+      company: null;
+      question: null;
+      headline: null;
+      stage: null;
+      slug: null;
+    }
+  | {
+      _id: string;
       _type: "companyResearch";
       _rev: string;
       _updatedAt: string;
@@ -2016,6 +2080,7 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
         _type: "promptText";
         _key: string;
       }>;
+      ingestMinimumScore?: number;
       questions?: Array<{
         key?: string;
         type?: string;
@@ -2210,6 +2275,50 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       deletedAt?: string;
       migration?: Migration;
       sourcePayload?: string;
+    }
+  | {
+      _id: string;
+      _type: "chatSettings";
+      _createdAt: string;
+      _updatedAt: string;
+      _rev: string;
+      title?: string;
+      policy?: string;
+      assistantInstructions?: string;
+      contextInstructions?: string;
+      maxOutputTokens?: number;
+      maxSteps?: number;
+      jevModel?: string;
+      routingInstructions?: string;
+      confidenceThreshold?: number;
+      probabilityThreshold?: number;
+      models?: Array<{
+        id?: string;
+        provider?: "anthropic" | "openai";
+        label?: string;
+        enabled?: boolean;
+        description?: string;
+        fallbackPriority?: number;
+        _type: "chatModel";
+        _key: string;
+      }>;
+      classifierModel?: string;
+      gapThreshold?: number;
+      classificationQuestions?: Array<{
+        key?: string;
+        type?: "choice" | "noul" | "score";
+        instructions?: string;
+        label?: string;
+        criteria?: Array<string>;
+        options?: Array<{
+          key?: "negative" | "neutral" | "positive";
+          text?: string;
+          _type: "classificationOption";
+          _key: string;
+        }>;
+        _type: "classificationQuestion";
+        _key: string;
+      }>;
     }
   | {
       _id: string;
@@ -2840,8 +2949,8 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
 // Query TypeMap
 declare global {
   interface SanityQueries {
-    '*[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{\n  _id, _rev, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},\n  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,\n  personalFacts{availability, location, sponsorship}\n}': ANALYSIS_SETTINGS_QUERY_RESULT;
-    '*[_type == "sitePage" && slug.current == $slug][0]{\n  title, description,\n  home{name, heading, introduction, buttonLabel, placeholder, hint, contacts[]{label, href}},\n  cv{name, headline, contacts[]{label, href}, sections[]{label, items[]{kind, title, dates, location, body}}},\n  "downloadUrl": download.asset->url\n}': PUBLIC_PAGE_QUERY_RESULT;
+    '*[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{\n  _id, _rev, ingestMinimumScore, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},\n  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,\n  personalFacts{availability, location, sponsorship}\n}': ANALYSIS_SETTINGS_QUERY_RESULT;
+    '*[_type == "sitePage" && slug.current == $slug][0]{\n  _id, _rev, title, description,\n  home{name, heading, introduction, buttonLabel, placeholder, hint, contacts[]{label, href}},\n  cv{name, headline, contacts[]{label, href}, sections[]{label, items[]{kind, title, dates, location, body}}},\n  "downloadUrl": download.asset->url\n}': PUBLIC_PAGE_QUERY_RESULT;
     '*[_type == "fitReport" && legacyId == "demo"][0]{\n  "job_title": jobTitle, company, pitch, categories[]{name, note},\n  differentiators[]{headline, detail}, closing\n}': DEMO_QUERY_RESULT;
     '{\n  "analysisSettings": count(*[_type == "analysisSettings"]),\n  "candidateProfile": count(*[_type == "candidateProfile"]),\n  "candidateEvidence": count(*[_type == "candidateEvidence"]),\n  "job": count(*[_type == "job"]),\n  "applicationQuestion": count(*[_type == "applicationQuestion"]),\n  "fitReport": count(*[_type == "fitReport"]),\n  "coverLetter": count(*[_type == "coverLetter"]),\n  "companyResearch": count(*[_type == "companyResearch"]),\n  "interviewBrief": count(*[_type == "interviewBrief"]),\n  "fitAssessment": count(*[_type == "fitAssessment"]),\n  "sitePage": count(*[_type == "sitePage"]),\n  "writingGuidance": count(*[_type == "writingGuidance"])\n}': CONTENT_COUNTS_QUERY_RESULT;
     '*[_type == "candidateProfile" && _id == $id][0]{\n  _id, _rev, name, headline, summary, motivationSummary, interviewSummary,\n  location, availability, workEligibility, noticePeriod, careerDirection,\n  workingPreferences, salaryPreferences, constraints, confirmedAnswers, reviewedAt,\n  evidence[]->{_id, _rev, title, kind, organisation, period, body, sources, reviewedAt}\n}': CANDIDATE_QUERY_RESULT;

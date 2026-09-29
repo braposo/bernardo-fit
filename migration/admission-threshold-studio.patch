@@ -1,0 +1,15 @@
+diff --git a/schemaTypes/analysisSettings.ts b/schemaTypes/analysisSettings.ts
+index 33ef2f3..d47eefc 100644
+--- a/schemaTypes/analysisSettings.ts
++++ b/schemaTypes/analysisSettings.ts
+@@ -20,6 +20,10 @@ export const analysisSettings = defineType({
+         fields: [key(), defineField({name: 'title', title: 'Label', type: 'string', readOnly: true}), requiredText('text', 'Text', 20)],
+         preview: {select: {title: 'title', subtitle: 'key'}},
+       })]}),
++    defineField({name: 'ingestMinimumScore', title: 'Minimum job admission score', group: 'jev', type: 'number',
++      initialValue: 50,
++      description: 'Jobs scoring at least this value out of 100 can enter the pipeline. Hard-constraint conflicts still block admission. Publish to apply to new batches; existing batches keep their saved threshold.',
++      validation: (rule) => rule.required().integer().min(0).max(100)}),
+     defineField({name: 'questions', title: 'Jev instructions and criteria', group: 'jev', type: 'array',
+       description: 'Includes all five fit dimensions, evidence checks, posting/constraint checks, and the two routing decisions. Keys and answer types are app contracts.',
+       validation: (rule) => rule.required().length(14),
