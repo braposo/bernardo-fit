@@ -136,18 +136,21 @@
     padding: 22px 0; border-top: 1px solid var(--hair); align-items: start;
   }
   .cat:last-child { border-bottom: 1px solid var(--hair); }
-  .cat-name { font-family: var(--display); font-weight: 600; font-size: clamp(16px, 2.2vw, 21px); letter-spacing: -0.01em; line-height: 1.3; }
-  .cat-note { font-size: 16px; line-height: 1.65; color: var(--body2); text-wrap: pretty; max-width: 62ch; }
+  .cat-name, .diff-headline { font-family: var(--display); font-weight: 600; font-size: clamp(16px, 2.2vw, 21px); letter-spacing: -0.01em; line-height: 1.3; }
+  .cat-note, .diff-detail { font-size: 16px; line-height: 1.65; color: var(--body2); text-wrap: pretty; max-width: 62ch; }
 
   /* Differentiators */
   .diffs { display: flex; flex-direction: column; }
   .diff {
-    display: grid; grid-template-columns: 1fr; row-gap: 8px;
+    display: grid; grid-template-columns: clamp(54px, 9vw, 96px) 1fr; column-gap: clamp(20px, 4.5vw, 56px); row-gap: 8px;
     padding: 22px 0; border-top: 1px solid var(--hair); align-items: start;
   }
   .diff:last-child { border-bottom: 1px solid var(--hair); }
-  .diff-headline { font-family: var(--display); font-size: clamp(18px, 2.6vw, 24px); font-weight: 600; line-height: 1.28; letter-spacing: -0.015em; }
-  .diff-detail { font-size: clamp(15px, 1.5vw, 16px); line-height: 1.72; color: var(--sub); margin-top: 10px; max-width: 50ch; }
+  .diff-idx {
+    font-family: var(--display); font-size: clamp(30px, 5vw, 50px); color: var(--accent); font-weight: 500;
+    grid-row: span 2; line-height: 0.85; letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+  }
+  .diff-detail { margin-top: 10px; }
 
   /* Closing — open, no band */
   .closing-wrap { margin-top: 32px; }
@@ -187,7 +190,8 @@
 
   @media (max-width: 560px) {
     .cat { grid-template-columns: 1fr; row-gap: 8px; }
-    .diff { row-gap: 4px; }
+    .diff { grid-template-columns: 1fr; row-gap: 4px; }
+    .diff-idx { grid-row: auto; font-size: 26px; }
     .diff-detail { margin-top: 8px; }
   }
 </style>
@@ -284,9 +288,10 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
       );
     }).join("");
 
-    var diffs = (r.differentiators || []).map(function (d) {
+    var diffs = (r.differentiators || []).map(function (d, i) {
       return (
         '<div class="diff">' +
+          '<div class="diff-idx">' + String(i + 1).padStart(2, "0") + '</div>' +
           '<div class="diff-headline">' + esc(d.headline) + '</div>' +
           '<div class="diff-detail">' + esc(d.detail) + '</div>' +
         '</div>'

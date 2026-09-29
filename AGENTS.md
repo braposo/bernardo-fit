@@ -19,6 +19,7 @@ This project has Trigger.dev agent skills installed in `.agents/skills/`. Before
 - Before reviewing or changing user-facing UI, read root `DESIGN.md` and the references it identifies for the affected surface.
 - Follow its current design decisions, component patterns, interaction contracts, responsive behaviour and accessibility guidance. Older mockups do not override later approved decisions.
 - Verify visual changes in the browser at desktop and mobile sizes, and report any verification that could not be completed.
+- Every PR with visual changes must embed labelled before-and-after screenshots in its description, covering the affected UI at desktop and mobile sizes. Capture the base revision and changed revision with identical synthetic content, viewport, state, scroll position and loaded fonts; disable animations and wait for rendering to settle. Inspect both images before sharing. Use durable image links accessible to PR reviewers (commit images under `docs/pr-screenshots/<change>/` if needed), never local filesystem paths. State the revisions, viewport sizes and any capture limitations. If a capture is blocked, document why and which comparison is missing.
 - When the user establishes or replaces a reusable design rule, update `DESIGN.md` in the same pull request.
 
 ## Git and pull request workflow
