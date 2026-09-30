@@ -54,6 +54,7 @@ export const linkedinDiscoveryTask = task({
       await renewLock();
       await client.set(`linkedin-discovery:report:${ctx.run.id}`, report, { ex: 90 * 86400 });
       metadata.set('added', report.added.length).set('discovered', report.discovered).set('complete', report.complete)
+        .set('prescreened', report.prescreening.length).set('prescreenSkipped', report.prescreening.filter(row => row.decision === 'skip').length)
         .set('deferred', report.deferred).set('phase', report.status).set('waitSeconds', 0);
       if (report.status === 'incomplete') throw new Error('LinkedIn scan is incomplete; inspect the saved report. Progress is saved for the next daily run.');
       if (report.complete) await client.set('linkedin-discovery:last-success', report.window.before);

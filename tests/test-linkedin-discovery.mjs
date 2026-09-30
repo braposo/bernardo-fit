@@ -3,6 +3,7 @@ import { londonSchedule, dispatchLinkedIn } from '../functions/discover-linkedin
 import { parseLinkedInResults, linkedinWindow, searchLinkedIn, linkedinOpportunity } from '../lib/linkedin-source.js';
 import { discoverLinkedIn } from '../lib/linkedin-discovery.js';
 import { linkedinRequest } from '../lib/linkedin-request.js';
+import { screenLinkedInCard } from '../lib/linkedin-card-screening.js';
 import { executeIngestBatch } from '../lib/ingest-work.js';
 import { createJobIfAbsent, getJob } from '../lib/store.js';
 
@@ -60,7 +61,7 @@ await test('full original description required, no invented received date', asyn
   await assert.rejects(linkedinOpportunity(posting,{fetchImpl:async()=>new Response('snippet')}));
 });
 const posting = id => ({id:String(id),company:`Company ${id}`,role:'Engineering Manager',sourceUrl:`https://www.linkedin.com/jobs/view/${id}`});
-const base = {sleep:async()=>{}, list:async()=>[], describe:async p=>({...p,externalId:`linkedin-${p.id}`,jobDescription:'Full description'})};
+const base = {sleep:async()=>{}, list:async()=>[], prescreen:async()=>({decision:'fetch'}), describe:async p=>({...p,externalId:`linkedin-${p.id}`,jobDescription:'Full description'})};
 await test('archived jobs preserved and failed summaries leave scan incomplete', async () => {
   let candidates;
   const report = await discoverLinkedIn({...base, list:async()=>[{...posting(1),archived:true,stage:'rejected'}],
@@ -142,24 +143,29 @@ await test('network failures and temporary server errors retry; redirects and de
     assert.equal(attempts, 1);
   }
 });
-await test('search keeps only the ten newest cards', async () => {
+await test('search keeps the forty newest cards', async () => {
   const html = Array.from({ length: 60 }, (_, i) => card.replace('jobPosting:123', `jobPosting:${i}`)).join('');
   const result = await searchLinkedIn({ window: linkedinWindow(null), searches: [{keywords:'manager',location:'UK'}],
     sleep: async () => {}, fetchImpl: async () => new Response(html) });
-  assert.equal(result.jobs.length, 10);
-  assert.equal(result.jobs.at(-1).id, '9');
+  assert.equal(result.jobs.length, 40);
+  assert.equal(result.jobs.at(-1).id, '39');
   assert.equal(result.scans[0].bounded, true);
 });
-await test('daily cap persists backlog and resumes without reprocessing filtered jobs', async () => {
+await test('request budget persists backlog and resumes without reprocessing filtered jobs', async () => {
   let state, descriptions = [];
-  const options = { ...base, now: new Date('2026-09-30T08:00:00Z'), maxDescriptions: 1,
+  let budgetReached = true;
+  const options = { ...base, now: new Date('2026-09-30T08:00:00Z'),
     search: async () => ({ jobs: [posting(1), posting(2)], scans: [], complete: true }),
-    describe: async p => { descriptions.push(p.id); return { ...p, externalId: `linkedin-${p.id}` }; },
+    describe: async p => {
+      if (p.id === '2' && budgetReached) throw Object.assign(new Error('budget reached'), {stop:true,deferred:true});
+      descriptions.push(p.id); return { ...p, externalId: `linkedin-${p.id}` };
+    },
     ingest: async () => ({ filtered: 1, screeningRows: [{ decision: 'below-threshold' }], addedRows: [] }),
     saveState: async next => { state = structuredClone(next); } };
   const first = await discoverLinkedIn(options);
   assert.equal(first.status, 'deferred'); assert.equal(first.deferred, 1);
   assert.equal(state.lastSearch, '2026-09-30T08:00:00.000Z');
+  budgetReached = false;
   const next = await discoverLinkedIn({ ...options, state, now: new Date('2026-10-01T08:00:00Z') });
   assert.equal(next.complete, true); assert.deepEqual(descriptions, ['1', '2']);
   assert.equal(state.pending.length, 0);
@@ -184,6 +190,52 @@ await test('blocked search saves partial discoveries without advancing its searc
   assert.equal(report.status, 'incomplete');
   assert.deepEqual(state.pending.map(p => p.id), ['1', '2']);
   assert.equal(state.lastSearch, '2026-09-29T08:00:00Z');
+});
+await test('Jev card screen only rejects high-confidence mismatches and caches by card content', async () => {
+  const cache = new Map(); let calls = 0, probability = 0.89;
+  const options = { load: async (_, key) => cache.get(key), save: async (_, key, value) => { cache.set(key, value); return value; },
+    evaluate: async ({ state, questions, kind }) => {
+      calls++; assert.equal(state.card.role, 'Engineering Manager');
+      assert.equal(state.card.jobDescription, undefined);
+      assert.equal(kind, 'linkedin-card-screen');
+      assert.match(questions.relevance.instructions, /unknown, never negative evidence/);
+      return { answers: { relevance: { choice: 'mismatch', probabilities: { mismatch: probability, investigate: 1 - probability } } } };
+    } };
+  assert.equal((await screenLinkedInCard(posting(1), options)).decision, 'fetch');
+  await screenLinkedInCard(posting(1), options); assert.equal(calls, 1);
+  probability = 0.95;
+  assert.equal((await screenLinkedInCard({ ...posting(1), location: 'New evidence' }, options)).decision, 'skip');
+  assert.equal(calls, 2);
+});
+await test('preliminary rejection prevents description requests; every other candidate receives full validation', async () => {
+  const described = [], screened = [];
+  const report = await discoverLinkedIn({ ...base,
+    search: async () => ({ jobs: Array.from({length: 26}, (_, i) => posting(i)), scans: [], complete: true }),
+    prescreen: async p => ({ decision: p.id === '0' ? 'skip' : 'fetch' }),
+    describe: async p => { described.push(p.id); return {...p,externalId:`linkedin-${p.id}`}; },
+    ingest: async batch => { screened.push(...batch); return {filtered:1, screeningRows:[],addedRows:[]}; } });
+  assert.equal(described.length, 25); assert.equal(screened.length, 25);
+  assert.equal(described.includes('0'), false); assert.equal(report.complete, true);
+  assert.equal(report.prescreening.filter(p => p.decision === 'skip').length, 1);
+});
+await test('Jev pre-screen failure retains the candidate and never fetches its description', async () => {
+  let state;
+  const report = await discoverLinkedIn({ ...base,
+    search: async () => ({ jobs: [posting(1)], scans: [], complete: true }),
+    prescreen: async () => { throw new Error('Jev unavailable'); },
+    describe: async () => assert.fail('must be screened first'),
+    saveState: async next => { state = structuredClone(next); } });
+  assert.equal(report.status, 'incomplete'); assert.equal(state.pending.length, 1);
+  assert.equal(report.failures[0].phase, 'prescreening');
+});
+await test('request budget during searches defers normally and preserves discovered cards', async () => {
+  let calls = 0, state;
+  const report = await discoverLinkedIn({ ...base,
+    search: options => searchLinkedIn({ ...options, searches: [{keywords:'one'},{keywords:'two'}], sleep:async()=>{},
+      fetchImpl: async () => { if (++calls === 2) throw Object.assign(new Error('budget reached'), {stop:true,deferred:true}); return new Response(card); } }),
+    saveState: async next => { state = structuredClone(next); } });
+  assert.equal(report.status, 'deferred'); assert.equal(state.pending[0].id, '123');
+  assert.equal(state.lastSearch, undefined);
 });
 console.log(`passed ${passed}, failed ${failed}`);
 process.exitCode = failed ? 1 : 0;
