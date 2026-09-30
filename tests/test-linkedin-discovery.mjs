@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { retry } from '@trigger.dev/sdk';
 import { londonSchedule, dispatchLinkedIn } from '../functions/discover-linkedin/schedule.js';
 import { parseLinkedInResults, linkedinWindow, searchLinkedIn, linkedinOpportunity } from '../lib/linkedin-source.js';
 import { discoverLinkedIn } from '../lib/linkedin-discovery.js';
@@ -229,6 +231,63 @@ await test('Retry-After maps seconds and dates into native retryAt', async () =>
     assert.deepEqual(native.retry,DEFAULT_LINKEDIN_SETTINGS.retry);
     assert.ok(native.retryAt.getTime()>Date.now()+590000);return true;
   });
+});
+await test('real retry.fetch returns throttles promptly and keeps Trigger as the retry owner', async () => {
+  let calls = 0, route = '/429-empty';
+  const server = createServer((request, response) => {
+    calls++;
+    response.statusCode = request.url === '/forbidden' ? 403 : 429;
+    response.setHeader('retry-after', '600');
+    if (request.url === '/429-empty') response.setHeader('content-length', '0');
+    response.end(request.url === '/429-empty' ? undefined : 'busy');
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  try {
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const realFetch = (url, options) => {
+      assert.equal(url, 'https://www.linkedin.com/jobs/search/');
+      assert.deepEqual(options.retry, {byStatus:{},timeout:{maxAttempts:1},connectionError:{maxAttempts:1}});
+      return retry.fetch(`${origin}${route}`, options);
+    };
+    const call = async path => {
+      route = path;
+      let timeout;
+      const outcome = await Promise.race([
+        fetchLinkedInPage({url:'https://www.linkedin.com/jobs/search/',policy:DEFAULT_LINKEDIN_SETTINGS}, {
+          fetchRequest:realFetch,
+        }).then(value => ({value}), error => ({error})),
+        new Promise(resolve => { timeout = setTimeout(() => resolve({timeout:true}), 1500); }),
+      ]);
+      clearTimeout(timeout);
+      assert.equal(outcome.timeout, undefined, `${path} response cleanup must not delay the request result`);
+      return outcome;
+    };
+
+    for (const path of ['/429-empty', '/429-body']) {
+      calls = 0;
+      const {error} = await call(path);
+      assert.equal(calls, 1, 'retry.fetch performs one request per child-task attempt');
+      assert.ok(error?.retryAt instanceof Date);
+      const native = linkedInRetryPolicy({payload:{policy:DEFAULT_LINKEDIN_SETTINGS},error,
+        ctx:{attempt:{number:1}}});
+      assert.deepEqual(native.retry, DEFAULT_LINKEDIN_SETTINGS.retry);
+      assert.ok(native.retryAt.getTime() > Date.now() + 590000);
+      const exhausted = linkedInRetryPolicy({payload:{policy:DEFAULT_LINKEDIN_SETTINGS},error,
+        ctx:{attempt:{number:DEFAULT_LINKEDIN_SETTINGS.retry.maxAttempts}}});
+      assert.deepEqual(exhausted, {skipRetrying:true});
+    }
+
+    calls = 0;
+    const forbidden = await call('/forbidden');
+    assert.equal(calls, 1);
+    assert.equal(linkedInRetryPolicy({payload:{policy:DEFAULT_LINKEDIN_SETTINGS},error:forbidden.error}).skipRetrying, true);
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise(resolve => server.close(resolve));
+  }
 });
 await test('unsafe endpoints and auth abort; expired postings do not retry', async () => {
   for (const url of ['https://evil.example/jobs/search/','https://www.linkedin.com/private']) {
