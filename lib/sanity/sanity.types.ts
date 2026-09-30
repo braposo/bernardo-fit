@@ -83,6 +83,17 @@ export type AnalysisSettings = {
   _createdAt: string;
   _updatedAt: string;
   _rev: string;
+  linkedinScreening?: {
+    resultsPerSearch?: number;
+    mismatchProbability?: number;
+    instructions?: string;
+    investigateCriteria?: string;
+    mismatchCriteria?: string;
+    requestMinSeconds?: number;
+    requestMaxSeconds?: number;
+    retryMinutes?: Array<number>;
+    requestBudgetMinutes?: number;
+  };
   title?: string;
   texts?: Array<{
     key?: string;
@@ -1096,11 +1107,22 @@ export type AllSanitySchemaTypes =
 
 // Source: ../fit-app/lib/sanity/analysis-settings.js
 // Variable: ANALYSIS_SETTINGS_QUERY
-// Query: *[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{  _id, _rev, ingestMinimumScore, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,  personalFacts{availability, location, sponsorship}}
+// Query: *[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{  _id, _rev, ingestMinimumScore, linkedinScreening, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,  personalFacts{availability, location, sponsorship}}
 export type ANALYSIS_SETTINGS_QUERY_RESULT = {
   _id: "fit-analysis-settings";
   _rev: string;
   ingestMinimumScore: number | null;
+  linkedinScreening: {
+    resultsPerSearch?: number;
+    mismatchProbability?: number;
+    instructions?: string;
+    investigateCriteria?: string;
+    mismatchCriteria?: string;
+    requestMinSeconds?: number;
+    requestMaxSeconds?: number;
+    retryMinutes?: Array<number>;
+    requestBudgetMinutes?: number;
+  } | null;
   texts: Array<{
     key: string | null;
     text: string | null;
@@ -2072,6 +2094,17 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
       _createdAt: string;
       _updatedAt: string;
       _rev: string;
+      linkedinScreening?: {
+        resultsPerSearch?: number;
+        mismatchProbability?: number;
+        instructions?: string;
+        investigateCriteria?: string;
+        mismatchCriteria?: string;
+        requestMinSeconds?: number;
+        requestMaxSeconds?: number;
+        retryMinutes?: Array<number>;
+        requestBudgetMinutes?: number;
+      };
       title?: string;
       texts?: Array<{
         key?: string;
@@ -2949,7 +2982,7 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
 // Query TypeMap
 declare global {
   interface SanityQueries {
-    '*[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{\n  _id, _rev, ingestMinimumScore, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},\n  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,\n  personalFacts{availability, location, sponsorship}\n}': ANALYSIS_SETTINGS_QUERY_RESULT;
+    '*[_type == "analysisSettings" && _id == "fit-analysis-settings"][0]{\n  _id, _rev, ingestMinimumScore, linkedinScreening, texts[]{key, text}, questions[]{key, type, instructions, criteria, options[]{key, text}},\n  dimensions[]{id, label, weight, gap}, facts[]{question, answer}, routineQuestions,\n  personalFacts{availability, location, sponsorship}\n}': ANALYSIS_SETTINGS_QUERY_RESULT;
     '*[_type == "sitePage" && slug.current == $slug][0]{\n  _id, _rev, title, description,\n  home{name, heading, introduction, buttonLabel, placeholder, hint, contacts[]{label, href}},\n  cv{name, headline, contacts[]{label, href}, sections[]{label, items[]{kind, title, dates, location, body}}},\n  "downloadUrl": download.asset->url\n}': PUBLIC_PAGE_QUERY_RESULT;
     '*[_type == "fitReport" && legacyId == "demo"][0]{\n  "job_title": jobTitle, company, pitch, categories[]{name, note},\n  differentiators[]{headline, detail}, closing\n}': DEMO_QUERY_RESULT;
     '{\n  "analysisSettings": count(*[_type == "analysisSettings"]),\n  "candidateProfile": count(*[_type == "candidateProfile"]),\n  "candidateEvidence": count(*[_type == "candidateEvidence"]),\n  "job": count(*[_type == "job"]),\n  "applicationQuestion": count(*[_type == "applicationQuestion"]),\n  "fitReport": count(*[_type == "fitReport"]),\n  "coverLetter": count(*[_type == "coverLetter"]),\n  "companyResearch": count(*[_type == "companyResearch"]),\n  "interviewBrief": count(*[_type == "interviewBrief"]),\n  "fitAssessment": count(*[_type == "fitAssessment"]),\n  "sitePage": count(*[_type == "sitePage"]),\n  "writingGuidance": count(*[_type == "writingGuidance"])\n}': CONTENT_COUNTS_QUERY_RESULT;

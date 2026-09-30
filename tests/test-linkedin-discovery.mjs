@@ -4,6 +4,8 @@ import { parseLinkedInResults, linkedinWindow, searchLinkedIn, linkedinOpportuni
 import { discoverLinkedIn } from '../lib/linkedin-discovery.js';
 import { linkedinRequest } from '../lib/linkedin-request.js';
 import { screenLinkedInCard } from '../lib/linkedin-card-screening.js';
+import { initialSettingsDocument } from '../lib/sanity/settings-document.js';
+import { settingsFromDocument, withSettingsSnapshot } from '../lib/sanity/analysis-settings.js';
 import { executeIngestBatch } from '../lib/ingest-work.js';
 import { createJobIfAbsent, getJob } from '../lib/store.js';
 
@@ -236,6 +238,37 @@ await test('request budget during searches defers normally and preserves discove
     saveState: async next => { state = structuredClone(next); } });
   assert.equal(report.status, 'deferred'); assert.equal(state.pending[0].id, '123');
   assert.equal(state.lastSearch, undefined);
+});
+await test('published screening edits change search limits, retry pacing, Jev decisions and admission', async () => {
+  const doc = initialSettingsDocument();
+  Object.assign(doc.linkedinScreening, { resultsPerSearch: 2, mismatchProbability: 0.99,
+    instructions: 'Published preliminary policy', requestMinSeconds: 45, requestMaxSeconds: 45, retryMinutes: [2] });
+  doc.ingestMinimumScore = 70;
+  await withSettingsSnapshot(settingsFromDocument(doc), async () => {
+    const html = [1,2,3].map(id => card.replace('jobPosting:123', `jobPosting:${id}`)).join('');
+    const found = await searchLinkedIn({window:linkedinWindow(null), searches:[{keywords:'one'}],
+      sleep:async()=>{},fetchImpl:async()=>new Response(html)});
+    assert.equal(found.jobs.length, 2);
+    let calls = 0;
+    const {request,waits} = clockedRequest({fetchImpl:async()=>new Response('', {status:++calls===1?429:200})});
+    await request('https://www.linkedin.com/test');
+    assert.deepEqual(waits,[45_000,120_000,45_000]);
+    const cache=new Map();
+    const options={load:async(_,key)=>cache.get(key),save:async(_,key,value)=>{cache.set(key,value);return value;},
+      evaluate:async({questions})=>{
+        assert.equal(questions.relevance.instructions,'Published preliminary policy');
+        return {answers:{relevance:{choice:'mismatch',probabilities:{mismatch:0.95,investigate:0.05}}}};
+      }};
+    const result = await screenLinkedInCard(posting(9), options);
+    assert.equal(result.decision,'fetch');
+    const lower=structuredClone(doc);lower.linkedinScreening.mismatchProbability=0.9;
+    const changed=await withSettingsSnapshot(settingsFromDocument(lower),()=>screenLinkedInCard(posting(9),options));
+    assert.equal(changed.decision,'skip');assert.notEqual(changed.fingerprint,result.fingerprint);
+    const report=await discoverLinkedIn({...base,search:async()=>({jobs:[posting(1)],scans:[],complete:true}),
+      ingest:async(_,options)=>{assert.equal(options.minimumScore,70);return {screeningRows:[],addedRows:[{id:'saved'}]};},
+      read:async()=>({jevAssessment:{status:'complete',score:65},overviewSummary:{position:'Role',fit:'Fit'}})});
+    assert.equal(report.complete,false,'saved job must meet the published minimum');
+  });
 });
 console.log(`passed ${passed}, failed ${failed}`);
 process.exitCode = failed ? 1 : 0;

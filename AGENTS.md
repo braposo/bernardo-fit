@@ -4,6 +4,14 @@
 This project has Trigger.dev agent skills installed in `.agents/skills/`. Before writing or changing Trigger.dev code (background tasks, scheduled tasks, realtime, or chat.agent AI agents), load the most relevant skill: `trigger-authoring-chat-agent`, `trigger-authoring-tasks`, `trigger-chat-agent-advanced`, `trigger-cost-savings`, `trigger-getting-started`, `trigger-realtime-and-frontend`.
 <!-- TRIGGER.DEV SKILLS END -->
 
+## Sanity as the source of truth
+
+- Use Sanity for new persistent application data, discovery data, editorial content, prompts, screening rules and user-editable configuration. Read published documents through the existing server-side Sanity adapters and task/request snapshots.
+- Do not introduce new durable business/configuration storage in Redis, local files, environment variables or hard-coded runtime constants. Repository defaults are for tests, offline development and non-destructive initial seeding only; hosted features must read and validate published Sanity data.
+- Redis may remain a short-lived cache or coordination mechanism (locks, rate limits, expiring task checkpoints). Do not make it the sole source of truth for new durable application records. Preserve existing storage integrations unless migrating them is part of the requested work.
+- Add the Sanity schema, runtime validation, cache invalidation and an idempotent seed/migration alongside each new persisted feature. Preserve published edits and unrelated drafts. Fail clearly when required published data is missing or invalid; never silently fall back to stale code defaults in production.
+- Keep Sanity credentials server-only and use revision guards for writes that could conflict with editorial changes.
+
 ## Trigger environment requirement
 
 - Production apps and admin chat must use the hosted Trigger.dev **Production** worker. The user explicitly authorized this on 24 September 2026, superseding the previous Development-only requirement for production.

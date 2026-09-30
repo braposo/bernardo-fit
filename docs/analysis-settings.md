@@ -4,7 +4,7 @@ Open the standalone Studio (`../studio-fit-app`, `npm run dev`) and select
 **Analysis settings** at the top of the sidebar. The current code instructions
 have been copied into this private, published singleton document.
 
-The three tabs contain:
+The settings tabs contain:
 
 - **Prompts and candidate context:** full candidate evidence, compact motivation
   and interview context, shared writing rules, and prompts for fit analysis,
@@ -16,6 +16,7 @@ The three tabs contain:
   entries and dimension `gap` messages for schema compatibility. Fit assessment
   no longer requests these checks, applies their caps or displays their messages;
   editing them does not change fit freshness.
+- **LinkedIn screening:** preliminary Jev instructions and criteria, rejection probability, search size, request pacing, retry delays and time budget. See [LinkedIn screening](linkedin-screening.md).
 - **Confirmed facts:** exact factual answers that may bypass a model, the list
   of routine motivation questions, and personal facts used in interview briefs.
 
@@ -85,7 +86,7 @@ will be considered stale on the next read. A retry loads current settings and
 cannot attach a checkpoint from a different settings fingerprint.
 
 Output parsing, TypeSafe response validation, score calibration, probability
-thresholds, model IDs, rate limits and orchestration remain in code. The Studio
+thresholds for full-fit scoring, model IDs and orchestration remain in code. LinkedIn screening and request-pacing settings are editable as documented above. The Studio
 edits instructions and rubric descriptions/weights, not executable policy.
 
 ## Remote preference and model confidence
