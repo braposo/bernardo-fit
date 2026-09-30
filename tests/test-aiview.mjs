@@ -65,7 +65,7 @@ const html = fs.readFileSync(root + "lib/templates/home.html", "utf8");
 check("no ai_view render", !html.includes("ai_view"));
 check("no aiview style", !html.includes("aiview"));
 check("no 'Where AI fits' label", !html.includes("Where AI fits"));
-check("evidence sections remain available", html.includes("Where I land") && html.includes("Relevant experience"));
+check("evidence sections remain available", html.includes("Where I land") && html.includes("What sets me apart"));
 
 console.log("\n--- per-role instructions still layer on top ---");
 const steered = flat(buildSystemPrompt({ instructions: "Lean on the agent architecture work." }));
