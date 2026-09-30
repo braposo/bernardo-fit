@@ -1,0 +1,21 @@
+diff --git a/schemaTypes/analysisSettings.ts b/schemaTypes/analysisSettings.ts
+index f1b57a9..0a1a5bc 100644
+--- a/schemaTypes/analysisSettings.ts
++++ b/schemaTypes/analysisSettings.ts
+@@ -1,3 +1,4 @@
++import {requestLifecycle} from './requestLifecycle'
+ import {defineArrayMember, defineField, defineType} from 'sanity'
+ import {CogIcon} from '@sanity/icons/Cog'
+ import {linkedinScreening} from './linkedinScreening'
+@@ -11,9 +12,10 @@ const key = (name = 'key') => defineField({name, title: 'App key', type: 'string
+ export const analysisSettings = defineType({
+   name: 'analysisSettings', title: 'Analysis settings', type: 'document', icon: CogIcon,
+   groups: [{name: 'prompts', title: 'Prompts and candidate context', default: true},
+-    {name: 'jev', title: 'Jev rubric and routing'}, {name: 'linkedin', title: 'LinkedIn screening'}, {name: 'facts', title: 'Confirmed facts'}],
++    {name: 'jev', title: 'Jev rubric and routing'}, {name: 'linkedin', title: 'LinkedIn screening'}, {name: 'requests', title: 'Request lifecycle'}, {name: 'facts', title: 'Confirmed facts'}],
+   fields: [
+     linkedinScreening,
++    requestLifecycle,
+     defineField({name: 'title', title: 'Title', type: 'string', initialValue: 'Fit analysis settings'}),
+     defineField({name: 'texts', title: 'Prompts and candidate context', group: 'prompts', type: 'array',
+       description: 'Published changes are read by new analysis tasks. Keep {{placeholder}} names unchanged. Output format requirements must match the app. All 13 entries are required.',

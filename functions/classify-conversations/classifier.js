@@ -20,7 +20,7 @@ export function metricsFromAnswers(data, settings) {
     contentGaps: Object.entries(settings.gaps).filter(([key]) => data.answers[key].noul >= settings.gapThreshold).map(([, label]) => label) };
 }
 
-export async function classifyWithJev(messages, { apiKey = process.env.TYPESAFE_API_KEY, fetchImpl = fetch, settings } = {}) {
+export async function classifyWithJev(messages, { apiKey = process.env.TYPESAFE_API_KEY, fetchImpl = fetch, settings, signal } = {}) {
   if (!apiKey?.trim()) throw failure("Jev classifier credential is missing");
   settings ||= await loadChatSettings();
   const body = JSON.stringify({ model: settings.classifierModel, state: { messages }, questions: settings.questions });
@@ -29,8 +29,8 @@ export async function classifyWithJev(messages, { apiKey = process.env.TYPESAFE_
   try {
     response = await fetchImpl("https://api.typesafe.ai/v1/systemone", { method: "POST",
       headers: { Authorization: `Bearer ${apiKey.trim()}`, "Content-Type": "application/json" },
-      body, signal: AbortSignal.timeout(30000) });
-  } catch { throw failure('Jev classification transport failed', true); }
+      body, signal: signal || AbortSignal.timeout(30000) });
+  } catch (error) { throw failure('Jev classification transport failed', error?.retryable !== false && !error?.abort); }
   if (!response.ok) throw failure('Jev classification request failed', response.status === 429 || response.status >= 500);
   try { return metricsFromAnswers(await response.json(), settings); }
   catch { throw failure('Invalid Jev classification response'); }

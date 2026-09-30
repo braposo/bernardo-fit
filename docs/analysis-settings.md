@@ -16,6 +16,7 @@ The settings tabs contain:
   entries and dimension `gap` messages for schema compatibility. Fit assessment
   no longer requests these checks, applies their caps or displays their messages;
   editing them does not change fit freshness.
+- **Request lifecycle:** published provider HTTP timeouts, native Trigger retry options and conversation-persistence timeout/retries. See [request lifecycle](trigger-lifecycle-review.md).
 - **LinkedIn screening:** preliminary Jev instructions and criteria, rejection probability, search size, request pacing, native Trigger retry policy and HTTP timeout. See [LinkedIn screening](linkedin-screening.md).
 - **Confirmed facts:** exact factual answers that may bypass a model, the list
   of routine motivation questions, and personal facts used in interview briefs.

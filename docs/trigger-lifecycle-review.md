@@ -1,31 +1,33 @@
-# Trigger request lifecycle review
+# Trigger request lifecycle
 
-Reviewed 30 September 2026. This is a code review, not evidence of additional production incidents. LinkedIn is being migrated in this PR; the findings below are follow-up work, not implemented changes.
+Implemented after the 30 September 2026 app-wide retry review.
 
-| Priority | Area and evidence | Recommended change |
-| --- | --- | --- |
-| High | `lib/jev.js:evaluateJev` makes up to three HTTP attempts with a timer and a shared 30-second AbortSignal. `src/trigger/jev.ts` also allows three task attempts. A repeatedly throttled assessment can therefore make up to nine calls; a long Retry-After is discarded when the error is translated. | Give worker Jev calls one native retry owner at a request/stage boundary. Preserve provider status and Retry-After, use Trigger timeout/cancellation, and pass a validated Sanity policy. Keep synchronous chat routing behavior explicit because this helper is shared. Verify 429, 529, cancellation, permanent errors and telemetry per attempt. |
-| High | `lib/analysis-work.js:executeAnalysisWork` generates a paid report before saving it. A transient save failure before persistence causes the three-attempt task to generate again. Recovery already works when the report/version was successfully saved. | Isolate generation and persistence into child tasks with stable request-id idempotency keys. Reuse successful child output when retrying persistence; retain supersession and revision checks. Apply the same audit to cover letters and application answers before changing their task policies. Verify a failed first save does not invoke the model twice. |
-| Medium | `lib/chat/work.js` catches a failed `saveChatTurn` and returns `storage: failed`. `lib/chat/insights.js` deliberately has maxRetries zero. `src/trigger/admin-chat.ts` correctly has one attempt to avoid replaying a partially streamed answer. | Add a persistence-only child task, keyed by the existing immutable turn request id. Retry the Sanity write without replaying the stream. Keep the saved content and routing metadata in the child payload; preserve access and retention controls. Verify interrupted and completed turns each persist once. |
-| Medium | `lib/openai.js` and `lib/anthropic.js` issue raw fetch calls without request-specific cancellation/timeout and discard Retry-After when translating provider errors. Their callers have task compute limits and short generic retries. | Propagate native cancellation, bound HTTP requests with Trigger APIs, and preserve rate-limit metadata for catchError. Use one retry layer per paid request; do not blindly add retry.fetch retries under existing whole-task retries. Store editable provider policy in Sanity. Verify 429 with a long delay, connection timeout and permanent 4xx. |
-| Lower | `functions/classify-conversations/classifier.js` uses an AbortSignal timeout for its HTTP call. `src/trigger/classify-chat-conversation.ts` already uses native retry.onThrow per stage and one parent attempt. | Keep the stage boundaries: they prevent a failed write replaying a successful paid classification. Move the HTTP timeout to native retry.fetch when touching this path; avoid adding a second retry owner. |
+Worker generation now runs as an idempotent `durable-model-call` child task. Analysis, cover letters and answers cache their complete generated result before the parent persists it. Other model callers use the same boundary at provider completion. Successful child output is reused on parent retries, so a failed first Sanity write does not pay for generation again. Existing supersession, revision and artifact checks still decide whether the result may attach to a job.
 
-## Existing behavior to preserve
+Each HTTP request runs in `provider-http-request`, which owns native task retries, HTTP response timeouts, cancellation and Retry-After scheduling. `retry.fetch` makes one attempt per task attempt. The model task itself has one attempt; exhaustion aborts its caller rather than multiplying retries. Anthropic continuations remain separate requests, and cover-letter semantic repair remains bounded within the generated artifact task. Jev's custom retry loop has been removed.
 
-- `lib/sanity/repository.js`: revision conflicts require rereading and recomputing the mutation. These are optimistic-concurrency operations used by interactive requests as well as workers, not generic transient HTTP retries.
-- `lib/cover.js`: the second attempt repairs malformed model output with changed instructions. It is a bounded semantic repair, not repeated transport.
-- `lib/anthropic.js`: pause_turn continuation is part of the provider conversation protocol, not failure recovery.
-- `api/admin/chat.js`: the SSE connection timeout and reconnect to the same Trigger run serve the browser connection. Reconnection must never dispatch a second generation.
-- `lib/chat/agent.js`: maxRetries zero avoids hidden SDK retries during streamed generation.
-- Standalone ingestion/fetch CLI polling and pacing are outside hosted task execution. If these become production workflows, move them into Trigger; do not inject task-only durable APIs into a standalone process.
+Admin chat still has one streamed generation attempt. Its immutable conversation snapshot goes to `persist-chat-turn`, which retries only storage with a stable request identity and no credentials in its payload. Trigger owns the write's compute timeout; the Sanity client's retry and timeout layers are disabled for this task. An exhausted save remains visible as a failed child run and `storage: failed`, rather than falsely reporting success. Forcefully terminating a streaming task can still interrupt it before a snapshot is submitted; the task does not claim to recover unsubmitted text.
 
-## Rollout order
+Conversation classification retains separate read/evaluate/write stages. Its provider HTTP call now uses the native request task and cannot be retried again by the stage wrapper after exhaustion. Storage-stage retries remain native `retry.onThrow`. Batch ingestion awaits candidates sequentially because Trigger durable waits must not be wrapped in Promise.all; child queues control concurrency across runs.
 
-1. Jev request boundary and provider rate-limit handling.
-2. Analysis generation/persistence isolation, then cover and answers.
-3. Chat persistence task.
-4. Remaining timeout consolidation.
+## Published configuration
 
-Each change should have targeted failure-injection tests, a named Development worker check and PR CI before release. Retry configuration alone is insufficient: a safe retry boundary must not replay completed paid work or overwrite a newer user edit.
+In [Fit Studio](https://job-fit-app.sanity.studio/), open **Analysis settings → Request lifecycle**. Jev, OpenAI, Anthropic and conversation persistence each have timeout and native retry settings. Initial total attempts are three; initial HTTP timeouts are 30 seconds for Jev and 120 seconds for OpenAI/Anthropic. Conversation persistence has a 10-second compute limit. Trigger task limits additionally bound body consumption and model processing; durable waits do not consume compute time.
+
+Hosted calls require the published `fit-analysis-settings.requestLifecycle` snapshot. Policy-only edits do not invalidate fit evidence or completed content. `scripts/seed-request-lifecycle.mjs --apply` adds absent fields under revision guards and preserves edits and drafts. To install the Studio field, copy `lib/sanity/studio/requestLifecycle.ts` and apply `migration/request-lifecycle-studio.patch` after the LinkedIn schema patch.
+
+Idempotency keys are scoped to the parent run and retained for 30 days. They protect automatic retries of that run, not a new user request or indefinite storage. Sanity remains the source of truth for generated artifacts; Trigger results are execution checkpoints. Credentials are read inside request/storage workers and never passed in task payloads. Prompt and result retention follows the existing Trigger project policy.
+
+## Deliberate exceptions
+
+- Standalone CLI and synchronous calls make one HTTP attempt with a caller/transport deadline; durable task waits require a worker context.
+- Browser SSE deadlines and reconnects remain transport behavior and never dispatch another generation.
+- Sanity revision-conflict loops reread and recompute mutations; they are optimistic concurrency, not HTTP retry infrastructure.
+- Chat's streaming provider SDK keeps maxRetries zero. It must not replay a partially billed answer.
+- Model refusal, semantic repair and Anthropic pause_turn continuation keep their existing behavior.
+
+## Validation
+
+Failure injection covers failed first saves for analysis, cover and answers, Jev retry exhaustion without multiplication, permanent failures, Retry-After metadata, cancellation, timeout delegation, policy validation and conversation-save retries. Existing provider, chat, admission and supersession tests cover behavior around these boundaries. The named Development worker `codex/request-lifecycle` registered the new tasks. A [live synthetic save-failure probe](https://cloud.trigger.dev/projects/v3/proj_bvmrmtvfeyxpshabcxqv/runs/run_06gf4qp3nmk1lq6rhu20gaqi01) completed on parent attempt two with exactly one child execution, verifying native checkpoint reuse. The temporary probe tasks were removed afterward. A malformed-request probe stopped after one attempt with no HTTP call. No paid model requests were made. This Development environment lacks OpenAI/Anthropic keys; those providers were verified with synthetic responses.
 
 References: [Trigger task retries](https://trigger.dev/docs/errors-retrying), [compute duration and waits](https://trigger.dev/docs/runs/max-duration). [Management API retries](https://trigger.dev/docs/management/errors-and-retries) configure calls to Trigger's API, not arbitrary provider requests.
