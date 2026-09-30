@@ -91,6 +91,14 @@ export type AnalysisSettings = {
     mismatchCriteria?: string;
     requestMinSeconds?: number;
     requestMaxSeconds?: number;
+    requestTimeoutSeconds?: number;
+    retry?: {
+      maxAttempts?: number;
+      minTimeoutInMs?: number;
+      maxTimeoutInMs?: number;
+      factor?: number;
+      randomize?: boolean;
+    };
     retryMinutes?: Array<number>;
     requestBudgetMinutes?: number;
   };
@@ -1120,6 +1128,14 @@ export type ANALYSIS_SETTINGS_QUERY_RESULT = {
     mismatchCriteria?: string;
     requestMinSeconds?: number;
     requestMaxSeconds?: number;
+    requestTimeoutSeconds?: number;
+    retry?: {
+      maxAttempts?: number;
+      minTimeoutInMs?: number;
+      maxTimeoutInMs?: number;
+      factor?: number;
+      randomize?: boolean;
+    };
     retryMinutes?: Array<number>;
     requestBudgetMinutes?: number;
   } | null;
@@ -2102,6 +2118,14 @@ export type CONTENT_DOCUMENT_QUERY_RESULT =
         mismatchCriteria?: string;
         requestMinSeconds?: number;
         requestMaxSeconds?: number;
+        requestTimeoutSeconds?: number;
+        retry?: {
+          maxAttempts?: number;
+          minTimeoutInMs?: number;
+          maxTimeoutInMs?: number;
+          factor?: number;
+          randomize?: boolean;
+        };
         retryMinutes?: Array<number>;
         requestBudgetMinutes?: number;
       };

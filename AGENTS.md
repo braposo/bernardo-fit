@@ -12,6 +12,16 @@ This project has Trigger.dev agent skills installed in `.agents/skills/`. Before
 - Add the Sanity schema, runtime validation, cache invalidation and an idempotent seed/migration alongside each new persisted feature. Preserve published edits and unrelated drafts. Fail clearly when required published data is missing or invalid; never silently fall back to stale code defaults in production.
 - Keep Sanity credentials server-only and use revision guards for writes that could conflict with editorial changes.
 
+## Prefer Trigger lifecycle features
+
+- Use Trigger.dev for background request execution, retries/backoff, timeouts, durable waits, queues/concurrency, scheduling, idempotency, cancellation, run state, tracing and replay wherever it has a suitable feature. Check the installed SDK's pinned docs before building infrastructure yourself.
+- Prefer small child tasks with native `retry` and `catchError`, `retry.fetch` / `timeoutInMs`, `retry.onThrow`, `maxDuration`, `wait.for` / `wait.until`, `triggerAndWait`, and idempotency keys. Do not implement custom attempt loops, sleep/backoff timers, polling schedulers, AbortController timeout engines, or Redis cooldown ledgers when Trigger can own that lifecycle.
+- Keep editable domain/provider policy in Sanity and pass its validated snapshot into native Trigger options. Code should supply configuration and provider-specific interpretation, not duplicate Trigger's retry machinery. A small `Retry-After` → `retryAt` adapter is appropriate when the installed SDK cannot interpret the provider's header directly.
+- Assign one retry owner to each request: avoid multiplying provider-SDK, `retry.fetch`, child-task and parent-task retries. Checkpoint paid results before retryable writes; do not automatically replay partially streamed or billed generation.
+- Distinguish compute limits (`maxDuration`) from wall-clock time: durable waits do not consume compute duration. Queue slots can be released during waits; use source ownership/idempotency where overlapping workflows must remain exclusive, with recovery based on Trigger run state rather than guessed expiry times.
+- Browser/SSE connection deadlines, standalone CLI operations, semantic output repair and optimistic-concurrency conflicts are not automatically background-task retries. Preserve those domain/transport boundaries and document any necessary exception before extending custom orchestration.
+- References: https://trigger.dev/docs/errors-retrying, https://trigger.dev/docs/runs/max-duration and https://trigger.dev/docs/management/errors-and-retries (the last configures calls to Trigger's API, not arbitrary provider HTTP requests).
+
 ## Trigger environment requirement
 
 - Production apps and admin chat must use the hosted Trigger.dev **Production** worker. The user explicitly authorized this on 24 September 2026, superseding the previous Development-only requirement for production.

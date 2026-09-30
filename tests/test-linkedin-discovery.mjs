@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { londonSchedule, dispatchLinkedIn } from '../functions/discover-linkedin/schedule.js';
 import { parseLinkedInResults, linkedinWindow, searchLinkedIn, linkedinOpportunity } from '../lib/linkedin-source.js';
 import { discoverLinkedIn } from '../lib/linkedin-discovery.js';
-import { linkedinRequest } from '../lib/linkedin-request.js';
+import { fetchLinkedInPage, retryAfterDate, linkedInRetryPolicy } from '../lib/linkedin-request.js';
+import { DEFAULT_LINKEDIN_SETTINGS } from '../lib/sanity/linkedin-settings.js';
+import { claimLinkedInSource } from '../lib/linkedin-run-lock.js';
 import { screenLinkedInCard } from '../lib/linkedin-card-screening.js';
 import { initialSettingsDocument } from '../lib/sanity/settings-document.js';
 import { settingsFromDocument, withSettingsSnapshot } from '../lib/sanity/analysis-settings.js';
@@ -93,58 +95,6 @@ await test('scheduler ingest leaves existing archived row byte-for-byte unchange
     {skipExisting:true,minimumScore:50,screen:async()=>assert.fail('existing must not be screened')});
   assert.equal(result.skipped,1);assert.deepEqual(await getJob(job.id),before);
 });
-function clockedRequest(options = {}) {
-  let time = Date.parse('2026-09-30T08:00:00Z');
-  const waits = [];
-  return { waits, request: linkedinRequest({ now: () => time, random: () => 0,
-    sleep: async ms => { waits.push(ms); time += ms; }, ...options }) };
-}
-await test('429 honors Retry-After and spaces every request including retries', async () => {
-  let calls = 0;
-  const { request, waits } = clockedRequest({ fetchImpl: async () => ++calls === 1
-    ? new Response('', { status: 429, headers: { 'Retry-After': '600' } }) : new Response(card) });
-  const response = await request('https://www.linkedin.com/test');
-  assert.equal(response.status, 200);
-  assert.deepEqual(waits, [30_000, 600_000, 30_000]);
-  await request('https://www.linkedin.com/test');
-  assert.equal(waits.at(-1), 30_000);
-});
-await test('persistent throttling stops after four attempts and saves a cooldown', async () => {
-  let calls = 0, cooldown;
-  const { request, waits } = clockedRequest({ fetchImpl: async () => { calls++; return new Response('', { status: 429 }); },
-    onCooldown: async until => { cooldown = until; } });
-  await assert.rejects(request('https://www.linkedin.com/test'), e => e.stop && /retries exhausted/.test(e.message));
-  assert.equal(calls, 4);
-  assert.deepEqual(waits, [30_000, 300_000, 30_000, 900_000, 30_000, 1800_000, 30_000]);
-  assert.ok(cooldown > Date.parse('2026-09-30T08:50:00Z'));
-});
-await test('long Retry-After is saved without retrying early or exceeding the budget', async () => {
-  let cooldown, calls = 0;
-  const { request } = clockedRequest({ fetchImpl: async () => { calls++; return new Response('', {
-    status: 429, headers: { 'Retry-After': 'Thu, 01 Oct 2026 12:00:00 GMT' } }); },
-    onCooldown: async until => { cooldown = until; } });
-  await assert.rejects(request('https://www.linkedin.com/test'), /budget exhausted/);
-  assert.equal(calls, 1);
-  assert.equal(cooldown, Date.parse('2026-10-01T12:00:00Z'));
-  const next = clockedRequest({ notBefore: cooldown, fetchImpl: async () => assert.fail('cooldown still active') });
-  await assert.rejects(next.request('https://www.linkedin.com/test'), /budget exhausted/);
-});
-await test('network failures and temporary server errors retry; redirects and denials do not', async () => {
-  let calls = 0;
-  const { request } = clockedRequest({ fetchImpl: async () => {
-    calls++;
-    if (calls === 1) throw new Error('timeout');
-    return new Response(card, { status: calls === 2 ? 503 : 200 });
-  } });
-  assert.equal((await request('https://www.linkedin.com/test')).status, 200);
-  assert.equal(calls, 3);
-  for (const status of [302, 401, 403, 999]) {
-    let attempts = 0;
-    const client = clockedRequest({ fetchImpl: async () => { attempts++; return { status, ok: false }; } });
-    await assert.rejects(linkedinOpportunity(posting(1), { fetchImpl: client.request }), e => e.stop);
-    assert.equal(attempts, 1);
-  }
-});
 await test('search keeps the forty newest cards', async () => {
   const html = Array.from({ length: 60 }, (_, i) => card.replace('jobPosting:123', `jobPosting:${i}`)).join('');
   const result = await searchLinkedIn({ window: linkedinWindow(null), searches: [{keywords:'manager',location:'UK'}],
@@ -153,21 +103,21 @@ await test('search keeps the forty newest cards', async () => {
   assert.equal(result.jobs.at(-1).id, '39');
   assert.equal(result.scans[0].bounded, true);
 });
-await test('request budget persists backlog and resumes without reprocessing filtered jobs', async () => {
+await test('exhausted request task persists backlog and resumes without reprocessing filtered jobs', async () => {
   let state, descriptions = [];
-  let budgetReached = true;
+  let requestFailed = true;
   const options = { ...base, now: new Date('2026-09-30T08:00:00Z'),
     search: async () => ({ jobs: [posting(1), posting(2)], scans: [], complete: true }),
     describe: async p => {
-      if (p.id === '2' && budgetReached) throw Object.assign(new Error('budget reached'), {stop:true,deferred:true});
+      if (p.id === '2' && requestFailed) throw Object.assign(new Error('budget reached'), {stop:true});
       descriptions.push(p.id); return { ...p, externalId: `linkedin-${p.id}` };
     },
     ingest: async () => ({ filtered: 1, screeningRows: [{ decision: 'below-threshold' }], addedRows: [] }),
     saveState: async next => { state = structuredClone(next); } };
   const first = await discoverLinkedIn(options);
-  assert.equal(first.status, 'deferred'); assert.equal(first.deferred, 1);
+  assert.equal(first.status, 'incomplete'); assert.equal(first.deferred, 1);
   assert.equal(state.lastSearch, '2026-09-30T08:00:00.000Z');
-  budgetReached = false;
+  requestFailed = false;
   const next = await discoverLinkedIn({ ...options, state, now: new Date('2026-10-01T08:00:00Z') });
   assert.equal(next.complete, true); assert.deepEqual(descriptions, ['1', '2']);
   assert.equal(state.pending.length, 0);
@@ -230,29 +180,16 @@ await test('Jev pre-screen failure retains the candidate and never fetches its d
   assert.equal(report.status, 'incomplete'); assert.equal(state.pending.length, 1);
   assert.equal(report.failures[0].phase, 'prescreening');
 });
-await test('request budget during searches defers normally and preserves discovered cards', async () => {
-  let calls = 0, state;
-  const report = await discoverLinkedIn({ ...base,
-    search: options => searchLinkedIn({ ...options, searches: [{keywords:'one'},{keywords:'two'}], sleep:async()=>{},
-      fetchImpl: async () => { if (++calls === 2) throw Object.assign(new Error('budget reached'), {stop:true,deferred:true}); return new Response(card); } }),
-    saveState: async next => { state = structuredClone(next); } });
-  assert.equal(report.status, 'deferred'); assert.equal(state.pending[0].id, '123');
-  assert.equal(state.lastSearch, undefined);
-});
 await test('published screening edits change search limits, retry pacing, Jev decisions and admission', async () => {
   const doc = initialSettingsDocument();
   Object.assign(doc.linkedinScreening, { resultsPerSearch: 2, mismatchProbability: 0.99,
-    instructions: 'Published preliminary policy', requestMinSeconds: 45, requestMaxSeconds: 45, retryMinutes: [2] });
+    instructions: 'Published preliminary policy', requestMinSeconds: 45, requestMaxSeconds: 45, retry: { ...doc.linkedinScreening.retry, minTimeoutInMs: 120000 } });
   doc.ingestMinimumScore = 70;
   await withSettingsSnapshot(settingsFromDocument(doc), async () => {
     const html = [1,2,3].map(id => card.replace('jobPosting:123', `jobPosting:${id}`)).join('');
     const found = await searchLinkedIn({window:linkedinWindow(null), searches:[{keywords:'one'}],
       sleep:async()=>{},fetchImpl:async()=>new Response(html)});
     assert.equal(found.jobs.length, 2);
-    let calls = 0;
-    const {request,waits} = clockedRequest({fetchImpl:async()=>new Response('', {status:++calls===1?429:200})});
-    await request('https://www.linkedin.com/test');
-    assert.deepEqual(waits,[45_000,120_000,45_000]);
     const cache=new Map();
     const options={load:async(_,key)=>cache.get(key),save:async(_,key,value)=>{cache.set(key,value);return value;},
       evaluate:async({questions})=>{
@@ -269,6 +206,55 @@ await test('published screening edits change search limits, retry pacing, Jev de
       read:async()=>({jevAssessment:{status:'complete',score:65},overviewSummary:{position:'Role',fit:'Fit'}})});
     assert.equal(report.complete,false,'saved job must meet the published minimum');
   });
+});
+await test('Trigger owns request timeout and retries', async () => {
+  const signal = new AbortController().signal;
+  const result = await fetchLinkedInPage({url:'https://www.linkedin.com/jobs/search/',policy:DEFAULT_LINKEDIN_SETTINGS}, {
+    signal, fetchRequest:async (_, options) => {
+      assert.equal(options.signal,signal); assert.equal(options.timeoutInMs,25000);
+      assert.deepEqual(options.retry,{byStatus:{},timeout:{maxAttempts:1},connectionError:{maxAttempts:1}});
+      return new Response('public results');
+    }});
+  assert.deepEqual(result,{status:200,body:'public results'});
+});
+await test('Retry-After maps seconds and dates into native retryAt', async () => {
+  assert.equal(retryAfterDate('120',0).getTime(),120000);
+  assert.equal(retryAfterDate('Thu, 01 Oct 2026 12:00:00 GMT',0).toISOString(),'2026-10-01T12:00:00.000Z');
+  assert.equal(retryAfterDate('invalid'),undefined);
+  assert.equal(retryAfterDate('0'),undefined);
+  await assert.rejects(fetchLinkedInPage({url:'https://www.linkedin.com/jobs/search/',policy:DEFAULT_LINKEDIN_SETTINGS}, {
+    fetchRequest:async()=>new Response('',{status:429,headers:{'retry-after':'600'}})
+  }),error=> {
+    const native=linkedInRetryPolicy({payload:{policy:DEFAULT_LINKEDIN_SETTINGS},error});
+    assert.deepEqual(native.retry,DEFAULT_LINKEDIN_SETTINGS.retry);
+    assert.ok(native.retryAt.getTime()>Date.now()+590000);return true;
+  });
+});
+await test('unsafe endpoints and auth abort; expired postings do not retry', async () => {
+  for (const url of ['https://evil.example/jobs/search/','https://www.linkedin.com/private']) {
+    await assert.rejects(fetchLinkedInPage({url,policy:DEFAULT_LINKEDIN_SETTINGS},{fetchRequest:async()=>assert.fail('unsafe')}),
+      error=>linkedInRetryPolicy({payload:{},error}).skipRetrying===true);
+  }
+  for (const status of [302,401,403,999]) {
+    await assert.rejects(fetchLinkedInPage({url:'https://www.linkedin.com/jobs/search/',policy:DEFAULT_LINKEDIN_SETTINGS},{
+      fetchRequest:async()=>({ok:false,status,headers:new Headers(),body:null})
+    }),error=>linkedInRetryPolicy({payload:{},error}).skipRetrying===true);
+  }
+  assert.equal((await fetchLinkedInPage({url:'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/123',policy:DEFAULT_LINKEDIN_SETTINGS},{
+    fetchRequest:async()=>new Response('',{status:404})
+  })).status,404);
+});
+await test('ownership survives waits; only terminal owners can be replaced atomically', async () => {
+  let owner='run_old',completed=false;
+  const client={set:async(_,value)=>{if(owner)return null;owner=value;return 'OK';},get:async()=>owner,
+    eval:async(_,keys,[expected,next])=>{if(owner!==expected)return 0;owner=next;return 1;}};
+  assert.equal(await claimLinkedInSource(client,'run_new',async()=>({isCompleted:completed})),false);
+  completed=true;
+  assert.equal(await claimLinkedInSource(client,'run_new',async()=>({isCompleted:completed})),true);
+  assert.equal(owner,'run_new');
+  await assert.rejects(claimLinkedInSource(client,'run_other',async()=>{throw Error('status unavailable');}));
+  assert.equal(owner,'run_new');
+  assert.equal(await claimLinkedInSource(client,'run_race',async()=>{owner='another';return {isCompleted:true};}),false);
 });
 console.log(`passed ${passed}, failed ${failed}`);
 process.exitCode = failed ? 1 : 0;

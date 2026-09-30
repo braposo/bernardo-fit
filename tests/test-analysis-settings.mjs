@@ -67,8 +67,8 @@ await test('LinkedIn settings validate independently without invalidating existi
   const legacySnapshot = settingsFromDocument(legacy);
   assert.throws(() => withSettingsSnapshot(legacySnapshot, linkedinSettings), /published LinkedIn screening settings/);
   for (const patch of [{resultsPerSearch:0},{resultsPerSearch:61},{mismatchProbability:1.1},
-    {requestMinSeconds:1},{requestMaxSeconds:29},{requestBudgetMinutes:121},{retryMinutes:[10,5]},
-    {retryMinutes:[1,2,3,4]},{instructions:' '},{mismatchCriteria:null}]) {
+    {requestMinSeconds:1},{requestMaxSeconds:29},{requestTimeoutSeconds:46},{retry:{...original.linkedinScreening.retry,maxAttempts:0}},
+    {retry:{...original.linkedinScreening.retry,minTimeoutInMs:0}},{instructions:' '},{mismatchCriteria:null}]) {
     assert.throws(() => settingsFromDocument({...original,linkedinScreening:{...original.linkedinScreening,...patch}}),
       {code:'SANITY_SETTINGS_INVALID'});
   }

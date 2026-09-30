@@ -26,11 +26,22 @@ export const linkedinScreening = defineField({
       validation: rule => rule.required().integer().min(30).max(300).custom((value, context) =>
         value === undefined || value >= Number((context.parent as {requestMinSeconds?: number})?.requestMinSeconds || 30)
           || 'Must be at least the minimum pause.')}),
-    defineField({name: 'retryMinutes', title: 'Retry delays (minutes)', type: 'array',
-      description: 'Up to three increasing delays. An empty list disables retries. LinkedIn Retry-After values take precedence when longer.',
-      of: [defineArrayMember({type: 'number', validation: rule => rule.integer().min(1).max(60)})],
-      validation: rule => rule.required().max(3).custom(value => !value || value.every((v, i) => typeof v === 'number' && (!i || v >= Number(value[i - 1])))
-        || 'Retry delays must not decrease.')}),
-    number('requestBudgetMinutes', 'Request-time budget per run (minutes)', 1, 120),
+    number('requestTimeoutSeconds', 'Trigger HTTP timeout (seconds)', 1, 45),
+    defineField({name: 'retry', title: 'Trigger request retry policy', type: 'object',
+      description: 'Native Trigger task retry options. Each request is a separate task with its own attempts and trace. Retry-After can override the next retry time.',
+      validation: rule => rule.required(), fields: [
+        number('maxAttempts', 'Maximum attempts (including the first)', 1, 4),
+        number('minTimeoutInMs', 'Initial retry delay (milliseconds)', 60000, 3600000),
+        defineField({name: 'maxTimeoutInMs', title: 'Maximum retry delay (milliseconds)', type: 'number',
+          validation: rule => rule.required().integer().min(60000).max(3600000).custom((value, context) =>
+            value === undefined || value >= Number((context.parent as {minTimeoutInMs?: number})?.minTimeoutInMs || 60000)
+              || 'Must be at least the initial delay.')}),
+        defineField({name:'factor',title:'Backoff factor',type:'number',validation:rule=>rule.required().min(1).max(5)}),
+        defineField({name:'randomize',title:'Randomize retry delays',type:'boolean',validation:rule=>rule.required()}),
+      ]}),
+    // Retain old values for migration/audit without exposing inactive controls.
+    defineField({name:'retryMinutes',title:'Retired custom retry schedule',type:'array',hidden:true,readOnly:true,
+      of:[defineArrayMember({type:'number'})]}),
+    defineField({name:'requestBudgetMinutes',title:'Retired wall-clock budget',type:'number',hidden:true,readOnly:true}),
   ],
 })
