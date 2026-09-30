@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { initialSettingsDocument } from "../lib/sanity/settings-document.js";
 import { loadAnalysisSettings, settingsFromDocument, settingsFingerprint, settingsText,
   withSettingsSnapshot, withAnalysisSettings, ANALYSIS_SETTINGS_QUERY } from "../lib/sanity/analysis-settings.js";
+import { linkedinSettings } from '../lib/sanity/analysis-settings.js';
 import { buildSystemPrompt } from "../lib/profile.js";
 import { buildCoverPrompt } from "../lib/cover.js";
 import { buildAnswerPrompt } from "../lib/answer.js";
@@ -53,6 +54,24 @@ await test("admission threshold is validated without changing content or scoring
 await test("seeding retains baseline semantics and fingerprint", () => {
   assert.equal(snapshot.fingerprint, settingsFingerprint());
   assert.notEqual(snapshot.fingerprint, changed.fingerprint);
+});
+await test('LinkedIn settings validate independently without invalidating existing job assessments', () => {
+  const doc = structuredClone(original);
+  doc.linkedinScreening.resultsPerSearch = 25;
+  doc.linkedinScreening.mismatchProbability = 0.95;
+  const edited = settingsFromDocument(doc);
+  withSettingsSnapshot(edited, () => assert.equal(linkedinSettings().resultsPerSearch, 25));
+  assert.equal(edited.fingerprint, snapshot.fingerprint);
+  assert.equal(withSettingsSnapshot(edited, () => scoringFingerprint(job)), withSettingsSnapshot(snapshot, () => scoringFingerprint(job)));
+  const legacy = structuredClone(original); delete legacy.linkedinScreening;
+  const legacySnapshot = settingsFromDocument(legacy);
+  assert.throws(() => withSettingsSnapshot(legacySnapshot, linkedinSettings), /published LinkedIn screening settings/);
+  for (const patch of [{resultsPerSearch:0},{resultsPerSearch:61},{mismatchProbability:1.1},
+    {requestMinSeconds:1},{requestMaxSeconds:29},{requestTimeoutSeconds:46},{retry:{...original.linkedinScreening.retry,maxAttempts:0}},
+    {retry:{...original.linkedinScreening.retry,minTimeoutInMs:0}},{instructions:' '},{mismatchCriteria:null}]) {
+    assert.throws(() => settingsFromDocument({...original,linkedinScreening:{...original.linkedinScreening,...patch}}),
+      {code:'SANITY_SETTINGS_INVALID'});
+  }
 });
 await test("published edits reach every full-profile prompt", () => withSettingsSnapshot(changed, () => {
   const prompts = [buildSystemPrompt().stable, buildCoverPrompt({report: job}).stable,

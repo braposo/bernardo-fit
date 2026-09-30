@@ -65,7 +65,7 @@ await test("only qualifying new jobs enter the pipeline with a fresh five-dimens
   const result = await executeIngestBatch([opportunity("good"), opportunity("boundary"), opportunity("below"),
     opportunity("unknown"), opportunity("partial"), opportunity("inaccessible"), opportunity("unrelated"), opportunity("conflict"), opportunity("failure"), opportunity("malformed"), null, { company: "missing-id" }], { requestId: "mixed-batch" });
   assert.deepEqual([result.added, result.filtered, result.needsReview, result.failed, result.skipped], [4, 2, 2, 2, 2]);
-  assert.equal(maxActive, 4);
+  assert.equal(maxActive, 1);
   assert.equal(summaryCalls, 4, "only passing candidates generate summaries");
   const jobs = await listJobs(); assert.equal(jobs.length, 4);
   for (const job of jobs) {

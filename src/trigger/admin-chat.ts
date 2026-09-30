@@ -1,3 +1,4 @@
+import {withGenerationContext} from '../../lib/generation-context.js';
 import { task, streams, metadata, AbortTaskRunError } from '@trigger.dev/sdk';
 import { registerTelemetry } from 'ai';
 import { OpenTelemetry } from '@ai-sdk/otel';
@@ -15,7 +16,7 @@ export const adminChat = task({
   maxDuration: 210,
   retry: { maxAttempts: 1 }, // Never replay a partially billed answer automatically.
   queue: { concurrencyLimit: 2 },
-  run: async (payload: { requestId?: string; request?: any; healthcheck?: boolean }, { signal }) => {
+  run: async (payload: { requestId?: string; request?: any; healthcheck?: boolean }, { signal,ctx }) => {
     // Operational probe, available through authenticated Trigger tooling only.
     // The app dispatcher never copies this flag from user input.
     if (payload.healthcheck === true) {
@@ -26,6 +27,7 @@ export const adminChat = task({
       return { ready: Object.values(checks).every(Boolean), checks, settingsRevision:settings.revision };
     }
     if (!hasKV) throw new AbortTaskRunError('Chat storage is unavailable.');
+    return withGenerationContext({runId:ctx.run.id,taskAttempt:ctx.attempt.number},async()=>{
     let result: any, seq = 0;
     const { waitUntilComplete } = streams.writer('chat', {
       execute: async ({ write }) => {
@@ -39,5 +41,6 @@ export const adminChat = task({
     });
     await waitUntilComplete();
     return result;
+    });
   },
 });

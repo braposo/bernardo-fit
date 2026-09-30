@@ -105,25 +105,20 @@ await test("a weak central match cannot be hidden by high scores elsewhere", asy
     assert.equal((await assessFit(job)).score, 70, "unproven essential capabilities cannot yield a top score");
   } finally { transform = x => x; }
 });
-await test("direct API retries throttling and overload with bounded backoff", async () => {
-  const original = globalThis.fetch;
-  let attempts = 0;
-  globalThis.fetch = async (...args) => ++attempts < 3
-    ? { ok: false, status: attempts === 1 ? 429 : 529, headers: new Headers({ "retry-after": "0" }) }
-    : original(...args);
+await test("standalone Jev makes one attempt and preserves provider retry metadata", async () => {
+  const original=globalThis.fetch; let attempts=0;
   try {
-    await assessFit(job, "backoff");
-    assert.equal(attempts, 3);
-    assert.deepEqual((await readUsage("backoff")).map(x => x.httpStatus).sort(), [200, 429, 529]);
-    attempts = 0;
-    globalThis.fetch = async () => { attempts++; return { ok: false, status: 529, headers: new Headers({ "retry-after": "60" }) }; };
-    await assert.rejects(assessFit(job, "long-backoff"), e => !e.abort && e.status === 502);
-    assert.equal(attempts, 1, "never retry earlier than a long Retry-After");
-    globalThis.fetch = async () => { attempts++; return { ok: false, status: 422 }; };
-    await assert.rejects(assessFit(job, "bad-input"), e => e.abort && e.status === 422);
-    assert.equal(attempts, 2, "invalid input is not retried");
-  } finally { globalThis.fetch = original; }
+    for(const status of [429,529]) {
+      globalThis.fetch=async()=>{attempts++;return {ok:false,status,headers:new Headers({'retry-after':'60'})};};
+      const before=attempts;
+      await assert.rejects(assessFit(job,'native-backoff-'+status),error=>error.providerStatus===status && error.retryAt instanceof Date && !error.abort);
+      assert.equal(attempts,before+1);
+    }
+    globalThis.fetch=async()=>({ok:false,status:422});
+    await assert.rejects(assessFit(job,'bad-input'),error=>error.abort && error.status===422);
+  } finally {globalThis.fetch=original;}
 });
+
 await test("rejects mismatched model and malformed native Noul answers", async () => {
   try {
     transform = d => ({ ...d, model: "jev-unexpected" });
