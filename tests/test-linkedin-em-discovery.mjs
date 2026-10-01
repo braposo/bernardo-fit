@@ -3,7 +3,7 @@ import { screenLinkedInCards } from '../lib/linkedin-card-screening.js';
 import { discoverLinkedIn } from '../lib/linkedin-discovery.js';
 import { linkedinWindow, searchLinkedIn } from '../lib/linkedin-source.js';
 import { analysisSettings, linkedinSettings, withSettingsSnapshot } from '../lib/sanity/analysis-settings.js';
-import { findExistingJobIn } from '../lib/store.js';
+import { findExistingJobIn, linkedinPostingId } from '../lib/store.js';
 import { executeIngestBatch, ingestIdentity } from '../lib/ingest-work.js';
 
 let passed = 0, failed = 0;
@@ -213,6 +213,8 @@ await test('LinkedIn identity uses numeric posting ID while legacy company-title
   const legacy = { company: first.company, role: first.role };
   assert.equal(findExistingJobIn([legacy], other), legacy,
     'old records without a LinkedIn posting ID still match by company and title');
+  assert.equal(linkedinPostingId({ externalId: 'linkedin-90', sourceUrl: 'https://www.linkedin.com/jobs/search/' }), '90',
+    'a LinkedIn URL without a posting ID falls back to the valid external ID');
 });
 
 await test('real ingestion saves distinct LinkedIn openings and skips repeat URLs for each ID', async () => {
