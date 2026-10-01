@@ -57,17 +57,17 @@ await test("seeding retains baseline semantics and fingerprint", () => {
 });
 await test('LinkedIn settings validate independently without invalidating existing job assessments', () => {
   const doc = structuredClone(original);
-  doc.linkedinScreening.resultsPerSearch = 25;
-  doc.linkedinScreening.mismatchProbability = 0.95;
+  doc.linkedinScreening.searchPageSize = 25;
+  doc.linkedinScreening.relevanceProbability = 0.95;
   const edited = settingsFromDocument(doc);
-  withSettingsSnapshot(edited, () => assert.equal(linkedinSettings().resultsPerSearch, 25));
+  withSettingsSnapshot(edited, () => assert.equal(linkedinSettings().searchPageSize, 25));
   assert.equal(edited.fingerprint, snapshot.fingerprint);
   assert.equal(withSettingsSnapshot(edited, () => scoringFingerprint(job)), withSettingsSnapshot(snapshot, () => scoringFingerprint(job)));
   const legacy = structuredClone(original); delete legacy.linkedinScreening;
   const legacySnapshot = settingsFromDocument(legacy);
   assert.throws(() => withSettingsSnapshot(legacySnapshot, linkedinSettings), /published LinkedIn screening settings/);
-  for (const patch of [{resultsPerSearch:0},{resultsPerSearch:61},{mismatchProbability:1.1},
-    {requestMinSeconds:1},{requestMaxSeconds:29},{requestTimeoutSeconds:46},{retry:{...original.linkedinScreening.retry,maxAttempts:0}},
+  for (const patch of [{searchPageSize:0},{searchPageSize:61},{relevanceProbability:1.1},
+    {maxSearchPages:0},{searches:[]},{enabled:null},{requestTimeoutSeconds:46},{retry:{...original.linkedinScreening.retry,maxAttempts:0}},
     {retry:{...original.linkedinScreening.retry,minTimeoutInMs:0}},{instructions:' '},{mismatchCriteria:null}]) {
     assert.throws(() => settingsFromDocument({...original,linkedinScreening:{...original.linkedinScreening,...patch}}),
       {code:'SANITY_SETTINGS_INVALID'});

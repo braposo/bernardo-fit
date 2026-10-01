@@ -18,8 +18,6 @@ export const linkedinPublicRequest = task({
         throw new AbortTaskRunError('LinkedIn discovery owner is no longer active');
     };
     await assertOwner();
-    await wait.for({ seconds: policy.requestMinSeconds + Math.random() * (policy.requestMaxSeconds - policy.requestMinSeconds) });
-    await assertOwner();
     try { return await fetchLinkedInPage({ url: payload.url, policy }, { signal }); }
     catch (error) {
       // Keep source ownership through a provider cooldown even on the final attempt.
