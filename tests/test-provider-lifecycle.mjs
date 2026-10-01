@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import {registerHooks} from 'node:module';
 const realSdk=import.meta.resolve('@trigger.dev/sdk');
+const {retry:installedRetry}=await import(realSdk);
 const definitions=new Map(),results=new Map();let calls=0,nextRun=0,outputText='Answer',status=200;
 process.env.OPENAI_API_KEY='synthetic';process.env.TYPESAFE_API_KEY='synthetic';process.env.ANTHROPIC_API_KEY='synthetic';
 let getContext=()=>({}),ownerCompleted=false;
@@ -64,9 +66,52 @@ await test('provider permanent failures abort and retry dates survive',async()=>
     }),error=>{
       const policy=requestRetryPolicy({payload:{policy:DEFAULT_REQUEST_LIFECYCLE.jev},error});
       assert.equal(error.providerStatus,code);
-      if(code===401)assert.equal(policy.skipRetrying,true);else assert.ok(policy.retryAt.getTime()>Date.now()+119000);
+      if(code===401)assert.equal(policy.skipRetrying,true);else {
+        assert.ok(policy.retryAt.getTime()>Date.now()+119000);
+        assert.deepEqual(requestRetryPolicy({payload:{policy:DEFAULT_REQUEST_LIFECYCLE.jev},error,
+          ctx:{attempt:{number:DEFAULT_REQUEST_LIFECYCLE.jev.retry.maxAttempts}}}),{skipRetrying:true});
+      }
       return true;
     });
+  }
+});
+await test('real retry.fetch provider error bodies are discarded without blocking',async()=>{
+  let calls=0,route='/429-empty';
+  const server=createServer((request,response)=>{
+    calls++;response.statusCode=request.url==='/forbidden'?403:429;
+    response.setHeader('retry-after','120');
+    if(request.url==='/429-empty')response.setHeader('content-length','0');
+    response.end(request.url==='/429-empty'?undefined:'busy');
+  });
+  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+  try {
+    const origin=`http://127.0.0.1:${server.address().port}`;
+    const actualFetch=(url,options)=>{
+      assert.equal(url,'https://api.typesafe.ai/v1/systemone');
+      assert.deepEqual(options.retry,{byStatus:{},timeout:{maxAttempts:1},connectionError:{maxAttempts:1}});
+      return installedRetry.fetch(`${origin}${route}`,options);
+    };
+    for(route of ['/429-empty','/429-body','/forbidden']) {
+      calls=0;
+      let timeout;
+      const result=await Promise.race([
+        executeProviderRequest({provider:'jev',body:'{}',policy:DEFAULT_REQUEST_LIFECYCLE.jev},{
+          fetchRequest:actualFetch,env:{TYPESAFE_API_KEY:'synthetic'},
+        }).then(value=>({value}),error=>({error})),
+        new Promise(resolve=>{timeout=setTimeout(()=>resolve({timeout:true}),1500);}),
+      ]);
+      clearTimeout(timeout);
+      assert.equal(result.timeout,undefined,`${route} error cleanup must not block`);
+      assert.equal(calls,1);
+      if(route==='/forbidden')assert.equal(result.error?.abort,true);
+      else {
+        assert.equal(result.error?.providerStatus,429);
+        assert.ok(result.error.retryAt.getTime()>Date.now()+119000);
+      }
+    }
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise(resolve=>server.close(resolve));
   }
 });
 await test('cancellation prevents HTTP and timeout delegates without nested attempts',async()=>{
