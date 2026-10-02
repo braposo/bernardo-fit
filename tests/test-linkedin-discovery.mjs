@@ -15,6 +15,15 @@ import { createJobIfAbsent, getJob } from '../lib/store.js';
 
 let passed = 0, failed = 0;
 async function test(name, fn) { try { await fn(); passed++; } catch (e) { failed++; console.error('FAIL', name, e); } }
+function legacyLinkedInSnapshot(patch = {}) {
+  const doc = initialSettingsDocument();
+  const current = doc.linkedinScreening;
+  doc.linkedinScreening = { policyVersion: 1, resultsPerSearch: 40, mismatchProbability: 0.9,
+    instructions: current.instructions, investigateCriteria: current.investigateCriteria,
+    mismatchCriteria: current.mismatchCriteria, requestMinSeconds: 30, requestMaxSeconds: 60,
+    requestTimeoutSeconds: current.requestTimeoutSeconds, retry: structuredClone(current.retry), ...patch };
+  return settingsFromDocument(doc);
+}
 await test('London schedule follows GMT, BST and transition days', () => {
   for (const date of ['2026-01-01','2026-03-28','2026-10-25']) {
     assert.equal(londonSchedule(new Date(`${date}T09:00:00Z`)).due, true);
@@ -54,9 +63,11 @@ await test('public cards extract factual fields; unknown markup fails closed', (
 await test('overlapping searches deduplicate posting IDs and stop on throttling', async () => {
   let calls = 0;
   const searches = [{keywords:'one',location:'UK'},{keywords:'two',location:'UK'},{keywords:'three',location:'UK'},{keywords:'must-not-fetch',location:'UK'}];
-  const result = await searchLinkedIn({window:linkedinWindow(null), searches, sleep:async()=>{},
-    fetchImpl:async()=> ++calls === 3 ? new Response('',{status:429}) : new Response(card)});
-  assert.equal(result.jobs.length, 1); assert.equal(result.complete, false); assert.equal(result.blocked, true); assert.equal(calls,3);
+  await withSettingsSnapshot(legacyLinkedInSnapshot(), async () => {
+    const result = await searchLinkedIn({window:linkedinWindow(null), searches,
+      fetchImpl:async()=> ++calls === 3 ? new Response('',{status:429}) : new Response(card)});
+    assert.equal(result.jobs.length, 1); assert.equal(result.complete, false); assert.equal(result.blocked, true); assert.equal(calls,3);
+  });
 });
 await test('full original description required, no invented received date', async () => {
   const posting = parseLinkedInResults(card)[0];
@@ -97,13 +108,15 @@ await test('scheduler ingest leaves existing archived row byte-for-byte unchange
     {skipExisting:true,minimumScore:50,screen:async()=>assert.fail('existing must not be screened')});
   assert.equal(result.skipped,1);assert.deepEqual(await getJob(job.id),before);
 });
-await test('search keeps the forty newest cards', async () => {
+await test('v1 search keeps its forty newest card compatibility bound', async () => {
   const html = Array.from({ length: 60 }, (_, i) => card.replace('jobPosting:123', `jobPosting:${i}`)).join('');
-  const result = await searchLinkedIn({ window: linkedinWindow(null), searches: [{keywords:'manager',location:'UK'}],
-    sleep: async () => {}, fetchImpl: async () => new Response(html) });
-  assert.equal(result.jobs.length, 40);
-  assert.equal(result.jobs.at(-1).id, '39');
-  assert.equal(result.scans[0].bounded, true);
+  await withSettingsSnapshot(legacyLinkedInSnapshot(), async () => {
+    const result = await searchLinkedIn({ window: linkedinWindow(null), searches: [{keywords:'manager',location:'UK'}],
+      fetchImpl: async () => new Response(html) });
+    assert.equal(result.jobs.length, 40);
+    assert.equal(result.jobs.at(-1).id, '39');
+    assert.equal(result.scans[0].status, 'ok');
+  });
 });
 await test('exhausted request task persists backlog and resumes without reprocessing filtered jobs', async () => {
   let state, descriptions = [];
@@ -146,20 +159,22 @@ await test('blocked search saves partial discoveries without advancing its searc
   assert.equal(state.lastSearch, '2026-09-29T08:00:00Z');
 });
 await test('Jev card screen only rejects high-confidence mismatches and caches by card content', async () => {
-  const cache = new Map(); let calls = 0, probability = 0.89;
-  const options = { load: async (_, key) => cache.get(key), save: async (_, key, value) => { cache.set(key, value); return value; },
-    evaluate: async ({ state, questions, kind }) => {
-      calls++; assert.equal(state.card.role, 'Engineering Manager');
-      assert.equal(state.card.jobDescription, undefined);
-      assert.equal(kind, 'linkedin-card-screen');
-      assert.match(questions.relevance.instructions, /unknown, never negative evidence/);
-      return { answers: { relevance: { choice: 'mismatch', probabilities: { mismatch: probability, investigate: 1 - probability } } } };
-    } };
-  assert.equal((await screenLinkedInCard(posting(1), options)).decision, 'fetch');
-  await screenLinkedInCard(posting(1), options); assert.equal(calls, 1);
-  probability = 0.95;
-  assert.equal((await screenLinkedInCard({ ...posting(1), location: 'New evidence' }, options)).decision, 'skip');
-  assert.equal(calls, 2);
+  await withSettingsSnapshot(legacyLinkedInSnapshot(), async () => {
+    const cache = new Map(); let calls = 0, probability = 0.89;
+    const options = { load: async (_, key) => cache.get(key), save: async (_, key, value) => { cache.set(key, value); return value; },
+      evaluate: async ({ state, questions, kind }) => {
+        calls++; assert.equal(state.cards['1'].role, 'Engineering Manager');
+        assert.equal(state.cards['1'].jobDescription, undefined);
+        assert.equal(kind, 'linkedin-card-screen-batch');
+        assert.match(questions.card_1.instructions, /Evaluate this posting only/);
+        return { answers: { card_1: { choice: 'mismatch', probabilities: { mismatch: probability, investigate: 1 - probability } } } };
+      } };
+    assert.equal((await screenLinkedInCard(posting(1), options)).decision, 'fetch');
+    await screenLinkedInCard(posting(1), options); assert.equal(calls, 1);
+    probability = 0.95;
+    assert.equal((await screenLinkedInCard({ ...posting(1), location: 'New evidence' }, options)).decision, 'skip');
+    assert.equal(calls, 2);
+  });
 });
 await test('preliminary rejection prevents description requests; every other candidate receives full validation', async () => {
   const described = [], screened = [];
@@ -184,8 +199,10 @@ await test('Jev pre-screen failure retains the candidate and never fetches its d
 });
 await test('published screening edits change search limits, retry pacing, Jev decisions and admission', async () => {
   const doc = initialSettingsDocument();
-  Object.assign(doc.linkedinScreening, { resultsPerSearch: 2, mismatchProbability: 0.99,
-    instructions: 'Published preliminary policy', requestMinSeconds: 45, requestMaxSeconds: 45, retry: { ...doc.linkedinScreening.retry, minTimeoutInMs: 120000 } });
+  doc.linkedinScreening = { policyVersion: 1, resultsPerSearch: 2, mismatchProbability: 0.99,
+    instructions: 'Published preliminary policy', investigateCriteria: 'Plausibly relevant.', mismatchCriteria: 'Clear mismatch.',
+    requestMinSeconds: 45, requestMaxSeconds: 45, requestTimeoutSeconds: 25,
+    retry: { ...doc.linkedinScreening.retry, minTimeoutInMs: 120000 } };
   doc.ingestMinimumScore = 70;
   await withSettingsSnapshot(settingsFromDocument(doc), async () => {
     const html = [1,2,3].map(id => card.replace('jobPosting:123', `jobPosting:${id}`)).join('');
@@ -195,8 +212,9 @@ await test('published screening edits change search limits, retry pacing, Jev de
     const cache=new Map();
     const options={load:async(_,key)=>cache.get(key),save:async(_,key,value)=>{cache.set(key,value);return value;},
       evaluate:async({questions})=>{
-        assert.equal(questions.relevance.instructions,'Published preliminary policy');
-        return {answers:{relevance:{choice:'mismatch',probabilities:{mismatch:0.95,investigate:0.05}}}};
+        const [key]=Object.keys(questions);
+        assert.match(questions[key].instructions,/Published preliminary policy/);
+        return {answers:{[key]:{choice:'mismatch',probabilities:{mismatch:0.95,investigate:0.05}}}};
       }};
     const result = await screenLinkedInCard(posting(9), options);
     assert.equal(result.decision,'fetch');

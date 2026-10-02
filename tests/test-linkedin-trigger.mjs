@@ -28,11 +28,10 @@ let passed=0,failed=0;
 async function test(name,fn){try{events=[];owner='run_parent';terminal=false;status=200;await fn();passed++;}catch(error){failed++;console.error('FAIL',name,error);}}
 const payload={url:'https://www.linkedin.com/jobs/search/',ownerRunId:'run_parent',policy};
 const run=attempt=>task.run(payload,{signal,ctx:{attempt:{number:attempt}}});
-await test('worker paces every attempt and passes native cancellation',async()=>{
+await test('worker makes requests without routine delay and passes native cancellation',async()=>{
   assert.equal((await run(1)).body,'public results');
-  assert.deepEqual(events.map(event=>event[0]),['pace','fetch']);
-  assert.ok(events[0][1].seconds>=30&&events[0][1].seconds<=60);
-  assert.equal(events[1][1].signal,signal);
+  assert.deepEqual(events.map(event=>event[0]),['fetch']);
+  assert.equal(events[0][1].signal,signal);
 });
 await test('canceled parent prevents further HTTP requests',async()=>{
   terminal=true;await assert.rejects(run(1),{name:'AbortTaskRunError'});assert.equal(events.length,0);
@@ -43,11 +42,11 @@ await test('lost ownership prevents further HTTP requests',async()=>{
 await test('retryable attempt delegates backoff to catchError',async()=>{
   status=429;await assert.rejects(run(1),error=>{
     const config=task.catchError({payload,error});assert.deepEqual(config.retry,policy.retry);assert.ok(config.retryAt instanceof Date);return true;
-  });assert.deepEqual(events.map(event=>event[0]),['pace','fetch']);
+  });assert.deepEqual(events.map(event=>event[0]),['fetch']);
 });
 await test('final failure retains ownership through provider cooldown using native wait',async()=>{
-  status=429;await assert.rejects(run(4));assert.deepEqual(events.map(event=>event[0]),['pace','fetch','cooldown']);
-  assert.ok(events[2][1].date.getTime()>Date.now()+590000);
+  status=429;await assert.rejects(run(4));assert.deepEqual(events.map(event=>event[0]),['fetch','cooldown']);
+  assert.ok(events[1][1].date.getTime()>Date.now()+590000);
 });
 hooks.deregister();delete globalThis.__linkedinTest;
 console.log(`passed ${passed}, failed ${failed}`);process.exitCode=failed?1:0;

@@ -3,6 +3,9 @@ import { ANALYSIS_SETTINGS_ID } from '../lib/sanity/analysis-settings.js';
 import { DEFAULT_LINKEDIN_SETTINGS, validateLinkedInSettings } from '../lib/sanity/linkedin-settings.js';
 
 // Add native options without overwriting editorial policy or publishing unrelated drafts.
+// A missing document receives disabled v2 defaults, which the old worker cannot interpret.
+if (process.argv.includes('--apply') && !process.argv.includes('--worker-compatible'))
+  throw new Error('Deploy the v2-compatible worker before seeding; pass --apply --worker-compatible.');
 const client = createStorageClient().withConfig({ perspective: 'raw' });
 const ids = [ANALYSIS_SETTINGS_ID, `drafts.${ANALYSIS_SETTINGS_ID}`];
 const documents = await client.fetch('*[_id in $ids]{_id,_rev,linkedinScreening}', { ids });
