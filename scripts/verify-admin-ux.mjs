@@ -117,8 +117,8 @@ try {
   await page.waitForFunction(() => document.querySelector('.role-stage .pipeline-stage')?.textContent === 'Reviewing');
   check('icon status control saves the stage', jobs[0].stage === 'reviewing');
   check('five unassessed shadcn gauges', await page.getByRole('meter').count() === 0 && await page.locator('.score-gauge[data-slot="card"]').count() === 5);
-  check('legacy scores are not presented as current dimensions', await page.getByRole('img', {name:'Responsibilities fit: not assessed',exact:true}).count() === 1);
-  for (const label of ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility']) {
+  check('legacy scores are not presented as current dimensions', await page.getByRole('img', {name:'Responsibilities: not assessed',exact:true}).count() === 1);
+  for (const label of ['Responsibilities', 'Capability', 'Scope', 'Direction', 'Compatibility']) {
     const trigger = page.getByRole('button', { name: 'About ' + label, exact: true });
     check(label + ' help trigger is icon-only', (await trigger.textContent()).trim() === '');
     await trigger.hover();
@@ -145,7 +145,7 @@ try {
       await touchSession.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
       await touchSession.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     };
-    const trigger = page.getByRole('button', { name: 'About Practical compatibility', exact: true });
+    const trigger = page.getByRole('button', { name: 'About Compatibility', exact: true });
     const help = page.locator('.dimension-help-content');
     await tap(trigger);
     await help.waitFor();
@@ -332,7 +332,7 @@ try {
   check('Assess fit has an AI icon and neutral label', await page.locator('[data-act="jevscore"] svg').count() === 1 && (await page.locator('[data-act="jevscore"]').textContent()).trim() === 'Assess fit');
   check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
   check('repeated evidence explanation is absent', await page.locator('.dimension-warning').count() === 0);
-  check('lower confidence retains the saved practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
+  check('lower confidence retains the saved practical score', await page.getByRole('meter', { name: 'Compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
   check('confidence remains visible', await page.getByText('Model confidence: 90%', {exact:true}).count() === 4);
   check('lower confidence has a visible review cue', await page.locator('.assessment-confidence-warning').count() === 1 &&
     await page.locator('.assessment-confidence-warning').textContent().then(t => t.includes('Model confidence: 59%') && t.includes('Review rating')));
@@ -400,7 +400,7 @@ try {
       (await page.locator('.role-header .score-tile').getAttribute('aria-label')).includes('outdated assessment'));
     check('outdated saved dimensions remain visible at ' + width,
       await page.getByRole('meter').count() === 5 &&
-      await page.getByRole('meter', { name: 'Responsibilities fit' }).getAttribute('aria-valuenow') === '79' &&
+      await page.getByRole('meter', { name: 'Responsibilities' }).getAttribute('aria-valuenow') === '79' &&
       (await page.locator('#panel-overview').textContent()).includes('Outdated'));
     if (width === 390) await page.locator('[data-act="back"]').click();
     check('outdated saved score remains visible in pipeline at ' + width,

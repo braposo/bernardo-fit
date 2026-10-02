@@ -13,6 +13,10 @@ const dimensionHelp = {
   direction: 'Does this support your move towards your own businesses? Values useful learning and room for outside projects, rather than promotion prospects.',
   practical: 'Does this fit your life? Considers pay, remote working, travel and employment arrangements that fit your life.',
 };
+const dimensionLabels = {
+  responsibilities: 'Responsibilities', evidence: 'Capability', scope: 'Scope',
+  direction: 'Direction', practical: 'Compatibility',
+};
 
 // shadcn radial-chart composition with the dashboard's Card/ChartContainer pattern.
 const config = { score: { label: 'Rating', color: 'var(--primary)' } };
@@ -46,12 +50,14 @@ function DimensionHelp({ label, children }) {
 }
 export function ScoreGauge({ dimension, label, value, weight }) {
   const legacyIds = { 'Responsibilities fit': 'responsibilities', 'Evidence of capability': 'evidence', 'Seniority and scope': 'scope', 'Career direction': 'direction', 'Practical compatibility': 'practical' };
-  const help = dimensionHelp[dimension || legacyIds[label]];
+  const id = dimension || legacyIds[label];
+  const help = dimensionHelp[id];
+  const displayLabel = dimensionLabels[id] || label;
   const parsed = value === '' || value == null ? NaN : Number(value);
   const score = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : null;
   return <Card className="score-gauge">
-    <h3 className="dimension-heading"><span>{label}</span>{help ? <DimensionHelp label={label}>{help}</DimensionHelp> : null}</h3>
-    <div className="gauge-visual" role={score === null ? 'img' : 'meter'} aria-label={label + (score === null ? ': not assessed' : '')}
+    <h3 className="dimension-heading"><span>{displayLabel}</span>{help ? <DimensionHelp label={displayLabel}>{help}</DimensionHelp> : null}</h3>
+    <div className="gauge-visual" role={score === null ? 'img' : 'meter'} aria-label={displayLabel + (score === null ? ': not assessed' : '')}
       aria-valuemin={score === null ? undefined : 0} aria-valuemax={score === null ? undefined : 100}
       aria-valuenow={score ?? undefined} aria-valuetext={score === null ? undefined : `${score} out of 100`}>
       <div aria-hidden="true">
