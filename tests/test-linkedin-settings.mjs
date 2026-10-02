@@ -12,6 +12,10 @@ const doc = {_id:'fit-analysis-settings',_rev:'published-1',linkedinScreening:v1
 assert.equal(validateLinkedInSettings(v1).policyVersion, 1);
 assert.equal(validateLinkedInSettings(DEFAULT_LINKEDIN_SETTINGS).policyVersion, 2);
 assert.equal(validateLinkedInSettings(DEFAULT_LINKEDIN_SETTINGS).enabled, false);
+assert.equal(DEFAULT_LINKEDIN_SETTINGS.maxSearchResults, 80);
+assert.equal(validateLinkedInSettings({...DEFAULT_LINKEDIN_SETTINGS, maxSearchResults: 80}).maxSearchResults, 80);
+assert.equal(validateLinkedInSettings((({maxSearchResults, ...rest}) => rest)(DEFAULT_LINKEDIN_SETTINGS)).maxSearchResults, undefined,
+  'older published v2 settings remain readable while the additive field is migrated');
 assert.deepEqual(validateLinkedInSettings({...DEFAULT_LINKEDIN_SETTINGS, resultsPerSearch: -1}).searches,
   DEFAULT_LINKEDIN_SETTINGS.searches, 'Retired v1 fields are ignored by v2');
 assert.equal(validateLinkedInSettings({...DEFAULT_LINKEDIN_SETTINGS,
@@ -20,6 +24,7 @@ assert.equal(validateLinkedInSettings({...DEFAULT_LINKEDIN_SETTINGS,
 
 for (const change of [
   {policyVersion:3}, {enabled:null}, {searchPageSize:0}, {maxSearchPages:41},
+  {maxSearchResults:0}, {maxSearchResults:401},
   {relevanceProbability:0.4}, {searches:[]},
   {searches:[{keywords:' ',location:'United Kingdom'}]},
   {searches:[{keywords:'Engineering Manager',location:' '}]},
@@ -32,6 +37,7 @@ for (const change of [
 const fields = linkedinV2MigrationFields(doc);
 assert.equal(fields['linkedinScreening.enabled'], false);
 assert.equal(fields['linkedinScreening.searchPageSize'], 40);
+assert.equal(fields['linkedinScreening.maxSearchResults'], 80);
 assert.deepEqual(fields['linkedinScreening.searches'], DEFAULT_LINKEDIN_SETTINGS.searches);
 assert.equal(doc.linkedinScreening.policyVersion, undefined, 'Planning does not mutate published data');
 assert.equal(doc.unrelated, 'editorial');
@@ -40,6 +46,10 @@ for (const [path,value] of Object.entries(fields)) migrated[path.slice('linkedin
 assert.equal(validateLinkedInSettings(migrated).policyVersion, 2);
 assert.equal(migrated.requestMinSeconds, 30, 'Legacy fields are preserved for audit');
 assert.equal(linkedinV2MigrationFields({...doc,linkedinScreening:migrated}), null, 'Migration is idempotent');
+const oldV2 = {...DEFAULT_LINKEDIN_SETTINGS}; delete oldV2.maxSearchResults;
+const v2Fields = linkedinV2MigrationFields({_id:'fit-analysis-settings',_rev:'published-v2',linkedinScreening:oldV2});
+assert.deepEqual(v2Fields, {'linkedinScreening.maxSearchResults':80}, 'v2 policy gains only the additive bounded-result value');
+assert.equal(linkedinV2MigrationFields({_id:'fit-analysis-settings',_rev:'published-v3',linkedinScreening:DEFAULT_LINKEDIN_SETTINGS}), null);
 assert.throws(() => linkedinV2MigrationFields({...doc,_rev:null}), /revision/);
 assert.throws(() => linkedinV2MigrationFields({...doc,linkedinScreening:null}), /missing/);
 console.log('passed 1, failed 0');
