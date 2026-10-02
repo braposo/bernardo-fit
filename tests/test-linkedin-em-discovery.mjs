@@ -85,7 +85,7 @@ await test('guest continuation follows actual card counts, scopes main results, 
       const parsed = new URL(url);
       urls.push({ path: parsed.pathname, start: Number(parsed.searchParams.get('start')) });
       const start = Number(parsed.searchParams.get('start'));
-      if (start === 0) return new Response(`<main class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${first.map(card).join('')}</ul></main><aside>${card(999)}</aside>`);
+      if (start === 0) return new Response(`<section class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${first.map(card).join('')}</ul></section><aside>${card(999)}</aside>`);
       if (start === 60) return new Response(second.map(card).join(''));
       if (start === 70) return new Response(third.map(card).join(''));
       return new Response('  \n');
@@ -109,7 +109,7 @@ await test('an HTTP error after a valid first page leaves coverage partial and r
   const result = await searchLinkedIn({ window: linkedinWindow(null, new Date('2026-10-01T08:00:00Z')),
     searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],
     fetchImpl: async () => ++calls === 1
-      ? new Response(`<main class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${card(1)}</ul></main>`)
+      ? new Response(`<section class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${card(1)}</ul></section>`)
       : new Response('', { status: 400 }),
   });
   assert.equal(result.jobs.length, 1);
@@ -151,8 +151,8 @@ await test('non-auth pagination failure still processes captured matches without
 }));
 
 await test('a repeated full search page reports incomplete coverage instead of claiming all roles were checked', () => withEmPolicy(async () => {
-  const html = `<main class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${Array.from({ length: 40 }, (_, index) =>
-    `<li><div data-entity-urn="urn:li:jobPosting:${index + 1}"><h3>Engineering Manager</h3><h4>Company</h4></div></li>`).join('')}</ul></main>`;
+  const html = `<section class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${Array.from({ length: 40 }, (_, index) =>
+    `<li><div data-entity-urn="urn:li:jobPosting:${index + 1}"><h3>Engineering Manager</h3><h4>Company</h4></div></li>`).join('')}</ul></section>`;
   let pages = 0;
   const result = await searchLinkedIn({ window: linkedinWindow(null, new Date('2026-10-01T08:00:00Z')),
     searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],
