@@ -57,6 +57,10 @@ await test('batched Jev decisions use probability, preserve uncertainty, and reu
     assert.deepEqual(await screenLinkedInCards(cards, options), first);
   });
   assert.equal(evaluations, 1, 'transport timeout edits cannot invalidate relevance evidence');
+  await withSettingsSnapshot({ ...analysisSettings(), linkedinScreening: { ...linkedinSettings(), maxSearchResults: 79 } }, async () => {
+    assert.deepEqual(await screenLinkedInCards(cards, options), first);
+  });
+  assert.equal(evaluations, 1, 'the daily result budget does not invalidate per-card screening cache');
 }));
 
 await test('malformed Jev probabilities cannot admit a card or poison its cache', () => withEmPolicy(async () => {
@@ -102,6 +106,67 @@ await test('guest continuation follows actual card counts, scopes main results, 
   assert.ok(!result.jobs.some(job => job.id === '999'), 'sidebar cards are excluded');
   assert.equal(result.complete, true);
 }));
+
+await test('daily policy stops after 80 unique results, counts overlaps once, and completes the bounded scope', () => withEmPolicy(async () => {
+  const card = id => `<li><div data-entity-urn="urn:li:jobPosting:${id}"><h3>Engineering Manager</h3><h4>Company ${id}</h4></div></li>`;
+  const page = ids => ids.map(card).join('');
+  const urls = [];
+  const first = Array.from({ length: 60 }, (_, index) => index + 1);
+  const second = [...Array.from({ length: 15 }, (_, index) => index + 46), ...Array.from({ length: 15 }, (_, index) => index + 61)];
+  const third = Array.from({ length: 20 }, (_, index) => index + 76);
+  const result = await searchLinkedIn({ window: linkedinWindow(null, new Date('2026-10-01T08:00:00Z')),
+    searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],
+    fetchImpl: async url => {
+      const parsed = new URL(url);
+      const start = Number(parsed.searchParams.get('start'));
+      urls.push(start);
+      if (start === 0) return new Response(`<section class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${page(first)}</ul></section>`);
+      if (start === 60) return new Response(page(second));
+      if (start === 90) return new Response(page(third));
+      assert.fail(`unexpected extra search request at offset ${start}`);
+    },
+  });
+  assert.deepEqual(urls, [0, 60, 90], 'offset advances by raw cards despite 15 overlapping IDs');
+  assert.equal(result.jobs.length, 80);
+  assert.equal(new Set(result.jobs.map(job => job.id)).size, 80);
+  assert.equal(result.scans[0].found, 80);
+  assert.equal(result.scans[0].status, 'bounded');
+  assert.equal(result.complete, true);
+  assert.equal(result.coverage.completeForConfiguredScope, true);
+  assert.equal(result.coverage.maxUniqueResultsPerSearch, 80);
+}));
+
+await test('page safety ceiling before maxSearchResults remains incomplete', () => withSettingsSnapshot({
+  ...analysisSettings(), linkedinScreening: { ...linkedinSettings(), maxSearchPages: 2 },
+}, async () => {
+  const card = id => `<li><div data-entity-urn="urn:li:jobPosting:${id}"><h3>Engineering Manager</h3><h4>Company ${id}</h4></div></li>`;
+  const calls = [];
+  const result = await searchLinkedIn({ window: linkedinWindow(null),
+    searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],
+    fetchImpl: async url => {
+      const start = Number(new URL(url).searchParams.get('start'));
+      calls.push(start);
+      return new Response(start === 0
+        ? `<section class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${Array.from({length: 60}, (_, index) => card(index + 1)).join('')}</ul></section>`
+        : Array.from({length: 10}, (_, index) => card(index + 61)).join(''));
+    },
+  });
+  assert.deepEqual(calls, [0, 60]);
+  assert.equal(result.jobs.length, 70);
+  assert.equal(result.complete, false);
+  assert.equal(result.scans[0].status, 'partial');
+}));
+
+await test('enabled v2 search refuses to use a code fallback before maxSearchResults is published', async () => {
+  const policy = { ...linkedinSettings() };
+  delete policy.maxSearchResults;
+  let calls = 0;
+  await withSettingsSnapshot({ ...analysisSettings(), linkedinScreening: { ...policy, enabled: true } }, async () => {
+    await assert.rejects(searchLinkedIn({ window: linkedinWindow(null), fetchImpl: async () => { calls++; return new Response(''); } }),
+      /valid maxSearchResults/);
+  });
+  assert.equal(calls, 0, 'configuration must be migrated before public search begins');
+});
 
 await test('an HTTP error after a valid first page leaves coverage partial and retains captured cards', () => withEmPolicy(async () => {
   const card = id => `<li><div data-entity-urn="urn:li:jobPosting:${id}"><h3>Engineering Manager</h3><h4>Company ${id}</h4></div></li>`;
@@ -163,7 +228,7 @@ await test('a repeated full search page reports incomplete coverage instead of c
   assert.equal(result.complete, false, 'repeated pages do not prove complete search coverage');
 }));
 
-await test('daily discovery enriches all qualified cards, including onsite and old backlog, without enriching uncertainty', () => withEmPolicy(async () => {
+await test('daily discovery enriches qualified current cards and leaves out-of-scope pending backlog untouched', () => withEmPolicy(async () => {
   const qualified = [posting(1, 'Engineering Manager', 'On-site, Leeds'),
     posting(2, 'Engineering Manager', 'Remote, UK'), ...[3, 4, 5, 6, 7].map(id => posting(id))];
   const unrelated = posting(8, 'Sales Manager');
@@ -173,12 +238,13 @@ await test('daily discovery enriches all qualified cards, including onsite and o
   const batchInputs = [], described = [], ingested = [];
   let savedState;
   const report = await discoverLinkedIn({ now: new Date('2026-10-01T08:00:00Z'),
-    state: { pending: [{ ...stale, preliminary: { decision: 'skip', assessedAt: '2026-09-01' } }] },
+    state: { pending: [{ ...stale, preliminary: { decision: 'skip', assessedAt: '2026-09-01' } }, posting(900)] },
     search: async () => ({ jobs: [...qualified.slice(0, 6), qualified[0], unrelated, uncertain, existing], scans: [], complete: true }),
     list: async () => [{ ...existing, externalId: 'linkedin-10', archived: true, stage: 'rejected' }],
     prescreenBatch: async cards => {
       batchInputs.push(...cards.map(card => card.id));
-      return cards.map(card => ({ postingId: card.id, decision: card.id === '8' ? 'skip' : card.id === '9' ? 'defer' : 'fetch' }));
+      return cards.map(card => ({ postingId: card.id, decision: card.id === '8' ? 'skip' : card.id === '9' ? 'defer' : 'fetch',
+        ...(card.id === '9' ? { answer: { choice: 'investigate', probabilities: { investigate: 0.62, mismatch: 0.38 } } } : {}) }));
     },
     describe: async card => { described.push(card.id); return { ...card, externalId: `linkedin-${card.id}`, jobDescription: 'Full original description' }; },
     ingest: async batch => {
@@ -189,18 +255,23 @@ await test('daily discovery enriches all qualified cards, including onsite and o
       overviewSummary: { position: 'Engineering Manager', fit: 'Strong fit' } }),
     saveState: async state => { savedState = structuredClone(state); },
   });
-  assert.equal(new Set(batchInputs).size, 9);
-  assert.equal(batchInputs.length, 9, 'existing rows and duplicate cards never reach Jev');
+  assert.equal(new Set(batchInputs).size, 8);
+  assert.equal(batchInputs.length, 8, 'existing rows, duplicates, and out-of-scope pending cards never reach Jev');
   assert.equal(report.existing.length, 1);
-  assert.deepEqual(new Set(described), new Set(['1', '2', '3', '4', '5', '6', '7']));
-  assert.equal(described.length, 7, 'all seven qualified roles receive full descriptions, beyond any top-five cutoff');
+  assert.deepEqual(new Set(described), new Set(['1', '2', '3', '4', '5', '6']));
+  assert.equal(described.length, 6, 'all six in-scope qualified roles receive full descriptions');
   assert.deepEqual(new Set(ingested), new Set(described.map(id => `linkedin-${id}`)));
-  assert.equal(report.added.length, 7);
-  assert.equal(savedState.pending.length, 1);
-  assert.equal(savedState.pending[0].id, '9', 'uncertain card remains pending for later review');
+  assert.equal(report.added.length, 6);
+  assert.deepEqual(new Set(savedState.pending.map(row => row.id)), new Set(['7', '9', '900']), 'uncertain and out-of-scope cards remain pending');
   assert.equal(described.includes('8'), false);
   assert.equal(described.includes('9'), false);
-  assert.equal(batchInputs.includes('7'), true, 'old pending card is assessed again');
+  assert.equal(batchInputs.includes('7'), false, "old pending outside today's result set is not screened");
+  assert.equal(batchInputs.includes('900'), false, "old pending outside today's bounded result set is not screened");
+  assert.equal(report.pendingBacklog, 2);
+  assert.equal(report.deferred, 1);
+  assert.equal(report.complete, true, 'completion describes the configured current result scope');
+  assert.equal(savedState.lastSearch, '2026-10-01T08:00:00.000Z', 'bounded completion advances the search checkpoint');
+  assert.equal(report.status, 'deferred');
 }));
 
 await test('a card skipped yesterday can be reconsidered when the screening evidence changes', () => withEmPolicy(async () => {

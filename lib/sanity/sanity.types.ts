@@ -84,6 +84,13 @@ export type AnalysisSettings = {
   _updatedAt: string;
   _rev: string;
   linkedinScreening?: {
+    policyVersion?: number;
+    enabled?: boolean;
+    searches?: Array<{_key: string; keywords?: string; location?: string}>;
+    searchPageSize?: number;
+    maxSearchPages?: number;
+    maxSearchResults?: number;
+    relevanceProbability?: number;
     resultsPerSearch?: number;
     mismatchProbability?: number;
     instructions?: string;
@@ -1163,6 +1170,13 @@ export type ANALYSIS_SETTINGS_QUERY_RESULT = {
   _rev: string;
   ingestMinimumScore: number | null;
   linkedinScreening: {
+    policyVersion?: number;
+    enabled?: boolean;
+    searches?: Array<{_key?: string; keywords?: string; location?: string}>;
+    searchPageSize?: number;
+    maxSearchPages?: number;
+    maxSearchResults?: number;
+    relevanceProbability?: number;
     resultsPerSearch?: number;
     mismatchProbability?: number;
     instructions?: string;

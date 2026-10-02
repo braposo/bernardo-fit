@@ -24,6 +24,8 @@ export const linkedinDiscoveryTask = task({
         metadata.set('phase', 'paused').set('policyVersion', policy.policyVersion);
         return { status: 'paused', policyVersion: policy.policyVersion };
       }
+      if (!Number.isInteger(policy.maxSearchResults) || policy.maxSearchResults < 1 || policy.maxSearchResults > 400)
+        throw new AbortTaskRunError('Published LinkedIn settings need a valid maxSearchResults bound before discovery can run.');
 
       const client = await kv();
       const lock = 'linkedin-discovery:lock';
@@ -77,7 +79,9 @@ export const linkedinDiscoveryTask = task({
           .set('prescreened', report.prescreening.length)
           .set('prescreenSkipped', report.prescreening.filter((row: any) => row.decision === 'skip').length)
           .set('prescreenDeferred', report.prescreening.filter((row: any) => row.decision === 'defer').length)
-          .set('excluded', report.excluded).set('deferred', report.deferred).set('phase', report.status)
+          .set('excluded', report.excluded).set('deferred', report.deferred)
+          .set('pendingBacklog', report.pendingBacklog).set('maxSearchResults', policy.maxSearchResults)
+          .set('searchCoverageComplete', report.searchCoverageComplete).set('phase', report.status)
           .set('elapsedMs', Date.now() - started);
         if (report.status === 'incomplete') throw new Error('LinkedIn scan is incomplete; inspect the saved report. Progress is saved for the next daily run.');
         if (report.complete) await client.set('linkedin-discovery:last-success', report.window.before);

@@ -23,6 +23,8 @@ const changes = documents.map(doc => {
     } : DEFAULT_LINKEDIN_SETTINGS.retry;
   }
   if (current.requestTimeoutSeconds == null) fields['linkedinScreening.requestTimeoutSeconds'] = DEFAULT_LINKEDIN_SETTINGS.requestTimeoutSeconds;
+  if (current.policyVersion === 2 && current.maxSearchResults == null)
+    fields['linkedinScreening.maxSearchResults'] = DEFAULT_LINKEDIN_SETTINGS.maxSearchResults;
   validateLinkedInSettings({...current,retry:current.retry || fields['linkedinScreening.retry'],
     requestTimeoutSeconds:current.requestTimeoutSeconds ?? fields['linkedinScreening.requestTimeoutSeconds']});
   return {doc,fields};
