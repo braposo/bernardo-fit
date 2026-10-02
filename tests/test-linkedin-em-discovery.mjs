@@ -72,30 +72,87 @@ await test('malformed Jev probabilities cannot admit a card or poison its cache'
   assert.equal(saved, 0);
 }));
 
-await test('pagination keeps every unique result beyond the old forty-card ceiling', () => withEmPolicy(async () => {
+await test('guest continuation follows actual card counts, scopes main results, and does not stop at short pages', () => withEmPolicy(async () => {
   const card = id => `<li><div data-entity-urn="urn:li:jobPosting:${id}"><h3>Engineering Manager</h3><h4>Company ${id}</h4>` +
     `<span class="job-search-card__location">Leeds</span></div></li>`;
-  const pages = [Array.from({ length: 40 }, (_, index) => index + 1),
-    Array.from({ length: 40 }, (_, index) => index + 39)];
-  const offsets = [];
+  const urls = [];
+  const first = Array.from({ length: 60 }, (_, index) => index + 1);
+  const second = Array.from({ length: 10 }, (_, index) => index + 60);
+  const third = [70, 71];
   const result = await searchLinkedIn({ window: linkedinWindow(null, new Date('2026-10-01T08:00:00Z')),
     searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],
     fetchImpl: async url => {
-      const offset = Number(new URL(url).searchParams.get('start') || 0);
-      offsets.push(offset);
-      const ids = pages[offset === 0 ? 0 : offset === 40 ? 1 : 2];
-      return new Response(ids ? ids.map(card).join('') : 'No matching jobs found');
+      const parsed = new URL(url);
+      urls.push({ path: parsed.pathname, start: Number(parsed.searchParams.get('start')) });
+      const start = Number(parsed.searchParams.get('start'));
+      if (start === 0) return new Response(`<main class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${first.map(card).join('')}</ul></main><aside>${card(999)}</aside>`);
+      if (start === 60) return new Response(second.map(card).join(''));
+      if (start === 70) return new Response(third.map(card).join(''));
+      return new Response('  \n');
     },
   });
-  assert.deepEqual(offsets, [0, 40, 80]);
-  assert.equal(result.jobs.length, 78);
-  assert.equal(new Set(result.jobs.map(job => job.id)).size, 78, 'overlapping pages deduplicate IDs');
+  assert.deepEqual(urls, [
+    { path: '/jobs/search/', start: 0 },
+    { path: '/jobs-guest/jobs/api/seeMoreJobPostings/search', start: 60 },
+    { path: '/jobs-guest/jobs/api/seeMoreJobPostings/search', start: 70 },
+    { path: '/jobs-guest/jobs/api/seeMoreJobPostings/search', start: 72 },
+  ]);
+  assert.equal(result.jobs.length, 71);
+  assert.equal(new Set(result.jobs.map(job => job.id)).size, 71, 'overlapping posting IDs deduplicate');
+  assert.ok(!result.jobs.some(job => job.id === '999'), 'sidebar cards are excluded');
   assert.equal(result.complete, true);
 }));
 
+await test('an HTTP error after a valid first page leaves coverage partial and retains captured cards', () => withEmPolicy(async () => {
+  const card = id => `<li><div data-entity-urn="urn:li:jobPosting:${id}"><h3>Engineering Manager</h3><h4>Company ${id}</h4></div></li>`;
+  let calls = 0;
+  const result = await searchLinkedIn({ window: linkedinWindow(null, new Date('2026-10-01T08:00:00Z')),
+    searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],
+    fetchImpl: async () => ++calls === 1
+      ? new Response(`<main class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${card(1)}</ul></main>`)
+      : new Response('', { status: 400 }),
+  });
+  assert.equal(result.jobs.length, 1);
+  assert.equal(result.complete, false);
+  assert.equal(result.blocked, false);
+  assert.equal(result.scans[0].status, 'failed');
+}));
+
+await test('a v2 full page without the primary results list fails closed instead of scanning sidebar cards', () => withEmPolicy(async () => {
+  const sidebar = `<aside><li><div data-entity-urn="urn:li:jobPosting:999"><h3>Engineering Manager</h3><h4>Sidebar</h4></div></li></aside>`;
+  const result = await searchLinkedIn({ window: linkedinWindow(null, new Date('2026-10-01T08:00:00Z')),
+    searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],
+    fetchImpl: async () => new Response(`<html><body>${sidebar}<p>You've viewed all jobs for this search</p></body></html>`),
+  });
+  assert.equal(result.jobs.length, 0);
+  assert.equal(result.complete, false);
+  assert.equal(result.scans[0].status, 'failed');
+}));
+
+await test('non-auth pagination failure still processes captured matches without advancing last-success', () => withEmPolicy(async () => {
+  const captured = posting(72);
+  const oldCheckpoint = '2026-09-30T08:00:00.000Z';
+  let described = 0, saved;
+  const report = await discoverLinkedIn({
+    now: new Date('2026-10-01T08:00:00Z'), state: { lastSearch: oldCheckpoint },
+    search: async () => ({ jobs: [captured], scans: [{ status: 'failed', reason: 'LinkedIn HTTP 400' }], complete: false, blocked: false }),
+    list: async () => [],
+    prescreenBatch: async cards => cards.map(card => ({ postingId: card.id, decision: 'fetch' })),
+    describe: async card => { described++; return { ...card, externalId: `linkedin-${card.id}`, jobDescription: 'Full original description' }; },
+    ingest: async () => ({ screeningRows: [], addedRows: [{ id: 'linkedin-72' }] }),
+    read: async id => ({ id, jevAssessment: { status: 'complete', score: 80 },
+      overviewSummary: { position: 'Engineering Manager', fit: 'Strong fit' } }),
+    saveState: async state => { saved = structuredClone(state); },
+  });
+  assert.equal(described, 1);
+  assert.equal(report.added.length, 1);
+  assert.equal(report.status, 'incomplete');
+  assert.equal(saved.lastSearch, oldCheckpoint);
+}));
+
 await test('a repeated full search page reports incomplete coverage instead of claiming all roles were checked', () => withEmPolicy(async () => {
-  const html = Array.from({ length: 40 }, (_, index) =>
-    `<li><div data-entity-urn="urn:li:jobPosting:${index + 1}"><h3>Engineering Manager</h3><h4>Company</h4></div></li>`).join('');
+  const html = `<main class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${Array.from({ length: 40 }, (_, index) =>
+    `<li><div data-entity-urn="urn:li:jobPosting:${index + 1}"><h3>Engineering Manager</h3><h4>Company</h4></div></li>`).join('')}</ul></main>`;
   let pages = 0;
   const result = await searchLinkedIn({ window: linkedinWindow(null, new Date('2026-10-01T08:00:00Z')),
     searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],

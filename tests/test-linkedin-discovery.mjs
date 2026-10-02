@@ -60,6 +60,11 @@ await test('public cards extract factual fields; unknown markup fails closed', (
   assert.deepEqual(parseLinkedInResults('No matching jobs found'), []);
   assert.throws(() => parseLinkedInResults('<html>something changed</html>'));
 });
+await test('full search pages only parse the primary LinkedIn result list', () => {
+  const main = `<main class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${card}</ul></main>`;
+  const sidebar = card.replace('jobPosting:123', 'jobPosting:999').replace('Acme &amp; Co', 'Sidebar company');
+  assert.deepEqual(parseLinkedInResults(`${main}<aside>${sidebar}</aside>`).map(job => job.id), ['123']);
+});
 await test('overlapping searches deduplicate posting IDs and stop on throttling', async () => {
   let calls = 0;
   const searches = [{keywords:'one',location:'UK'},{keywords:'two',location:'UK'},{keywords:'three',location:'UK'},{keywords:'must-not-fetch',location:'UK'}];
@@ -320,6 +325,12 @@ await test('unsafe endpoints and auth abort; expired postings do not retry', asy
   assert.equal((await fetchLinkedInPage({url:'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/123',policy:DEFAULT_LINKEDIN_SETTINGS},{
     fetchRequest:async()=>new Response('',{status:404})
   })).status,404);
+  let requested;
+  const continuation = 'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=Engineering+Manager&start=60';
+  await fetchLinkedInPage({url:continuation,policy:DEFAULT_LINKEDIN_SETTINGS},{
+    fetchRequest:async url=>{requested=String(url);return new Response('<li>');}
+  });
+  assert.equal(requested, continuation, 'the allowlisted public guest continuation endpoint is callable');
 });
 await test('ownership survives waits; only terminal owners can be replaced atomically', async () => {
   let owner='run_old',completed=false;
