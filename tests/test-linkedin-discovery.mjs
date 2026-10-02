@@ -61,7 +61,7 @@ await test('public cards extract factual fields; unknown markup fails closed', (
   assert.throws(() => parseLinkedInResults('<html>something changed</html>'));
 });
 await test('full search pages only parse the primary LinkedIn result list', () => {
-  const main = `<main class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${card}</ul></main>`;
+  const main = `<section class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${card}</ul></section>`;
   const sidebar = card.replace('jobPosting:123', 'jobPosting:999').replace('Acme &amp; Co', 'Sidebar company');
   assert.deepEqual(parseLinkedInResults(`${main}<aside>${sidebar}</aside>`).map(job => job.id), ['123']);
 });
