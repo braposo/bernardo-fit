@@ -120,9 +120,14 @@ try {
   check('legacy scores are not presented as current dimensions', await page.getByRole('img', {name:'Responsibilities fit: not assessed',exact:true}).count() === 1);
   for (const label of ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility']) {
     const trigger = page.getByRole('button', { name: 'About ' + label, exact: true });
-    await trigger.focus();
-    await page.keyboard.press('Enter');
+    check(label + ' help trigger is icon-only', (await trigger.textContent()).trim() === '');
+    await trigger.hover();
     const help = page.locator('.dimension-help-content');
+    await help.waitFor();
+    check(label + ' explanation opens on hover', await page.getByRole('tooltip').count() === 1);
+    await page.mouse.move(0, 0, { steps: 10 });
+    await help.waitFor({ state: 'hidden' });
+    await trigger.focus();
     await help.waitFor();
     check(label + ' has an accessible explanation', (await help.textContent()).length > 40);
     await page.keyboard.press('Escape');
@@ -130,6 +135,34 @@ try {
     check(label + ' explanation returns keyboard focus', await trigger.evaluate(el => el === document.activeElement));
   }
   check('reading dimension help does not generate', dispatches === 0);
+  const touchSession = await context.newCDPSession(page);
+  try {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await touchSession.send('Emulation.setTouchEmulationEnabled', { enabled: true });
+    const tap = async locator => {
+      await locator.scrollIntoViewIfNeeded();
+      const box = await locator.boundingBox();
+      await touchSession.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+      await touchSession.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    const trigger = page.getByRole('button', { name: 'About Practical compatibility', exact: true });
+    const help = page.locator('.dimension-help-content');
+    await tap(trigger);
+    await help.waitFor();
+    check('info icon opens a tooltip on touch', await page.getByRole('tooltip').count() === 1);
+    await tap(trigger);
+    await help.waitFor({ state: 'hidden' });
+    check('second tap dismisses dimension help', await help.count() === 0);
+    await tap(trigger);
+    await help.waitFor();
+    await tap(page.locator('.score-gauge').last().locator('p'));
+    await help.waitFor({ state: 'hidden' });
+    check('outside tap dismisses dimension help without generation', dispatches === 0);
+  } finally {
+    await touchSession.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    await touchSession.detach();
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
   check('Overview has no analytics or activity shortcut', await page.locator('#panel-overview .stats, #panel-overview [data-section-link="activity"]').count() === 0);
   await audit('Overview');
   if(process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path:process.env.ADMIN_UX_SCREENSHOTS+'/admin-gauges.png'});

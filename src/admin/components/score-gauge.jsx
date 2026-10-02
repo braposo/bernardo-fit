@@ -4,7 +4,7 @@ import { Card } from './ui/card';
 import { ChartContainer } from './ui/chart';
 import { Info } from 'lucide-react';
 import { Button } from './ui/button';
-import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
 
 const dimensionHelp = {
   responsibilities: 'Would the daily management work suit you? Looks for enjoyable, sustainable duties, clear boundaries and limited firefighting.',
@@ -16,23 +16,41 @@ const dimensionHelp = {
 
 // shadcn radial-chart composition with the dashboard's Card/ChartContainer pattern.
 const config = { score: { label: 'Rating', color: 'var(--primary)' } };
+function DimensionHelp({ label, children }) {
+  const [open, setOpen] = React.useState(false);
+  const pointerType = React.useRef('');
+  const triggerRef = React.useRef(null);
+  return <TooltipProvider><Tooltip open={open} onOpenChange={setOpen}>
+    <TooltipTrigger asChild
+      onPointerDown={event => {
+        pointerType.current = event.pointerType;
+        // Radix otherwise closes on pointerdown and again on click. Touch opens
+        // explicitly below, without a focus event reopening a second-tap close.
+        if (event.pointerType === 'touch') event.preventDefault();
+      }}
+      onClick={event => {
+        event.preventDefault();
+        setOpen(previous => event.detail !== 0 && pointerType.current === 'touch' ? !previous : true);
+      }}>
+      <Button ref={triggerRef} type="button" variant="ghost" className="dimension-help-trigger" aria-label={`About ${label}`}>
+        <Info aria-hidden="true" size={14} />
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent className="dimension-help-content" side="top" collisionPadding={12}
+      onPointerDownOutside={event => {
+        // The trigger is outside the portalled content. Let its click toggle
+        // once, rather than dismissing first and reopening on the same tap.
+        if (triggerRef.current?.contains(event.detail.originalEvent.target)) event.preventDefault();
+      }}>{children}</TooltipContent>
+  </Tooltip></TooltipProvider>;
+}
 export function ScoreGauge({ dimension, label, value, weight }) {
   const legacyIds = { 'Responsibilities fit': 'responsibilities', 'Evidence of capability': 'evidence', 'Seniority and scope': 'scope', 'Career direction': 'direction', 'Practical compatibility': 'practical' };
   const help = dimensionHelp[dimension || legacyIds[label]];
   const parsed = value === '' || value == null ? NaN : Number(value);
   const score = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : null;
   return <Card className="score-gauge">
-    <h3>{help ? <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" className="dimension-help-trigger" aria-label={`About ${label}`}>
-          <span>{label}</span><Info aria-hidden="true" size={14} />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="dimension-help-content" side="top" collisionPadding={12}
-        aria-label={`About ${label}`} onOpenAutoFocus={event => event.preventDefault()}>
-        {help}
-      </PopoverContent>
-    </Popover> : label}</h3>
+    <h3 className="dimension-heading"><span>{label}</span>{help ? <DimensionHelp label={label}>{help}</DimensionHelp> : null}</h3>
     <div className="gauge-visual" role={score === null ? 'img' : 'meter'} aria-label={label + (score === null ? ': not assessed' : '')}
       aria-valuemin={score === null ? undefined : 0} aria-valuemax={score === null ? undefined : 100}
       aria-valuenow={score ?? undefined} aria-valuetext={score === null ? undefined : `${score} out of 100`}>
