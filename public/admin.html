@@ -1170,7 +1170,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
 
   function jevAssessmentHtml(j) {
-    var a = j.jevAssessment || { dimensions: [['Responsibilities fit',25],['Evidence of capability',25],['Seniority and scope',20],['Career direction',20],['Practical compatibility',10]].map(function (d) { return { label: d[0], weight: d[1], score: null, confidence: null }; }) };
+    var a = j.jevAssessment || { dimensions: [['Responsibilities fit',30,'responsibilities'],['Evidence of capability',30,'evidence'],['Seniority and scope',15,'scope'],['Career direction',5,'direction'],['Practical compatibility',20,'practical']].map(function (d) { return { id: d[2], label: d[0], weight: d[1], score: null, confidence: null }; }) };
     var reasons = [];
     if (a.provisional && !j.jevStale) {
       var posting = a.posting || {};
@@ -1184,7 +1184,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       (reasons.length ? '<div class="assessment-warning"><strong>Review the job description</strong><ul>' + reasons.map(function (reason) { return '<li>' + esc(reason) + '</li>'; }).join('') + '</ul></div>' : '') +
       '<div class="score-gauges jev-gauges">' + a.dimensions.map(function (d) {
         var reviewConfidence = !j.jevStale && (d.confidence == null || d.confidence < 0.7);
-        return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-value="' + (d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div>' + (j.jevAssessment ? '<p class="field-help' + (reviewConfidence ? ' assessment-confidence-warning' : '') + '" title="Confidence in this rating, not the chance of an offer. Lower confidence is a cue to review the rating; it does not reduce the fit score.">' +
+        return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-dimension-id="' + esc(d.id || '') + '" data-value="' + (d.score == null ? '' : esc(d.score)) + '" data-weight="' + esc(d.weight) + '"></div>' + (j.jevAssessment ? '<p class="field-help' + (reviewConfidence ? ' assessment-confidence-warning' : '') + '" title="Confidence in this rating, not the chance of an offer. Lower confidence is a cue to review the rating; it does not reduce the fit score.">' +
           (j.jevStale ? 'Outdated' : d.confidence == null ? 'Confidence unavailable' : 'Model confidence: ' + Math.round(d.confidence * 100) + '%') + (reviewConfidence ? '<span>Review rating</span>' : '') + '</p>' : '') + '</div>';
       }).join('') + '</div>';
   }

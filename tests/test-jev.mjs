@@ -105,6 +105,28 @@ await test("a weak central match cannot be hidden by high scores elsewhere", asy
     assert.equal((await assessFit(job)).score, 70, "unproven essential capabilities cannot yield a top score");
   } finally { transform = x => x; }
 });
+await test("sustainable management weights favour practical fit without a career progression gate", async () => {
+  const withRatings = overrides => d => {
+    for (const [key, answer] of Object.entries(d.answers).filter(([, a]) => a.type === "score")) {
+      const rung = overrides[key] ?? 4;
+      answer.score = rung;
+      answer.probabilities = Object.fromEntries([0, 1, 2, 3, 4].map(i => [i, Number(i === rung)]));
+    }
+    return d;
+  };
+  try {
+    transform = withRatings({ direction: 0 });
+    const assessment = await assessFit(job);
+    assert.deepEqual(assessment.dimensions.map(({id, weight}) => [id, weight]), [
+      ['responsibilities', 30], ['evidence', 30], ['scope', 15], ['direction', 5], ['practical', 20],
+    ]);
+    assert.equal(assessment.score, 95, 'career direction only contributes its five percent; it cannot cap strong employment fit');
+    transform = withRatings({ practical: 3 });
+    assert.equal((await assessFit(job)).score, 93, 'a 35-point practical difference contributes seven overall points');
+    transform = withRatings({ evidence: 1 });
+    assert.equal((await assessFit(job)).score, 55, 'essential capability still guards against a poor fit');
+  } finally { transform = x => x; }
+});
 await test("standalone Jev makes one attempt and preserves provider retry metadata", async () => {
   const original=globalThis.fetch; let attempts=0;
   try {

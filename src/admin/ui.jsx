@@ -55,7 +55,7 @@ const options = {
     const classes = (props.className || '').split(/\s+/);
     const has = name => classes.includes(name);
     const children = () => domToReact(node.children, options);
-    if (props['data-score-gauge']) return <ScoreGauge label={props['data-score-gauge']} value={props['data-value']} weight={props['data-weight']} />;
+    if (props['data-score-gauge']) return <ScoreGauge dimension={props['data-dimension-id']} label={props['data-score-gauge']} value={props['data-value']} weight={props['data-weight']} />;
     if (props['data-icon']) {
       const Icon = { file: FileText, external: ExternalLink, settings: SlidersHorizontal, chevron: ChevronDown, 'sidebar-toggle': ChevronLeft }[props['data-icon']];
       return Icon ? (has("document-icon") ? <span className="document-icon"><Icon aria-hidden="true" className="ui-icon" /></span> : <Icon aria-hidden="true" className="ui-icon" />) : null;

@@ -28,7 +28,7 @@ revised.texts.find(t => t.key === "slopTop").text = "SANITY SHARED STYLE";
 revised.questions.find(q => q.key === "responsibilities").instructions = "SANITY JEV DIRECTIONS";
 revised.questions.find(q => q.key === "responsibilities").criteria[4] = "SANITY TOP RATING";
 revised.facts[0].answer = "SANITY CONFIRMED ANSWER";
-revised.dimensions[0].weight = 30;
+revised.dimensions[0].weight = 40;
 revised.dimensions[1].weight = 20;
 const changed = settingsFromDocument(revised);
 const job = {company: "Example", role: "Engineer", jobDescription: "Build a product with a small engineering team."};
@@ -164,7 +164,7 @@ await test("actual Jev request consumes edited instructions, evidence and rubric
   assert.equal(body.state.candidate, "SANITY CANDIDATE EVIDENCE");
   assert.equal(body.questions.responsibilities.instructions, "SANITY JEV DIRECTIONS");
   assert.equal(body.questions.responsibilities.criteria[4], "SANITY TOP RATING");
-  assert.equal(result.dimensions[0].weight, 30);
+  assert.equal(result.dimensions[0].weight, 40);
 });
 await test("actual analysis request and saved provenance use the same settings", async () => {
   const result = await withSettingsSnapshot(changed, () => runAnalysis(job.jobDescription, {model: "claude-sonnet-5"}));

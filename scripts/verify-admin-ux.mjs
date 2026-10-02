@@ -35,7 +35,7 @@ try {
   jobs[1].jevStale = true;
   jobs[1].jevAssessment = { score: 79, assessedAt: '2026-09-20T10:00:00Z',
     dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility']
-      .map((label, i) => ({ label, score: 79 - i, weight: [25, 25, 20, 20, 10][i], confidence: 0.9 })) };
+      .map((label, i) => ({ label, score: 79 - i, id: ["responsibilities", "evidence", "scope", "direction", "practical"][i], weight: [30, 30, 15, 5, 20][i], confidence: 0.9 })) };
   let failSave = false, dispatches = 0, reviews = 0, mutations = 0, jevRoutesModels = false;
   const errors = [];
   const page = await context.newPage();
@@ -118,6 +118,18 @@ try {
   check('icon status control saves the stage', jobs[0].stage === 'reviewing');
   check('five unassessed shadcn gauges', await page.getByRole('meter').count() === 0 && await page.locator('.score-gauge[data-slot="card"]').count() === 5);
   check('legacy scores are not presented as current dimensions', await page.getByRole('img', {name:'Responsibilities fit: not assessed',exact:true}).count() === 1);
+  for (const label of ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility']) {
+    const trigger = page.getByRole('button', { name: 'About ' + label, exact: true });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    const help = page.locator('.dimension-help-content');
+    await help.waitFor();
+    check(label + ' has an accessible explanation', (await help.textContent()).length > 40);
+    await page.keyboard.press('Escape');
+    await help.waitFor({ state: 'hidden' });
+    check(label + ' explanation returns keyboard focus', await trigger.evaluate(el => el === document.activeElement));
+  }
+  check('reading dimension help does not generate', dispatches === 0);
   check('Overview has no analytics or activity shortcut', await page.locator('#panel-overview .stats, #panel-overview [data-section-link="activity"]').count() === 0);
   await audit('Overview');
   if(process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path:process.env.ADMIN_UX_SCREENSHOTS+'/admin-gauges.png'});
