@@ -35,7 +35,7 @@ try {
   jobs[1].jevStale = true;
   jobs[1].jevAssessment = { score: 79, assessedAt: '2026-09-20T10:00:00Z',
     dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility']
-      .map((label, i) => ({ label, score: 79 - i, weight: [25, 25, 20, 20, 10][i], confidence: 0.9 })) };
+      .map((label, i) => ({ label, score: 79 - i, id: ["responsibilities", "evidence", "scope", "direction", "practical"][i], weight: [30, 30, 15, 5, 20][i], confidence: 0.9 })) };
   let failSave = false, dispatches = 0, reviews = 0, mutations = 0, jevRoutesModels = false;
   const errors = [];
   const page = await context.newPage();
@@ -117,7 +117,52 @@ try {
   await page.waitForFunction(() => document.querySelector('.role-stage .pipeline-stage')?.textContent === 'Reviewing');
   check('icon status control saves the stage', jobs[0].stage === 'reviewing');
   check('five unassessed shadcn gauges', await page.getByRole('meter').count() === 0 && await page.locator('.score-gauge[data-slot="card"]').count() === 5);
-  check('legacy scores are not presented as current dimensions', await page.getByRole('img', {name:'Responsibilities fit: not assessed',exact:true}).count() === 1);
+  check('legacy scores are not presented as current dimensions', await page.getByRole('img', {name:'Responsibilities: not assessed',exact:true}).count() === 1);
+  for (const label of ['Responsibilities', 'Capability', 'Scope', 'Direction', 'Compatibility']) {
+    const trigger = page.getByRole('button', { name: 'About ' + label, exact: true });
+    check(label + ' help trigger is icon-only', (await trigger.textContent()).trim() === '');
+    await trigger.hover();
+    const help = page.locator('.dimension-help-content');
+    await help.waitFor();
+    check(label + ' explanation opens on hover', await page.getByRole('tooltip').count() === 1);
+    await page.mouse.move(0, 0, { steps: 10 });
+    await help.waitFor({ state: 'hidden' });
+    await trigger.focus();
+    await help.waitFor();
+    check(label + ' has an accessible explanation', (await help.textContent()).length > 40);
+    await page.keyboard.press('Escape');
+    await help.waitFor({ state: 'hidden' });
+    check(label + ' explanation returns keyboard focus', await trigger.evaluate(el => el === document.activeElement));
+  }
+  check('reading dimension help does not generate', dispatches === 0);
+  const touchSession = await context.newCDPSession(page);
+  try {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await touchSession.send('Emulation.setTouchEmulationEnabled', { enabled: true });
+    const tap = async locator => {
+      await locator.scrollIntoViewIfNeeded();
+      const box = await locator.boundingBox();
+      await touchSession.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+      await touchSession.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    const trigger = page.getByRole('button', { name: 'About Compatibility', exact: true });
+    const help = page.locator('.dimension-help-content');
+    await tap(trigger);
+    await help.waitFor();
+    check('info icon opens a tooltip on touch', await page.getByRole('tooltip').count() === 1);
+    await tap(trigger);
+    await help.waitFor({ state: 'hidden' });
+    check('second tap dismisses dimension help', await help.count() === 0);
+    await tap(trigger);
+    await help.waitFor();
+    await tap(page.locator('.score-gauge').last().locator('p'));
+    await help.waitFor({ state: 'hidden' });
+    check('outside tap dismisses dimension help without generation', dispatches === 0);
+  } finally {
+    await touchSession.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    await touchSession.detach();
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
   check('Overview has no analytics or activity shortcut', await page.locator('#panel-overview .stats, #panel-overview [data-section-link="activity"]').count() === 0);
   await audit('Overview');
   if(process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({path:process.env.ADMIN_UX_SCREENSHOTS+'/admin-gauges.png'});
@@ -287,7 +332,7 @@ try {
   check('Assess fit has an AI icon and neutral label', await page.locator('[data-act="jevscore"] svg').count() === 1 && (await page.locator('[data-act="jevscore"]').textContent()).trim() === 'Assess fit');
   check('five Jev dimensions render', await page.locator('.score-gauge').count() === 5);
   check('repeated evidence explanation is absent', await page.locator('.dimension-warning').count() === 0);
-  check('lower confidence retains the saved practical score', await page.getByRole('meter', { name: 'Practical compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
+  check('lower confidence retains the saved practical score', await page.getByRole('meter', { name: 'Compatibility', exact: true }).getAttribute('aria-valuenow') === '50');
   check('confidence remains visible', await page.getByText('Model confidence: 90%', {exact:true}).count() === 4);
   check('lower confidence has a visible review cue', await page.locator('.assessment-confidence-warning').count() === 1 &&
     await page.locator('.assessment-confidence-warning').textContent().then(t => t.includes('Model confidence: 59%') && t.includes('Review rating')));
@@ -355,7 +400,7 @@ try {
       (await page.locator('.role-header .score-tile').getAttribute('aria-label')).includes('outdated assessment'));
     check('outdated saved dimensions remain visible at ' + width,
       await page.getByRole('meter').count() === 5 &&
-      await page.getByRole('meter', { name: 'Responsibilities fit' }).getAttribute('aria-valuenow') === '79' &&
+      await page.getByRole('meter', { name: 'Responsibilities' }).getAttribute('aria-valuenow') === '79' &&
       (await page.locator('#panel-overview').textContent()).includes('Outdated'));
     if (width === 390) await page.locator('[data-act="back"]').click();
     check('outdated saved score remains visible in pipeline at ' + width,
