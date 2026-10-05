@@ -1,20 +1,41 @@
 import React, { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { useRealtimeRun } from '@trigger.dev/react-hooks';
-import { Toast } from 'radix-ui';
+import { Toaster, toast } from 'sonner';
 import { Button } from './admin/components/ui/button';
 
 const notices = new Map();
 const dismissTimers = new Map();
+const dismissed = new Set();
+try { JSON.parse(sessionStorage.getItem('fit.dismissedToasts') || '[]').forEach(id => dismissed.add(id)); } catch {}
 let toastRoot;
 const SUCCESS_DISMISS_MS = 5000;
+function dismissNotice(id) {
+  dismissed.add(id);
+  // Presentation state only: subscriptions and action locks belong to the task tracker.
+  try { sessionStorage.setItem('fit.dismissedToasts', JSON.stringify([...dismissed].slice(-200))); } catch {}
+  clearTimeout(dismissTimers.get(id));
+  dismissTimers.delete(id);
+  notices.delete(id);
+  toast.dismiss(id);
+}
 export function taskToast(id, update, replaceId) {
+  // A fresh submission reuses the action placeholder, whereas run IDs are unique.
+  if (update.message === 'Starting…' && update.terminal === false) {
+    dismissed.delete(id);
+    notices.delete(id);
+    try { sessionStorage.setItem('fit.dismissedToasts', JSON.stringify([...dismissed].slice(-200))); } catch {}
+  }
   const previous = notices.get(id) || notices.get(replaceId);
   if (replaceId && replaceId !== id) {
     clearTimeout(dismissTimers.get(replaceId));
     dismissTimers.delete(replaceId);
     notices.delete(replaceId);
+    toast.dismiss(replaceId);
+    if (dismissed.delete(replaceId)) dismissNotice(id);
   }
+  if (dismissed.has(id)) return;
   clearTimeout(dismissTimers.get(id));
   dismissTimers.delete(id);
   const notice = { ...previous, ...update };
@@ -23,20 +44,20 @@ export function taskToast(id, update, replaceId) {
     : undefined;
   notices.set(id, notice);
   if (notice.dismissAt) {
-    dismissTimers.set(id, setTimeout(() => {
-      dismissTimers.delete(id);
-      if (notices.get(id)?.dismissAt === notice.dismissAt) {
-        notices.delete(id);
-        paint();
-      }
-    }, Math.max(0, notice.dismissAt - Date.now())));
+    // Sonner pauses native durations on hover/focus. The task deadline must not pause.
+    dismissTimers.set(id, setTimeout(() => dismissNotice(id), Math.max(0, notice.dismissAt - Date.now())));
   }
   if (!toastRoot) {
     const host = document.createElement('div');
     document.body.append(host);
     toastRoot = createRoot(host);
+    flushSync(() => toastRoot.render(<Toaster className="task-toast-viewport" position="bottom-right" expand
+      visibleToasts={Infinity} duration={Infinity} containerAriaLabel="Task notifications"
+      toastOptions={{ unstyled: true }} />));
   }
-  paint();
+  toast.custom(() => <TaskNotice id={id} notice={notice} />, {
+    id, duration: Infinity, onDismiss: () => { if (notices.has(id)) dismissNotice(id); },
+  });
 }
 function DismissCountdown({ dismissAt }) {
   const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
@@ -49,18 +70,10 @@ function DismissCountdown({ dismissAt }) {
   }, [dismissAt]);
   return <span aria-hidden="true"> ({remaining}s)</span>;
 }
-function paint() {
-  toastRoot.render(<Toast.Provider swipeDirection="right"><>
-    {[...notices].map(([id, notice]) => <Toast.Root key={id} open duration={Infinity}
-      className="task-toast" data-task-id={id} data-tone={notice.tone || 'pending'} type="background"
-      onOpenChange={open => { if (!open && notice.terminal) {
-        clearTimeout(dismissTimers.get(id));
-        dismissTimers.delete(id);
-        notices.delete(id);
-        paint();
-      } }}>
-      <Toast.Title className="task-toast-title">{notice.title || 'Background work'}</Toast.Title>
-      <Toast.Description className="task-toast-message" role="status" aria-live="polite" aria-atomic="true">{notice.message}</Toast.Description>
+function TaskNotice({ id, notice }) {
+  return <div className="task-toast" data-task-id={id} data-tone={notice.tone || 'pending'}>
+      <div className="task-toast-title">{notice.title || 'Background work'}</div>
+      <div className="task-toast-message" role="status" aria-live="polite" aria-atomic="true">{notice.message}</div>
       <div className="task-toast-actions">
         {notice.href && <a href={notice.href} onClick={event => {
           if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -70,11 +83,9 @@ function paint() {
           if (!document.dispatchEvent(navigation)) event.preventDefault();
         }}>{notice.linkLabel || 'Open result'}</a>}
         {notice.retry && <Button variant="outline" onClick={notice.retry}>Reconnect</Button>}
-        {notice.terminal && <Toast.Close asChild><Button variant="ghost" aria-label={`Dismiss ${notice.title || 'notification'}`}>Dismiss{notice.dismissAt && <DismissCountdown dismissAt={notice.dismissAt} />}</Button></Toast.Close>}
+        <Button onClick={() => dismissNotice(id)} variant="ghost" aria-label={`Dismiss ${notice.title || 'notification'}`}>Dismiss{notice.dismissAt && <DismissCountdown dismissAt={notice.dismissAt} />}</Button>
       </div>
-    </Toast.Root>)}
-    <Toast.Viewport className="task-toast-viewport" label="Task notifications" />
-  </></Toast.Provider>);
+  </div>;
 }
 
 function Subscription({ credentials, refreshAccessToken, onUpdate, onError }) {

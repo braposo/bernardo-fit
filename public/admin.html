@@ -714,6 +714,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var done = kind === 'cover' ? coverCompletion(out) : workCompletion(out);
       if (out.d.result && out.d.result.reportId && done.tone === 'ok') href = '/?r=' + encodeURIComponent(out.d.result.reportId);
       taskToast(toastId, { message: done.text, tone: done.tone, terminal: true, href: href, linkLabel: href.indexOf('/?r=') === 0 ? 'Open analysis' : id === 'batch' ? 'Open pipeline' : 'Open role' });
+      showGenerationErrors(id, out.d.result && out.d.result.generationErrors, runId);
       finishedRuns.add(runId); watchedActions.delete(runId);
       if (pendingActions.get(key)?.runId === runId) pendingActions.delete(key);
       persistActions();
@@ -740,6 +741,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     persistActions(); applyActionLocks();
     var recovery = api('/api/admin/cover?run=' + encodeURIComponent(runId), { method: 'GET' }).then(function (out) {
       if (out.ok && out.d.terminal) {
+        showGenerationErrors(id, out.d.result && out.d.result.generationErrors, runId);
         finishedRuns.add(runId);
         if (pendingActions.get(key)?.runId === runId) pendingActions.delete(key);
         persistActions();
@@ -750,6 +752,12 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     }).finally(function () { recoveringActions.delete(runId); });
     recoveringActions.set(runId, recovery);
     return recovery;
+  }
+  function showGenerationErrors(id, errors, attemptId) {
+    attemptId = attemptId || newRequestId();
+    (errors || []).forEach(function (message, index) {
+      taskToast('reviewing-error:' + id + ':' + attemptId + ':' + index, { title: 'Automatic generation could not start', message: message + ' Retry from Documents.', terminal: true, tone: 'err', href: '/admin?job=' + encodeURIComponent(id) + '&section=materials', linkLabel: 'Open documents' });
+    });
   }
   function recoverActions() {
     jobs.forEach(function (job) {
@@ -1575,6 +1583,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           if (!out.ok) { status.textContent = out.d.error || "Save failed."; status.className = "row-status err"; if (onError) onError(); return; }
           var i = jobs.findIndex(function (j) { return j.id === id; });
           if (i !== -1) jobs[i] = Object.assign({}, jobs[i], out.d.job);
+          showGenerationErrors(id, out.d.generationErrors);
+          recoverActions();
           if (onDone) onDone(out.d.job);
         });
       }

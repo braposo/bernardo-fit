@@ -27,6 +27,7 @@ import { appendAudit, auditEvent } from "../../lib/job-audit.js";
 import { getJobHistory } from "../../lib/job-history.js";
 import { readJobUsage } from "../../lib/usage.js";
 import { jevEnabled } from "../../lib/jev.js";
+import { reviewingGenerationResult } from "../../lib/reviewing-generation.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
@@ -121,8 +122,9 @@ async function handler(req, res) {
         res.status(400).json({ error: "Need at least a company or a role." });
         return;
       }
-      const job = await saveJob(body);
-      res.status(200).json({ job: jobDetail(job) });
+      const saved = await saveJob(body);
+      const { job, generationErrors } = await reviewingGenerationResult(saved);
+      res.status(200).json({ job: jobDetail(job), generationErrors });
       return;
     }
 
@@ -146,7 +148,7 @@ async function handler(req, res) {
         return;
       }
       // Shared storage applies terminal-stage archiving and explicit restores.
-      const job = body.question ? await editQuestion(id, body.question)
+      let job = body.question ? await editQuestion(id, body.question)
         : await mutateJob(id, current => {
           const changed = key => body[key] !== undefined && JSON.stringify(body[key]) !== JSON.stringify(current[key] ?? "");
           const invalidation = {};
@@ -158,7 +160,9 @@ async function handler(req, res) {
         res.status(404).json({ error: "Job not found" });
         return;
       }
-      res.status(200).json({ job: { ...jobSummary(job),
+      let generationErrors = [];
+      if (patch.stage === "reviewing" && !body.question) ({ job, generationErrors } = await reviewingGenerationResult(job));
+      res.status(200).json({ generationErrors, job: { ...jobSummary(job),
         ...Object.fromEntries(Object.keys(patch).map(k => [k, job[k]])),
         ...(body.question ? { questions: job.questions } : {}),
       } });

@@ -48,5 +48,8 @@ jobs:
       - name: Verify realtime task notifications
         run: npm run test:task-ui
 
+      - name: Verify distinct fit page titles
+        run: node scripts/verify-fit-titles.mjs
+
       - name: Verify admin chat
         run: npm run test:chat-ui
