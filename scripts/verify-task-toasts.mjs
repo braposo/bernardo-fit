@@ -125,9 +125,15 @@ try {
   await page.waitForFunction(() => !document.querySelector('[data-act=cover]').disabled);
   assert.match(await page.locator('.task-toast a').getAttribute('href'), /job=job1/);
   await page.setViewportSize({ width: 1280, height: 900 });
+  const searchResponse = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname === '/api/admin/jobs' && url.searchParams.get('q') === 'engineering';
+  });
   await page.locator('#search').fill('Engineering');
   await page.locator('#stagefilter').selectOption('new');
-  await page.waitForFunction(() => document.querySelectorAll('[data-select-job]').length === 2);
+  await searchResponse;
+  await page.waitForFunction(() => document.querySelectorAll('[data-select-job]').length === 2 &&
+    !document.querySelector('#stagefilter')?.hasAttribute('aria-busy'));
   await page.evaluate(() => { window.pipelineBeforeToastLink = document.querySelector('.pipeline'); });
   await page.locator('[data-select-job=job2]').click();
   await page.locator('.task-toast a').click();
