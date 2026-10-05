@@ -229,9 +229,11 @@ try {
   await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]')?.disabled);
   assert.equal(await page.locator('[data-act=jevscore]').isEnabled(), true, 'finished run releases Assess fit');
   // Saving Reviewing tracks returned automatic runs without a review dialog.
+  // Start this scenario without the preceding recovery/search refreshes, which
+  // legitimately repaint the workspace and can detach an open status editor.
+  await page.goto(origin + '/admin?job=job1&section=overview');
+  await page.locator('.status-edit').waitFor();
   status = 'EXECUTING';
-  await page.locator('[data-select-job=job1]').click();
-  await page.locator('[data-section=overview]').click();
   await page.locator('.status-edit').click();
   const beforeReviewing = dispatches;
   await page.locator('#job-stage').selectOption('reviewing');
