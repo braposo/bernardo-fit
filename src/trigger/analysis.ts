@@ -1,6 +1,6 @@
 import { withGenerationContext } from "../../lib/generation-context.js";
 import { AbortTaskRunError, metadata, task } from "@trigger.dev/sdk";
-import { executeAnalysisWork } from "../../lib/analysis-work.js";
+import { executeAnalysisWithFollowup } from "../../lib/analysis-with-followup.js";
 import { hasKV } from "../../lib/kv.js";
 import { ANALYSIS_TASK_POLICY } from "../../lib/task-policy.js";
 
@@ -24,7 +24,7 @@ export const analysisTask = task({
     metadata.set("phase", "analysing").set("requestId", payload.requestId);
     if (payload.jobId) metadata.set("jobId", payload.jobId);
     try {
-      const result = await executeAnalysisWork(payload);
+      const result = await executeAnalysisWithFollowup(payload);
       metadata.set("phase", result.outcome);
       return result;
     } catch (error) {

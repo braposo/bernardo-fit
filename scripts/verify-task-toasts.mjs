@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 
+const screenshotDir = process.env.TOAST_SCREENSHOT_DIR || '.toast-screenshots';
 const server = createServer(async (req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
   res.setHeader('Content-Type', path.endsWith('.js') ? 'text/javascript' : path.endsWith('.css') ? 'text/css' : 'text/html');
@@ -37,9 +38,17 @@ try {
     const req = route.request(), url = new URL(req.url()), body = req.postDataJSON();
     const reply = (json, status = 200) => route.fulfill({ json, status });
     if (url.pathname === '/api/admin/jobs') {
-      if (req.method() === 'PATCH') return reply({ job });
+      if (req.method() === 'PATCH') {
+        if (body.stage === 'reviewing') {
+          job.stage = 'reviewing';
+          job.analysisRun = {runId:'reviewing-analysis', status:'queued'};
+          runKinds.set('reviewing-analysis', 'analyse');
+          return reply({job, generationErrors:['Cover letter dispatch unavailable.']});
+        }
+        return reply({job});
+      }
       if (url.searchParams.has('q')) return reply({ matchingIds: [job, secondJob].filter(item => (item.company + ' ' + item.role).toLowerCase().includes(url.searchParams.get('q').toLowerCase())).map(item => item.id) });
-      return reply(url.searchParams.has('id') ? { job: url.searchParams.get('id') === 'job2' ? secondJob : job } : { jobs: [job, secondJob], stages: ['new'], features: { jevEnabled: true } });
+      return reply(url.searchParams.has('id') ? { job: url.searchParams.get('id') === 'job2' ? secondJob : job } : { jobs: [job, secondJob], stages: ['new', 'reviewing'], features: { jevEnabled: true } });
     }
     if (url.pathname === '/api/admin/versions') return reply({});
     if (url.pathname === '/api/admin/cover') {
@@ -93,12 +102,16 @@ try {
   assert.equal(dispatches, 1);
   await page.evaluate(() => window.fixtureRuns.run1.onUpdate({ status: 'REATTEMPTING' }));
   await page.locator('.task-toast-message').filter({ hasText: 'Retrying' }).waitFor();
-  await mkdir(new URL('../.toast-screenshots/', import.meta.url), { recursive: true });
+  await mkdir(new URL('../' + screenshotDir + '/', import.meta.url), { recursive: true });
   for (const width of [1280, 768, 390, 360]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.screenshot({ path: new URL(`../.toast-screenshots/task-${width}.png`, import.meta.url).pathname.replace(/^\/(\w:)/, '$1') });
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ animations: 'disabled', style: '*,*::before,*::after{animation:none!important;transition:none!important}', path: new URL(`../${screenshotDir}/task-${width}.png`, import.meta.url).pathname.replace(/^\/(\w:)/, '$1') });
     const bounds = await page.locator('.task-toast-viewport').boundingBox();
     assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width);
+    assert.equal(Math.round(width - bounds.x - bounds.width), 16, 'toast viewport has consistent right margin');
+    const card = await page.locator('[data-task-id="run:run1"]').boundingBox();
+    assert.equal(Math.round(card.width), Math.round(bounds.width - 8), 'card fills padded viewport on mobile and desktop');
   }
   status = 'COMPLETED';
   await page.evaluate(() => window.fixtureRuns.run1.onUpdate({ status: 'COMPLETED' }));
@@ -106,7 +119,8 @@ try {
   assert.match(await page.locator('[data-task-id="run:run1"] button[aria-label^="Dismiss"]').textContent(), /^Dismiss \([1-5]s\)$/, 'successful notification shows a countdown');
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.screenshot({ path: new URL(`../.toast-screenshots/success-${width}.png`, import.meta.url).pathname.replace(/^\/(\w:)/, '$1') });
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ animations: 'disabled', style: '*,*::before,*::after{animation:none!important;transition:none!important}', path: new URL(`../${screenshotDir}/success-${width}.png`, import.meta.url).pathname.replace(/^\/(\w:)/, '$1') });
   }
   await page.waitForFunction(() => !document.querySelector('[data-act=cover]').disabled);
   assert.match(await page.locator('.task-toast a').getAttribute('href'), /job=job1/);
@@ -130,7 +144,7 @@ try {
   const axe = await new AxeBuilder({ page }).include('.task-toast-viewport').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   assert.deepEqual(axe.violations, []);
   await page.getByRole('button', { name: 'Dismiss Cover letter', exact: false }).click();
-  assert.equal(await page.locator('.task-toast').count(), 0);
+  await page.locator('.task-toast').waitFor({ state: 'detached' });
   await page.locator('[data-act=cover]').click(); await page.locator('[data-review-submit]:enabled').click();
   await page.waitForFunction(() => window.fixtureRuns?.run2);
   status = 'FAILED'; await page.evaluate(() => window.fixtureRuns.run2.onUpdate({ status: 'FAILED' }));
@@ -208,6 +222,23 @@ try {
   assert.equal(await page.locator('.task-toast').count(), 0, 'finished saved runs and stale job pointers do not reopen toasts');
   await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]')?.disabled);
   assert.equal(await page.locator('[data-act=jevscore]').isEnabled(), true, 'finished run releases Assess fit');
+  // Saving Reviewing tracks returned automatic runs without a review dialog.
+  status = 'EXECUTING';
+  await page.locator('[data-select-job=job1]').click();
+  await page.locator('[data-section=overview]').click();
+  await page.locator('.status-edit').click();
+  const beforeReviewing = dispatches;
+  await page.locator('#job-stage').selectOption('reviewing');
+  await page.waitForFunction(() => window.fixtureRuns?.['reviewing-analysis']);
+  assert.equal(dispatches, beforeReviewing, 'status save does not open a manual generation dispatch');
+  assert.equal(await page.locator('[data-review-submit]').count(), 0, 'automatic run needs no review dialog');
+  await page.locator('.task-toast-message').filter({hasText:'Cover letter dispatch unavailable.'}).waitFor();
+  assert.equal(job.stage, 'reviewing', 'dispatch error does not revert saved stage');
+  await page.locator('[data-section=materials]').click();
+  assert.equal(await page.locator('[data-act=regen]').isDisabled(), true, 'returned analysis run locks generation');
+  status = 'COMPLETED';
+  await page.evaluate(() => window.fixtureRuns['reviewing-analysis'].onUpdate({status:'COMPLETED'}));
+  await page.waitForFunction(() => !document.querySelector('[data-act=regen]')?.disabled);
   await page.goto(origin + '/');
   await page.locator('#jd').fill('A sufficiently detailed synthetic engineering leadership role.');
   await page.locator('#go').click();
@@ -218,6 +249,46 @@ try {
   await page.evaluate(() => window.fixtureRuns.public1.onUpdate({ status: 'FAILED' }));
   await page.locator('#go').waitFor();
   await page.locator('.task-toast-message').filter({ hasText: 'Please try again.' }).waitFor();
+  // Dismissal is presentation-only, including while the real task is still running.
+  await page.locator('#jd').fill('A sufficiently detailed synthetic engineering leadership role.');
+  await page.locator('#go').click();
+  await page.waitForFunction(() => window.fixtureRuns?.public1);
+  await page.locator('[data-task-id="public-analysis"] button[aria-label^="Dismiss"]').click();
+  await page.locator('[data-task-id="public-analysis"]').waitFor({ state: 'detached' });
+  assert.equal(await page.locator('#go').count(), 0, 'dismissing running analysis leaves its action locked');
+  await page.evaluate(() => window.fixtureRuns.public1.onUpdate({ status:'EXECUTING', metadata:{phase:'analysing'} }));
+  assert.equal(await page.locator('[data-task-id="public-analysis"]').count(), 0, 'running updates do not reopen dismissed work');
+  await page.evaluate(() => window.fixtureRuns.public1.onUpdate({ status:'FAILED' }));
+  await page.locator('#go').waitFor();
+  assert.equal(await page.locator('[data-task-id="public-analysis"]').count(), 0, 'terminal update stays dismissed and unlocks action');
+  // A dismissed pre-dispatch placeholder transfers to its run, but not a future run.
+  await page.evaluate(async () => {
+    const { taskToast } = await import('/assets/task-ui-real.js');
+    window.fixtureToast = taskToast;
+    taskToast('fixture-action', {title:'Fixture task', message:'Starting…', terminal:false, tone:'pending'});
+  });
+  await page.locator('[data-task-id="fixture-action"] button').click();
+  await page.locator('[data-task-id="fixture-action"]').waitFor({state:'detached'});
+  await page.evaluate(() => window.fixtureToast('run:fixture-first', {message:'Queued…', terminal:false}, 'fixture-action'));
+  assert.equal(await page.locator('[data-task-id="run:fixture-first"]').count(), 0);
+  await page.reload();
+  await page.evaluate(async () => {
+    const { taskToast } = await import('/assets/task-ui-real.js');
+    window.fixtureToast = taskToast;
+    taskToast('run:fixture-first', {message:'Still working', terminal:false});
+    taskToast('fixture-action', {title:'Fixture task', message:'Starting…', terminal:false, tone:'pending'});
+    taskToast('run:fixture-second', {message:'Queued…', terminal:false}, 'fixture-action');
+  });
+  await page.locator('[data-task-id="run:fixture-second"]').waitFor();
+  assert.equal(await page.locator('[data-task-id="run:fixture-first"]').count(), 0, 'dismissal survives reload');
+  await page.evaluate(() => window.fixtureToast('run:fixture-second', {message:'Done', terminal:true, tone:'ok'}));
+  const completed = page.locator('[data-task-id="run:fixture-second"]');
+  await completed.getByText('Done', {exact:true}).waitFor();
+  await completed.hover();
+  await completed.locator('button').focus();
+  await completed.waitFor({state:'detached', timeout:6500});
+  await page.evaluate(() => window.fixtureToast('run:fixture-second', {title:'Late update'}));
+  assert.equal(await completed.count(), 0, 'expired success stays dismissed after late update');
   assert.deepEqual(errors, []);
   console.log('Realtime toasts verified: navigation, reload, locks, reconnect, retries, completion, failure, links, accessibility, public analysis and four viewport widths.');
 } finally { await browser.close(); server.close(); }

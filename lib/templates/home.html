@@ -209,6 +209,7 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
 
   var app = document.getElementById("app");
   var content = window.PUBLIC_CONTENT;
+  var defaultTitle = document.title;
   var state = { view: "input", jd: "", report: null, id: null, error: null, cached: false, phase: "queued" };
   var watchNonce = 0;
   var DEMO = new URLSearchParams(location.search).get("demo") === "1";
@@ -249,6 +250,7 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
 
   function renderInput() {
     if (pendingAnalysis) { state.view = "loading"; return renderLoading(); }
+    document.title = defaultTitle;
     app.innerHTML =
       MASTHEAD +
       '<div class="frame">' +
@@ -274,11 +276,16 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
   }
 
   function renderLoading() {
+    document.title = defaultTitle;
     var labels = { queued: "Your analysis is queued", analysing: "Reading the role, thinking it through", saving: "Saving your report" };
     app.innerHTML = MASTHEAD + '<div class="frame"><div class="loading">' + esc(labels[state.phase] || labels.queued) + '<span class="pen"></span></div></div>';
   }
 
   function renderReport(r, id) {
+    var titleRole = String(r.job_title || "").trim();
+    var titleCompany = String(r.company || "").trim();
+    var titleContext = titleRole + (titleCompany ? (titleRole ? " at " : "") + titleCompany : "");
+    document.title = (titleContext || "Fit report") + " — Fit · " + content.identity.name + (id ? " · " + id : "");
     var cats = (r.categories || []).map(function (c) {
       return (
         '<div class="cat">' +
