@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {cvBrowserExtension} from '../lib/trigger-browser-extension.js';
+const extension=cvBrowserExtension();
+let layer;
+extension.onBuildComplete({target:'dev',addLayer(){throw Error('Development must use its local browser');}},{});
+assert.throws(()=>extension.onBuildComplete({target:'deploy'},{externals:[]}),/resolved Playwright version/);
+assert.throws(()=>extension.onBuildComplete({target:'deploy'},{externals:[{name:'playwright',version:'1.63.0; unsafe'}]}),/resolved Playwright version/);
+extension.onBuildComplete({target:'deploy',addLayer(value){layer=value;}},{externals:[{name:'playwright',version:'1.63.0'}]});
+assert.equal(layer.dependencies.playwright,'1.63.0');
+assert.equal(layer.deploy.env.PLAYWRIGHT_BROWSERS_PATH,'/ms-playwright');
+assert.ok(layer.image.instructions.some(command=>command.includes('playwright install --with-deps --only-shell chromium')));
+assert.ok(layer.image.instructions.every(command=>!command.includes('--dry-run') && !command.includes('grep')));
+console.log('passed 1, failed 0');

@@ -79,6 +79,8 @@ The apply command requires a `tr_dev_` key and uses a global idempotency key der
 
 Local and preview apps use the named Development worker `codex/personalised-cv`; app and worker must share their Development key, branch and KV namespace. The production app must use the hosted Production worker. At release, deploy the worker with `--external-id` equal to the exact Vercel app commit SHA, then verify a request through the app. Do not disable version-skew protection.
 
+The worker browser image uses Playwright's own installer with the resolved package version, including Chromium's headless shell and its Linux dependencies. This avoids parsing human-readable `install --dry-run` output, whose format changed in Playwright 1.63. The private `sanity-storage-probe` task accepts `configurationOnly: true, renderCv: true` to verify actual hosted rendering, font loading, one-page geometry, text and links without model calls or publishing a new CV. An empty authenticated ingestion request verifies app-to-worker dispatch without creating jobs or calling a model.
+
 Focused checks cover source/store/public privacy, scoped preview tokens, automatic Reviewing dispatch, manual retry and historical publication, preservation of submitted versions, failed-save recovery without repeated model execution, real PDF rendering and text extraction, and responsive admin interactions. CI runs the full suite and installs Chromium before the PDF tests. The screenshot comparison is in `docs/pr-screenshots/personalised-cv/`.
 
 Text extraction and layout checks verify document integrity; they cannot certify ranking or acceptance by an employer's ATS. Job-specific links supplement the CV and are not required to understand its experience.
