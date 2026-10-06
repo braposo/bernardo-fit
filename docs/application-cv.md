@@ -28,7 +28,7 @@ The existing usage ledger attributes `cv` and `cv-verify` calls to the job, requ
 
 The canonical schema is `lib/sanity/studio/applicationCv.ts`. Register `applicationCvTypes` in the Studio schema. Add `applicationCvSettings` as a singleton with document ID `application-cv-settings`, exclude it from ordinary creation templates, and disable delete/duplicate/unpublish actions. Bindings and generated versions are read-only; exclude those types from creation templates and document actions.
 
-The editable source records are employment roles, projects, education and evidence. Each published employment role must reference one of its own approved, delivered evidence records as its broad overview. Evidence must have an original source reference, source passage, contribution level, delivery status, and explicit public approval. The settings document owns the model, writer/verifier prompts, word budget, minimum body size and supported layout. Missing, cross-role, proposed or unpublished overview evidence fails clearly.
+The editable source records are employment roles, projects, speaking engagements, education and evidence. Speaking engagements use the existing project record shape so each named event is a distinct entry under **Projects & speaking**. Fit and figma-graphql are also separate entries. Each published employment role must reference one of its own approved, delivered evidence records as its broad overview. Evidence must have an original source reference, exact source passage, contribution level, delivery status, and explicit public approval. The split project and speaking facts retain the original combined published passages as provenance; no talk titles or dates are inferred. The settings document owns the model, writer/verifier prompts, word budget, minimum body size and supported layout. Missing, cross-role, proposed or unpublished overview evidence fails clearly.
 
 ```sh
 node --env-file=.env.local scripts/seed-application-cv.mjs
@@ -36,9 +36,11 @@ node --env-file=.env.local scripts/seed-application-cv.mjs --apply
 node --env-file=.env.local scripts/check-application-cv-source.mjs
 node --env-file=.env.local scripts/update-application-cv-overviews.mjs
 node --env-file=.env.local scripts/update-application-cv-overviews.mjs --apply
+node --env-file=.env.local scripts/split-application-cv-projects-speaking.mjs
+node --env-file=.env.local scripts/split-application-cv-projects-speaking.mjs --apply
 ```
 
-Seeding is additive, preserves existing published edits and drafts, and is a dry run unless `--apply` is supplied. The overview migration is also a dry run by default. It updates the five existing role references and published writer/verifier prompts in one revision-guarded transaction only when their approved source facts and old prompt pair still match; drafts or editorial changes stop it. Initial setup created five employment roles, one project, one education record and 21 evidence records from the published CV and career sources. Existing jobs were not backfilled.
+Seeding is additive, preserves existing published edits and drafts, and is a dry run unless `--apply` is supplied. The overview migration is also a dry run by default. It updates the five existing role references and published writer/verifier prompts in one revision-guarded transaction only when their approved source facts and old prompt pair still match; drafts or editorial changes stop it. The project/speaking migration similarly checks the original Fit and education passages, their revisions and any related drafts before replacing only those two evidence texts and creating four distinct approved entries with evidence. It is idempotent and stops for editorial review if those records changed. Initial setup created five employment roles, one project, one education record and 21 evidence records from the published CV and career sources; the later split adds four project/speaking records and four evidence records. Existing jobs were not backfilled.
 
 ## Delivery and verification
 

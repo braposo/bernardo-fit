@@ -36,6 +36,14 @@ const passageContaining=(body,needle)=>{
   const end=text.indexOf('\n\n',at+needle.length);
   return text.slice(start,end<0?undefined:end).trim();
 };
+export const FIT_OPEN_SOURCE_SENTENCE='Open source includes figma-graphql, a GraphQL wrapper for the Figma API.';
+export const EDUCATION_SPEAKING_SENTENCE='Speaker at React Advanced London, GraphQL Conf and Design Systems London.';
+export const SPEAKING_ENGAGEMENTS=['React Advanced London','GraphQL Conf','Design Systems London'];
+const splitAppendedSentence=(passage,sentence,label)=>{
+  const suffix=` ${sentence}`;
+  required(passage.endsWith(suffix),`Published ${label} passage changed; review its approved facts before seeding.`);
+  return passage.slice(0,-suffix.length).trim();
+};
 
 export function buildApplicationCvSeed({page,career,technical}) {
   required(page?._id && page?.cv?.name && Array.isArray(page.cv.sections),'A published structured CV page is required.');
@@ -78,16 +86,31 @@ export function buildApplicationCvSeed({page,career,technical}) {
     const item=(projectSection?.items||[]).find(item=>textOf(item.body).startsWith(project.needle));
     if(!item)continue;
     const passage=textOf(item.body);
-    plan.push({key:`project:${project.key}`,type:'applicationCvProject',value:{_type:'applicationCvProject',title:project.title,dates:'',location:'',order:index,approvedPublic:true}});
+    const evidenceText=project.key==='fit'?splitAppendedSentence(passage,FIT_OPEN_SOURCE_SENTENCE,'Fit/open-source'):passage;
+    plan.push({key:`project:${project.key}`,type:'applicationCvProject',value:{_type:'applicationCvProject',title:project.title,dates:'',location:'',order:project.key==='hermans'?5:index,approvedPublic:true}});
     plan.push({key:`public:project:${project.key}`,type:'applicationCvEvidence',parent:`project:${project.key}`,
-      value:{_type:'applicationCvEvidence',text:passage,source:sourceRef(page._id),sourcePassage:passage,
+      value:{_type:'applicationCvEvidence',text:evidenceText,source:sourceRef(page._id),sourcePassage:passage,
         contribution:project.key==='fit'?'strategy':'personal',status:'delivered',skills:[],order:0,approvedPublic:true}});
+    if(project.key==='fit'){
+      plan.push({key:'project:figma-graphql',type:'applicationCvProject',value:{_type:'applicationCvProject',title:'Open source — figma-graphql',dates:'',location:'',order:1,approvedPublic:true}});
+      plan.push({key:'public:project:figma-graphql',type:'applicationCvEvidence',parent:'project:figma-graphql',
+        value:{_type:'applicationCvEvidence',text:FIT_OPEN_SOURCE_SENTENCE,source:sourceRef(page._id),sourcePassage:passage,
+          contribution:'personal',status:'delivered',skills:[],order:0,approvedPublic:true}});
+    }
   }
   const education=items.find(item=>textOf(item.body).includes('MSc and BSc in Informatics Engineering'));
   if(education){
     const passage=(education.body||[]).map(textOf).find(x=>x.includes('MSc and BSc'));
+    const degreeText=splitAppendedSentence(passage,EDUCATION_SPEAKING_SENTENCE,'education/speaking');
     plan.push({key:'education:coimbra',type:'applicationCvEducation',value:{_type:'applicationCvEducation',title:'MSc and BSc in Informatics Engineering',dates:'',location:'University of Coimbra, Portugal',order:0,approvedPublic:true}});
-    plan.push({key:'public:education:coimbra',type:'applicationCvEvidence',parent:'education:coimbra',value:{_type:'applicationCvEvidence',text:passage,source:sourceRef(page._id),sourcePassage:passage,contribution:'personal',status:'delivered',skills:[],order:0,approvedPublic:true}});
+    plan.push({key:'public:education:coimbra',type:'applicationCvEvidence',parent:'education:coimbra',value:{_type:'applicationCvEvidence',text:degreeText,source:sourceRef(page._id),sourcePassage:passage,contribution:'personal',status:'delivered',skills:[],order:0,approvedPublic:true}});
+    for(const [index,event] of SPEAKING_ENGAGEMENTS.entries()){
+      const key=['react-advanced-london','graphql-conf','design-systems-london'][index];
+      plan.push({key:`project:speaking:${key}`,type:'applicationCvProject',value:{_type:'applicationCvProject',title:`Speaking — ${event}`,dates:'',location:'',order:2+index,approvedPublic:true}});
+      plan.push({key:`public:project:speaking:${key}`,type:'applicationCvEvidence',parent:`project:speaking:${key}`,
+        value:{_type:'applicationCvEvidence',text:`Speaker at ${event}.`,source:sourceRef(page._id),sourcePassage:passage,
+          contribution:'personal',status:'delivered',skills:[],order:0,approvedPublic:true}});
+    }
   }
   return plan;
 }

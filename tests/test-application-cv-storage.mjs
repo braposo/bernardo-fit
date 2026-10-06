@@ -8,6 +8,7 @@ import {buildApplicationCvSeed,seedApplicationCv,DEFAULT_CV_VERIFIER_PROMPT,ROLE
 import {updateApplicationCvPrompts,PREVIOUS_CV_WRITER_PROMPT,PREVIOUS_CV_VERIFIER_PROMPT,
   V3_CV_WRITER_PROMPT,V3_CV_VERIFIER_PROMPT} from '../scripts/update-application-cv-prompts.mjs';
 import {updateApplicationCvOverviews} from '../scripts/update-application-cv-overviews.mjs';
+import {splitApplicationCvProjectsSpeaking} from '../scripts/split-application-cv-projects-speaking.mjs';
 
 const evidence={_id:'e1',_rev:'rev-e1',text:'Built the GraphQL service.',sourcePassage:'I built a GraphQL service.',
   source:{_id:'source-1',_rev:'rev-source'},contribution:'personal',status:'delivered',skills:['GraphQL']};
@@ -41,7 +42,10 @@ const pdf=Buffer.from('%PDF-1.7\nhello world\n%%EOF');
 const pdfSha256=createHash('sha256').update(pdf).digest('hex');
 const privateVersion={id:'request-1',createdAt:'2026-10-06T00:00:00Z',fingerprint:'fp-1',sourceFingerprint:snapshot.fingerprint,
   jobFingerprint:'jd-1',sourceSnapshot:snapshot,reportSnapshot:{id:'shared-report',report:{job_title:'Engineering Manager',company:'Acme',pitch:'A strong fit.',secret:'never public'}},
-  content:{identity:snapshot.identity,summary:'A tailored summary.',experience:[{roleId:'role-1',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',bullets:[{text:'Built the GraphQL service.',evidenceIds:['e1']}]}]},
+  content:{identity:snapshot.identity,summary:'A tailored summary.',experience:[{roleId:'role-1',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',bullets:[{text:'Built the GraphQL service.',evidenceIds:['e1']}]}],
+    projects:[{title:'Fit',bullets:[{text:'Built my job-search application.',evidenceIds:['fit-evidence']}]},
+      {title:'Open source — figma-graphql',bullets:[{text:'A GraphQL wrapper for the Figma API.',evidenceIds:['figma-evidence']}]},
+      {title:'Speaking — React Advanced London',bullets:[{text:'Speaker at React Advanced London.',evidenceIds:['talk-evidence']}]}]},
   validation:{status:'valid',requirementMap:[{requirement:'GraphQL',sourceIds:['e1']}]},model:'test-model',pdfBuffer:pdf,pdfSha256};
 const saved=await store.saveApplicationCvVersion(job.id,privateVersion);
 assert.equal(saved.pdfSha256,pdfSha256);
@@ -90,6 +94,9 @@ assert.equal(delegatedRes.code,200);assert.match(delegatedRes.body,/Application 
 const htmlRes=response();await handler({method:'GET',query:{publicId:first.publicId}},htmlRes);
 assert.equal(htmlRes.code,200);assert.match(htmlRes.body,/A tailored summary/);assert.doesNotMatch(htmlRes.body,/sourceSnapshot|requirementMap|secret/);
 assert.equal((htmlRes.body.match(/Download CV · PDF/g)||[]).length,1);
+assert.match(htmlRes.body,/Projects &amp; speaking/);
+assert.match(htmlRes.body,/Open source — figma-graphql/);
+assert.match(htmlRes.body,/Speaking — React Advanced London/);
 assert.ok(htmlRes.body.indexOf('The fit')<htmlRes.body.indexOf('What I bring'));
 assert.ok(htmlRes.body.indexOf('What I bring')<htmlRes.body.indexOf('Application CV'));
 assert.ok(htmlRes.body.indexOf('Download CV · PDF')>htmlRes.body.indexOf('Application CV'));
@@ -106,8 +113,8 @@ const syntheticPage={_id:'site-cv',cv:{name:'Bernardo Raposo',sections:[
     ...['SingleStore','TravelRepublic','EDITED'].map(name=>({kind:'role',title:`Role · ${name}`,body:[block(`${name} delivered a public platform.`)]})),
     {kind:'paragraph',body:[block('Earlier: Founder, Connect Coimbra, a coworking business (2010 – 2014). Junior Engineer, Critical Software, health tech (2009 – 2010).')]},
   ]},
-  {label:'Built recently',items:[{kind:'paragraph',body:[block('Fit (fit.bernardoraposo.com). A job search tool I directed.')]},{kind:'paragraph',body:[block('The Hermans Club (hermans.club). A side project.')]}]},
-  {label:'Education & beyond',items:[{kind:'paragraph',body:[block('MSc and BSc in Informatics Engineering, University of Coimbra, Portugal.')]}]},
+  {label:'Built recently',items:[{kind:'paragraph',body:[block('Fit: Built my job-search application with Sanity, React, Vercel and Trigger.dev, directing coding agents and reviewing delivery. Open source includes figma-graphql, a GraphQL wrapper for the Figma API.')]},{kind:'paragraph',body:[block('The Hermans Club (hermans.club). A side project.')]}]},
+  {label:'Education & beyond',items:[{kind:'paragraph',body:[block('MSc and BSc in Informatics Engineering, University of Coimbra, Portugal. Speaker at React Advanced London, GraphQL Conf and Design Systems London.')]}]},
 ]}};
 const careerText=['I owned the engineering strategy and resourcing; my engineer led day-to-day UX/implementation.',
   'I chose Next.js and Sanity for the proposed replacement.',
@@ -119,7 +126,12 @@ const careerText=['I owned the engineering strategy and resourcing; my engineer 
 const seed=buildApplicationCvSeed({page:syntheticPage,career:{_id:'career',body:[block(careerText)]},
   technical:{_id:'technical',body:[block('Specializations: design systems (built from scratch at EDITED and at TravelRepublic).')]}});
 assert.equal(seed.filter(entry=>entry.type==='applicationCvRole').length,5);
-assert.equal(seed.filter(entry=>entry.type==='applicationCvProject').length,2);
+assert.equal(seed.filter(entry=>entry.type==='applicationCvProject').length,6);
+assert.equal(seed.find(entry=>entry.key==='public:project:fit').value.text,'Fit: Built my job-search application with Sanity, React, Vercel and Trigger.dev, directing coding agents and reviewing delivery.');
+assert.equal(seed.find(entry=>entry.key==='public:project:figma-graphql').value.text,'Open source includes figma-graphql, a GraphQL wrapper for the Figma API.');
+assert.equal(seed.find(entry=>entry.key==='public:education:coimbra').value.text,'MSc and BSc in Informatics Engineering, University of Coimbra, Portugal.');
+assert.deepEqual(seed.filter(entry=>entry.key.startsWith('project:speaking:')).map(entry=>entry.value.title),
+  ['Speaking — React Advanced London','Speaking — GraphQL Conf','Speaking — Design Systems London']);
 assert.equal(seed.find(entry=>entry.key==='extra:singlestore-platform-vision').value.status,'proposed');
 assert.equal(seed.find(entry=>entry.key==='extra:singlestore-sqrl').value.contribution,'strategy');
 let settingsDoc={_id:'application-cv-settings',_rev:'editor-revision',model:'gpt-5.6-sol',prompt:'Editor-authored prompt',verifierPrompt:null};
@@ -179,6 +191,30 @@ await assert.rejects(updateApplicationCvOverviews({client:overviewClient}),/draf
 overviewDraft=false;
 overviewDocs.find(row=>row.seedKey==='extra:critical-onall').status='proposed';
 await assert.rejects(updateApplicationCvOverviews({client:overviewClient}),/source for critical-software changed/);
+const splitKeys=['project:fit','public:project:fit','education:coimbra','public:education:coimbra'];
+const splitDocs=splitKeys.map((key,index)=>{
+  const entry=seed.find(row=>row.key===key);
+  return {_id:`split-${index}`,_rev:`split-rev-${index}`,_type:entry.type,seedKey:key,...entry.value,
+    ...(entry.parent?{sourceRef:'site-cv',projectRef:entry.parent==='project:fit'?'split-0':null,
+      educationRef:entry.parent==='education:coimbra'?'split-2':null,text:entry.value.sourcePassage}:{})};
+});
+let splitDraft=false;
+const splitClient={withConfig(){return this;},async fetch(query){
+  if(query.includes('slug.current'))return syntheticPage;
+  if(query.includes('title == "My career"'))return {_id:'career',body:[block(careerText)]};
+  if(query.includes('title == "My technical range"'))return {_id:'technical',body:[block('Specializations: design systems (built from scratch at EDITED and at TravelRepublic).')]};
+  if(query.includes('seedKey in $keys'))return splitDocs;
+  if(query.includes('_id in $ids'))return splitDraft?[{_id:'drafts.split-0'}]:[];
+  throw Error(`Unexpected project/speaking migration query: ${query}`);
+}};
+const splitPlan=await splitApplicationCvProjectsSpeaking({client:splitClient});
+assert.deepEqual(splitPlan.patched,['public:project:fit','public:education:coimbra']);
+assert.equal(splitPlan.created.length,8);
+splitDraft=true;
+await assert.rejects(splitApplicationCvProjectsSpeaking({client:splitClient}),/drafts/);
+splitDraft=false;
+splitDocs.find(row=>row.seedKey==='public:project:fit').text='Editor-approved different wording.';
+await assert.rejects(splitApplicationCvProjectsSpeaking({client:splitClient}),/edited/);
 const originalReadToken=process.env.SANITY_READ_TOKEN,originalWriteToken=process.env.SANITY_WRITE_TOKEN;
 try {
   process.env.SANITY_READ_TOKEN='read-only-test-token';
