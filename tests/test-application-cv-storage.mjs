@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {applicationCvSourceFromDocument} from '../lib/application-cv-source.js';
+import {safeApplicationCvContactHref} from '../lib/application-cv-contacts.js';
 import {createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries,getPublicApplicationCv} from '../lib/application-cv-store.js';
 import {createApplicationHandler} from '../lib/handlers/application.js';
 import {createSiteHandler} from '../api/site.js';
@@ -9,14 +10,24 @@ import {updateApplicationCvPrompts,PREVIOUS_CV_WRITER_PROMPT,PREVIOUS_CV_VERIFIE
   V3_CV_WRITER_PROMPT,V3_CV_VERIFIER_PROMPT} from '../scripts/update-application-cv-prompts.mjs';
 import {updateApplicationCvOverviews} from '../scripts/update-application-cv-overviews.mjs';
 import {splitApplicationCvProjectsSpeaking} from '../scripts/split-application-cv-projects-speaking.mjs';
+import {addApplicationCvPhone} from '../scripts/add-application-cv-phone.mjs';
 
 const evidence={_id:'e1',_rev:'rev-e1',text:'Built the GraphQL service.',sourcePassage:'I built a GraphQL service.',
   source:{_id:'source-1',_rev:'rev-source'},contribution:'personal',status:'delivered',skills:['GraphQL']};
-const source={page:{_id:'page',_rev:'rev-page',cv:{name:'Bernardo Raposo',headline:'Engineer',contacts:[{label:'Email',href:'mailto:b@example.com'}]}},
+assert.equal(safeApplicationCvContactHref('TEL:+15550100123'),'tel:+15550100123');
+assert.equal(safeApplicationCvContactHref('MAILTO:b@example.com'),'mailto:b@example.com');
+for(const unsafe of ['tel:+15550100123;ext=9','tel:15550100123','tel:javascript:alert(1)',
+  'javascript:alert(1)','https://user:pass@example.com','mailto:b@example.com?subject=private'])
+  assert.equal(safeApplicationCvContactHref(unsafe),'');
+const source={page:{_id:'page',_rev:'rev-page',cv:{name:'Bernardo Raposo',headline:'Engineer',contacts:[
+  {label:'Email',href:'mailto:b@example.com'},{label:'+1 555 010 0123',href:'tel:+15550100123'},
+  {label:'Unsafe phone',href:'tel:+15550100123;ext=9'}]}},
   settings:{_id:'application-cv-settings',_rev:'rev-settings',model:'gpt-5.6-sol',prompt:'Select evidence.',verifierPrompt:'Verify evidence.',maxWords:600,minBodyPx:13,layout:'classic'},
   roles:[{_id:'role-1',_rev:'rev-role',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',location:'London',overviewEvidenceId:'e1',evidence:[evidence]}],education:[],projects:[]};
 const snapshot=applicationCvSourceFromDocument(source);
 assert.equal(snapshot.roles[0].overviewEvidenceId,'e1');
+assert.deepEqual(snapshot.identity.contacts,[{label:'Email',href:'mailto:b@example.com'},
+  {label:'+1 555 010 0123',href:'tel:+15550100123'}]);
 assert.equal(snapshot.roles[0].evidence[0].sourceRef.documentId,'source-1');
 assert.equal(snapshot.roles[0].evidence[0].contribution,'personal');
 assert.notEqual(applicationCvSourceFromDocument({...source,settings:{...source.settings,_rev:'new-revision'}}).fingerprint,snapshot.fingerprint);
@@ -58,6 +69,7 @@ await store.publishApplicationCvVersion(job.id,saved.id,{expectedRequestId:saved
 const before=(await store.getPublicApplicationCv(first.publicId));
 assert.equal(before.report.secret,undefined);
 assert.equal(before.version.content.experience[0].bullets[0].evidenceIds,undefined);
+assert.deepEqual(before.version.content.identity.contacts,snapshot.identity.contacts);
 assert.equal(JSON.stringify(before).includes('sourceSnapshot'),false);
 assert.equal(JSON.stringify(before).includes('requirementMap'),false);
 assert.equal((await store.getApplicationCvSummaries([job.id]))[job.id].currentVersion.sourceFingerprint,snapshot.fingerprint);
@@ -94,6 +106,8 @@ assert.equal(delegatedRes.code,200);assert.match(delegatedRes.body,/Application 
 const htmlRes=response();await handler({method:'GET',query:{publicId:first.publicId}},htmlRes);
 assert.equal(htmlRes.code,200);assert.match(htmlRes.body,/A tailored summary/);assert.doesNotMatch(htmlRes.body,/sourceSnapshot|requirementMap|secret/);
 assert.equal((htmlRes.body.match(/Download CV · PDF/g)||[]).length,1);
+assert.match(htmlRes.body,/href="tel:\+15550100123"/);
+assert.doesNotMatch(htmlRes.body,/Unsafe phone/);
 assert.match(htmlRes.body,/Projects &amp; speaking/);
 assert.match(htmlRes.body,/Open source — figma-graphql/);
 assert.match(htmlRes.body,/Speaking — React Advanced London/);
@@ -215,6 +229,30 @@ await assert.rejects(splitApplicationCvProjectsSpeaking({client:splitClient}),/d
 splitDraft=false;
 splitDocs.find(row=>row.seedKey==='public:project:fit').text='Editor-approved different wording.';
 await assert.rejects(splitApplicationCvProjectsSpeaking({client:splitClient}),/edited/);
+let phonePage={_id:'published-cv',_rev:'contact-rev',cv:{contacts:[
+  {_type:'object',_key:'existing-email',label:'Email',href:'mailto:b@example.com'},
+  {_type:'object',_key:'existing-site',label:'Website',href:'https://example.com'}]}};
+let phoneDraft=false,phoneGuardedRev='';
+const phoneClient={withConfig(){return this;},async fetch(query){
+  if(query.includes('slug.current'))return structuredClone(phonePage);
+  if(query.includes('[0]{_id}'))return phoneDraft?{_id:'drafts.published-cv'}:null;
+  if(query.includes('cv{contacts'))return structuredClone(phonePage);
+  throw Error(`Unexpected phone migration query: ${query}`);
+},transaction(){let next;return {patch(id,build){assert.equal(id,phonePage._id);
+  build({ifRevisionId(rev){phoneGuardedRev=rev;return {set(fields){next=fields['cv.contacts'];}}}});return this;},
+  async commit(){phonePage={...phonePage,_rev:'contact-rev-2',cv:{contacts:next}};return {};}};}};
+assert.deepEqual(await addApplicationCvPhone({client:phoneClient,number:'+15550100123',label:'+1 555 010 0123'}),
+  {needed:true,applied:false});
+phoneDraft=true;
+await assert.rejects(addApplicationCvPhone({client:phoneClient,number:'+15550100123',label:'+1 555 010 0123',apply:true}),/draft/);
+phoneDraft=false;
+assert.deepEqual(await addApplicationCvPhone({client:phoneClient,number:'+15550100123',label:'+1 555 010 0123',apply:true}),
+  {needed:false,applied:true});
+assert.equal(phoneGuardedRev,'contact-rev');
+assert.equal(phonePage.cv.contacts[1].href,'tel:+15550100123');
+assert.deepEqual(await addApplicationCvPhone({client:phoneClient,number:'+15550100123',label:'+1 555 010 0123',apply:true}),
+  {needed:false,applied:false});
+await assert.rejects(addApplicationCvPhone({client:phoneClient,number:'+15550100123',label:'Different',apply:true}),/edited/);
 const originalReadToken=process.env.SANITY_READ_TOKEN,originalWriteToken=process.env.SANITY_WRITE_TOKEN;
 try {
   process.env.SANITY_READ_TOKEN='read-only-test-token';

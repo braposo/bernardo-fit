@@ -6,7 +6,8 @@ import {materializeApplicationCv,validateApplicationCv,cvNeedsSemanticVerificati
 import {renderApplicationCvHtml,renderApplicationCvPdf} from '../lib/application-cv-render.js';
 
 const source={identity:{name:'Test Candidate',headline:'Engineering manager',contacts:[
-  {label:'test@example.com',href:'mailto:test@example.com'}]},
+  {label:'test@example.com',href:'mailto:test@example.com'},
+  {label:'+44 7700 900123',href:'tel:+447700900123'}]},
   roles:[{id:'r1',title:'Engineering Manager',company:'Example Co',dates:'2022–Present',location:'London',overviewEvidenceId:'e1',evidence:[
     {id:'e1',text:'Led a cross-functional team delivering a customer portal.',status:'delivered',contribution:'team',skills:[]},
     {id:'e2',text:'Built a Next.js prototype for the internal help centre.',status:'delivered',contribution:'personal',skills:['Next.js']},
@@ -81,6 +82,9 @@ const pdfDocument=await pdfLoading.promise;
 try {
   const pdfText=(await (await pdfDocument.getPage(1)).getTextContent()).items.map(item=>item.str||'').join(' ').replace(/\s+/g,'').toLowerCase();
   assert.ok(pdfText.includes('projects&speaking'));
+  assert.ok(pdfText.includes('+447700900123'));
+  const links=await (await pdfDocument.getPage(1)).getAnnotations({intent:'display'});
+  assert.ok(links.some(link=>link.url==='tel:+447700900123' || link.unsafeUrl==='tel:+447700900123'));
 } finally {await pdfLoading.destroy();}
 const overfull=structuredClone(content);
 overfull.experience[0].bullets=Array.from({length:9},()=>({text:'A deliberately lengthy evidence sentence describing engineering delivery and collaboration. '.repeat(16),evidenceIds:['e1']}));

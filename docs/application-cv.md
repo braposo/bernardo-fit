@@ -14,6 +14,8 @@ The task uses the saved job description and published, approved Sanity career ev
 
 The public page is `/fit/:publicId`; its **Download CV** action uses `/fit/:publicId/cv.pdf`. Downloads serve the saved PDF bytes and do not invoke a model or browser renderer. Public output is an allowlist and excludes evidence IDs, instructions, source snapshots, validation diagnostics and costs. Deleted jobs no longer resolve; archiving preserves existing links. Personal application pages and PDFs are marked `noindex`.
 
+The public page and PDF use spacing and type hierarchy to separate sections and entries, without repeated horizontal rules or visible bullet markers. Existing evidence units remain independently cited in storage and render as paragraphs; changing their presentation does not require another model call. Renderer `a4-one-column-3` also verifies extracted contact labels and clickable phone links. Existing saved PDF assets retain their original presentation until a new version is generated.
+
 A failed generation leaves the previous public pair available. A `needs_review` result is a private draft with visible issues and an explicit retry action. Marking an application **Applied** pins the current version. Subsequent generation saves a candidate without replacing that publication. Explicitly publishing a valid historical version can change the live pair while preserving the submitted-version record. Historical PDFs can be downloaded without making them live.
 
 Legacy fit-report URLs and the master CV remain available. They do not guess which job-specific CV to return. The former CV-plus-cover-letter controls and rendering mode are removed; the standalone cover-letter route remains.
@@ -30,6 +32,8 @@ The canonical schema is `lib/sanity/studio/applicationCv.ts`. Register `applicat
 
 The editable source records are employment roles, projects, speaking engagements, education and evidence. Speaking engagements use the existing project record shape so each named event is a distinct entry under **Projects & speaking**. Fit and figma-graphql are also separate entries. Each published employment role must reference one of its own approved, delivered evidence records as its broad overview. Evidence must have an original source reference, exact source passage, contribution level, delivery status, and explicit public approval. The split project and speaking facts retain the original combined published passages as provenance; no talk titles or dates are inferred. The settings document owns the model, writer/verifier prompts, word budget, minimum body size and supported layout. Missing, cross-role, proposed or unpublished overview evidence fails clearly.
 
+CV contact details come from the published CV site page. Phone contacts require a user-approved international E.164 `tel:+...` link and an approved display label. Runtime source, public output and PDF rendering reject phone URI parameters and other unsafe contact schemes. The phone migration is deliberately data-free in the repository; it requires the exact approved number and label at execution time, checks for drafts and another published phone, and patches the CV page with a revision guard. Existing generated CV versions remain immutable; new versions include the phone after a fresh source snapshot.
+
 ```sh
 node --env-file=.env.local scripts/seed-application-cv.mjs
 node --env-file=.env.local scripts/seed-application-cv.mjs --apply
@@ -38,9 +42,11 @@ node --env-file=.env.local scripts/update-application-cv-overviews.mjs
 node --env-file=.env.local scripts/update-application-cv-overviews.mjs --apply
 node --env-file=.env.local scripts/split-application-cv-projects-speaking.mjs
 node --env-file=.env.local scripts/split-application-cv-projects-speaking.mjs --apply
+node --env-file=.env.local scripts/add-application-cv-phone.mjs
+node --env-file=.env.local scripts/add-application-cv-phone.mjs --apply
 ```
 
-Seeding is additive, preserves existing published edits and drafts, and is a dry run unless `--apply` is supplied. The overview migration is also a dry run by default. It updates the five existing role references and published writer/verifier prompts in one revision-guarded transaction only when their approved source facts and old prompt pair still match; drafts or editorial changes stop it. The project/speaking migration similarly checks the original Fit and education passages, their revisions and any related drafts before replacing only those two evidence texts and creating four distinct approved entries with evidence. It is idempotent and stops for editorial review if those records changed. Initial setup created five employment roles, one project, one education record and 21 evidence records from the published CV and career sources; the later split adds four project/speaking records and four evidence records. Existing jobs were not backfilled.
+Seeding is additive, preserves existing published edits and drafts, and is a dry run unless `--apply` is supplied. The overview migration is also a dry run by default. It updates the five existing role references and published writer/verifier prompts in one revision-guarded transaction only when their approved source facts and old prompt pair still match; drafts or editorial changes stop it. The project/speaking migration similarly checks the original Fit and education passages, their revisions and any related drafts before replacing only those two evidence texts and creating four distinct approved entries with evidence. It is idempotent and stops for editorial review if those records changed. For the phone migration, first set process environment variables `APPLICATION_CV_PHONE_E164` and `APPLICATION_CV_PHONE_LABEL` to the owner-approved values; the commands above then dry-run or apply without embedding the personal number in repository files or command arguments. Initial setup created five employment roles, one project, one education record and 21 evidence records from the published CV and career sources; the later split adds four project/speaking records and four evidence records. Existing jobs were not backfilled.
 
 ## Delivery and verification
 

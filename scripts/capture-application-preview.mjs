@@ -11,7 +11,10 @@ const baselineModule=join(process.cwd(),'lib','handlers','application.capture-ba
 if(baseline) await writeFile(baselineModule,execFileSync('git',['show',`${baselineRevision}:lib/handlers/application.js`],{encoding:'utf8'}));
 const {renderPublicApplication}=await import(baseline?'../lib/handlers/application.capture-base.mjs':'../lib/handlers/application.js');
 
-const content={identity:{name:'Alex Morgan',headline:'Engineering leader building dependable product platforms',contacts:[{label:'alex@example.test',href:'mailto:alex@example.test'}]},summary:'',
+const content={identity:{name:'Alex Morgan',headline:'Engineering leader building dependable product platforms',contacts:[
+  {label:'alex@example.test',href:'mailto:alex@example.test'},
+  {label:'020 7946 0018',href:'tel:+442079460018'},
+]},summary:'',
   experience:[
     {title:'Engineering Manager',company:'Atlas Systems',dates:'2021–2025',location:'Remote',bullets:[{text:'Led a small team delivering shared platform tools for product and support teams.'},{text:'Set technical direction and coached engineers through project delivery.'}]},
     {title:'Principal Engineer',company:'Meridian Travel',dates:'2017–2021',location:'London',bullets:[{text:'Built a shared web platform used by multiple travel brands.'}]},
@@ -36,6 +39,8 @@ if(stage==='projects-speaking') {
   if(!html.includes(heading) || !html.includes('Open-source accessibility toolkit') || !html.includes('Conference talk: Building accessible product systems'))
     throw new Error(`Unexpected projects/speaking fixture or heading for ${baseline?'base':'updated'} capture.`);
 }
+if(stage==='clean-layout' && baseline && !content.identity.contacts.some(contact=>contact.href.startsWith('tel:')))
+  throw new Error('The clean-layout fixture needs its fictional phone contact.');
 const output=join(process.cwd(),'docs','pr-screenshots','personalised-cv',stage);
 await mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE||undefined});
@@ -50,6 +55,17 @@ try{
       const expected=baseline?'Projects':'Projects & speaking';
       const actual=(await page.locator('.cv .experience > h3.section-label').last().textContent()).trim();
       if(actual!==expected) throw new Error(`Expected visible section heading "${expected}", found "${actual}".`);
+    }
+    if(stage==='clean-layout' && !baseline) {
+      const layout=await page.evaluate(()=>({
+        separators:['.rows','.row','.cv','.role','.footer'].flatMap(selector=>[...document.querySelectorAll(selector)].map(element=>{
+          const style=getComputedStyle(element);return [style.borderTopWidth,style.borderBottomWidth,style.borderBlockWidth];
+        })).every(widths=>widths.every(width=>parseFloat(width)===0)),
+        paragraphs:document.querySelectorAll('.role li').length===0 && document.querySelectorAll('.role .entry-detail').length>0,
+        phone:[...document.querySelectorAll('.contacts a')].some(link=>link.getAttribute('href')==='tel:+442079460018'),
+        soleDownload:document.querySelectorAll('a.download').length===1,
+      }));
+      if(!layout.separators || !layout.paragraphs || !layout.phone || !layout.soleDownload) throw new Error(`Unexpected clean public CV layout: ${JSON.stringify(layout)}`);
     }
     await page.screenshot({path:join(output,`public-${baseline?'before':'after'}-${name}.png`),fullPage:true,animations:'disabled'});
     await page.close();
