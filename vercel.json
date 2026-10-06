@@ -5,6 +5,14 @@
   "outputDirectory": "public",
   "rewrites": [
     {
+      "source": "/fit/:publicId/cv.pdf",
+      "destination": "/api/application?publicId=:publicId&kind=pdf"
+    },
+    {
+      "source": "/fit/:publicId",
+      "destination": "/api/application?publicId=:publicId"
+    },
+    {
       "source": "/",
       "destination": "/api/site?page=home"
     },
@@ -43,6 +51,12 @@
     },
     "api/site.js": {
       "includeFiles": "lib/templates/*.html"
+    },
+    "api/application.js": {
+      "includeFiles": "lib/templates/application.html"
+    },
+    "api/admin/cv.js": {
+      "includeFiles": "lib/assets/cv-fonts/*.ttf"
     }
   }
 }

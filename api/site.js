@@ -93,9 +93,7 @@ export function createSiteHandler(getClient = createContentClient) {
           "<!-- SANITY_CV -->",
           () => cvHeader(page.cv) + cvBody(page.cv),
         );
-        html = html.replace("<!-- SANITY_LETTER_HEADER -->", () =>
-          cvHeader(page.cv),
-        );
+        if (slug === "letter") html = html.replace("<!-- SANITY_LETTER_HEADER -->", () => cvHeader(page.cv));
       }
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(200).send(req.method === "HEAD" ? "" : html);

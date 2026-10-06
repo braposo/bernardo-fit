@@ -28,6 +28,17 @@ import { getJobHistory } from "../../lib/job-history.js";
 import { readJobUsage } from "../../lib/usage.js";
 import { jevEnabled } from "../../lib/jev.js";
 import { reviewingGenerationResult } from "../../lib/reviewing-generation.js";
+import { getApplicationCvSummaries, getApplicationCv, markApplicationCvSubmitted } from "../../lib/application-cv-store.js";
+import { applicationCvFields, withApplicationCvFields } from "../../lib/application-cv-view.js";
+
+async function cvFields(job) {
+  const { hasCv, cvRun, applicationFitUrl, applicationCv } = await withApplicationCvFields(job);
+  return { hasCv, cvRun, applicationFitUrl, applicationCv };
+}
+async function cvWriteFields(job, errors) {
+  try { return await cvFields(job); }
+  catch { errors.push('The role was saved, but its CV status could not be refreshed. Reload to check it.'); return {}; }
+}
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
@@ -54,7 +65,7 @@ async function handler(req, res) {
         }
         const sources = await getReportSources([job.fitReportId]);
         const source = sources[job.fitReportId];
-        return res.status(200).json({ job: { ...jobDetail(job),
+        return res.status(200).json({ job: { ...jobDetail(job), ...await cvFields(job),
           jd: source ? { was: source.length, now: job.jobDescription.length, stale: hashJD(job.jobDescription) !== source.hash } : null,
         } });
       }
@@ -66,9 +77,10 @@ async function handler(req, res) {
       }
       // Attach view/interaction counts for any job with a linked fit report.
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
-      const [stats, analysed, unlinked, activeRuns] = await Promise.all([
+      const [stats, analysed, unlinked, activeRuns, applications] = await Promise.all([
         getStats(ids), getReportSources(ids), findUnlinkedReportIds(all),
         getActiveRuns(["jev-score-all", "adopt"]),
+        getApplicationCvSummaries(jobs.map(job => job.id)),
       ]);
       // Whether the row's description has moved on since it was analysed.
       // Read from the report rather than stamped on the row when the analysis
@@ -77,6 +89,7 @@ async function handler(req, res) {
       res.status(200).json({
         jobs: jobs.map((j) => ({
           ...jobSummary(j),
+          ...applicationCvFields(j, applications[j.id]),
           stats: j.fitReportId ? stats[j.fitReportId] || null : null,
           jd: j.fitReportId && analysed[j.fitReportId] !== undefined
             ? { was: analysed[j.fitReportId].length, now: j.jobDescription.length, stale: hashJD(j.jobDescription) !== analysed[j.fitReportId].hash }
@@ -124,7 +137,7 @@ async function handler(req, res) {
       }
       const saved = await saveJob(body);
       const { job, generationErrors } = await reviewingGenerationResult(saved);
-      res.status(200).json({ job: jobDetail(job), generationErrors });
+      res.status(200).json({ job: { ...jobDetail(job), ...await cvWriteFields(job, generationErrors) }, generationErrors });
       return;
     }
 
@@ -162,7 +175,14 @@ async function handler(req, res) {
       }
       let generationErrors = [];
       if (patch.stage === "reviewing" && !body.question) ({ job, generationErrors } = await reviewingGenerationResult(job));
+      if (patch.stage === "applied" && !body.question) {
+        try {
+          const application = await getApplicationCv(job.id);
+          if (application?.currentVersionId) await markApplicationCvSubmitted(job.id, body.cvVersionId || application.currentVersionId);
+        } catch (error) { generationErrors.push(error.message || 'The stage was saved, but the CV version could not be recorded.'); }
+      }
       res.status(200).json({ generationErrors, job: { ...jobSummary(job),
+        ...await cvWriteFields(job, generationErrors),
         ...Object.fromEntries(Object.keys(patch).map(k => [k, job[k]])),
         ...(body.question ? { questions: job.questions } : {}),
       } });

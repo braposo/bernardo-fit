@@ -1,5 +1,6 @@
 import { defineConfig } from "@trigger.dev/sdk";
-import {syncEnvVars} from '@trigger.dev/build/extensions/core';
+import {additionalFiles,syncEnvVars} from '@trigger.dev/build/extensions/core';
+import {playwright} from '@trigger.dev/build/extensions/playwright';
 
 export default defineConfig({
   project: "proj_bvmrmtvfeyxpshabcxqv",
@@ -20,7 +21,7 @@ export default defineConfig({
     },
   },
   dirs: ["./src/trigger"],
-  build:{extensions:[syncEnvVars(async (ctx)=>{
+  build:{external:['playwright','playwright-core','chromium-bidi'],extensions:[playwright({browsers:['chromium']}),additionalFiles({files:['./lib/assets/cv-fonts/**']}),syncEnvVars(async (ctx)=>{
     // Opt-in branch deployment only. Never copy local settings into production.
     if(ctx.environment!=='preview' || process.env.SANITY_CONTENT_ENABLED!=='1')return [];
     return ['SANITY_WRITE_TOKEN','SANITY_READ_TOKEN','SANITY_CONTENT_ENABLED','SANITY_ANALYSIS_ENABLED','KV_NAMESPACE']

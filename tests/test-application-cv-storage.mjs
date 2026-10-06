@@ -1,0 +1,144 @@
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {applicationCvSourceFromDocument} from '../lib/application-cv-source.js';
+import {createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries} from '../lib/application-cv-store.js';
+import {createApplicationHandler} from '../api/application.js';
+import {buildApplicationCvSeed,seedApplicationCv,DEFAULT_CV_WRITER_PROMPT,DEFAULT_CV_VERIFIER_PROMPT} from '../scripts/seed-application-cv.mjs';
+import {updateApplicationCvPrompts,PREVIOUS_CV_WRITER_PROMPT,PREVIOUS_CV_VERIFIER_PROMPT} from '../scripts/update-application-cv-prompts.mjs';
+
+const evidence={_id:'e1',_rev:'rev-e1',text:'Built the GraphQL service.',sourcePassage:'I built a GraphQL service.',
+  source:{_id:'source-1',_rev:'rev-source'},contribution:'personal',status:'delivered',skills:['GraphQL']};
+const source={page:{_id:'page',_rev:'rev-page',cv:{name:'Bernardo Raposo',headline:'Engineer',contacts:[{label:'Email',href:'mailto:b@example.com'}]}},
+  settings:{_id:'application-cv-settings',_rev:'rev-settings',model:'gpt-5.6-sol',prompt:'Select evidence.',verifierPrompt:'Verify evidence.',maxWords:600,minBodyPx:13,layout:'classic'},
+  roles:[{_id:'role-1',_rev:'rev-role',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',location:'London',evidence:[evidence]}],education:[],projects:[]};
+const snapshot=applicationCvSourceFromDocument(source);
+assert.equal(snapshot.roles[0].evidence[0].sourceRef.documentId,'source-1');
+assert.equal(snapshot.roles[0].evidence[0].contribution,'personal');
+assert.notEqual(applicationCvSourceFromDocument({...source,settings:{...source.settings,_rev:'new-revision'}}).fingerprint,snapshot.fingerprint);
+assert.throws(()=>applicationCvSourceFromDocument({...source,roles:[{...source.roles[0],evidence:[{...evidence,sourcePassage:''}]}]}),/incomplete/);
+assert.throws(()=>applicationCvSourceFromDocument({...source,settings:{...source.settings,model:'unknown'}}),/Publish CV identity/);
+assert.throws(()=>applicationCvSourceFromDocument({...source,settings:{...source.settings,verifierPrompt:''}}),/Publish CV identity/);
+
+let jobPresent=true;
+const store=createMemoryApplicationCvStore({jobExists:()=>jobPresent});
+assert.equal(await getApplicationCv('legacy-job'),null);
+assert.deepEqual(await getApplicationCvSummaries(['legacy-job']),{});
+const job={id:'job-1234'};
+const first=await store.ensureApplicationCv(job);
+assert.equal((await store.ensureApplicationCv(job)).publicId,first.publicId);
+await withApplicationCvStore(store,async()=>assert.equal((await getApplicationCv(job.id)).publicId,first.publicId));
+const pending={requestId:'request-1',fingerprint:'fp-1',status:'queued'};
+assert.equal((await store.claimApplicationCvRun(job,pending)).run.requestId,pending.requestId);
+assert.equal((await store.claimApplicationCvRun(job,{...pending,requestId:'other-identical'})).run.requestId,pending.requestId);
+await assert.rejects(store.claimApplicationCvRun(job,{requestId:'request-2',fingerprint:'fp-2'}),{code:'APPLICATION_CV_BUSY'});
+const pdf=Buffer.from('%PDF-1.7\nhello world\n%%EOF');
+const pdfSha256=createHash('sha256').update(pdf).digest('hex');
+const privateVersion={id:'request-1',createdAt:'2026-10-06T00:00:00Z',fingerprint:'fp-1',sourceFingerprint:snapshot.fingerprint,
+  jobFingerprint:'jd-1',sourceSnapshot:snapshot,reportSnapshot:{id:'shared-report',report:{job_title:'Engineering Manager',company:'Acme',pitch:'A strong fit.',secret:'never public'}},
+  content:{identity:snapshot.identity,summary:'A tailored summary.',experience:[{roleId:'role-1',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',bullets:[{text:'Built the GraphQL service.',evidenceIds:['e1']}]}]},
+  validation:{status:'valid',requirementMap:[{requirement:'GraphQL',sourceIds:['e1']}]},model:'test-model',pdfBuffer:pdf,pdfSha256};
+const saved=await store.saveApplicationCvVersion(job.id,privateVersion);
+assert.equal(saved.pdfSha256,pdfSha256);
+assert.equal(saved.pdfBuffer,undefined);
+assert.equal((await store.saveApplicationCvVersion(job.id,privateVersion)).id,saved.id);
+assert.equal((await Promise.all([store.saveApplicationCvVersion(job.id,privateVersion),store.saveApplicationCvVersion(job.id,privateVersion)])).length,2);
+assert.equal((await store.listApplicationCvVersions(job.id)).length,1);
+await assert.rejects(store.publishApplicationCvVersion(job.id,saved.id,{expectedRequestId:saved.id,expectedFingerprint:'wrong'}),{code:'APPLICATION_CV_STALE'});
+await store.publishApplicationCvVersion(job.id,saved.id,{expectedRequestId:saved.id,expectedFingerprint:saved.fingerprint});
+const before=(await store.getPublicApplicationCv(first.publicId));
+assert.equal(before.report.secret,undefined);
+assert.equal(before.version.content.experience[0].bullets[0].evidenceIds,undefined);
+assert.equal(JSON.stringify(before).includes('sourceSnapshot'),false);
+assert.equal(JSON.stringify(before).includes('requirementMap'),false);
+assert.equal((await store.getApplicationCvSummaries([job.id]))[job.id].currentVersion.sourceFingerprint,snapshot.fingerprint);
+await store.markApplicationCvSubmitted(job.id);
+assert.equal((await store.getApplicationCv(job.id)).submittedVersionId,saved.id);
+const merged=await store.updateApplicationCvRun(job.id,saved.id,{status:'queued',phase:'queued',runId:'trigger-run'});
+assert.equal(merged.status,'completed');assert.equal(merged.phase,'completed');assert.equal(merged.runId,'trigger-run');
+await store.claimApplicationCvRun(job,{requestId:'request-2',fingerprint:'fp-2',status:'queued'});
+await assert.rejects(store.updateApplicationCvRun(job.id,'request-1',{status:'completed'}),{code:'APPLICATION_CV_RUN_REPLACED'});
+const second=await store.saveApplicationCvVersion(job.id,{...privateVersion,id:'request-2',fingerprint:'fp-2'});
+await assert.rejects(store.publishApplicationCvVersion(job.id,saved.id,{expectedRequestId:second.id,expectedFingerprint:saved.fingerprint,historical:true,allowAfterSubmission:true}),{code:'APPLICATION_CV_BUSY'});
+await assert.rejects(store.publishApplicationCvVersion(job.id,second.id,{expectedRequestId:second.id,expectedFingerprint:second.fingerprint}),{code:'APPLICATION_CV_SUBMITTED'});
+await store.publishApplicationCvVersion(job.id,second.id,{expectedRequestId:second.id,expectedFingerprint:second.fingerprint,allowAfterSubmission:true});
+assert.equal((await store.getApplicationCv(job.id)).submittedVersionId,saved.id);
+await store.publishApplicationCvVersion(job.id,saved.id,{expectedRequestId:second.id,expectedFingerprint:saved.fingerprint,historical:true,allowAfterSubmission:true});
+assert.equal((await store.getApplicationCv(job.id)).currentVersionId,saved.id);
+await store.claimApplicationCvRun(job,{requestId:'request-3',fingerprint:'fp-3',status:'queued'});
+const review=await store.saveApplicationCvReviewDraft(job.id,{...privateVersion,id:'request-3',fingerprint:'fp-3',validation:{status:'needs_review',issues:['overflow']},pdfBuffer:undefined});
+await assert.rejects(store.publishApplicationCvVersion(job.id,review.id,{expectedRequestId:review.id,expectedFingerprint:review.fingerprint,allowAfterSubmission:true}),{code:'APPLICATION_CV_PDF_INVALID'});
+await store.updateApplicationCvRun(job.id,review.id,{status:'needs_review'});
+assert.equal((await store.claimApplicationCvRun(job,{requestId:'request-4',fingerprint:'fp-4',status:'queued'})).run.requestId,'request-4');
+assert.equal(publicCvVersion({...saved,validation:{status:'needs_review'}}),null);
+assert.equal(applicationCvPdfUrl({...saved,pdfUrl:'https://evil.example/file.pdf'}),null);
+assert.match(applicationCvPdfUrl({...saved,pdfUrl:'https://cdn.sanity.io/files/quli96gc/production/a.pdf'}),/Bernardo-Raposo-Acme-CV.pdf/);
+
+const response=()=>({code:0,headers:{},body:null,setHeader(key,value){this.headers[key]=value;},status(code){this.code=code;return this;},send(body){this.body=body;return this;},json(body){this.body=body;return this;},end(){return this;}});
+const pdfUrl='https://cdn.sanity.io/files/quli96gc/production/a.pdf';
+const publicData={...before,pdfUrl};
+const handler=createApplicationHandler(async()=>publicData,async()=>'<title><!-- TITLE --></title><!-- REPORT --><!-- CV -->',async()=>({ok:true,arrayBuffer:async()=>pdf}));
+const htmlRes=response();await handler({method:'GET',query:{publicId:first.publicId}},htmlRes);
+assert.equal(htmlRes.code,200);assert.match(htmlRes.body,/A tailored summary/);assert.doesNotMatch(htmlRes.body,/sourceSnapshot|requirementMap|secret/);
+const pdfRes=response();await handler({method:'GET',query:{publicId:first.publicId,kind:'pdf'}},pdfRes);
+assert.equal(pdfRes.code,200);assert.deepEqual(pdfRes.body,pdf);
+const rejectRes=response();await createApplicationHandler(async()=>publicData,async()=>'',async()=>({ok:true,arrayBuffer:async()=>Buffer.from('%PDF-corrupt%%EOF')}))({method:'GET',query:{publicId:first.publicId,kind:'pdf'}},rejectRes);
+assert.equal(rejectRes.code,503);
+jobPresent=false;
+assert.equal(await store.getPublicApplicationCv(first.publicId),null);
+const block=text=>({_type:'block',children:[{_type:'span',text}]});
+const syntheticPage={_id:'site-cv',cv:{name:'Bernardo Raposo',sections:[
+  {label:'Experience',items:[
+    ...['SingleStore','TravelRepublic','EDITED'].map(name=>({kind:'role',title:`Role · ${name}`,body:[block(`${name} delivered a public platform.`)]})),
+    {kind:'paragraph',body:[block('Earlier: Founder, Connect Coimbra, a coworking business (2010 – 2014). Junior Engineer, Critical Software, health tech (2009 – 2010).')]},
+  ]},
+  {label:'Built recently',items:[{kind:'paragraph',body:[block('Fit (fit.bernardoraposo.com). A job search tool I directed.')]},{kind:'paragraph',body:[block('The Hermans Club (hermans.club). A side project.')]}]},
+  {label:'Education & beyond',items:[{kind:'paragraph',body:[block('MSc and BSc in Informatics Engineering, University of Coimbra, Portugal.')]}]},
+]}};
+const careerText=['I owned the engineering strategy and resourcing; my engineer led day-to-day UX/implementation.',
+  'I chose Next.js and Sanity for the proposed replacement.',
+  'I led a mobile-first Progressive Web App.',
+  'I built a React design system.',
+  'I built the core data-visualisation product.',
+  'I co-founded and ran Connect Coimbra.',
+  'Built the web interface for onAll.'].join('\n\n');
+const seed=buildApplicationCvSeed({page:syntheticPage,career:{_id:'career',body:[block(careerText)]},
+  technical:{_id:'technical',body:[block('Specializations: design systems (built from scratch at EDITED and at TravelRepublic).')]}});
+assert.equal(seed.filter(entry=>entry.type==='applicationCvRole').length,5);
+assert.equal(seed.filter(entry=>entry.type==='applicationCvProject').length,2);
+assert.equal(seed.find(entry=>entry.key==='extra:singlestore-platform-vision').value.status,'proposed');
+assert.equal(seed.find(entry=>entry.key==='extra:singlestore-sqrl').value.contribution,'strategy');
+let settingsDoc={_id:'application-cv-settings',_rev:'editor-revision',model:'gpt-5.6-sol',prompt:'Editor-authored prompt',verifierPrompt:null};
+let hasDraft=false,guardedRev='';
+const fakeSeedClient={withConfig(){return this;},async fetch(query){
+  if(query.includes('slug.current'))return syntheticPage;
+  if(query.includes('title == "My career"'))return {_id:'career',body:[block(careerText)]};
+  if(query.includes('title == "My technical range"'))return {_id:'technical',body:[block('Specializations: design systems (built from scratch at EDITED and at TravelRepublic).')]};
+  if(query.includes('defined(seedKey)'))return seed.filter(x=>!x.singleton).map(x=>({_id:`existing-${x.key}`,seedKey:x.key}));
+  if(query.includes('drafts.application-cv-settings'))return hasDraft?[settingsDoc,{_id:'drafts.application-cv-settings'}]:[settingsDoc];
+  throw Error(`Unexpected seed query: ${query}`);
+},transaction(){return {patch(id,build){assert.equal(id,'application-cv-settings');build({ifRevisionId(rev){guardedRev=rev;return {setIfMissing(fields){if(settingsDoc.verifierPrompt==null)settingsDoc={...settingsDoc,...fields};}}}});return this;},async commit(){return {};}};}};
+assert.deepEqual((await seedApplicationCv({client:fakeSeedClient})).needed,['settings:verifierPrompt']);
+assert.equal((await seedApplicationCv({client:fakeSeedClient,apply:true})).created,1);
+assert.equal(guardedRev,'editor-revision');
+assert.equal(settingsDoc.prompt,'Editor-authored prompt');
+assert.equal(settingsDoc.verifierPrompt,DEFAULT_CV_VERIFIER_PROMPT);
+assert.deepEqual((await seedApplicationCv({client:fakeSeedClient})).needed,[]);
+settingsDoc.verifierPrompt=null;hasDraft=true;
+await assert.rejects(seedApplicationCv({client:fakeSeedClient,apply:true}),/draft/);
+let promptDoc={_id:'application-cv-settings',_rev:'prompt-rev',prompt:PREVIOUS_CV_WRITER_PROMPT,verifierPrompt:PREVIOUS_CV_VERIFIER_PROMPT};
+let promptDraft=false,promptGuard='';
+const promptClient={withConfig(){return this;},async fetch(){return promptDraft?[promptDoc,{_id:'drafts.application-cv-settings'}]:[promptDoc];},
+  transaction(){return {patch(id,build){assert.equal(id,promptDoc._id);build({ifRevisionId(rev){promptGuard=rev;return {set(values){promptDoc={...promptDoc,...values};}}}});return this;},async commit(){return {};}};}};
+assert.deepEqual(await updateApplicationCvPrompts({client:promptClient}),{needed:true,applied:false});
+assert.equal(promptDoc.prompt,PREVIOUS_CV_WRITER_PROMPT);
+assert.deepEqual(await updateApplicationCvPrompts({client:promptClient,apply:true}),{needed:false,applied:true});
+assert.equal(promptGuard,'prompt-rev');
+assert.equal(promptDoc.prompt,DEFAULT_CV_WRITER_PROMPT);
+assert.equal(promptDoc.verifierPrompt,DEFAULT_CV_VERIFIER_PROMPT);
+assert.deepEqual(await updateApplicationCvPrompts({client:promptClient}),{needed:false,applied:false});
+promptDoc.prompt='Editorial change';
+await assert.rejects(updateApplicationCvPrompts({client:promptClient,apply:true}),/editorial values/);
+promptDraft=true;
+await assert.rejects(updateApplicationCvPrompts({client:promptClient,apply:true}),/draft/);
+console.log('application CV source, store, public privacy and PDF delivery: ok');
+console.log('passed 1, failed 0');

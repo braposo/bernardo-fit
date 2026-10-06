@@ -643,7 +643,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var watchedActions = new Map();
   var recoveringActions = new Map();
   var finishedRuns = new Set();
-  var actionNames = { cover: 'Cover letter', research: 'Company research', brief: 'Screen brief', 'prepare-screen': 'Interview preparation', analyse: 'Fit analysis', regenerate: 'Fit analysis', answer: 'Application answer', 'jev-score': 'Fit assessment', 'jev-score-all': 'Listed role assessments', adopt: 'Add reports', ingest: 'Import roles' };
+  var actionNames = { cover: 'Cover letter', cv: 'Customised CV', research: 'Company research', brief: 'Screen brief', 'prepare-screen': 'Interview preparation', analyse: 'Fit analysis', regenerate: 'Fit analysis', answer: 'Application answer', 'jev-score': 'Fit assessment', 'jev-score-all': 'Listed role assessments', adopt: 'Add reports', ingest: 'Import roles' };
   function actionKey(id, kind, questionId) {
     return [id || 'batch', kind === 'regenerate' ? 'analyse' : kind === 'brief' ? 'prepare-screen' : kind, questionId || ''].join(':');
   }
@@ -661,7 +661,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function applyActionLocks() {
     document.querySelectorAll('.row-item').forEach(function (row) {
       var id = row.getAttribute('data-id');
-      var kinds = { cover: 'cover', briefrewrite: 'prepare-screen', researchrefresh: 'research', runfit: 'analyse', regen: 'analyse', jevscore: 'jev-score', qdraft: 'answer' };
+      var kinds = { cover: 'cover', cvgenerate: 'cv', briefrewrite: 'prepare-screen', researchrefresh: 'research', runfit: 'analyse', regen: 'analyse', jevscore: 'jev-score', qdraft: 'answer' };
       row.querySelectorAll('[data-act]').forEach(function (button) {
         var kind = kinds[button.getAttribute('data-act')];
         if (!kind) return;
@@ -765,6 +765,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         var run = job[entry[0]];
         if (run && run.runId && ['dispatching','queued'].indexOf(run.status) !== -1) recoverWork(job.id, run.runId, null, entry[1], false);
       });
+      var cvRun = (job.applicationCv && job.applicationCv.run) || job.cvRun;
+      if (cvRun && cvRun.runId && ['dispatching','queued','running'].indexOf(cvRun.status) !== -1) recoverWork(job.id, cvRun.runId, null, 'cv', false);
       (job.answerRuns || []).forEach(function (answer) { recoverWork(job.id, answer.run.runId, null, 'answer', false, answer.questionId); });
     });
   }
@@ -979,10 +981,37 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="document-summary" data-summary="'+kind+'">'+meta+'</div>'+((kind==='fit'&&j.jd&&j.jd.stale)||(kind==='brief'&&j.briefStale)||(kind==='research'&&j.researchStale)?'<p class="field-help">Outdated · saved version remains readable</p>':'')+'<div class="material-actions">'+actions+'</div>'+
       '<div class="document-versions" data-act="document-versions" data-key="'+esc(key)+'" data-open="'+expandedVersions.has(key)+'"><button class="versions-trigger" data-act="versions-toggle">Versions <span data-count="'+kind+'"></span><span data-icon="chevron"></span></button><div class="versions-content"><div class="verlist" data-kind="'+kind+'" aria-live="polite">Loading versions…</div></div></div></section>';
   }
+  function cvMaterialRow(j, active) {
+    var cv = j.applicationCv || {};
+    var ready = !!(cv.currentVersionId || cv.downloadUrl || cv.fitUrl);
+    var status = cv.status || (ready ? (cv.stale ? 'stale' : 'ready') : 'missing');
+    var run = cv.run || j.cvRun;
+    var running = active || !!(run && run.runId && ['dispatching','queued','running'].indexOf(run.status) !== -1);
+    var failedWithPrevious = ready && status === 'failed';
+    var needsReview = status === 'needs_review' || cv.validationStatus === 'needs_review' || (cv.validationSummary && cv.validationSummary.status === 'needs_review');
+    var meta = ready ? 'Application CV · ' + (running ? 'Updating · previous version remains live' : failedWithPrevious ? 'Update failed · previous version remains live' : cv.stale ? 'Outdated · previous version remains live' : 'Live') :
+      status === 'failed' ? 'No saved version · the last attempt failed' : 'Not generated yet';
+    if (needsReview) meta += ' · Review before submitting';
+    if (j.stage === 'applied') {
+      if (cv.submittedVersionId) meta += ' · Applied · submitted version recorded';
+      else meta += ' · Applied · submission version not recorded';
+    }
+    if (cv.createdAt) meta += ' · ' + esc(fmtDate(cv.createdAt));
+    var actions = (ready ? '<button class="read-link" data-act="cvopen">Open CV</button>' + (cv.downloadUrl ? '<button class="read-link" data-act="cvdownload">Download CV</button>' : '') : '') +
+      '<button class="generation' + (ready ? ' generation-outline' : '') + '" data-act="cvgenerate"' + (running ? ' disabled aria-busy="true"' : '') + '>' +
+      (ready ? 'Generate new version' : 'Generate CV') + '</button>';
+    var alert = needsReview
+      ? '<p class="cv-validation" role="status">Review this version before submitting.</p>' :
+        status === 'failed' && !ready ? '<p class="cv-validation" role="status">Generation failed. Try again from here.</p>' : '';
+    var submitted = cv.submittedVersionId ? '<p class="field-help cv-submitted">Applied version recorded: <span data-submitted-version></span></p>' : '';
+    return '<section class="material-row cv-material-row" data-document="cv" data-job-id="'+esc(j.id)+'"><div class="document-title"><span class="document-icon" data-icon="file"></span><h3>Customised CV</h3><span class="document-live" data-live="cv"></span></div>' +
+      '<div class="document-summary" data-summary="cv">'+meta+'</div>'+alert+submitted+'<div class="material-actions">'+actions+'</div>' +
+      '<div class="document-versions cv-document-versions" data-act="document-versions" data-key="'+esc(j.id+':cv')+'" data-open="'+expandedVersions.has(j.id+':cv')+'" data-cv-history><button class="versions-trigger" data-act="cvversions-toggle">Versions <span data-cv-count></span><span data-icon="chevron"></span></button><div class="versions-content"><div class="verlist" data-cv-list aria-live="polite">Loading versions…</div></div></div></section>';
+  }
 
   function runStateHtml(j) {
     var rows = [
-      ["Fit assessment", j.jevRun], ["Fit analysis", j.analysisRun], ["Cover letter", j.coverRun], ["Research", j.researchRun],
+      ["Fit assessment", j.jevRun], ["Fit analysis", j.analysisRun], ["Customised CV", j.cvRun || (j.applicationCv && j.applicationCv.run)], ["Cover letter", j.coverRun], ["Research", j.researchRun],
       ["Interview preparation", j.prepareRun || j.briefRun],
     ].filter(function (pair) { return pair[1] && pair[1].status; });
     if (!rows.length) return '<p class="run-state">No recorded role-level run state is available.</p>';
@@ -996,11 +1025,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var detailed = Object.prototype.hasOwnProperty.call(j, "jobDescription");
     var hasDescription = detailed ? !!j.jobDescription : !!j.hasDescription;
     var hasLetter = !!j.hasCoverLetter;
+    var cvRun = (j.applicationCv && j.applicationCv.run) || j.cvRun;
+    var cvActive = !!(cvRun && cvRun.runId && ['dispatching','queued','running'].indexOf(cvRun.status) !== -1);
     var coverActive = !!(j.coverRun && j.coverRun.runId &&
       (j.coverRun.status === "dispatching" || j.coverRun.status === "queued"));
     var screenActive = [j.prepareRun, j.briefRun].some(function (run) { return run && run.runId && ['dispatching', 'queued'].indexOf(run.status) !== -1; });
     var researchActive = !!(j.researchRun && j.researchRun.runId && ['dispatching', 'queued'].indexOf(j.researchRun.status) !== -1);
-    var fitLink = j.fitReportId ? location.origin + "/?r=" + encodeURIComponent(j.fitReportId) : "";
+    var fitLink = (j.applicationFitUrl || (j.applicationCv && j.applicationCv.fitUrl)) || (j.fitReportId ? location.origin + "/?r=" + encodeURIComponent(j.fitReportId) : "");
     var mailLink = j.threadId ? "https://mail.google.com/mail/u/0/#all/" + encodeURIComponent(j.threadId) : "";
     var headerMeta = [j.location, j.locationMode, j.salary].filter(Boolean).map(esc).join(" · ") || "Location and salary not recorded";
 
@@ -1018,8 +1049,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
         '<button class="generation generation-outline" data-act="regen">Generate new version</button>'
       : '<button class="generation" data-act="runfit"' + (hasDescription ? "" : " disabled") + '>Generate analysis</button>';
-    var letterActions = (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' +
-      '<button class="read-link" data-act="lettercv">Open CV + letter</button>' : '') +
+    var letterActions = (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' : '') +
       '<button class="generation' + (hasLetter ? ' generation-outline' : '') + '" data-act="cover"' + (coverActive || !coverDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
       (hasLetter ? 'Generate new version' : 'Generate letter') + '</button>';
     var briefActions = (j.hasBrief ? '<button class="read-link" data-act="briefopen">Open ' + (j.briefStale ? 'previous ' : '') + 'brief</button>' : '') +
@@ -1046,6 +1076,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><h2>Documents</h2>' +
         '<div class="material-list" data-act="verbox">' +
           materialRow('Fit analysis', j.fitReportId ? 'Shareable page' + (j.jd && j.jd.stale ? ' · Outdated after description change' : ' · Current') : 'Not generated', fitActions, 'fit', j) +
+          cvMaterialRow(j, cvActive) +
           materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), letterActions, 'letter', j) +
           materialRow('Interview brief', 'Private · ' + (j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), briefActions, 'brief', j) +
           materialRow('Company research', 'Private · ' + (j.hasResearch ? (j.researchStale ? 'Outdated' : 'Current') + ' · ' + Number(j.researchSourceCount || 0) + ' sources' : 'Not generated'), researchActions, 'research', j) +
@@ -1154,7 +1185,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   // Opens an already-written letter in a new tab, fetching a fresh
   // short-lived token first so the secret never travels in a URL.
-  function openLetter(id, combined) {
+  function openLetter(id) {
     api("/api/admin/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1162,7 +1193,103 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     }).then(function (out) {
       if (unauthorised(out)) return;
       if (!out.ok) { notifyAdmin(out.d.error || "Could not open the letter."); return; }
-      window.open((combined ? "/cv?combined=1&" : "/letter?") + "j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token) + "&print=1", "_blank", "noopener");
+      window.open("/letter?j=" + encodeURIComponent(id) + "&t=" + encodeURIComponent(out.d.token) + "&print=1", "_blank", "noopener");
+    });
+  }
+  function openApplicationCv(id, mode, versionIdOverride) {
+    var selected = jobs.find(function (job) { return job.id === id; });
+    var versionId = versionIdOverride || (selected && selected.applicationCv && selected.applicationCv.currentVersionId);
+    if (!versionId) { notifyAdmin('This CV is not ready yet.'); return; }
+    var tab = window.open('about:blank', '_blank');
+    if (!tab) { notifyAdmin('Allow pop-ups to open or download this CV.'); return; }
+    if (tab) tab.opener = null;
+    api('/api/admin/cv', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, action: 'view-token', versionId: versionId }) }).then(function (out) {
+      if (unauthorised(out)) { if (tab) tab.close(); return; }
+      if (!out.ok) { if (tab) tab.close(); notifyAdmin(out.d.error || 'Could not open this CV.'); return; }
+      var url = mode === 'download' ? out.d.downloadUrl : out.d.previewUrl;
+      if (!url) { if (tab) tab.close(); notifyAdmin('This CV is not ready yet.'); return; }
+      if (tab) tab.location = url;
+      else window.location.href = url;
+    }).catch(function () { if (tab) tab.close(); notifyAdmin('Could not open this CV. Try again.'); });
+  }
+  function cvVersionId(version) { return version && (version.versionId || version.vid || version.id) || ''; }
+  function cvVersionLabel(versions, id) {
+    var index = versions.findIndex(function (version) { return cvVersionId(version) === id; });
+    return index < 0 ? 'Version recorded' : 'Version ' + (versions.length - index);
+  }
+  function cvPreviewHtml(content, validation) {
+    content = content || {};
+    var parts = [];
+    if (content.summary) parts.push('<section><h4>Summary</h4><p>'+esc(content.summary)+'</p></section>');
+    (Array.isArray(content.experience) ? content.experience : []).forEach(function (role) {
+      var heading = [role.title, role.company].filter(Boolean).join(' · ');
+      var dates = [role.dates, role.location].filter(Boolean).join(' · ');
+      parts.push('<section><h4>'+esc(heading || 'Experience')+'</h4>'+(dates ? '<p class="cv-preview-meta">'+esc(dates)+'</p>' : '')+
+        '<ul>'+(Array.isArray(role.bullets) ? role.bullets : []).map(function (bullet) { return '<li>'+esc(typeof bullet === 'string' ? bullet : (bullet && bullet.text) || '')+'</li>'; }).join('')+'</ul></section>');
+    });
+    var issues = validation && Array.isArray(validation.issues) ? validation.issues : [];
+    if (issues.length) parts.push('<section class="cv-preview-issues"><h4>Review before submitting</h4><ul>'+issues.map(function (issue) { return '<li>'+esc(typeof issue === 'string' ? issue : issue.message || 'This version needs review.')+'</li>'; }).join('')+'</ul></section>');
+    return parts.join('') || '<p class="field-help">No preview content is available for this version.</p>';
+  }
+  function paintCvVersions(card, data) {
+    if (!card.isConnected) return;
+    var versions = data.versions || [];
+    var cv = data.application || {};
+    var list = card.querySelector('[data-cv-list]');
+    var count = card.querySelector('[data-cv-count]');
+    var currentId = cv.currentVersionId || '';
+    var submittedId = cv.submittedVersionId || '';
+    var currentIndex = versions.findIndex(function (version) { return cvVersionId(version) === currentId; });
+    card.querySelector('[data-live="cv"]').textContent = currentIndex < 0 ? (versions.length ? 'Saved' : 'Not created') : 'Live · v' + (versions.length - currentIndex);
+    count.textContent = versions.length;
+    var submitted = card.querySelector('[data-submitted-version]');
+    if (submitted) submitted.textContent = cvVersionLabel(versions, submittedId);
+    if (!versions.length) { renderAdmin(list, '<p class="field-help">No CV versions yet.</p>'); return; }
+    renderAdmin(list, versions.map(function (version, index) {
+      var id = cvVersionId(version);
+      var live = id && id === currentId;
+      var needsReview = version.validation && version.validation.status === 'needs_review';
+      var created = version.createdAt;
+      var bits = [created ? 'Created ' + relativeTime(created) : 'Date unavailable', modelLabel(version.model) || version.model || 'Model not recorded'];
+      if (needsReview) bits.push('Review before submitting');
+      return '<div class="ver" data-cv-version="'+esc(id)+'"><strong>Version '+(versions.length-index)+'</strong><span class="vmeta">'+esc(bits.join(' · '))+'</span>' +
+        '<button class="ghost" type="button" data-act="cvpreview" data-version="'+esc(id)+'" aria-expanded="false">Preview content</button>' +
+        (version.hasPdf && !needsReview ? '<button class="ghost" type="button" data-act="cvversion-download" data-version="'+esc(id)+'">Download PDF</button>' : '') +
+        (live ? '<span class="vlive">Live</span>' : needsReview ? '<span class="cv-review-needed">Needs review</span>' : '<button class="ghost" type="button" data-act="cvpublish" data-version="'+esc(id)+'">Publish live</button>') +
+        (version.versionInstructions ? '<details class="version-instructions"><summary>Additional instructions</summary><p>'+esc(version.versionInstructions)+'</p></details>' : '') +
+        '<div class="vpreview" hidden></div></div>';
+    }).join(''));
+    card.querySelectorAll('[data-act="cvpreview"]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var preview = button.parentElement.querySelector('.vpreview');
+        preview.hidden = !preview.hidden;
+        button.textContent = preview.hidden ? 'Preview content' : 'Hide preview';
+        button.setAttribute('aria-expanded', String(!preview.hidden));
+        if (preview.hidden || preview.dataset.loaded) return;
+        preview.textContent = 'Loading version…';
+        api('/api/admin/cv?id=' + encodeURIComponent(card.getAttribute('data-job-id')) + '&version=' + encodeURIComponent(button.getAttribute('data-version')), { method: 'GET' }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { preview.textContent = out.d.error || 'Could not load this version. Reopen to retry.'; return; }
+          var content = out.d.content || (out.d.version && out.d.version.content) || {};
+          var validation = out.d.validation || (out.d.version && out.d.version.validation) || version.validation;
+          renderAdmin(preview, cvPreviewHtml(content, validation)); preview.dataset.loaded = 'true';
+        });
+      });
+    });
+    card.querySelectorAll('[data-act="cvversion-download"]').forEach(function (button) {
+      button.addEventListener('click', function () { openApplicationCv(card.getAttribute('data-job-id'), 'download', button.getAttribute('data-version')); });
+    });
+    card.querySelectorAll('[data-act="cvpublish"]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        button.disabled = true;
+        api('/api/admin/cv', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: card.getAttribute('data-job-id'), action: 'publish', versionId: button.getAttribute('data-version') }) }).then(function (out) {
+          if (unauthorised(out)) return;
+          if (!out.ok) { button.disabled = false; notifyAdmin(out.d.error || 'Could not publish this CV version.'); return; }
+          loadJobs(false);
+        });
+      });
     });
   }
 
@@ -1212,7 +1339,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var currentReview = null;
     var versionInstructions = '';
     var instructionsTimer;
-    var supportsVersionInstructions = ['cover','analyse','regenerate','research','brief','prepare-screen'].indexOf(options.kind) !== -1;
+    var supportsVersionInstructions = ['cover','cv','analyse','regenerate','research','brief','prepare-screen'].indexOf(options.kind) !== -1;
     var submitting = false;
     var requestId = newRequestId();
     var loadingSequence = 0;
@@ -1539,6 +1666,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var id = rowEl.getAttribute("data-id");
       var status = rowEl.querySelector(".row-status");
       var job = jobs.find(function (j) { return j.id === id; });
+
+      var cvRun = (job.applicationCv && job.applicationCv.run) || job.cvRun;
+      if (cvRun && cvRun.runId && ['dispatching','queued','running'].indexOf(cvRun.status) !== -1 && !attachedCoverWatches[cvRun.runId]) {
+        attachedCoverWatches[cvRun.runId] = true;
+        recoverWork(id, cvRun.runId, status, 'cv', false).then(function () {
+          delete attachedCoverWatches[cvRun.runId];
+        });
+      }
 
       if (job.coverRun && job.coverRun.runId &&
           (job.coverRun.status === "dispatching" || job.coverRun.status === "queued") &&
@@ -1890,6 +2025,30 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         if (!loaded) loadVersions();
       }
 
+        var cvCard = rowEl.querySelector('[data-document="cv"]');
+        if (cvCard) {
+        var cvHistoryButton = cvCard.querySelector('[data-act="cvversions-toggle"]');
+        var cvVersionsLoaded = false;
+        cvHistoryButton.addEventListener('click', function () {
+          if (cvVersionsLoaded) return;
+          cvVersionsLoaded = true;
+          api('/api/admin/cv?id=' + encodeURIComponent(id), { method: 'GET' }).then(function (out) {
+            if (!cvCard.isConnected || unauthorised(out)) return;
+            if (!out.ok) { cvVersionsLoaded = false; cvCard.querySelector('[data-cv-list]').textContent = out.d.error || 'Could not load CV versions. Reopen to retry.'; return; }
+            paintCvVersions(cvCard, out.d);
+          });
+        });
+        var cvOpen = cvCard.querySelector('[data-act="cvopen"]');
+        if (cvOpen) cvOpen.addEventListener('click', function () { openApplicationCv(id, 'open'); });
+        var cvDownload = cvCard.querySelector('[data-act="cvdownload"]');
+        if (cvDownload) cvDownload.addEventListener('click', function () { openApplicationCv(id, 'download'); });
+        var cvGenerate = cvCard.querySelector('[data-act="cvgenerate"]');
+        if (cvGenerate) cvGenerate.addEventListener('click', function () {
+          openGenerationReview({ id: id, kind: 'cv', trigger: cvGenerate, status: status,
+            subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
+        });
+      }
+
       var ins = rowEl.querySelector('[data-act="instructions"]');
       if (ins) {
         ins.addEventListener("blur", function () {
@@ -1966,8 +2125,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       });
       var letterOpen = rowEl.querySelector('[data-act="letteropen"]');
       if (letterOpen) letterOpen.addEventListener('click', function () { openLetter(id); });
-      var letterCv = rowEl.querySelector('[data-act="lettercv"]');
-      if (letterCv) letterCv.addEventListener('click', function () { openLetter(id, true); });
       var briefOpen = rowEl.querySelector('[data-act="briefopen"]');
       if (briefOpen) briefOpen.addEventListener('click', function () { openArtifact(id, 'brief'); });
       var researchOpen = rowEl.querySelector('[data-act="researchopen"]');

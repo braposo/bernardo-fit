@@ -570,6 +570,43 @@ body {
 .material-actions [data-act=copyfit] {
   grid-column:1/-1;
 }
+.cv-material-row .document-summary {
+  min-height:56px;
+}
+.cv-material-row .cv-validation,
+.cv-material-row .cv-submitted {
+  color:var(--warn,var(--sub));
+  font-size:12px;
+  margin:0 0 12px;
+}
+.cv-material-row .cv-submitted {
+  color:var(--sub);
+}
+.cv-review-needed {
+  color:var(--warn,var(--sub));
+  font-size:11px;
+  font-weight:600;
+}
+.cv-document-versions .versions-content {
+  padding-top:10px;
+}
+.cv-document-versions .ver {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px 12px;
+  align-items:center;
+}
+.cv-document-versions .vmeta {
+  grid-column:1/-1;
+}
+.cv-document-versions .vpreview {
+  grid-column:1/-1;
+  max-height:360px;
+  overflow:auto;
+}
+.cv-document-versions .vpreview>div {
+  margin:8px 0;
+}
 .document-versions {
   margin-top:15px;
   border-top:1px solid var(--border);
