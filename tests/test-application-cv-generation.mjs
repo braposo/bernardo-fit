@@ -2,16 +2,16 @@ import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 import {applicationCvFingerprint,applicationCvJobFingerprint} from '../lib/application-cv-fingerprint.js';
 import {materializeApplicationCv,validateApplicationCv,cvNeedsSemanticVerification,
-  verifyApplicationCv} from '../lib/application-cv-generation.js';
+  verifyApplicationCv,interpretApplicationCvVerification} from '../lib/application-cv-generation.js';
 import {renderApplicationCvHtml,renderApplicationCvPdf} from '../lib/application-cv-render.js';
 
 const source={identity:{name:'Test Candidate',headline:'Engineering manager',contacts:[
   {label:'test@example.com',href:'mailto:test@example.com'}]},
-  roles:[{id:'r1',title:'Engineering Manager',company:'Example Co',dates:'2022–Present',location:'London',evidence:[
+  roles:[{id:'r1',title:'Engineering Manager',company:'Example Co',dates:'2022–Present',location:'London',overviewEvidenceId:'e1',evidence:[
     {id:'e1',text:'Led a cross-functional team delivering a customer portal.',status:'delivered',contribution:'team',skills:[]},
     {id:'e2',text:'Built a Next.js prototype for the internal help centre.',status:'delivered',contribution:'personal',skills:['Next.js']},
     {id:'e3',text:'Proposed a Sanity migration.',status:'proposed',contribution:'strategy',skills:['Sanity']},
-  ]},{id:'r2',title:'Senior Engineer',company:'Prior Co',dates:'2019–2022',location:'Remote',evidence:[
+  ]},{id:'r2',title:'Senior Engineer',company:'Prior Co',dates:'2019–2022',location:'Remote',overviewEvidenceId:'e4',evidence:[
     {id:'e4',text:'Implemented a shared component library.',status:'delivered',contribution:'personal',skills:[]},
   ]}],education:[],projects:[],settings:{maxWords:400,minBodyPx:13,prompt:'Select evidence'},fingerprint:'source-1'};
 const selection={roles:[{id:'r1',bullets:[{text:'Led the cross-functional team that delivered a customer portal.',evidenceIds:['e1']}]},
@@ -25,6 +25,19 @@ assert.equal(content.summary,source.identity.headline);
 assert.deepEqual(content.summaryEvidenceIds,[]);
 assert.equal(content.experience[0].bullets[0].evidenceIds[0],'e1');
 assert.equal(validateApplicationCv(content,source,requirementMap).status,'valid');
+const exact=materializeApplicationCv(source,{...selection,roles:[
+  {id:'r1',bullets:[{text:source.roles[0].evidence[0].text,evidenceIds:['e1']}]},
+  {id:'r2',bullets:[{text:source.roles[1].evidence[0].text,evidenceIds:['e4']}]}]},fitUrl).content;
+assert.equal(cvNeedsSemanticVerification(exact,source),false);
+const narrowed=structuredClone(content);
+narrowed.experience[0].bullets=[{text:'Built a Next.js prototype for the internal help centre.',evidenceIds:['e2']}];
+assert.ok(validateApplicationCv(narrowed,source,requirementMap).issues.some(issue=>issue.code==='OVERVIEW_MISSING'));
+assert.equal(interpretApplicationCvVerification(JSON.stringify({safe:true,issues:[],overviewCoverage:[
+  {roleId:'r1',covered:false},{roleId:'r2',covered:true}]}),source).status,'needs_review');
+assert.equal(interpretApplicationCvVerification(JSON.stringify({safe:true,issues:[]}),source).status,'needs_review');
+assert.equal(interpretApplicationCvVerification('null',source).status,'needs_review');
+assert.equal(interpretApplicationCvVerification(JSON.stringify({safe:true,issues:[],overviewCoverage:[
+  {roleId:'r1',covered:true},{roleId:'r2',covered:true}]}),source).status,'valid');
 assert.equal(cvNeedsSemanticVerification(content,source),true);
 await assert.rejects(verifyApplicationCv({content,sourceSnapshot:source,model:'gpt-5.6-sol',requestId:'offline'}),
   error=>error.code==='CV_SETTINGS_MISSING');
@@ -64,4 +77,4 @@ assert.notEqual(applicationCvFingerprint(job,source,{id:'report-1'},'gpt-5.6-sol
   applicationCvFingerprint(job,{...source,fingerprint:'source-2'},{id:'report-1'},'gpt-5.6-sol'));
 assert.notEqual(applicationCvFingerprint(job,source,{id:'report-1'},'gpt-5.6-sol','Tailor for product'),
   applicationCvFingerprint(job,source,{id:'report-1'},'gpt-5.6-sol','Tailor for platform'));
-console.log('passed 23, failed 0');
+console.log('passed 29, failed 0');

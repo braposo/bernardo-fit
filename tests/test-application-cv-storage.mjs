@@ -4,21 +4,26 @@ import {applicationCvSourceFromDocument} from '../lib/application-cv-source.js';
 import {createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries,getPublicApplicationCv} from '../lib/application-cv-store.js';
 import {createApplicationHandler} from '../lib/handlers/application.js';
 import {createSiteHandler} from '../api/site.js';
-import {buildApplicationCvSeed,seedApplicationCv,DEFAULT_CV_WRITER_PROMPT,DEFAULT_CV_VERIFIER_PROMPT} from '../scripts/seed-application-cv.mjs';
-import {updateApplicationCvPrompts,PREVIOUS_CV_WRITER_PROMPT,PREVIOUS_CV_VERIFIER_PROMPT} from '../scripts/update-application-cv-prompts.mjs';
+import {buildApplicationCvSeed,seedApplicationCv,DEFAULT_CV_VERIFIER_PROMPT,ROLE_OVERVIEW_EVIDENCE_KEYS} from '../scripts/seed-application-cv.mjs';
+import {updateApplicationCvPrompts,PREVIOUS_CV_WRITER_PROMPT,PREVIOUS_CV_VERIFIER_PROMPT,
+  V3_CV_WRITER_PROMPT,V3_CV_VERIFIER_PROMPT} from '../scripts/update-application-cv-prompts.mjs';
+import {updateApplicationCvOverviews} from '../scripts/update-application-cv-overviews.mjs';
 
 const evidence={_id:'e1',_rev:'rev-e1',text:'Built the GraphQL service.',sourcePassage:'I built a GraphQL service.',
   source:{_id:'source-1',_rev:'rev-source'},contribution:'personal',status:'delivered',skills:['GraphQL']};
 const source={page:{_id:'page',_rev:'rev-page',cv:{name:'Bernardo Raposo',headline:'Engineer',contacts:[{label:'Email',href:'mailto:b@example.com'}]}},
   settings:{_id:'application-cv-settings',_rev:'rev-settings',model:'gpt-5.6-sol',prompt:'Select evidence.',verifierPrompt:'Verify evidence.',maxWords:600,minBodyPx:13,layout:'classic'},
-  roles:[{_id:'role-1',_rev:'rev-role',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',location:'London',evidence:[evidence]}],education:[],projects:[]};
+  roles:[{_id:'role-1',_rev:'rev-role',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',location:'London',overviewEvidenceId:'e1',evidence:[evidence]}],education:[],projects:[]};
 const snapshot=applicationCvSourceFromDocument(source);
+assert.equal(snapshot.roles[0].overviewEvidenceId,'e1');
 assert.equal(snapshot.roles[0].evidence[0].sourceRef.documentId,'source-1');
 assert.equal(snapshot.roles[0].evidence[0].contribution,'personal');
 assert.notEqual(applicationCvSourceFromDocument({...source,settings:{...source.settings,_rev:'new-revision'}}).fingerprint,snapshot.fingerprint);
 assert.throws(()=>applicationCvSourceFromDocument({...source,roles:[{...source.roles[0],evidence:[{...evidence,sourcePassage:''}]}]}),/incomplete/);
 assert.throws(()=>applicationCvSourceFromDocument({...source,settings:{...source.settings,model:'unknown'}}),/Publish CV identity/);
 assert.throws(()=>applicationCvSourceFromDocument({...source,settings:{...source.settings,verifierPrompt:''}}),/Publish CV identity/);
+assert.throws(()=>applicationCvSourceFromDocument({...source,roles:[{...source.roles[0],overviewEvidenceId:'wrong'}]}),/overview fact/);
+assert.throws(()=>applicationCvSourceFromDocument({...source,roles:[{...source.roles[0],evidence:[{...evidence,status:'proposed'}]}]}),/overview fact/);
 
 let jobPresent=true;
 const store=createMemoryApplicationCvStore({jobExists:()=>jobPresent});
@@ -76,13 +81,19 @@ assert.match(applicationCvPdfUrl({...saved,pdfUrl:'https://cdn.sanity.io/files/q
 
 const response=()=>({code:0,headers:{},body:null,setHeader(key,value){this.headers[key]=value;},status(code){this.code=code;return this;},send(body){this.body=body;return this;},json(body){this.body=body;return this;},end(){return this;}});
 const pdfUrl='https://cdn.sanity.io/files/quli96gc/production/a.pdf';
-const publicData={...before,pdfUrl};
+const publicData={...before,pdfUrl,report:{...before.report,categories:[{name:'Leadership',note:'Led a team.'}],
+  differentiators:[{headline:'Cross-functional delivery',detail:'Worked across teams.'}],closing:'I would welcome a conversation.'}};
 const handler=createApplicationHandler(async()=>publicData,async()=>'<title><!-- TITLE --></title><!-- REPORT --><!-- CV -->',async()=>({ok:true,arrayBuffer:async()=>pdf}));
 const siteHandler=createSiteHandler(()=>{throw Error('Public site page lookup should not run for applications');},handler);
 const delegatedRes=response();await siteHandler({method:'GET',query:{page:'application',publicId:first.publicId}},delegatedRes);
 assert.equal(delegatedRes.code,200);assert.match(delegatedRes.body,/Application CV/);
 const htmlRes=response();await handler({method:'GET',query:{publicId:first.publicId}},htmlRes);
 assert.equal(htmlRes.code,200);assert.match(htmlRes.body,/A tailored summary/);assert.doesNotMatch(htmlRes.body,/sourceSnapshot|requirementMap|secret/);
+assert.equal((htmlRes.body.match(/Download CV · PDF/g)||[]).length,1);
+assert.ok(htmlRes.body.indexOf('The fit')<htmlRes.body.indexOf('What I bring'));
+assert.ok(htmlRes.body.indexOf('What I bring')<htmlRes.body.indexOf('Application CV'));
+assert.ok(htmlRes.body.indexOf('Download CV · PDF')>htmlRes.body.indexOf('Application CV'));
+assert.doesNotMatch(htmlRes.body,/I would welcome a conversation|class="closing"/);
 const pdfRes=response();await handler({method:'GET',query:{publicId:first.publicId,kind:'pdf'}},pdfRes);
 assert.equal(pdfRes.code,200);assert.deepEqual(pdfRes.body,pdf);
 const rejectRes=response();await createApplicationHandler(async()=>publicData,async()=>'',async()=>({ok:true,arrayBuffer:async()=>Buffer.from('%PDF-corrupt%%EOF')}))({method:'GET',query:{publicId:first.publicId,kind:'pdf'}},rejectRes);
@@ -137,13 +148,37 @@ assert.deepEqual(await updateApplicationCvPrompts({client:promptClient}),{needed
 assert.equal(promptDoc.prompt,PREVIOUS_CV_WRITER_PROMPT);
 assert.deepEqual(await updateApplicationCvPrompts({client:promptClient,apply:true}),{needed:false,applied:true});
 assert.equal(promptGuard,'prompt-rev');
-assert.equal(promptDoc.prompt,DEFAULT_CV_WRITER_PROMPT);
-assert.equal(promptDoc.verifierPrompt,DEFAULT_CV_VERIFIER_PROMPT);
+assert.equal(promptDoc.prompt,V3_CV_WRITER_PROMPT);
+assert.equal(promptDoc.verifierPrompt,V3_CV_VERIFIER_PROMPT);
 assert.deepEqual(await updateApplicationCvPrompts({client:promptClient}),{needed:false,applied:false});
 promptDoc.prompt='Editorial change';
 await assert.rejects(updateApplicationCvPrompts({client:promptClient,apply:true}),/editorial values/);
 promptDraft=true;
 await assert.rejects(updateApplicationCvPrompts({client:promptClient,apply:true}),/draft/);
+const overviewKeys=[...Object.keys(ROLE_OVERVIEW_EVIDENCE_KEYS).map(key=>`role:${key}`),...Object.values(ROLE_OVERVIEW_EVIDENCE_KEYS)];
+const overviewDocs=overviewKeys.map((key,index)=>{
+  const row=seed.find(entry=>entry.key===key);
+  return {_id:`overview-doc-${index}`,_rev:`overview-rev-${index}`,_type:row.type,seedKey:key,...row.value,
+    ...row.parent?{roleRef:`overview-doc-${overviewKeys.indexOf(row.parent)}`}:{},
+    ...row.parent?{sourceRef:row.value.source?._ref||'site-cv'}:{}};
+});
+let overviewDraft=false;
+const overviewClient={withConfig(){return this;},async fetch(query){
+  if(query.includes('slug.current'))return syntheticPage;
+  if(query.includes('title == "My career"'))return {_id:'career',body:[block(careerText)]};
+  if(query.includes('title == "My technical range"'))return {_id:'technical',body:[block('Specializations: design systems (built from scratch at EDITED and at TravelRepublic).')]};
+  if(query.includes('_id == "application-cv-settings"'))return {_id:'application-cv-settings',_rev:'settings-rev',prompt:V3_CV_WRITER_PROMPT,verifierPrompt:V3_CV_VERIFIER_PROMPT};
+  if(query.includes('seedKey in $keys'))return overviewDocs;
+  if(query.includes('_id in $ids'))return overviewDraft?[{_id:'drafts.overview-doc-0'}]:[];
+  throw Error(`Unexpected overview migration query: ${query}`);
+}};
+assert.deepEqual(await updateApplicationCvOverviews({client:overviewClient}),{needed:true,applied:false,promptFrom:'v3',
+  overviewRoles:Object.keys(ROLE_OVERVIEW_EVIDENCE_KEYS)});
+overviewDraft=true;
+await assert.rejects(updateApplicationCvOverviews({client:overviewClient}),/drafts/);
+overviewDraft=false;
+overviewDocs.find(row=>row.seedKey==='extra:critical-onall').status='proposed';
+await assert.rejects(updateApplicationCvOverviews({client:overviewClient}),/source for critical-software changed/);
 const originalReadToken=process.env.SANITY_READ_TOKEN,originalWriteToken=process.env.SANITY_WRITE_TOKEN;
 try {
   process.env.SANITY_READ_TOKEN='read-only-test-token';

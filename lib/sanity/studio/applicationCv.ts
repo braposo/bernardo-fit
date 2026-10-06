@@ -8,7 +8,12 @@ const sourceKey=defineField({name:'seedKey',title:'Seed identity',type:'string',
 const order=defineField({name:'order',title:'Display order',type:'number',validation:rule=>rule.required().integer().min(0)})
 
 export const applicationCvRole=defineType({name:'applicationCvRole',title:'CV employment',type:'document',icon:DocumentTextIcon,
-  fields:[sourceKey,required('title','Role title'),required('company','Company'),required('dates','Dates'),defineField({name:'location',type:'string'}),order,publicFlag],
+  fields:[sourceKey,required('title','Role title'),required('company','Company'),required('dates','Dates'),defineField({name:'location',type:'string'}),
+    defineField({name:'overviewEvidence',title:'Broad role overview evidence',type:'reference',to:[{type:'applicationCvEvidence'}],
+      description:'Approved delivered fact that anchors the rounded scope of this role. The CV may rewrite and reorder it, while retaining its substantive breadth.',
+      options:{filter:({document})=>({filter:'role._ref == $roleId && approvedPublic == true && status == "delivered"',
+        params:{roleId:String(document?._id||'').replace(/^drafts\./,'')}})},
+      validation:rule=>rule.required()}),order,publicFlag],
   preview:{select:{title:'title',subtitle:'company'}}})
 export const applicationCvEducation=defineType({name:'applicationCvEducation',title:'CV education',type:'document',icon:DocumentTextIcon,
   fields:[sourceKey,required('title','Qualification'),defineField({name:'dates',type:'string'}),defineField({name:'location',type:'string'}),order,publicFlag]})

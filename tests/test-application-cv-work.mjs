@@ -9,7 +9,7 @@ import {applicationCvFingerprint} from '../lib/application-cv-fingerprint.js';
 import {executeApplicationCvWork} from '../lib/application-cv-work.js';
 
 const source={fingerprint:'source-test',identity:{name:'Synthetic Candidate',headline:'Engineer',contacts:[]},
-  roles:[{id:'role-1',title:'Engineer',company:'Previous company',dates:'2020–2024',location:'London',
+  roles:[{id:'role-1',title:'Engineer',company:'Previous company',dates:'2020–2024',location:'London',overviewEvidenceId:'evidence-1',
     evidence:[{id:'evidence-1',text:'Built an accessible customer portal.',contribution:'personal',status:'delivered',skills:[]}]}],
   education:[],projects:[],settings:{model:'gpt-5.6-sol',prompt:'Use confirmed evidence.',minBodyPx:13,maxWords:300}};
 const selection={summary:'Engineer experienced in accessible customer interfaces.',summaryEvidenceIds:['evidence-1'],
@@ -24,7 +24,8 @@ tasks.triggerAndWait=async(id,payload,options)=>{
   if(!checkpoints.has(options.idempotencyKey)){
     calls++;
     checkpoints.set(options.idempotencyKey,{ok:true,output:payload.provider==='cv'?{selection}:
-      {status:verifierSafe?'valid':'needs_review',issues:verifierSafe?[]:[{code:'UNSUPPORTED',message:'Unconfirmed wording'}]}});
+      {status:verifierSafe?'valid':'needs_review',issues:verifierSafe?[]:[{code:'UNSUPPORTED',message:'Unconfirmed wording'}],
+        overviewCoverage:[{roleId:'role-1',covered:verifierSafe,method:'verified'}]}});
   }
   return structuredClone(checkpoints.get(options.idempotencyKey));
 };
@@ -45,6 +46,7 @@ await withApplicationCvStore(adapter,()=>withApplicationCvSource(source,async()=
     rejectSave=true;await assert.rejects(run(p),/persistence/);assert.equal(calls,2);
     assert.equal((await run(p)).publication,'published');assert.equal(calls,2);
     const app=await store.getApplicationCv(job.id);assert.equal(app.currentVersionId,p.requestId);
+    assert.equal((await store.getApplicationCvVersion(job.id,p.requestId)).verification.overviewCoverage[0].covered,true);
     assert.equal((await run(p)).publication,'published');assert.equal(calls,2);
   });
   await test('a rejected factual check preserves the last public pair and resumes without new paid work',async()=>{
