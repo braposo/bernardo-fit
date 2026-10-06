@@ -20,7 +20,7 @@ Legacy fit-report URLs and the master CV remain available. They do not guess whi
 
 ## Cost and recovery
 
-The default published model is `gpt-5.6-sol`, with low reasoning effort and bounded output. The CV queue has concurrency one and a ten-minute compute limit. Trigger owns retries and run state. Writer and verifier outputs are separate durable child results, so a failed render or Sanity write reuses paid output. A saved version resumes publication without rendering again. Identical in-flight inputs reuse the claimed request and Trigger idempotency key.
+The default published model is `gpt-5.6-sol`, with low reasoning effort and bounded output. The CV queue has concurrency one and a ten-minute compute limit. Trigger owns retries and run state. Writer and verifier outputs are separate durable child results, so native retries within the same parent run reuse paid output after a failed render or Sanity write. A saved version resumes publication without rendering again. Identical in-flight inputs reuse the claimed request and Trigger idempotency key. An explicit new generation after a terminal failure is a new billable request; it does not inherit another parent run's child checkpoints.
 
 The existing usage ledger attributes `cv` and `cv-verify` calls to the job, request and Trigger run. Saved versions and Trigger metadata expose input/output tokens and estimated AI cost. Trigger's own billed compute is separate and must not be added to the token estimate twice. Missing pricing is reported as unavailable, not zero.
 

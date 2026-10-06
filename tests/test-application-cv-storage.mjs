@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {applicationCvSourceFromDocument} from '../lib/application-cv-source.js';
-import {createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries} from '../lib/application-cv-store.js';
+import {createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries,getPublicApplicationCv} from '../lib/application-cv-store.js';
 import {createApplicationHandler} from '../lib/handlers/application.js';
 import {createSiteHandler} from '../api/site.js';
 import {buildApplicationCvSeed,seedApplicationCv,DEFAULT_CV_WRITER_PROMPT,DEFAULT_CV_VERIFIER_PROMPT} from '../scripts/seed-application-cv.mjs';
@@ -144,5 +144,14 @@ promptDoc.prompt='Editorial change';
 await assert.rejects(updateApplicationCvPrompts({client:promptClient,apply:true}),/editorial values/);
 promptDraft=true;
 await assert.rejects(updateApplicationCvPrompts({client:promptClient,apply:true}),/draft/);
+const originalReadToken=process.env.SANITY_READ_TOKEN,originalWriteToken=process.env.SANITY_WRITE_TOKEN;
+try {
+  process.env.SANITY_READ_TOKEN='read-only-test-token';
+  delete process.env.SANITY_WRITE_TOKEN;
+  assert.equal(await getPublicApplicationCv('bad'),null);
+} finally {
+  if(originalReadToken===undefined)delete process.env.SANITY_READ_TOKEN;else process.env.SANITY_READ_TOKEN=originalReadToken;
+  if(originalWriteToken===undefined)delete process.env.SANITY_WRITE_TOKEN;else process.env.SANITY_WRITE_TOKEN=originalWriteToken;
+}
 console.log('application CV source, store, public privacy and PDF delivery: ok');
 console.log('passed 1, failed 0');
