@@ -54,7 +54,7 @@
       "maxDuration": 240
     },
     "api/site.js": {
-      "includeFiles": "lib/templates/*.html"
+      "includeFiles": "lib/{templates/*.html,assets/cv-fonts/*.ttf}"
     },
     "api/admin/jobs.js": {
       "includeFiles": "lib/assets/cv-fonts/*.ttf"

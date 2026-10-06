@@ -29,11 +29,11 @@ import { readJobUsage } from "../../lib/usage.js";
 import { jevEnabled } from "../../lib/jev.js";
 import { reviewingGenerationResult } from "../../lib/reviewing-generation.js";
 import { getApplicationCvSummaries, getApplicationCv, markApplicationCvSubmitted } from "../../lib/application-cv-store.js";
-import { applicationCvFields, withApplicationCvFields } from "../../lib/application-cv-view.js";
+import { applicationCvFields, withApplicationCvFields, generalCvFields } from "../../lib/application-cv-view.js";
 
 async function cvFields(job) {
-  const { hasCv, cvRun, applicationFitUrl, applicationCv } = await withApplicationCvFields(job);
-  return { hasCv, cvRun, applicationFitUrl, applicationCv };
+  const { hasCv, cvRun, applicationFitUrl, applicationCv, generalCv } = await withApplicationCvFields(job);
+  return { hasCv, cvRun, applicationFitUrl, applicationCv, generalCv };
 }
 async function cvWriteFields(job, errors) {
   try { return await cvFields(job); }
@@ -77,10 +77,11 @@ async function handler(req, res) {
       }
       // Attach view/interaction counts for any job with a linked fit report.
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
-      const [stats, analysed, unlinked, activeRuns, applications] = await Promise.all([
+      const [stats, analysed, unlinked, activeRuns, applications, generalCv] = await Promise.all([
         getStats(ids), getReportSources(ids), findUnlinkedReportIds(all),
         getActiveRuns(["jev-score-all", "adopt"]),
         getApplicationCvSummaries(jobs.map(job => job.id)),
+        generalCvFields(),
       ]);
       // Whether the row's description has moved on since it was analysed.
       // Read from the report rather than stamped on the row when the analysis
@@ -90,6 +91,7 @@ async function handler(req, res) {
         jobs: jobs.map((j) => ({
           ...jobSummary(j),
           ...applicationCvFields(j, applications[j.id]),
+          generalCv,
           stats: j.fitReportId ? stats[j.fitReportId] || null : null,
           jd: j.fitReportId && analysed[j.fitReportId] !== undefined
             ? { was: analysed[j.fitReportId].length, now: j.jobDescription.length, stale: hashJD(j.jobDescription) !== analysed[j.fitReportId].hash }

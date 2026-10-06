@@ -20,6 +20,12 @@ A failed generation leaves the previous public pair available. A `needs_review` 
 
 Legacy fit-report URLs and the master CV remain available. They do not guess which job-specific CV to return. The former CV-plus-cover-letter controls and rendering mode are removed; the standalone cover-letter route remains.
 
+## General CV source
+
+The default CV is assembled deterministically from the same published identity, employment, education and grouped contributions as application CVs. It has no job description, fit analysis or model call. Each employment entry starts with its approved role overview. Editors may select up to two additional approved, delivered facts from that same role in the optional ordered **General CV supporting facts** field. An unset field means the overview alone; missing, duplicated, cross-role, proposed or unpublished selections fail source validation rather than silently changing the CV. The initial curated selection adds Docs v2 and SQRL to SingleStore and the design system/GraphQL work to TravelRepublic; the other three roles use their broad overviews alone. The source revision fingerprint changes when editors change these references.
+
+`buildGeneralApplicationCv` produces the standard CV content with `variant: 'general'` and the canonical public site URL. It quotes the approved evidence verbatim, keeps the published profile and chronology, and passes the ordinary factual and word-budget checks before PDF rendering. The general URL is a site link, never a fabricated job-specific fit link.
+
 A valid CV saved privately (for example, on an Interviewing role) is available directly from the main document card as **Saved · not live**, with authenticated preview and download actions for that exact version. The card separately tracks the current public version and latest valid saved version; drafts that need review and versions without a resolvable PDF do not supply these download actions. Generation failures or a newer version needing review do not hide an earlier valid saved CV. Publishing remains explicit for these saved versions, and opening the card never publishes or regenerates them.
 
 ## Cost and recovery
@@ -48,9 +54,26 @@ node --env-file=.env.local scripts/update-application-cv-contributions.mjs
 node --env-file=.env.local scripts/update-application-cv-contributions.mjs --apply
 node --env-file=.env.local scripts/add-application-cv-phone.mjs
 node --env-file=.env.local scripts/add-application-cv-phone.mjs --apply
+node --env-file=.env.local scripts/select-general-application-cv-evidence.mjs
+node --env-file=.env.local scripts/select-general-application-cv-evidence.mjs --apply
 ```
 
 Seeding is additive, preserves existing published edits and drafts, and is a dry run unless `--apply` is supplied. The overview migration is also a dry run by default. It updates the five existing role references and published writer/verifier prompts in one revision-guarded transaction only when their approved source facts and old prompt pair still match; drafts or editorial changes stop it. The first project/speaking split checks the original Fit and education passages before creating distinct records. The later contributions migration checks those records, the role anchors and the exact v4 published prompt pair before grouping them and publishing the v5 breadth policy. Its owner-confirmed role testimony is stored in separate candidate-evidence provenance documents beside the earlier career passages. The grouped open-source source records the repository URLs and explicitly identifies the SingleStore notes app as experimental. Both migrations retain older evidence, stop for related drafts or editorial changes, and are idempotent. For the phone migration, first set process environment variables `APPLICATION_CV_PHONE_E164` and `APPLICATION_CV_PHONE_LABEL` to the owner-approved values; the commands above then dry-run or apply without embedding the personal number in repository files or command arguments. Existing jobs were not backfilled.
+
+The general-selection migration changes only the SingleStore and TravelRepublic role references. It requires the reviewed published evidence IDs and exact fact text, stops for related drafts or an edited selection, and uses revision guards. It is a dry run unless `--apply` is supplied; rerunning it after publication is a no-op.
+
+## Refreshing the default CV
+
+The default `/cv` page and `/bernardo-raposo-cv.pdf` download use one saved general CV. Refreshing it is a separate, deterministic Trigger task with no model calls. Its source fingerprint covers the approved profile, ordered general evidence, and layout settings, but excludes Sanity document revisions so saving the generated PDF does not make itself stale. The task checks for related drafts and revision changes, renders and validates one PDF, then atomically updates the page's PDF asset reference and read-only `generalCv` metadata. The previous download remains available if rendering or publication fails. Metadata records the exact PDF asset ID and checksum, source fingerprint, template and renderer versions, Trigger run ID, generation time, and zero input/output tokens and estimated AI cost. Trigger compute usage is separate. The public page requires the current download asset ID to match this saved metadata.
+
+Run the read-only plan first. After the named Development worker has registered `general-cv-refresh` on the same branch, trigger one refresh and wait up to three minutes for its result:
+
+```sh
+node --env-file=.env.local scripts/refresh-general-cv.mjs --dry-run
+node --env-file=.env.local scripts/refresh-general-cv.mjs --apply --branch codex/personalised-cv
+```
+
+The apply command requires a `tr_dev_` key and uses a global idempotency key derived from the source fingerprint and renderer/template versions. An unchanged, available PDF yields `triggered:false`. If a previous completed run used that key but the asset was later removed or invalidated, inspect that run and use `--retry-key <unique-name>` to request a new one. Do not change the retry key while a run is still active. A timeout means the task may still be running; inspect the printed Trigger run before retrying. After a completed publication, verify the `/cv` page and download on preview, including the PDF checksum and its one-page layout. Publishing to Production requires its hosted worker and normal release process; this Development command does not change Production.
 
 ## Delivery and verification
 

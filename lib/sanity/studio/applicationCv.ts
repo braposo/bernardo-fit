@@ -13,7 +13,13 @@ export const applicationCvRole=defineType({name:'applicationCvRole',title:'CV em
       description:'Approved delivered fact that anchors the rounded scope of this role. The CV may rewrite and reorder it, while retaining its substantive breadth.',
       options:{filter:({document})=>({filter:'role._ref == $roleId && approvedPublic == true && status == "delivered"',
         params:{roleId:String(document?._id||'').replace(/^drafts\./,'')}})},
-      validation:rule=>rule.required()}),order,publicFlag],
+      validation:rule=>rule.required()}),
+    defineField({name:'generalEvidence',title:'General CV supporting facts',type:'array',
+      description:'Optional ordered highlights for the default CV. The broad role overview always appears first. Choose up to two other approved delivered facts from this same job.',
+      of:[defineArrayMember({type:'reference',to:[{type:'applicationCvEvidence'}],
+        options:{filter:({document})=>({filter:'role._ref == $roleId && approvedPublic == true && status == "delivered"',
+          params:{roleId:String(document?._id||'').replace(/^drafts\./,'')}})}})],
+      validation:rule=>rule.max(2).unique()}),order,publicFlag],
   preview:{select:{title:'title',subtitle:'company'}}})
 export const applicationCvEducation=defineType({name:'applicationCvEducation',title:'CV education',type:'document',icon:DocumentTextIcon,
   fields:[sourceKey,required('title','Qualification'),defineField({name:'dates',type:'string'}),defineField({name:'location',type:'string'}),order,publicFlag]})

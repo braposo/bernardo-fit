@@ -987,6 +987,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var savedVersion = cv.latestVersion || null;
     var savedVersionId = cv.latestVersionId || (savedVersion && (savedVersion.id || savedVersion.versionId)) || '';
     var savedOnly = !ready && !!savedVersionId && savedVersion && savedVersion.validationStatus === 'valid';
+    var generalCv = j.generalCv || {};
+    var generalCvUrl = generalCv.available === true && generalCv.downloadUrl === '/bernardo-raposo-cv.pdf' ? generalCv.downloadUrl : '';
     var status = cv.status || (ready ? (cv.stale ? 'stale' : 'ready') : 'missing');
     var run = cv.run || j.cvRun;
     var running = active || !!(run && run.runId && ['dispatching','queued','running'].indexOf(run.status) !== -1);
@@ -995,7 +997,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var lastRunFailed = status === 'failed' || (run && run.status === 'failed');
     var meta = ready ? 'Application CV · ' + (running ? 'Updating · previous version remains live' : failedWithPrevious || lastRunFailed ? 'Update failed · previous version remains live' : cv.stale ? 'Outdated · previous version remains live' : 'Live') :
       savedOnly ? 'Saved · not live' + (lastRunFailed ? ' · Last update failed' : needsReview ? ' · New version needs review' : '') :
-      status === 'failed' ? 'No saved version · the last attempt failed' : needsReview ? 'Needs review · no live version' : 'Not generated yet';
+      status === 'failed' ? 'No saved version · the last attempt failed' : needsReview ? 'Needs review · no live version' : generalCvUrl ? 'No customised CV yet' : 'Not generated yet';
     if (needsReview) meta += ' · Review before submitting';
     if (j.stage === 'applied') {
       if (cv.submittedVersionId) meta += ' · Applied · submitted version recorded';
@@ -1004,6 +1006,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     if (cv.createdAt) meta += ' · ' + esc(fmtDate(cv.createdAt));
     var actions = ready ? '<button class="read-link" data-act="cvopen">Open CV</button>' + (cv.downloadUrl ? '<button class="read-link" data-act="cvdownload">Download CV</button>' : '') :
       (savedOnly ? '<button class="read-link" data-act="cvopen" data-version="'+esc(savedVersionId)+'">Preview saved CV</button>' + (savedVersion.hasPdf ? '<button class="read-link" data-act="cvdownload" data-version="'+esc(savedVersionId)+'">Download saved CV</button>' : '') : '');
+    if (!ready && !savedOnly && generalCvUrl) actions += '<a class="read-link" data-act="generalcvdownload" href="'+esc(generalCvUrl)+'" target="_blank" rel="noopener">Download general CV</a>';
     actions += '<button class="generation' + ((ready || savedOnly) ? ' generation-outline' : '') + '" data-act="cvgenerate"' + (running ? ' disabled aria-busy="true"' : '') + '>' +
       ((ready || savedOnly) ? 'Generate new version' : 'Generate CV') + '</button>';
     var alert = needsReview

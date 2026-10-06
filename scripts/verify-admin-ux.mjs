@@ -7,12 +7,13 @@ import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const { default: AxeBuilder } = await import('@axe-core/playwright');
+const baselineRevision = process.env.ADMIN_UX_BASE_REVISION || 'HEAD';
 const server = createServer(async (req, res) => {
   const name = new URL(req.url, 'http://localhost').pathname;
   if (!['/admin.html', '/admin-run.js', '/admin-usage.js', '/assets/admin-ui.js', '/assets/admin-ui.css', '/assets/task-ui.js', '/task-ui.css'].includes(name)) { res.writeHead(404).end(); return; }
   res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html');
   const source = process.env.ADMIN_UX_BASELINE && name === '/admin.html'
-    ? execFileSync('git', ['show', 'HEAD:public/admin.html'], { encoding: 'utf8' })
+    ? execFileSync('git', ['show', baselineRevision + ':public/admin.html'], { encoding: 'utf8' })
     : await readFile(new URL('../public' + name, import.meta.url));
   res.end(source);
 });
@@ -44,12 +45,24 @@ try {
     jobs[0].applicationCv = { publicId: 'personalised-job0', currentVersionId: '', submittedVersionId: '', status: 'completed',
       latestVersionId: 'cv-v2', latestVersion: { id: 'cv-v2', createdAt: '2026-09-29T10:00:00Z', model: 'gpt-5.6-sol', hasPdf: true, validationStatus: 'valid' },
       run: { status: 'completed', publication: 'saved', versionId: 'cv-v2' } };
+  } else if (process.env.ADMIN_UX_CV_GENERAL_FALLBACK) {
+    jobs[0].applicationCv = { status: 'missing' };
+    jobs[0].generalCv = { available: true, downloadUrl: '/bernardo-raposo-cv.pdf' };
   } else {
     jobs[3].applicationCv.status = 'failed';
     jobs[3].applicationCv.run = { status: 'failed', error: 'Synthetic update failed' };
     jobs[4].applicationCv = { publicId: 'personalised-job4', status: 'completed', currentVersionId: '', submittedVersionId: '',
       latestVersionId: 'cv-v2', latestVersion: { id: 'cv-v2', createdAt: '2026-09-29T10:00:00Z', model: 'gpt-5.6-sol', hasPdf: true, validationStatus: 'valid' },
       run: { status: 'completed', publication: 'saved', versionId: 'cv-v2' } };
+    jobs[5].applicationCv = { status: 'missing' };
+    jobs[5].generalCv = { available: true, downloadUrl: '/bernardo-raposo-cv.pdf' };
+    jobs[6].generalCv = { available: true, downloadUrl: '/bernardo-raposo-cv.pdf' };
+    jobs[7].applicationCv = { publicId: 'personalised-job7', status: 'completed', currentVersionId: '', submittedVersionId: '',
+      latestVersionId: 'cv-v2', latestVersion: { id: 'cv-v2', createdAt: '2026-09-29T10:00:00Z', model: 'gpt-5.6-sol', hasPdf: true, validationStatus: 'valid' },
+      run: { status: 'completed', publication: 'saved', versionId: 'cv-v2' } };
+    jobs[7].generalCv = { available: true, downloadUrl: '/bernardo-raposo-cv.pdf' };
+    jobs[8].applicationCv = { status: 'missing' };
+    jobs[8].generalCv = { available: false };
   }
   jobs[1].jevStale = true;
   jobs[1].jevAssessment = { score: 79, assessedAt: '2026-09-20T10:00:00Z',
@@ -129,6 +142,13 @@ try {
         assert.equal(await page.locator('[data-document="cv"] [data-act="cvdownload"]').textContent(), 'Download saved CV');
         assert.equal(await page.locator('[data-document="cv"] [data-act="cvpublish"]').count(), 1);
       }
+    }
+    if (process.env.ADMIN_UX_CV_GENERAL_FALLBACK && !process.env.ADMIN_UX_BASELINE) {
+      assert.equal((await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).trim(), 'No customised CV yet');
+      assert.equal(await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').getAttribute('href'), '/bernardo-raposo-cv.pdf');
+      assert.equal(await page.locator('[data-document="cv"] [data-act="cvgenerate"]').textContent(), 'Generate CV');
+      assert.equal(await page.locator('[data-document="cv"] [data-act="cvopen"]').count(), 0);
+      assert.equal(await page.locator('[data-document="cv"] [data-act="cvdownload"]').count(), 0);
     }
     await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}' });
     await page.evaluate(() => document.fonts.ready);
@@ -291,6 +311,23 @@ try {
   await page.locator('[data-section="materials"]').click();
   check('needs-review state keeps a valid live CV reachable', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('Review before submitting') &&
     await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible());
+  await page.locator('[data-select-job="job5"]').click();
+  await page.locator('[data-section="materials"]').click();
+  check('general CV is clearly separate from job-specific generation', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('No customised CV yet') &&
+    await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').getAttribute('href') === '/bernardo-raposo-cv.pdf' &&
+    await page.locator('[data-document="cv"] [data-act="cvgenerate"]').textContent() === 'Generate CV');
+  await page.locator('[data-select-job="job6"]').click();
+  await page.locator('[data-section="materials"]').click();
+  check('general CV fallback stays hidden when a tailored CV is live', await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible() &&
+    await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').count() === 0);
+  await page.locator('[data-select-job="job7"]').click();
+  await page.locator('[data-section="materials"]').click();
+  check('general CV fallback stays hidden for a valid saved tailored CV', await page.locator('[data-document="cv"] [data-act="cvopen"]').getAttribute('data-version') === 'cv-v2' &&
+    await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').count() === 0);
+  await page.locator('[data-select-job="job8"]').click();
+  await page.locator('[data-section="materials"]').click();
+  check('general CV fallback is omitted when the general file is unavailable', await page.locator('[data-document="cv"] [data-act="cvgenerate"]').isVisible() &&
+    await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').count() === 0);
   await page.locator('[data-select-job="job0"]').click();
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-document="letter"] .version-summary').waitFor();
