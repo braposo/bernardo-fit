@@ -385,6 +385,8 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
       .then(responseJson)
       .then(function (out) {
         if (!out.ok) throw new Error("Your report was saved but could not be loaded. Refresh to try again.");
+        // The server renders shared reports in the fit page design; open it there.
+        if (!DEMO) return location.replace(location.pathname + "?r=" + encodeURIComponent(id));
         state.report = out.d.report; state.id = id; state.cached = !!cached; state.view = "report";
         history.replaceState({}, "", location.pathname + "?r=" + encodeURIComponent(id));
         render();

@@ -2,7 +2,10 @@ import { readFile } from "node:fs/promises";
 import { createContentClient } from "../lib/sanity/client.js";
 import { createApplicationHandler } from "../lib/handlers/application.js";
 import {renderApplicationCvHtml} from '../lib/application-cv-render.js';
-import {publicCvVersion} from '../lib/application-cv-store.js';
+import {publicCvVersion,getPublicApplicationIdForReport} from '../lib/application-cv-store.js';
+import {renderPublicApplication} from '../lib/handlers/application.js';
+import {getSharedReport} from '../lib/store.js';
+import {publicReport} from '../lib/report.js';
 import {generalCvPageAvailable} from '../lib/general-cv-availability.js';
 import {
   loadPublicPage,
@@ -14,7 +17,15 @@ import {
   escapeHtml,
   scriptJson,
 } from "../lib/sanity/public-pages.js";
-export function createSiteHandler(getClient = createContentClient, applicationHandler = createApplicationHandler()) {
+const generalCvContent=page=>{
+  if(!page?.generalCv || !generalCvPageAvailable(page))return null;
+  const saved=JSON.parse(page.generalCv.content.payload);
+  // Only public document text and approved links reach a page.
+  return publicCvVersion({content:saved,validation:{status:'valid'},pdfSha256:page.generalCv.pdfSha256}).content;
+};
+const sharedReportDefaults={findApplication:getPublicApplicationIdForReport,getReport:getSharedReport};
+export function createSiteHandler(getClient = createContentClient, applicationHandler = createApplicationHandler(),
+  {findApplication,getReport}=sharedReportDefaults) {
   return async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     if (!["GET", "HEAD"].includes(req.method)) {
@@ -26,8 +37,24 @@ export function createSiteHandler(getClient = createContentClient, applicationHa
     if (!["home", "cv", "letter", "download"].includes(slug))
       return res.status(404).end();
     try {
-      const client = getClient(),
-        sourceSlug = ["download", "letter"].includes(slug) ? "cv" : slug,
+      const client = getClient();
+      // Shared report links (/?r=) open the current fit page design: the job's live
+      // application page when it has one, otherwise the report with the general CV.
+      const reportId=slug==='home' && req.query?.demo!=='1' && typeof req.query?.r==='string' ? req.query.r : '';
+      if(reportId){
+        const publicId=await findApplication(reportId).catch(()=>null);
+        if(publicId){res.setHeader('Location',`/fit/${encodeURIComponent(publicId)}`);return res.status(302).end();}
+        // Without a published general CV the original report view below still renders it.
+        const [report,content]=await Promise.all([getReport(reportId).catch(()=>null),
+          loadPublicPage('cv',client).then(generalCvContent).catch(()=>null)]);
+        if(report && content){
+          const template=await readFile(new URL('../lib/templates/application.html',import.meta.url),'utf8');
+          const page=renderPublicApplication({reportId,report:publicReport(report),version:{content}},template,{shared:true});
+          res.setHeader('Content-Type','text/html; charset=utf-8');
+          return res.status(200).send(req.method==='HEAD'?'':page);
+        }
+      }
+      const sourceSlug = ["download", "letter"].includes(slug) ? "cv" : slug,
         page = await loadPublicPage(sourceSlug, client);
       if (!page || (slug !== "download" && !page[sourceSlug]))
         return res
@@ -48,10 +75,9 @@ export function createSiteHandler(getClient = createContentClient, applicationHa
         return res.status(302).end();
       }
       if (slug === 'cv' && page.generalCv) {
-        if (!generalCvPageAvailable(page)) throw new Error('General CV unavailable');
+        const safe=generalCvContent(page);
+        if (!safe) throw new Error('General CV unavailable');
         const saved=JSON.parse(page.generalCv.content.payload);
-        // Only public document text and approved links reach the reader.
-        const safe=publicCvVersion({content:saved,validation:{status:'valid'},pdfSha256:page.generalCv.pdfSha256}).content;
         const html=await renderApplicationCvHtml({...safe,variant:'general',publicUrl:saved.publicUrl},{showDownload:true});
         res.setHeader('Content-Type','text/html; charset=utf-8');
         return res.status(200).send(req.method==='HEAD'?'':html);
