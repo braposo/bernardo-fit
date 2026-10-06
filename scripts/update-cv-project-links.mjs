@@ -4,7 +4,9 @@ import {pathToFileURL} from 'node:url';
 import {createStorageClient} from '../lib/sanity/client.js';
 import {plainText} from '../lib/sanity/codecs.js';
 
-export const HERMANS_TEXT='Built the Solana platform and modular AI-agent system; now own the project.';
+export const PREVIOUS_HERMANS_TEXT='Built the Solana platform and modular AI-agent system; now own the project.';
+// Exact current-mission wording approved by the owner in this CV review.
+export const HERMANS_TEXT='Building Hermans Club for men’s personal development as an AI-first company, directing a fleet of specialised agents across the business.';
 export const FIT_TEXT='Built my job-search app with React, Sanity, Vercel and Trigger.dev, directing and reviewing coding agents.';
 export const OPEN_SOURCE_TEXT='Published React components, figma-graphql and an experimental React Server Components notes app.';
 export const PREVIOUS_FIT_TEXT='Fit: Built my job-search application with Sanity, React, Vercel and Trigger.dev, directing coding agents and reviewing delivery.';
@@ -29,8 +31,8 @@ const evidenceKey='public:project:hermans';
 export function planCvProjectLinks({records,source}) {
   required(source?._id && source?._rev,'Published independent-work source is required.');
   const text=plainText(source.body||[]);
-  const passage=text.split('\n\n').find(p=>p.startsWith('The Hermans.'));
-  required(passage?.includes('now own the project outright') && passage.includes('modular AI-agent architecture'),
+  const previousPassage=text.split('\n\n').find(p=>p.startsWith('The Hermans.'));
+  required(previousPassage?.includes('now own the project outright') && previousPassage.includes('modular AI-agent architecture'),
     'The approved Hermans source changed; review it before publication.');
   for(const needle of ['React Advanced London (2019)','GraphQL Conf, Berlin (2019)','Design Systems London (2019)'])
     required(text.includes(needle),'The approved speaking source changed: '+needle);
@@ -67,11 +69,15 @@ export function planCvProjectLinks({records,source}) {
   if(hermans)required(hermans._type==='applicationCvProject' && hermans.title==='Hermans Club' && hermans.order===1 &&
     hermans.dates==='' && hermans.location==='' && same(cleanLinks(hermans.links),PROJECT_LINKS.hermans),
     'Hermans project was edited; preserve the editorial values.');
+  const sourceNeeded=!text.split('\n\n').includes(HERMANS_TEXT);
+  const passage=HERMANS_TEXT;
   if(evidence)required(hermans && evidence._type==='applicationCvEvidence' && evidence.project?._ref===hermans._id &&
-    evidence.text===HERMANS_TEXT && evidence.source?._ref===source._id && evidence.sourcePassage===passage &&
+    ((evidence.text===HERMANS_TEXT && evidence.sourcePassage===passage) ||
+      (evidence.text===PREVIOUS_HERMANS_TEXT && evidence.sourcePassage===previousPassage)) && evidence.source?._ref===source._id &&
     evidence.approvedPublic===true && evidence.status==='delivered' && evidence.contribution==='personal',
     'Hermans evidence was edited; preserve the editorial values.');
-  return {needed:!!(changes.length||!hermans?.approvedPublic||!evidence),changes,hermans,evidence,passage,source};
+  if(evidence && evidence.text!==HERMANS_TEXT)changes.push({doc:evidence,fields:{text:HERMANS_TEXT,sourcePassage:passage}});
+  return {needed:!!(sourceNeeded||changes.length||!hermans?.approvedPublic||!evidence),sourceNeeded,changes,hermans,evidence,passage,source};
 }
 
 export async function updateCvProjectLinks({client=createStorageClient(),apply=false}={}) {
@@ -91,13 +97,17 @@ export async function updateCvProjectLinks({client=createStorageClient(),apply=f
     title:'Hermans Club',order:1,dates:'',location:'',links:linked(PROJECT_LINKS.hermans),approvedPublic:false});
   const relatedIds=[plan.source._id,project._id,...plan.changes.map(r=>r.doc._id),...(plan.evidence?[plan.evidence._id]:[])];
   required(!await raw.fetch('count(*[_id in $ids])',{ids:relatedIds.map(id=>'drafts.'+id)}),'Related CV drafts appeared; stop publication.');
-  let tx=client.transaction().patch(plan.source._id,p=>p.ifRevisionId(plan.source._rev));
+  let tx=client.transaction().patch(plan.source._id,p=>{
+    const guarded=p.ifRevisionId(plan.source._rev);
+    return plan.sourceNeeded?guarded.set({body:[...plan.source.body,{_type:'block',_key:'hermans-current-mission-20261006',style:'normal',markDefs:[],
+      children:[{_type:'span',_key:'text',text:HERMANS_TEXT,marks:[]}]}]}):guarded;
+  });
   for(const {doc,fields} of plan.changes)tx=tx.patch(doc._id,p=>p.ifRevisionId(doc._rev).set(fields));
   tx=tx.patch(project._id,p=>p.ifRevisionId(project._rev).set({approvedPublic:true}));
   if(!plan.evidence)tx=tx.create({_type:'applicationCvEvidence',seedKey:evidenceKey,project:ref(project._id),
     text:HERMANS_TEXT,source:ref(plan.source._id),sourcePassage:plan.passage,contribution:'personal',
     status:'delivered',skills:[],order:0,approvedPublic:true});
-  else tx=tx.patch(plan.evidence._id,p=>p.ifRevisionId(plan.evidence._rev));
+  else if(!plan.changes.some(r=>r.doc._id===plan.evidence._id))tx=tx.patch(plan.evidence._id,p=>p.ifRevisionId(plan.evidence._rev));
   await tx.commit({visibility:'sync'});
   return {...result,needed:false,applied:true};
 }
