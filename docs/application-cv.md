@@ -84,3 +84,11 @@ The worker browser image uses Playwright's own installer with the resolved packa
 Focused checks cover source/store/public privacy, scoped preview tokens, automatic Reviewing dispatch, manual retry and historical publication, preservation of submitted versions, failed-save recovery without repeated model execution, real PDF rendering and text extraction, and responsive admin interactions. CI runs the full suite and installs Chromium before the PDF tests. The screenshot comparison is in `docs/pr-screenshots/personalised-cv/`.
 
 Text extraction and layout checks verify document integrity; they cannot certify ranking or acceptance by an employer's ATS. Job-specific links supplement the CV and are not required to understand its experience.
+
+## Project websites and dated presentations
+
+`node --env-file=.env.local scripts/update-cv-project-links.mjs` plans the owner-requested content update; add `--apply` to publish it. It renames Independent work to Fit, adds its public site link, creates Hermans Club immediately below it from the published independent-work evidence, and adds three Notist links labelled with their verified 2019 event years. Existing open-source repository links remain. Fit and open-source summaries are shortened to keep the expanded CV on one A4 page at 13px.
+
+The migration is idempotent, stops for related drafts or edited target fields, stages the new project as unpublished with a Sanity-generated ID, and uses revision guards for publication. A failed final transaction leaves the staged project unpublished so a retry can resume. The source update was applied on 2026-10-06 and a second run reported no changes. Saved CV versions and the current default PDF remain immutable until the separate general-CV refresh.
+
+Verified presentation sources: [React Advanced London](https://noti.st/braposo/iwKalu/designing-with-graphql), [GraphQL Conf](https://noti.st/braposo/qQaBfG/making-design-more-human-with-graphql), and [Design Systems London](https://noti.st/braposo/KRU2ob/the-human-side-of-a-design-system). The approved independent-work evidence also records 2019 for all three. Project sites: [Fit](https://fit.bernardoraposo.com/) and [Hermans Club](https://www.hermans.club/).
