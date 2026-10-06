@@ -131,8 +131,11 @@ const pdfRes=response();await handler({method:'GET',query:{publicId:first.public
 assert.equal(pdfRes.code,200);assert.deepEqual(pdfRes.body,pdf);
 const rejectRes=response();await createApplicationHandler(async()=>publicData,async()=>'',async()=>({ok:true,arrayBuffer:async()=>Buffer.from('%PDF-corrupt%%EOF')}))({method:'GET',query:{publicId:first.publicId,kind:'pdf'}},rejectRes);
 assert.equal(rejectRes.code,503);
+assert.equal(await store.getPublicApplicationIdForReport('shared-report'),first.publicId);
+assert.equal(await store.getPublicApplicationIdForReport('other-report'),null);
 jobPresent=false;
 assert.equal(await store.getPublicApplicationCv(first.publicId),null);
+assert.equal(await store.getPublicApplicationIdForReport('shared-report'),null);
 const block=text=>({_type:'block',children:[{_type:'span',text}]});
 const syntheticPage={_id:'site-cv',cv:{name:'Bernardo Raposo',sections:[
   {label:'Experience',items:[

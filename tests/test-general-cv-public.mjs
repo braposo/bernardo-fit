@@ -32,6 +32,26 @@ assert.ok(response.body.includes('Led a small team delivering shared platform to
 assert.ok(response.body.includes('href="tel:+442079460018"'));
 assert.ok(!response.body.includes('href="javascript:'));
 
+// Shared report links open the fit page design: the live application page when the job has one,
+// otherwise the report with the published general CV.
+const sharedReport={job_title:'Platform Lead',company:'Northstar',pitch:'A synthetic pitch.',closing:'A synthetic closing.',
+  categories:[{name:'Leadership',note:'Led a team.'}],differentiators:[{headline:'Range',detail:'Worked across teams.'}],triage:'private triage'};
+const sharedHandler=createSiteHandler(()=>client,undefined,{findApplication:async id=>id==='with-cv'?'livepublicid':null,
+  getReport:async id=>id==='shared'?sharedReport:null});
+const redirected=makeResponse();
+await sharedHandler({method:'GET',query:{page:'home',r:'with-cv'}},redirected);
+assert.equal(redirected.code,302);assert.equal(redirected.headers.Location,'/fit/livepublicid');
+const shared=makeResponse();
+await sharedHandler({method:'GET',query:{page:'home',r:'shared'}},shared);
+assert.equal(shared.code,200);
+assert.match(shared.body,/<title>Platform Lead · Alex Morgan<\/title>/);
+for(const fragment of ['The fit','What I bring','A synthetic closing.','Led a small team delivering shared platform tools','href="/bernardo-raposo-cv.pdf"','"shared"'])
+  assert.ok(shared.body.includes(fragment),`shared report page is missing ${fragment}`);
+assert.doesNotMatch(shared.body,/Application CV|private triage|private-role-711|javascript:alert/);
+const missing=makeResponse();
+await sharedHandler({method:'GET',query:{page:'home',r:'missing'}},missing);
+assert.equal(missing.code,503,'unknown reports fall through to the original home view');
+
 const downloadResponse=makeResponse();
 await handler({method:'GET',query:{page:'download'}},downloadResponse);
 assert.equal(downloadResponse.code,302,'published general PDF route should redirect');
