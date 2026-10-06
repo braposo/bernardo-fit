@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {applicationCvSourceFromDocument} from '../lib/application-cv-source.js';
 import {safeApplicationCvContactHref} from '../lib/application-cv-contacts.js';
-import {createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries,getPublicApplicationCv} from '../lib/application-cv-store.js';
+import {createApplicationCvStore,createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries,getPublicApplicationCv} from '../lib/application-cv-store.js';
 import {createApplicationHandler} from '../lib/handlers/application.js';
 import {createSiteHandler} from '../api/site.js';
 import {buildApplicationCvSeed,seedApplicationCv,DEFAULT_CV_VERIFIER_PROMPT,ROLE_OVERVIEW_EVIDENCE_KEYS} from '../scripts/seed-application-cv.mjs';
@@ -23,13 +23,17 @@ const source={page:{_id:'page',_rev:'rev-page',cv:{name:'Bernardo Raposo',headli
   {label:'Email',href:'mailto:b@example.com'},{label:'+1 555 010 0123',href:'tel:+15550100123'},
   {label:'Unsafe phone',href:'tel:+15550100123;ext=9'}]}},
   settings:{_id:'application-cv-settings',_rev:'rev-settings',model:'gpt-5.6-sol',prompt:'Select evidence.',verifierPrompt:'Verify evidence.',maxWords:600,minBodyPx:13,layout:'classic'},
-  roles:[{_id:'role-1',_rev:'rev-role',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',location:'London',overviewEvidenceId:'e1',evidence:[evidence]}],education:[],projects:[]};
+  roles:[{_id:'role-1',_rev:'rev-role',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',location:'London',overviewEvidenceId:'e1',evidence:[evidence]}],education:[],
+  projects:[{_id:'project-1',_rev:'rev-project',title:'Fit',links:[{label:'View Fit',href:'https://fit.example/work'}],
+    evidence:[{...evidence,_id:'project-evidence'}]}]};
 const snapshot=applicationCvSourceFromDocument(source);
 assert.equal(snapshot.roles[0].overviewEvidenceId,'e1');
 assert.deepEqual(snapshot.identity.contacts,[{label:'Email',href:'mailto:b@example.com'},
   {label:'+1 555 010 0123',href:'tel:+15550100123'}]);
 assert.equal(snapshot.roles[0].evidence[0].sourceRef.documentId,'source-1');
 assert.equal(snapshot.roles[0].evidence[0].contribution,'personal');
+assert.deepEqual(snapshot.projects[0].links,[{label:'View Fit',href:'https://fit.example/work'}]);
+assert.throws(()=>applicationCvSourceFromDocument({...source,projects:[{...source.projects[0],links:[{label:'Unsafe',href:'javascript:alert(1)'}]}]}),/safe HTTP\(S\) URL/);
 assert.notEqual(applicationCvSourceFromDocument({...source,settings:{...source.settings,_rev:'new-revision'}}).fingerprint,snapshot.fingerprint);
 assert.throws(()=>applicationCvSourceFromDocument({...source,roles:[{...source.roles[0],evidence:[{...evidence,sourcePassage:''}]}]}),/incomplete/);
 assert.throws(()=>applicationCvSourceFromDocument({...source,settings:{...source.settings,model:'unknown'}}),/Publish CV identity/);
@@ -54,8 +58,8 @@ const pdfSha256=createHash('sha256').update(pdf).digest('hex');
 const privateVersion={id:'request-1',createdAt:'2026-10-06T00:00:00Z',fingerprint:'fp-1',sourceFingerprint:snapshot.fingerprint,
   jobFingerprint:'jd-1',sourceSnapshot:snapshot,reportSnapshot:{id:'shared-report',report:{job_title:'Engineering Manager',company:'Acme',pitch:'A strong fit.',secret:'never public'}},
   content:{identity:snapshot.identity,summary:'A tailored summary.',experience:[{roleId:'role-1',title:'Principal Engineer',company:'TravelRepublic',dates:'2018 – 2020',bullets:[{text:'Built the GraphQL service.',evidenceIds:['e1']}]}],
-    projects:[{title:'Fit',bullets:[{text:'Built my job-search application.',evidenceIds:['fit-evidence']}]},
-      {title:'Open source — figma-graphql',bullets:[{text:'A GraphQL wrapper for the Figma API.',evidenceIds:['figma-evidence']}]},
+    projects:[{title:'Fit',links:[{label:'View Fit',href:'https://fit.example/work'}],bullets:[{text:'Built my job-search application.',evidenceIds:['fit-evidence']}]},
+      {title:'Open source — figma-graphql',links:[{label:'Unsafe',href:'javascript:alert(1)'}],bullets:[{text:'A GraphQL wrapper for the Figma API.',evidenceIds:['figma-evidence']}]},
       {title:'Speaking — React Advanced London',bullets:[{text:'Speaker at React Advanced London.',evidenceIds:['talk-evidence']}]}]},
   validation:{status:'valid',requirementMap:[{requirement:'GraphQL',sourceIds:['e1']}]},model:'test-model',pdfBuffer:pdf,pdfSha256};
 const saved=await store.saveApplicationCvVersion(job.id,privateVersion);
@@ -70,6 +74,8 @@ const before=(await store.getPublicApplicationCv(first.publicId));
 assert.equal(before.report.secret,undefined);
 assert.equal(before.version.content.experience[0].bullets[0].evidenceIds,undefined);
 assert.deepEqual(before.version.content.identity.contacts,snapshot.identity.contacts);
+assert.deepEqual(before.version.content.projects[0].links,[{label:'View Fit',href:'https://fit.example/work'}]);
+assert.deepEqual(before.version.content.projects[1].links,[]);
 assert.equal(JSON.stringify(before).includes('sourceSnapshot'),false);
 assert.equal(JSON.stringify(before).includes('requirementMap'),false);
 assert.equal((await store.getApplicationCvSummaries([job.id]))[job.id].currentVersion.sourceFingerprint,snapshot.fingerprint);
@@ -88,6 +94,10 @@ await store.publishApplicationCvVersion(job.id,saved.id,{expectedRequestId:secon
 assert.equal((await store.getApplicationCv(job.id)).currentVersionId,saved.id);
 await store.claimApplicationCvRun(job,{requestId:'request-3',fingerprint:'fp-3',status:'queued'});
 const review=await store.saveApplicationCvReviewDraft(job.id,{...privateVersion,id:'request-3',fingerprint:'fp-3',validation:{status:'needs_review',issues:['overflow']},pdfBuffer:undefined});
+const latestSaved=(await store.getApplicationCvSummaries([job.id]))[job.id].latestVersion;
+assert.equal(latestSaved.validationStatus,'valid');
+assert.equal(latestSaved.hasPdf,true);
+assert.notEqual(latestSaved.id,review.id);
 await assert.rejects(store.publishApplicationCvVersion(job.id,review.id,{expectedRequestId:review.id,expectedFingerprint:review.fingerprint,allowAfterSubmission:true}),{code:'APPLICATION_CV_PDF_INVALID'});
 await store.updateApplicationCvRun(job.id,review.id,{status:'needs_review'});
 assert.equal((await store.claimApplicationCvRun(job,{requestId:'request-4',fingerprint:'fp-4',status:'queued'})).run.requestId,'request-4');
@@ -108,8 +118,10 @@ assert.equal(htmlRes.code,200);assert.match(htmlRes.body,/A tailored summary/);a
 assert.equal((htmlRes.body.match(/Download CV · PDF/g)||[]).length,1);
 assert.match(htmlRes.body,/href="tel:\+15550100123"/);
 assert.doesNotMatch(htmlRes.body,/Unsafe phone/);
-assert.match(htmlRes.body,/Projects &amp; speaking/);
+assert.match(htmlRes.body,/Other contributions/);
 assert.match(htmlRes.body,/Open source — figma-graphql/);
+assert.match(htmlRes.body,/href="https:\/\/fit\.example\/work"/);
+assert.doesNotMatch(htmlRes.body,/javascript:alert|Unsafe/);
 assert.match(htmlRes.body,/Speaking — React Advanced London/);
 assert.ok(htmlRes.body.indexOf('The fit')<htmlRes.body.indexOf('What I bring'));
 assert.ok(htmlRes.body.indexOf('What I bring')<htmlRes.body.indexOf('Application CV'));
@@ -253,6 +265,16 @@ assert.equal(phonePage.cv.contacts[1].href,'tel:+15550100123');
 assert.deepEqual(await addApplicationCvPhone({client:phoneClient,number:'+15550100123',label:'+1 555 010 0123',apply:true}),
   {needed:false,applied:false});
 await assert.rejects(addApplicationCvPhone({client:phoneClient,number:'+15550100123',label:'Different',apply:true}),/edited/);
+const validationPayload=status=>({payload:JSON.stringify({status})});
+const summaryClient={async fetch(query){
+  if(query.includes('_type == "applicationCvBinding"'))return [{_id:'binding-one',jobId:'job-saved',publicId:'public-saved',run:{status:'completed',publication:'saved'}}];
+  if(query.includes('_type == "applicationCvVersion"')){assert.match(query,/defined\(pdf\.asset->url\)/);return [
+    {bindId:'binding-one',requestId:'dangling',createdAt:'2026-10-06T03:00:00Z',validation:validationPayload('valid'),pdfSha256:'sha',pdfAssetRef:''},
+    {bindId:'binding-one',requestId:'review',createdAt:'2026-10-06T02:00:00Z',validation:validationPayload('needs_review'),pdfSha256:'sha',pdfAssetRef:'asset',pdfUrl:'https://cdn.sanity.io/files/quli96gc/production/review.pdf'},
+    {bindId:'binding-one',requestId:'saved-valid',createdAt:'2026-10-06T01:00:00Z',model:'gpt-5.6-sol',validation:validationPayload('valid'),pdfSha256:'sha',pdfAssetRef:'asset',pdfUrl:'https://cdn.sanity.io/files/quli96gc/production/valid.pdf'}];}
+  throw Error('Unexpected summary query');
+}};
+assert.equal((await createApplicationCvStore(summaryClient).getApplicationCvSummaries(['job-saved']))['job-saved'].latestVersion.id,'saved-valid');
 const originalReadToken=process.env.SANITY_READ_TOKEN,originalWriteToken=process.env.SANITY_WRITE_TOKEN;
 try {
   process.env.SANITY_READ_TOKEN='read-only-test-token';

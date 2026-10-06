@@ -28,6 +28,16 @@ await withApplicationCvStore(cvStore,async()=>{
     validation:{status:'valid',issues:[]},pdfBuffer,pdfSha256:createHash('sha256').update(pdfBuffer).digest('hex'),
     pdfUrl:'https://cdn.sanity.io/files/quli96gc/production/synthetic.pdf'};
   await cvStore.saveApplicationCvVersion(job.id,version);
+  await test('a saved unpublished CV is available privately without a public link',async()=>{
+    const summary=(await cvStore.getApplicationCvSummaries([job.id]))[job.id];
+    const fields=applicationCvFields(job,summary);
+    assert.equal(fields.hasCv,false);
+    assert.equal(fields.applicationCv.fitUrl,'');
+    assert.equal(fields.applicationCv.currentVersionId,'');
+    assert.equal(fields.applicationCv.latestVersionId,version.id);
+    assert.deepEqual(fields.applicationCv.latestVersion,{id:version.id,createdAt:version.createdAt,
+      model:version.model||'',validationStatus:'valid',hasPdf:true});
+  });
   await cvStore.publishApplicationCvVersion(job.id,version.id,{expectedRequestId:version.id,expectedFingerprint:version.fingerprint});
   await test('private version API requires admin authentication',async()=>{
     const res=await call({query:{id:job.id,version:version.id},authorised:false});assert.equal(res.code,401);

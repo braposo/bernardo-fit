@@ -24,6 +24,13 @@ const content={identity:{name:'Alex Morgan',headline:'Engineering leader buildin
     {title:'Open-source accessibility toolkit',company:'Community project',dates:'2024',location:'',bullets:[{text:'Created reusable interface checks for product teams.'}]},
     {title:'Conference talk: Building accessible product systems',company:'Product Engineering Summit',dates:'2025',location:'',bullets:[{text:'Shared practical techniques with product teams.'}]},
   ]};
+if(stage==='contributions')content.projects=[
+  {title:'Independent work',bullets:[{text:'Built a personal application to explore product decisions and delivery.'}]},
+  {title:'Open source',bullets:[{text:'Created React interface tools, a GraphQL wrapper and an experimental data application.'}],links:[
+    {label:'Interface toolkit',href:'https://example.test/toolkit'},{label:'GraphQL wrapper',href:'https://example.test/graphql'},
+    {label:'Data experiment',href:'https://example.test/data'}]},
+  {title:'Speaking',bullets:[{text:'Spoke at community events about product engineering and interface design.'}]},
+];
 const fixture={publicId:'synthetic-preview',version:{content},report:{job_title:'Engineering Manager',company:'Northstar Labs',
   pitch:'I bring a mix of team leadership, platform decisions and hands-on web experience to this role.',
   categories:[{name:'Leadership',note:'Led a small product engineering team.'},
@@ -56,7 +63,7 @@ try{
       const actual=(await page.locator('.cv .experience > h3.section-label').last().textContent()).trim();
       if(actual!==expected) throw new Error(`Expected visible section heading "${expected}", found "${actual}".`);
     }
-    if(stage==='clean-layout' && !baseline) {
+    if((stage==='clean-layout' || stage==='contributions') && !baseline) {
       const layout=await page.evaluate(()=>({
         separators:['.rows','.row','.cv','.role','.footer'].flatMap(selector=>[...document.querySelectorAll(selector)].map(element=>{
           const style=getComputedStyle(element);return [style.borderTopWidth,style.borderBottomWidth,style.borderBlockWidth];
@@ -66,6 +73,10 @@ try{
         soleDownload:document.querySelectorAll('a.download').length===1,
       }));
       if(!layout.separators || !layout.paragraphs || !layout.phone || !layout.soleDownload) throw new Error(`Unexpected clean public CV layout: ${JSON.stringify(layout)}`);
+    }
+    if(stage==='contributions' && !baseline){
+      if(await page.locator('.entry-links a').count()!==3)throw Error('Contribution links missing.');
+      if((await page.locator('.experience > .section-label').last().textContent()).trim()!=='Other contributions')throw Error('Contribution heading missing.');
     }
     await page.screenshot({path:join(output,`public-${baseline?'before':'after'}-${name}.png`),fullPage:true,animations:'disabled'});
     await page.close();

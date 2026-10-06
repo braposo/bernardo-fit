@@ -63,14 +63,17 @@ assert.ok(validateApplicationCv(changedProfile,source,requirementMap).issues.som
 const malicious=structuredClone(content);
 malicious.experience[0].bullets[0].text='<script>alert(1)</script>';
 const projectsAndSpeaking={...content,projects:[
-  {title:'Open-source accessibility toolkit',company:'Community project',dates:'2024',bullets:[{text:'Published a reusable interface checker.'}]},
+  {title:'Open source',company:'Community projects',dates:'2024',bullets:[{text:'Published a reusable interface checker and a data playground.'}],links:[
+    {label:'Interface checker',href:'https://example.test/checker'},
+    {label:'Data playground',href:'https://example.test/playground'},
+    {label:'Unsafe link',href:'javascript:alert(1)'}]},
   {title:'Conference talk: Designing accessible product systems',company:'Product Engineering Summit',dates:'2025',bullets:[{text:'Shared practical techniques with product teams.'}]},
 ]};
 const html=await renderApplicationCvHtml({...malicious,projects:projectsAndSpeaking.projects});
 assert.ok(html.includes('&lt;script&gt;'));
 assert.ok(!html.includes('<script>alert(1)</script>'));
-const projectsHeading=html.indexOf('<h2>Projects &amp; speaking</h2>');
-const openSourceEntry=html.indexOf('Open-source accessibility toolkit');
+const projectsHeading=html.indexOf('<h2>Other contributions</h2>');
+const openSourceEntry=html.indexOf('Open source');
 const speakingEntry=html.indexOf('Conference talk: Designing accessible product systems');
 assert.ok(projectsHeading>=0 && projectsHeading<openSourceEntry && openSourceEntry<speakingEntry);
 const {pdfBytes,layout}=await renderApplicationCvPdf(projectsAndSpeaking,{minBodyPx:13});
@@ -81,10 +84,13 @@ const pdfLoading=(await import('pdfjs-dist/legacy/build/pdf.mjs')).getDocument({
 const pdfDocument=await pdfLoading.promise;
 try {
   const pdfText=(await (await pdfDocument.getPage(1)).getTextContent()).items.map(item=>item.str||'').join(' ').replace(/\s+/g,'').toLowerCase();
-  assert.ok(pdfText.includes('projects&speaking'));
+  assert.ok(pdfText.includes('othercontributions'));
   assert.ok(pdfText.includes('+447700900123'));
   const links=await (await pdfDocument.getPage(1)).getAnnotations({intent:'display'});
   assert.ok(links.some(link=>link.url==='tel:+447700900123' || link.unsafeUrl==='tel:+447700900123'));
+  assert.ok(links.some(link=>link.url==='https://example.test/checker'));
+  assert.ok(links.some(link=>link.url==='https://example.test/playground'));
+  assert.ok(!links.some(link=>link.url?.startsWith('javascript:')));
 } finally {await pdfLoading.destroy();}
 const overfull=structuredClone(content);
 overfull.experience[0].bullets=Array.from({length:9},()=>({text:'A deliberately lengthy evidence sentence describing engineering delivery and collaboration. '.repeat(16),evidenceIds:['e1']}));

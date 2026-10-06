@@ -17,8 +17,10 @@ export const applicationCvRole=defineType({name:'applicationCvRole',title:'CV em
   preview:{select:{title:'title',subtitle:'company'}}})
 export const applicationCvEducation=defineType({name:'applicationCvEducation',title:'CV education',type:'document',icon:DocumentTextIcon,
   fields:[sourceKey,required('title','Qualification'),defineField({name:'dates',type:'string'}),defineField({name:'location',type:'string'}),order,publicFlag]})
-export const applicationCvProject=defineType({name:'applicationCvProject',title:'CV project',type:'document',icon:DocumentTextIcon,
-  fields:[sourceKey,required('title','Project'),defineField({name:'dates',type:'string'}),defineField({name:'location',type:'string'}),order,publicFlag]})
+export const applicationCvProject=defineType({name:'applicationCvProject',title:'CV contribution',type:'document',icon:DocumentTextIcon,
+  fields:[sourceKey,required('title','Contribution'),defineField({name:'dates',type:'string'}),defineField({name:'location',type:'string'}),
+    defineField({name:'links',title:'Public links',type:'array',of:[defineArrayMember({type:'object',fields:[required('label','Label'),
+      defineField({name:'href',title:'URL',type:'url',validation:rule=>rule.required().uri({scheme:['https','http']})})]})]}),order,publicFlag]})
 export const applicationCvEvidence=defineType({name:'applicationCvEvidence',title:'CV evidence',type:'document',icon:DocumentTextIcon,
   fields:[sourceKey,required('text','CV-ready fact','text'),defineField({name:'source',title:'Original source document',type:'reference',to:[{type:'sitePage'},{type:'candidateEvidence'},{type:'candidateProfile'}],validation:rule=>rule.required()}),
     required('sourcePassage','Exact source passage','text'),

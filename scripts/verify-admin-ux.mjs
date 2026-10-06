@@ -40,11 +40,22 @@ try {
     hasResearch: i !== 1, researchStale: true, briefStale: true,
     questions: i ? [] : [{ id: 'q1', q: 'Why this role?', limit: 120, a: 'A synthetic saved answer.' }],
   }));
+  if (process.env.ADMIN_UX_CV_SAVED_UNPUBLISHED) {
+    jobs[0].applicationCv = { publicId: 'personalised-job0', currentVersionId: '', submittedVersionId: '', status: 'completed',
+      latestVersionId: 'cv-v2', latestVersion: { id: 'cv-v2', createdAt: '2026-09-29T10:00:00Z', model: 'gpt-5.6-sol', hasPdf: true, validationStatus: 'valid' },
+      run: { status: 'completed', publication: 'saved', versionId: 'cv-v2' } };
+  } else {
+    jobs[3].applicationCv.status = 'failed';
+    jobs[3].applicationCv.run = { status: 'failed', error: 'Synthetic update failed' };
+    jobs[4].applicationCv = { publicId: 'personalised-job4', status: 'completed', currentVersionId: '', submittedVersionId: '',
+      latestVersionId: 'cv-v2', latestVersion: { id: 'cv-v2', createdAt: '2026-09-29T10:00:00Z', model: 'gpt-5.6-sol', hasPdf: true, validationStatus: 'valid' },
+      run: { status: 'completed', publication: 'saved', versionId: 'cv-v2' } };
+  }
   jobs[1].jevStale = true;
   jobs[1].jevAssessment = { score: 79, assessedAt: '2026-09-20T10:00:00Z',
     dimensions: ['Responsibilities fit', 'Evidence of capability', 'Seniority and scope', 'Career direction', 'Practical compatibility']
       .map((label, i) => ({ label, score: 79 - i, id: ["responsibilities", "evidence", "scope", "direction", "practical"][i], weight: [30, 30, 15, 5, 20][i], confidence: 0.9 })) };
-  let failSave = false, dispatches = 0, reviews = 0, mutations = 0, cvViewTokens = 0, jevRoutesModels = false;
+  let failSave = false, dispatches = 0, reviews = 0, mutations = 0, cvViewTokens = 0, cvViewVersionIds = [], jevRoutesModels = false;
   const errors = [];
   const page = await context.newPage();
   if (process.env.ADMIN_UX_CAPTURE_ONLY) {
@@ -85,10 +96,11 @@ try {
       const versions = [{ versionId: 'cv-v2', createdAt: '2026-09-29T10:00:00Z', model: 'gpt-5.6-sol', hasPdf: true, validation: { status: 'valid' } },
         { versionId: 'cv-v1', createdAt: '2026-09-20T10:00:00Z', model: 'claude-sonnet-5', hasPdf: true, validation: { status: 'valid' } },
         { versionId: 'cv-v0', createdAt: '2026-09-12T10:00:00Z', model: 'gpt-5.6-sol', hasPdf: false, validation: { status: 'needs_review', issues: [{ code: 'missing_evidence', message: 'Add evidence for the required platform leadership experience.' }] } }];
-      if (request.method() === 'POST' && body.action === 'view-token') { cvViewTokens++; return reply({ previewUrl: '/private/cv-preview?token=fixture', downloadUrl: '/private/cv-download?token=fixture' }); }
+      const cvVersions = process.env.ADMIN_UX_CV_SAVED_UNPUBLISHED ? versions.slice(0, 1) : versions;
+      if (request.method() === 'POST' && body.action === 'view-token') { cvViewTokens++; cvViewVersionIds.push(body.versionId); return reply({ previewUrl: '/private/cv-preview?token=fixture', downloadUrl: '/private/cv-download?token=fixture' }); }
       if (request.method() === 'POST' && body.action === 'publish') { mutations++; job.applicationCv.currentVersionId = body.versionId; return reply({ job }); }
-      if (url.searchParams.has('version')) return reply({ version: versions.find(version => version.versionId === url.searchParams.get('version')), validation: versions.find(version => version.versionId === url.searchParams.get('version'))?.validation, content: { identity: { name: 'Synthetic Candidate', privateKey: 'never show keys' }, summary: 'A synthetic CV preview.', experience: [{ roleId: 'internal-role-id', title: 'Engineering Manager', company: 'Example company', dates: '2021–2025', bullets: [{ text: 'Led a synthetic team.', evidenceIds: ['internal-evidence-id'] }] }] } });
-      return reply({ application: job?.applicationCv || { status: 'missing' }, versions: job?.applicationCv?.currentVersionId ? versions : [] });
+      if (url.searchParams.has('version')) return reply({ version: cvVersions.find(version => version.versionId === url.searchParams.get('version')), validation: cvVersions.find(version => version.versionId === url.searchParams.get('version'))?.validation, content: { identity: { name: 'Synthetic Candidate', privateKey: 'never show keys' }, summary: 'A synthetic CV preview.', experience: [{ roleId: 'internal-role-id', title: 'Engineering Manager', company: 'Example company', dates: '2021–2025', bullets: [{ text: 'Led a synthetic team.', evidenceIds: ['internal-evidence-id'] }] }] } });
+      return reply({ application: job?.applicationCv || { status: 'missing' }, versions: job?.applicationCv?.currentVersionId || job?.applicationCv?.latestVersionId ? cvVersions : [] });
     }
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
@@ -108,12 +120,28 @@ try {
   if (process.env.ADMIN_UX_CAPTURE_ONLY) {
     await page.locator('[data-section="materials"]').click();
     await page.locator('#panel-materials').waitFor();
+    if (process.env.ADMIN_UX_CV_SAVED_UNPUBLISHED) {
+      await page.locator('[data-document="cv"] [data-act="cvversions-toggle"]').click();
+      await page.locator('[data-document="cv"] [data-cv-version="cv-v2"]').waitFor();
+      if (!process.env.ADMIN_UX_BASELINE) {
+        assert.match(await page.locator('[data-document="cv"] [data-summary="cv"]').textContent(), /Saved · not live/);
+        assert.equal(await page.locator('[data-document="cv"] [data-act="cvopen"]').textContent(), 'Preview saved CV');
+        assert.equal(await page.locator('[data-document="cv"] [data-act="cvdownload"]').textContent(), 'Download saved CV');
+        assert.equal(await page.locator('[data-document="cv"] [data-act="cvpublish"]').count(), 1);
+      }
+    }
     await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}' });
     await page.evaluate(() => document.fonts.ready);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/' + (process.env.ADMIN_UX_BASELINE ? 'before' : 'after') + '-admin-cv-desktop.png', fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/' + (process.env.ADMIN_UX_BASELINE ? 'before' : 'after') + '-admin-cv-mobile.png', fullPage: true });
+    if (process.env.ADMIN_UX_CV_SAVED_UNPUBLISHED && !process.env.ADMIN_UX_BASELINE) {
+      const tokenRequest = page.waitForResponse(response => response.url().includes('/api/admin/cv') && response.request().method() === 'POST');
+      await page.locator('[data-document="cv"] [data-act="cvopen"]').click();
+      const response = await tokenRequest;
+      assert.equal(response.request().postDataJSON().versionId, 'cv-v2');
+    }
     console.log('captured synthetic Documents fixture at desktop (1280×900) and mobile (390×844)');
     await browser.close();
     await new Promise(resolve => server.close(resolve));
@@ -247,6 +275,25 @@ try {
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-document="letter"] .version-summary').waitFor();
   check('document cards use shadcn Card', await page.locator('.material-row[data-slot="card"]').count() === 5);
+  check('published CV remains live and directly openable', /live/i.test(await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()) &&
+    await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible());
+  await page.locator('[data-select-job="job4"]').click();
+  await page.locator('[data-section="materials"]').click();
+  check('saved unpublished CV is clearly labelled and directly previewable/downloadable',
+    (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('Saved · not live') &&
+    await page.locator('[data-document="cv"] [data-act="cvopen"]').getAttribute('data-version') === 'cv-v2' &&
+    await page.locator('[data-document="cv"] [data-act="cvdownload"]').getAttribute('data-version') === 'cv-v2');
+  await page.locator('[data-select-job="job3"]').click();
+  await page.locator('[data-section="materials"]').click();
+  check('failed update keeps the previous public CV reachable', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('Update failed · previous version remains live') &&
+    await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible());
+  await page.locator('[data-select-job="job2"]').click();
+  await page.locator('[data-section="materials"]').click();
+  check('needs-review state keeps a valid live CV reachable', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('Review before submitting') &&
+    await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible());
+  await page.locator('[data-select-job="job0"]').click();
+  await page.locator('[data-section="materials"]').click();
+  await page.locator('[data-document="letter"] .version-summary').waitFor();
   check('fit page prefers the application-specific public link', await page.locator('[data-document="fit"] [data-act="openfit"], [data-document="fit"] a').first().getAttribute('href') === '/fit/personalised-job0');
   check('CV has separate open, download and regenerate actions', await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible() &&
     await page.locator('[data-document="cv"] [data-act="cvdownload"]').isVisible() && await page.locator('[data-document="cv"] [data-act="cvgenerate"]').isVisible());

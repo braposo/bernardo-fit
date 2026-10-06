@@ -984,27 +984,34 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function cvMaterialRow(j, active) {
     var cv = j.applicationCv || {};
     var ready = !!(cv.currentVersionId || cv.downloadUrl || cv.fitUrl);
+    var savedVersion = cv.latestVersion || null;
+    var savedVersionId = cv.latestVersionId || (savedVersion && (savedVersion.id || savedVersion.versionId)) || '';
+    var savedOnly = !ready && !!savedVersionId && savedVersion && savedVersion.validationStatus === 'valid';
     var status = cv.status || (ready ? (cv.stale ? 'stale' : 'ready') : 'missing');
     var run = cv.run || j.cvRun;
     var running = active || !!(run && run.runId && ['dispatching','queued','running'].indexOf(run.status) !== -1);
     var failedWithPrevious = ready && status === 'failed';
-    var needsReview = status === 'needs_review' || cv.validationStatus === 'needs_review' || (cv.validationSummary && cv.validationSummary.status === 'needs_review');
-    var meta = ready ? 'Application CV · ' + (running ? 'Updating · previous version remains live' : failedWithPrevious ? 'Update failed · previous version remains live' : cv.stale ? 'Outdated · previous version remains live' : 'Live') :
-      status === 'failed' ? 'No saved version · the last attempt failed' : 'Not generated yet';
+    var needsReview = status === 'needs_review' || cv.validationStatus === 'needs_review' || (cv.validationSummary && cv.validationSummary.status === 'needs_review') || (savedVersion && savedVersion.validationStatus === 'needs_review');
+    var lastRunFailed = status === 'failed' || (run && run.status === 'failed');
+    var meta = ready ? 'Application CV · ' + (running ? 'Updating · previous version remains live' : failedWithPrevious || lastRunFailed ? 'Update failed · previous version remains live' : cv.stale ? 'Outdated · previous version remains live' : 'Live') :
+      savedOnly ? 'Saved · not live' + (lastRunFailed ? ' · Last update failed' : needsReview ? ' · New version needs review' : '') :
+      status === 'failed' ? 'No saved version · the last attempt failed' : needsReview ? 'Needs review · no live version' : 'Not generated yet';
     if (needsReview) meta += ' · Review before submitting';
     if (j.stage === 'applied') {
       if (cv.submittedVersionId) meta += ' · Applied · submitted version recorded';
       else meta += ' · Applied · submission version not recorded';
     }
     if (cv.createdAt) meta += ' · ' + esc(fmtDate(cv.createdAt));
-    var actions = (ready ? '<button class="read-link" data-act="cvopen">Open CV</button>' + (cv.downloadUrl ? '<button class="read-link" data-act="cvdownload">Download CV</button>' : '') : '') +
-      '<button class="generation' + (ready ? ' generation-outline' : '') + '" data-act="cvgenerate"' + (running ? ' disabled aria-busy="true"' : '') + '>' +
-      (ready ? 'Generate new version' : 'Generate CV') + '</button>';
+    var actions = ready ? '<button class="read-link" data-act="cvopen">Open CV</button>' + (cv.downloadUrl ? '<button class="read-link" data-act="cvdownload">Download CV</button>' : '') :
+      (savedOnly ? '<button class="read-link" data-act="cvopen" data-version="'+esc(savedVersionId)+'">Preview saved CV</button>' + (savedVersion.hasPdf ? '<button class="read-link" data-act="cvdownload" data-version="'+esc(savedVersionId)+'">Download saved CV</button>' : '') : '');
+    actions += '<button class="generation' + ((ready || savedOnly) ? ' generation-outline' : '') + '" data-act="cvgenerate"' + (running ? ' disabled aria-busy="true"' : '') + '>' +
+      ((ready || savedOnly) ? 'Generate new version' : 'Generate CV') + '</button>';
     var alert = needsReview
       ? '<p class="cv-validation" role="status">Review this version before submitting.</p>' :
         status === 'failed' && !ready ? '<p class="cv-validation" role="status">Generation failed. Try again from here.</p>' : '';
     var submitted = cv.submittedVersionId ? '<p class="field-help cv-submitted">Applied version recorded: <span data-submitted-version></span></p>' : '';
-    return '<section class="material-row cv-material-row" data-document="cv" data-job-id="'+esc(j.id)+'"><div class="document-title"><span class="document-icon" data-icon="file"></span><h3>Customised CV</h3><span class="document-live" data-live="cv"></span></div>' +
+    var badge = ready ? 'Live' : savedOnly ? 'Saved · not live' : needsReview ? 'Needs review' : '';
+    return '<section class="material-row cv-material-row" data-document="cv" data-job-id="'+esc(j.id)+'"><div class="document-title"><span class="document-icon" data-icon="file"></span><h3>Customised CV</h3><span class="document-live" data-live="cv">'+esc(badge)+'</span></div>' +
       '<div class="document-summary" data-summary="cv">'+meta+'</div>'+alert+submitted+'<div class="material-actions">'+actions+'</div>' +
       '<div class="document-versions cv-document-versions" data-act="document-versions" data-key="'+esc(j.id+':cv')+'" data-open="'+expandedVersions.has(j.id+':cv')+'" data-cv-history><button class="versions-trigger" data-act="cvversions-toggle">Versions <span data-cv-count></span><span data-icon="chevron"></span></button><div class="versions-content"><div class="verlist" data-cv-list aria-live="polite">Loading versions…</div></div></div></section>';
   }
@@ -1241,7 +1248,12 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var currentId = cv.currentVersionId || '';
     var submittedId = cv.submittedVersionId || '';
     var currentIndex = versions.findIndex(function (version) { return cvVersionId(version) === currentId; });
-    card.querySelector('[data-live="cv"]').textContent = currentIndex < 0 ? (versions.length ? 'Saved' : 'Not created') : 'Live · v' + (versions.length - currentIndex);
+    if (currentIndex >= 0) {
+      card.querySelector('[data-live="cv"]').textContent = 'Live · v' + (versions.length - currentIndex);
+    } else if (cv.latestVersionId || cv.latestVersion) card.querySelector('[data-live="cv"]').textContent = 'Saved · not live';
+    else if (cv.status === 'needs_review' || (cv.validationStatus === 'needs_review')) card.querySelector('[data-live="cv"]').textContent = 'Needs review';
+    else if (cv.status === 'failed') card.querySelector('[data-live="cv"]').textContent = 'Failed';
+    else card.querySelector('[data-live="cv"]').textContent = 'Not generated';
     count.textContent = versions.length;
     var submitted = card.querySelector('[data-submitted-version]');
     if (submitted) submitted.textContent = cvVersionLabel(versions, submittedId);
@@ -2039,9 +2051,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           });
         });
         var cvOpen = cvCard.querySelector('[data-act="cvopen"]');
-        if (cvOpen) cvOpen.addEventListener('click', function () { openApplicationCv(id, 'open'); });
+        if (cvOpen) cvOpen.addEventListener('click', function () { openApplicationCv(id, 'open', cvOpen.getAttribute('data-version')); });
         var cvDownload = cvCard.querySelector('[data-act="cvdownload"]');
-        if (cvDownload) cvDownload.addEventListener('click', function () { openApplicationCv(id, 'download'); });
+        if (cvDownload) cvDownload.addEventListener('click', function () { openApplicationCv(id, 'download', cvDownload.getAttribute('data-version')); });
         var cvGenerate = cvCard.querySelector('[data-act="cvgenerate"]');
         if (cvGenerate) cvGenerate.addEventListener('click', function () {
           openGenerationReview({ id: id, kind: 'cv', trigger: cvGenerate, status: status,

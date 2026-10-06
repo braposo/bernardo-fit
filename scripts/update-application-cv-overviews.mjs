@@ -4,12 +4,13 @@ import {pathToFileURL} from 'node:url';
 import {createStorageClient} from '../lib/sanity/client.js';
 import {loadApplicationCvSource} from '../lib/application-cv-source.js';
 import {buildApplicationCvSeed,ROLE_OVERVIEW_EVIDENCE_KEYS,
-  DEFAULT_CV_WRITER_PROMPT,DEFAULT_CV_VERIFIER_PROMPT} from './seed-application-cv.mjs';
+  V4_CV_WRITER_PROMPT,V4_CV_VERIFIER_PROMPT,DEFAULT_CV_WRITER_PROMPT,DEFAULT_CV_VERIFIER_PROMPT} from './seed-application-cv.mjs';
 import {PREVIOUS_CV_WRITER_PROMPT,PREVIOUS_CV_VERIFIER_PROMPT,
   V3_CV_WRITER_PROMPT,V3_CV_VERIFIER_PROMPT} from './update-application-cv-prompts.mjs';
 const pairs=[
   [V3_CV_WRITER_PROMPT,V3_CV_VERIFIER_PROMPT],
   [PREVIOUS_CV_WRITER_PROMPT,PREVIOUS_CV_VERIFIER_PROMPT],
+  [V4_CV_WRITER_PROMPT,V4_CV_VERIFIER_PROMPT],
   [DEFAULT_CV_WRITER_PROMPT,DEFAULT_CV_VERIFIER_PROMPT],
 ];
 const required=(condition,message)=>{if(!condition)throw Error(message);};
@@ -53,8 +54,8 @@ export async function updateApplicationCvOverviews({client=createStorageClient()
     required(!existing || existing===evidence._id,`Overview reference for ${roleKey} was edited; preserve it and review manually.`);
     if(!existing)updates.push({roleId:role._id,revision:role._rev,evidenceId:evidence._id,key:roleKey});
   }
-  const promptNeeded=promptIndex!==2;
-  if(!apply)return {needed:promptNeeded||!!updates.length,applied:false,promptFrom:promptIndex===0?'v3':promptIndex===1?'original':'v4',
+  const promptNeeded=promptIndex!==3;
+  if(!apply)return {needed:promptNeeded||!!updates.length,applied:false,promptFrom:['v3','original','v4','v5'][promptIndex],
     overviewRoles:updates.map(row=>row.key)};
   if(promptNeeded||updates.length){
     const tx=client.transaction();
