@@ -6,15 +6,17 @@ import { requireAdmin } from "../../lib/admin.js";
 import { digest } from "../../lib/generation-fingerprint.js";
 import { assertReviewedScope, resolveGenerationReview, REVIEWED_GENERATION_KINDS } from "../../lib/generation-review.js";
 import { getJob, mutateJob } from "../../lib/store.js";
+import { getApplicationCv, claimApplicationCvRun, updateApplicationCvRun } from "../../lib/application-cv-store.js";
 import { resolveModel } from "../../lib/models.js";
 import { clearActiveRun, getReceiptForRequest, getRunReceipt, saveActiveRun, saveRunReceipt } from "../../lib/run-receipts.js";
 import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, ANALYSE_ALL_TASK_ID, SCORE_LISTED_TASK_ID, ANSWER_TASK_ID, BRIEF_TASK_ID,
-  COVER_TASK_ID, PREPARE_SCREEN_TASK_ID, RESEARCH_TASK_ID, TERMINAL_RUN_STATUSES,
+  COVER_TASK_ID, CV_TASK_ID, PREPARE_SCREEN_TASK_ID, RESEARCH_TASK_ID, TERMINAL_RUN_STATUSES,
   coverDispatchEnabled, screenDispatchEnabled } from "../../lib/task-policy.js";
 
 const SPECS = {
   "jev-score": { taskId: "jev-score", field: "jevRun" },
   cover: { taskId: COVER_TASK_ID, field: "coverRun" },
+  cv: { taskId: CV_TASK_ID, field: "cvRun", applicationCv: true },
   research: { taskId: RESEARCH_TASK_ID, field: "researchRun" },
   brief: { taskId: BRIEF_TASK_ID, field: "briefRun" },
   "prepare-screen": { taskId: PREPARE_SCREEN_TASK_ID, field: "prepareRun" },
@@ -32,6 +34,7 @@ const finished = () => new Date().toISOString();
 
 async function writeRun(jobId, spec, body, run) {
   if (spec.global) return;
+  if (spec.applicationCv) return updateApplicationCvRun(jobId, run.requestId, run);
   await mutateJob(jobId, (current) => {
     if (spec.field === "questionRun") {
       return { questions: (current.questions || []).map((q) => q.id === body.questionId && q.run?.requestId === run.requestId &&
@@ -47,6 +50,11 @@ async function writeRun(jobId, spec, body, run) {
 // Completed runs remain eligible for a deliberate rewrite with a new request ID.
 export async function claimRun(jobId, spec, body, pending) {
   if (spec.global) return pending;
+  if (spec.applicationCv) {
+    const job = await getJob(jobId);
+    if (!job || job.archived) throw Object.assign(new Error("Restore this role before generating its CV."), { status: 409 });
+    return (await claimApplicationCvRun(job, pending)).run;
+  }
   let selected = pending;
   await mutateJob(jobId, current => {
     const previous = spec.field === "questionRun"
@@ -66,8 +74,16 @@ export async function claimRun(jobId, spec, body, pending) {
 export async function settleRun(receipt, spec, run) {
   if (spec.global) return;
   const status = run.status === "COMPLETED"
-    ? ["completed", "superseded"].includes(run.output?.outcome) ? run.output.outcome : "completed"
+    ? ["completed", "superseded", "needs_review"].includes(run.output?.outcome) ? run.output.outcome : "completed"
     : "failed";
+  if (spec.applicationCv) {
+    const application = await getApplicationCv(receipt.jobId);
+    if (application?.run?.runId === receipt.runId && ["dispatching", "queued", "running"].includes(application.run.status)) {
+      await updateApplicationCvRun(receipt.jobId, receipt.requestId, { status, finishedAt: finished(),
+        ...(run.error?.message ? { error: run.error.message } : {}) });
+    }
+    return;
+  }
   await mutateJob(receipt.jobId, (current) => {
     if (spec.field === "questionRun") return { questions: (current.questions || []).map((q) =>
       q.id === receipt.questionId && q.run?.runId === receipt.runId && ["dispatching", "queued"].includes(q.run.status)
@@ -79,6 +95,12 @@ export async function settleRun(receipt, spec, run) {
 
 async function restoreRunPointer(receipt, spec) {
   if (spec.global) return;
+  if (spec.applicationCv) {
+    const application = await getApplicationCv(receipt.jobId);
+    if (application?.run?.requestId === receipt.requestId && ["dispatching", "queued"].includes(application.run.status))
+      await updateApplicationCvRun(receipt.jobId, receipt.requestId, { runId: receipt.runId, status: "queued" });
+    return;
+  }
   await mutateJob(receipt.jobId, (current) => {
     if (spec.field === "questionRun") return { questions: (current.questions || []).map((q) =>
       q.id === receipt.questionId && q.run?.requestId === receipt.requestId && !["completed", "superseded", "failed"].includes(q.run?.status)
@@ -139,19 +161,23 @@ async function handler(req, res) {
     if (!spec.global && !job) return res.status(404).json({ error: "Job not found" });
     const model = resolved?.model || resolveModel(body.model);
     const built = resolved
-      ? { fingerprint: resolved.workFingerprint, payload: { ...resolved.payload, ...(kind === "cover" ? { origin: origin() } : {}) } }
+      ? { fingerprint: resolved.workFingerprint, payload: { ...resolved.payload, ...(["cover", "cv"].includes(kind) ? { origin: origin() } : {}) } }
       : { fingerprint: digest({ kind, requestId, model }), payload: { model } };
-    const prior = spec.field === "questionRun" ? job?.questions?.find(q => q.id === body.questionId)?.run : job?.[spec.field];
-    if (prior?.runId && prior.fingerprint === built.fingerprint && ["dispatching", "queued"].includes(prior.status)) {
+    const prior = spec.applicationCv ? (await getApplicationCv(ownerId))?.run
+      : spec.field === "questionRun" ? job?.questions?.find(q => q.id === body.questionId)?.run : job?.[spec.field];
+    if (prior?.runId && (spec.applicationCv || prior.fingerprint === built.fingerprint) && ["dispatching", "queued", "running"].includes(prior.status)) {
       const currentRun = await runs.retrieve(prior.runId);
       if (TERMINAL_RUN_STATUSES.has(currentRun.status)) {
-        await writeRun(ownerId, spec, body, { ...prior, status: currentRun.status === "COMPLETED" ? "completed" : "failed", finishedAt: finished() });
+        await settleRun({ jobId: ownerId, questionId: body.questionId, requestId: prior.requestId, runId: prior.runId }, spec, currentRun);
       }
     }
     const startedAt = new Date().toISOString();
     let pendingRun = { requestId, runId: "", model, fingerprint: built.fingerprint,
       status: "dispatching", startedAt, finishedAt: "" };
     pendingRun = await claimRun(ownerId, spec, body, pendingRun);
+    if (spec.applicationCv && pendingRun?.fingerprint !== built.fingerprint) {
+      throw Object.assign(new Error("A CV is already being prepared from different inputs. Wait for it to finish before generating another version."), { status: 409 });
+    }
     requestId = pendingRun.requestId;
     try {
       const key = await idempotencyKeys.create(`${kind}:${ownerId}:${requestId}`, { scope: "global" });

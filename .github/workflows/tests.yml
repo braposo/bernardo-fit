@@ -36,11 +36,11 @@ jobs:
       - name: Build admin components
         run: npm run build
 
+      - name: Install browser for PDF and admin checks
+        run: npx playwright install --with-deps chromium
+
       - name: Run tests
         run: npm test
-
-      - name: Install browser for admin accessibility checks
-        run: npx playwright install --with-deps chromium
 
       - name: Verify admin components and accessibility
         run: npm run test:admin-ui

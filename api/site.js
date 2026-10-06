@@ -1,5 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { createContentClient } from "../lib/sanity/client.js";
+import { createApplicationHandler } from "../lib/handlers/application.js";
+import {renderApplicationCvHtml} from '../lib/application-cv-render.js';
+import {publicCvVersion} from '../lib/application-cv-store.js';
+import {generalCvPageAvailable} from '../lib/general-cv-availability.js';
 import {
   loadPublicPage,
   DEMO_QUERY,
@@ -10,7 +14,7 @@ import {
   escapeHtml,
   scriptJson,
 } from "../lib/sanity/public-pages.js";
-export function createSiteHandler(getClient = createContentClient) {
+export function createSiteHandler(getClient = createContentClient, applicationHandler = createApplicationHandler()) {
   return async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     if (!["GET", "HEAD"].includes(req.method)) {
@@ -18,6 +22,7 @@ export function createSiteHandler(getClient = createContentClient) {
       return res.status(405).end();
     }
     const slug = req.query?.page || "home";
+    if (slug === "application") return applicationHandler(req, res);
     if (!["home", "cv", "letter", "download"].includes(slug))
       return res.status(404).end();
     try {
@@ -31,6 +36,8 @@ export function createSiteHandler(getClient = createContentClient) {
             "This page is temporarily unavailable. Please try again shortly.",
           );
       if (slug === "download") {
+        if (page.generalCv && !generalCvPageAvailable(page))
+          return res.status(404).send('CV download unavailable.');
         const url = new URL(page.downloadUrl || "https://invalid.local");
         if (
           url.origin !== "https://cdn.sanity.io" ||
@@ -39,6 +46,15 @@ export function createSiteHandler(getClient = createContentClient) {
           return res.status(404).send("CV download unavailable.");
         res.setHeader("Location", url.href);
         return res.status(302).end();
+      }
+      if (slug === 'cv' && page.generalCv) {
+        if (!generalCvPageAvailable(page)) throw new Error('General CV unavailable');
+        const saved=JSON.parse(page.generalCv.content.payload);
+        // Only public document text and approved links reach the reader.
+        const safe=publicCvVersion({content:saved,validation:{status:'valid'},pdfSha256:page.generalCv.pdfSha256}).content;
+        const html=await renderApplicationCvHtml({...safe,variant:'general',publicUrl:saved.publicUrl},{showDownload:true});
+        res.setHeader('Content-Type','text/html; charset=utf-8');
+        return res.status(200).send(req.method==='HEAD'?'':html);
       }
       let html = await readFile(
         new URL(
@@ -93,9 +109,7 @@ export function createSiteHandler(getClient = createContentClient) {
           "<!-- SANITY_CV -->",
           () => cvHeader(page.cv) + cvBody(page.cv),
         );
-        html = html.replace("<!-- SANITY_LETTER_HEADER -->", () =>
-          cvHeader(page.cv),
-        );
+        if (slug === "letter") html = html.replace("<!-- SANITY_LETTER_HEADER -->", () => cvHeader(page.cv));
       }
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(200).send(req.method === "HEAD" ? "" : html);

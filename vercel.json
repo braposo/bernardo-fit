@@ -5,6 +5,18 @@
   "outputDirectory": "public",
   "rewrites": [
     {
+      "source": "/api/admin/cv",
+      "destination": "/api/admin/jobs?document=cv"
+    },
+    {
+      "source": "/fit/:publicId/cv.pdf",
+      "destination": "/api/site?page=application&publicId=:publicId&kind=pdf"
+    },
+    {
+      "source": "/fit/:publicId",
+      "destination": "/api/site?page=application&publicId=:publicId"
+    },
+    {
       "source": "/",
       "destination": "/api/site?page=home"
     },
@@ -42,7 +54,10 @@
       "maxDuration": 240
     },
     "api/site.js": {
-      "includeFiles": "lib/templates/*.html"
+      "includeFiles": "lib/{templates/*.html,assets/cv-fonts/*.ttf}"
+    },
+    "api/admin/jobs.js": {
+      "includeFiles": "lib/assets/cv-fonts/*.ttf"
     }
   }
 }

@@ -6,6 +6,8 @@ import { ensureReviewingGeneration, reviewingGenerationResult } from "../lib/rev
 import { executeAnalysisWithFollowup } from "../lib/analysis-with-followup.js";
 import { getRunReceipt } from "../lib/run-receipts.js";
 import * as store from "../lib/store.js";
+import {createMemoryApplicationCvStore,withApplicationCvStore} from "../lib/application-cv-store.js";
+import {withApplicationCvSource} from "../lib/application-cv-source.js";
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -24,12 +26,14 @@ runs.retrieve = async id => ({ id, status: "EXECUTING" });
 idempotencyKeys.create = async (key, options) => { assert.equal(options.scope, "global"); return key; };
 const create = extra => store.saveJob({ company: "Synthetic", role: "Manager", jobDescription: "Lead a team building dependable software for customers.", ...extra });
 const report = () => store.saveReport({ company: "Synthetic", job_title: "Manager", job_description: "Lead a team building dependable software for customers.", created_at: new Date().toISOString() });
+const cvStore=createMemoryApplicationCvStore();
+const cvSource={identity:{name:'Bernardo Raposo',headline:'Engineering Manager',contacts:[]},roles:[{id:'role',title:'Manager',company:'Synthetic',dates:'2020–2026',location:'',overviewEvidenceId:'evidence',evidence:[{id:'evidence',text:'Led a team.',sourceRef:{documentId:'source',revision:'r1',passage:'Led a team.'},contribution:'personal',status:'delivered',skills:[]}]}],education:[],projects:[],settings:{model:'gpt-5.6-sol',prompt:'Use evidence.',verifierPrompt:'Verify evidence.',maxWords:600,minBodyPx:13,layout:'classic'},fingerprint:'test-source'};
 async function call(method, body, id) {
   const res = { status(code) { this.code = code; return this; }, json(value) { this.body = value; return this; }, setHeader() {} };
   await handler({ method, body, query: { id }, headers: { "x-admin-secret": "reviewing-test" } }, res);
   return res;
 }
-try {
+try { await withApplicationCvStore(cvStore,()=>withApplicationCvSource(cvSource,async()=>{
   await test("moving to reviewing queues analysis and exposes recoverable run pointer", async () => {
     const job = await create();
     const response = await call("PATCH", { stage: "reviewing" }, job.id);
@@ -41,13 +45,14 @@ try {
     assert.equal(receipt.kind, "analyse");
     assert.deepEqual(response.body.generationErrors, []);
   });
-  await test("after analysis exists only the missing cover is dispatched", async () => {
+  await test("after analysis exists the missing application CV is dispatched", async () => {
     const job = await create({ stage: "reviewing", fitReportId: await report() });
     const before = dispatched.size;
     await ensureReviewingGeneration(job.id);
     assert.equal(dispatched.size, before + 1);
-    assert.equal([...dispatched.values()].at(-1).taskId, "cover-letter");
+    assert.equal([...dispatched.values()].at(-1).taskId, "application-cv");
     assert.equal((await store.getJob(job.id)).analysisRun, null);
+    assert.equal((await cvStore.getApplicationCv(job.id)).run.status,'queued');
   });
   await test("existing cover is preserved while missing analysis is generated", async () => {
     const job = await create({ stage: "reviewing", coverLetter: ["Existing letter"] });
@@ -56,7 +61,8 @@ try {
     await store.updateJob(job.id, { fitReportId: await report() });
     const before = dispatched.size;
     await ensureReviewingGeneration(job.id);
-    assert.equal(dispatched.size, before);
+    assert.equal(dispatched.size, before + 1);
+    assert.equal([...dispatched.values()].at(-1).taskId, "application-cv");
   });
   await test("concurrent and repeated requests share one provider idempotency key", async () => {
     const job = await create({ stage: "reviewing" });
@@ -81,8 +87,13 @@ try {
     assert.notEqual(saved.analysisRun.requestId, "expired");
     assert.equal(saved.analysisRun.status, "queued");
   });
-  await test("both existing documents are left untouched", async () => {
+  await test("an existing published CV and analysis are left untouched", async () => {
     const job = await create({ stage: "reviewing", fitReportId: await report(), coverLetterId: "existing-cover" });
+    await cvStore.ensureApplicationCv(job);
+    await cvStore.claimApplicationCvRun(job,{requestId:'existing-cv',fingerprint:'existing-fp',status:'queued'});
+    await cvStore.saveApplicationCvVersion(job.id,{id:'existing-cv',fingerprint:'existing-fp',sourceSnapshot:cvSource,reportSnapshot:{id:job.fitReportId,report:{job_title:'Manager'}},
+      content:{identity:cvSource.identity,experience:[]},validation:{status:'valid'},pdfBuffer:Buffer.from('%PDF-1.7\nexisting\n%%EOF')});
+    await cvStore.publishApplicationCvVersion(job.id,'existing-cv',{expectedRequestId:'existing-cv',expectedFingerprint:'existing-fp'});
     const before = dispatched.size;
     await ensureReviewingGeneration(job.id);
     assert.equal(dispatched.size, before);
@@ -120,15 +131,15 @@ try {
     assert.equal(response.code, 200);
     assert.equal(response.body.job.analysisRun.status, "queued");
   });
-  await test("follow-up cover failure retains published report and surfaces the error", async () => {
+  await test("follow-up CV dispatch failure retains published report and surfaces the error", async () => {
     const job = await create({ stage: "reviewing", fitReportId: await report() });
-    process.env.COVER_DISPATCH_DISABLED = "1";
+    rejectDispatch = true;
     const result = await reviewingGenerationResult(job);
-    delete process.env.COVER_DISPATCH_DISABLED;
+    rejectDispatch = false;
     assert.equal(result.job.fitReportId, job.fitReportId);
-    assert.match(result.generationErrors[0], /temporarily paused/);
+    assert.match(result.generationErrors[0], /Worker unavailable/);
   });
-  await test("worker recovery attaches its checkpoint and then dispatches cover without model replay", async () => {
+  await test("worker recovery attaches its checkpoint and then dispatches CV without model replay", async () => {
     const job = await create({ stage: "reviewing" });
     await ensureReviewingGeneration(job.id);
     const payload = [...dispatched.values()].at(-1).payload;
@@ -137,10 +148,10 @@ try {
     assert.equal(result.outcome, "completed");
     const saved = await store.getJob(job.id);
     assert.equal(saved.fitReportId, payload.requestId);
-    assert.equal(saved.coverRun.status, "queued");
-    assert.equal([...dispatched.values()].at(-1).taskId, "cover-letter");
+    assert.equal((await cvStore.getApplicationCv(job.id)).run.status, "queued");
+    assert.equal([...dispatched.values()].at(-1).taskId, "application-cv");
   });
-  await test("worker keeps completed analysis when its cover dispatch fails", async () => {
+  await test("worker keeps completed analysis when CV dispatch fails", async () => {
     const job = await create({ stage: "reviewing" });
     await ensureReviewingGeneration(job.id);
     const payload = [...dispatched.values()].at(-1).payload;
@@ -152,6 +163,27 @@ try {
     assert.deepEqual(result.generationErrors, ["Worker unavailable"]);
     assert.equal((await store.getJob(job.id)).analysisRun.status, "completed");
   });
+  await test("a needs-review CV is not automatically retried", async () => {
+    const job=await create({stage:'reviewing',fitReportId:await report()});
+    await cvStore.claimApplicationCvRun(job,{requestId:'review-cv',fingerprint:'review-fp',status:'queued'});
+    await cvStore.updateApplicationCvRun(job.id,'review-cv',{status:'needs_review'});
+    const before=dispatched.size;
+    await ensureReviewingGeneration(job.id);
+    assert.equal(dispatched.size,before);
+  });
+  await test("an applied job retains its submitted CV pin and dispatches no automatic work", async () => {
+    const job=await create({stage:'applied',fitReportId:await report()});
+    await cvStore.claimApplicationCvRun(job,{requestId:'applied-cv',fingerprint:'applied-fp',status:'queued'});
+    await cvStore.saveApplicationCvVersion(job.id,{id:'applied-cv',fingerprint:'applied-fp',sourceSnapshot:cvSource,reportSnapshot:{id:job.fitReportId,report:{job_title:'Manager'}},
+      content:{identity:cvSource.identity,experience:[]},validation:{status:'valid'},pdfBuffer:Buffer.from('%PDF-1.7\napplied\n%%EOF')});
+    await cvStore.publishApplicationCvVersion(job.id,'applied-cv',{expectedRequestId:'applied-cv',expectedFingerprint:'applied-fp'});
+    await cvStore.markApplicationCvSubmitted(job.id);
+    const before=dispatched.size;
+    await ensureReviewingGeneration(job.id);
+    assert.equal(dispatched.size,before);
+    assert.equal((await cvStore.getApplicationCv(job.id)).submittedVersionId,'applied-cv');
+  });
+}));
 } finally {
   tasks.trigger = originals.trigger; runs.retrieve = originals.retrieve; idempotencyKeys.create = originals.key;
 }

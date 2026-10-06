@@ -8,12 +8,17 @@ check("loading has a clear label", coverPhaseText({ phase: "loading" }) === "Sta
 check("writing has a clear label", coverPhaseText({ phase: "writing" }) === "Writing…");
 check("unknown phases stay queued", coverPhaseText({ phase: "waiting" }) === "Queued…");
 check("researching has a clear label", coverPhaseText({ phase: "researching" }) === "Researching…");
+check("CV verification has a clear label", coverPhaseText({ phase: "verifying" }) === "Checking CV…");
+check("CV PDF preparation has a clear label", coverPhaseText({ phase: "rendering" }) === "Preparing CV…");
 check("completed result can open", coverCompletion({ ok: true, d: { status: "COMPLETED", result: { outcome: "completed", words: 321 } } }).open === true);
 check("superseded result stays closed", coverCompletion({ ok: true, d: { status: "COMPLETED", result: { outcome: "superseded" } } }).open === false);
 check("failure keeps its message", coverCompletion({ ok: false, d: { error: "Provider unavailable" } }).text === "Provider unavailable");
 check("research completion reports sources", workCompletion({ ok: true, d: { kind: "research", status: "COMPLETED", result: { outcome: "completed", sources: 6 } } }).text === "6 sources");
 check("brief completion can open", workCompletion({ ok: true, d: { kind: "brief", status: "COMPLETED", result: { outcome: "completed" } } }).open === true);
 check("bulk assessment reports completed scores", workCompletion({ ok: true, d: { kind: "jev-score-all", status: "COMPLETED", result: { outcome: "completed", assessed: 2, failed: 0 } } }).text === "2 assessed, 0 failed");
+check("published CV completion is clear", workCompletion({ ok: true, d: { kind: "cv", status: "COMPLETED", result: { outcome: "completed", publication: "published" } } }).text === "Customised CV published");
+check("saved CV completion is clear", workCompletion({ ok: true, d: { kind: "cv", status: "COMPLETED", result: { outcome: "completed", publication: "saved" } } }).text === "Customised CV saved");
+check("CV validation issue has a truthful outcome", workCompletion({ ok: true, d: { kind: "cv", status: "COMPLETED", result: { outcome: "needs_review" } } }).text === "CV needs review");
 
 check('missing output does not imply a newer request', /details are unavailable/.test(workCompletion({ok:true,d:{status:'COMPLETED'}}).text));
 check('missing cover output does not imply a newer request', /details are unavailable/.test(coverCompletion({ok:true,d:{status:'COMPLETED'}}).text));

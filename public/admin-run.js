@@ -11,6 +11,8 @@ export function coverPhaseText(run) {
   if (run?.phase === "adopting") return "Adding…";
   if (run?.phase === "writing") return "Writing…";
   if (run?.phase === "saving") return "Saving…";
+  if (run?.phase === "verifying") return "Checking CV…";
+  if (run?.phase === "rendering") return "Preparing CV…";
   if (run?.phase === "completed" || run?.phase === "superseded") return "Finishing…";
   if (run?.phase === "loading") return "Starting…";
   return run?.status === "EXECUTING" ? "Working…" : "Queued…";
@@ -21,6 +23,11 @@ export function workCompletion(out) {
     return { text: out?.d?.error || "Background work failed.", tone: "err", open: false };
   }
   if (out.d?.result?.outcome === "superseded") return { text: "This result no longer matches the role’s current request or inputs.", tone: "", open: false };
+  if (out.d.kind === "cv") {
+    if (out.d.result?.outcome === "needs_review") return { text: "CV needs review", tone: "err", open: false };
+    if (out.d.result?.outcome === "completed" && out.d.result.publication === "published") return { text: "Customised CV published", tone: "ok", open: false };
+    if (out.d.result?.outcome === "completed" && out.d.result.publication === "saved") return { text: "Customised CV saved", tone: "ok", open: false };
+  }
   if (out.d?.result?.outcome !== "completed") return { text: "Task completed, but its result details are unavailable.", tone: "err", open: false };
   if (out.d.kind === "jev-score") return { text: "Fit assessment ready", tone: "ok", open: false };
   if (out.d.kind === "research") return { text: (out.d.result.sources || 0) + " sources", tone: "ok", open: true };

@@ -28,5 +28,8 @@ public/assets/task-ui.*
 .chat-screenshots/
 output/
 
+# Local CV verification artifacts and private test ledgers
+/tmp/
+
 # Sanity Function bundles (source and lockfile are tracked)
 functions/*/.build/
