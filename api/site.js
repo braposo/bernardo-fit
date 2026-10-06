@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { createContentClient } from "../lib/sanity/client.js";
+import { createApplicationHandler } from "../lib/handlers/application.js";
 import {
   loadPublicPage,
   DEMO_QUERY,
@@ -10,7 +11,7 @@ import {
   escapeHtml,
   scriptJson,
 } from "../lib/sanity/public-pages.js";
-export function createSiteHandler(getClient = createContentClient) {
+export function createSiteHandler(getClient = createContentClient, applicationHandler = createApplicationHandler()) {
   return async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     if (!["GET", "HEAD"].includes(req.method)) {
@@ -18,6 +19,7 @@ export function createSiteHandler(getClient = createContentClient) {
       return res.status(405).end();
     }
     const slug = req.query?.page || "home";
+    if (slug === "application") return applicationHandler(req, res);
     if (!["home", "cv", "letter", "download"].includes(slug))
       return res.status(404).end();
     try {

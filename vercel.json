@@ -5,12 +5,16 @@
   "outputDirectory": "public",
   "rewrites": [
     {
+      "source": "/api/admin/cv",
+      "destination": "/api/admin/jobs?document=cv"
+    },
+    {
       "source": "/fit/:publicId/cv.pdf",
-      "destination": "/api/application?publicId=:publicId&kind=pdf"
+      "destination": "/api/site?page=application&publicId=:publicId&kind=pdf"
     },
     {
       "source": "/fit/:publicId",
-      "destination": "/api/application?publicId=:publicId"
+      "destination": "/api/site?page=application&publicId=:publicId"
     },
     {
       "source": "/",
@@ -52,10 +56,7 @@
     "api/site.js": {
       "includeFiles": "lib/templates/*.html"
     },
-    "api/application.js": {
-      "includeFiles": "lib/templates/application.html"
-    },
-    "api/admin/cv.js": {
+    "api/admin/jobs.js": {
       "includeFiles": "lib/assets/cv-fonts/*.ttf"
     }
   }

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {applicationCvSourceFromDocument} from '../lib/application-cv-source.js';
 import {createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries} from '../lib/application-cv-store.js';
-import {createApplicationHandler} from '../api/application.js';
+import {createApplicationHandler} from '../lib/handlers/application.js';
+import {createSiteHandler} from '../api/site.js';
 import {buildApplicationCvSeed,seedApplicationCv,DEFAULT_CV_WRITER_PROMPT,DEFAULT_CV_VERIFIER_PROMPT} from '../scripts/seed-application-cv.mjs';
 import {updateApplicationCvPrompts,PREVIOUS_CV_WRITER_PROMPT,PREVIOUS_CV_VERIFIER_PROMPT} from '../scripts/update-application-cv-prompts.mjs';
 
@@ -77,6 +78,9 @@ const response=()=>({code:0,headers:{},body:null,setHeader(key,value){this.heade
 const pdfUrl='https://cdn.sanity.io/files/quli96gc/production/a.pdf';
 const publicData={...before,pdfUrl};
 const handler=createApplicationHandler(async()=>publicData,async()=>'<title><!-- TITLE --></title><!-- REPORT --><!-- CV -->',async()=>({ok:true,arrayBuffer:async()=>pdf}));
+const siteHandler=createSiteHandler(()=>{throw Error('Public site page lookup should not run for applications');},handler);
+const delegatedRes=response();await siteHandler({method:'GET',query:{page:'application',publicId:first.publicId}},delegatedRes);
+assert.equal(delegatedRes.code,200);assert.match(delegatedRes.body,/Application CV/);
 const htmlRes=response();await handler({method:'GET',query:{publicId:first.publicId}},htmlRes);
 assert.equal(htmlRes.code,200);assert.match(htmlRes.body,/A tailored summary/);assert.doesNotMatch(htmlRes.body,/sourceSnapshot|requirementMap|secret/);
 const pdfRes=response();await handler({method:'GET',query:{publicId:first.publicId,kind:'pdf'}},pdfRes);

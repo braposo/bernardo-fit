@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import handler from '../api/admin/cv.js';
+import handler from '../api/admin/jobs.js';
 import {settleRun} from '../api/admin/cover.js';
 import {saveJob} from '../lib/store.js';
 import {createMemoryApplicationCvStore,withApplicationCvStore} from '../lib/application-cv-store.js';
@@ -12,7 +12,7 @@ let passed=0,failed=0;
 const test=async(name,fn)=>{try{await fn();passed++;console.log('  ok   '+name);}catch(error){failed++;console.error('  FAIL '+name+'\n'+error.stack);}};
 const response=()=>({code:0,headers:{},body:null,setHeader(k,v){this.headers[k]=v;},status(n){this.code=n;return this;},json(v){this.body=v;return this;},send(v){this.body=v;return this;},end(){return this;}});
 async function call({method='GET',query={},body={},authorised=true}={}){
-  const res=response();await handler({method,query,body,headers:authorised?{'x-admin-secret':'cv-admin-test'}:{}},res);return res;
+  const res=response();await handler({method,query:{document:'cv',...query},body,headers:authorised?{'x-admin-secret':'cv-admin-test'}:{}},res);return res;
 }
 const cvStore=createMemoryApplicationCvStore();
 await withApplicationCvStore(cvStore,async()=>{

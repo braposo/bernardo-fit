@@ -221,4 +221,13 @@ async function handler(req, res) {
   }
 }
 
-export default withSettingsHandler(handler);
+const jobsHandler = withSettingsHandler(handler);
+// Share the existing function to stay within the current hosting plan. CV
+// previews have their own scoped read token and must bypass the jobs auth wrapper.
+export default async function route(req, res) {
+  if (req.query?.document === 'cv') {
+    const { default: cvHandler } = await import('../../lib/handlers/admin-cv.js');
+    return cvHandler(req, res);
+  }
+  return jobsHandler(req, res);
+}

@@ -3,7 +3,7 @@ import {readFile,mkdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {chromium} from 'playwright';
 import {loadApplicationCvSource} from '../lib/application-cv-source.js';
-import {renderPublicApplication} from '../api/application.js';
+import {renderPublicApplication} from '../lib/handlers/application.js';
 
 const source=await loadApplicationCvSource(null);
 const content={identity:source.identity,summary:'',
