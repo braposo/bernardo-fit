@@ -16,14 +16,20 @@ const selection={summary:'Engineer experienced in accessible customer interfaces
   roles:[{id:'role-1',bullets:[{text:'Implemented an accessible portal for customers.',evidenceIds:['evidence-1']}]}],
   requirementMap:[{requirement:'Accessible interfaces',status:'direct',evidenceIds:['evidence-1']}]};
 const originalTrigger=tasks.triggerAndWait,originalKey=idempotencyKeys.create;
-let calls=0,verifierSafe=true;
+const longText='Implemented an accessible portal for customers with careful attention to keyboard navigation and readable layouts. '.repeat(12).trim();
+const longSelection={roles:[{id:'role-1',bullets:[{text:longText,evidenceIds:['evidence-1']},{text:longText,evidenceIds:['evidence-1']}]}],
+  requirementMap:selection.requirementMap};
+let calls=0,verifierSafe=true,draftsTooLong=0;
+const revisions=[];
 const checkpoints=new Map();
 idempotencyKeys.create=async key=>JSON.stringify(key);
 tasks.triggerAndWait=async(id,payload,options)=>{
   assert.equal(id,'durable-model-call');
   if(!checkpoints.has(options.idempotencyKey)){
     calls++;
-    checkpoints.set(options.idempotencyKey,{ok:true,output:payload.provider==='cv'?{selection}:
+    if(payload.provider==='cv')revisions.push(payload.args.revision||null);
+    const attempt=payload.args.revision?.attempt||1;
+    checkpoints.set(options.idempotencyKey,{ok:true,output:payload.provider==='cv'?{selection:attempt<=draftsTooLong?longSelection:selection}:
       {status:verifierSafe?'valid':'needs_review',issues:verifierSafe?[]:[{code:'UNSUPPORTED',message:'Unconfirmed wording'}],
         overviewCoverage:[{roleId:'role-1',covered:verifierSafe,method:'verified'}]}});
   }
@@ -48,6 +54,27 @@ await withApplicationCvStore(adapter,()=>withApplicationCvSource(source,async()=
     const app=await store.getApplicationCv(job.id);assert.equal(app.currentVersionId,p.requestId);
     assert.equal((await store.getApplicationCvVersion(job.id,p.requestId)).verification.overviewCoverage[0].covered,true);
     assert.equal((await run(p)).publication,'published');assert.equal(calls,2);
+  });
+  await test('a draft that is too long is rewritten with its measurements and the shorter rewrite is published',async()=>{
+    verifierSafe=true;draftsTooLong=1;revisions.length=0;const before=calls;
+    const p=payload('request-too-long');await store.claimApplicationCvRun(job,{requestId:p.requestId,fingerprint:p.fingerprint,status:'queued'});
+    const result=await run(p);assert.equal(result.publication,'published');
+    assert.equal(calls-before,3);assert.equal(revisions.length,2);assert.equal(revisions[0],null);
+    assert.equal(revisions[1].attempt,2);assert.ok(revisions[1].feedback.targetLines>=1);
+    assert.ok(revisions[1].feedback.problems.some(problem=>/words/.test(problem)));
+    const version=await store.getApplicationCvVersion(job.id,p.requestId);
+    assert.equal(version.content.experience[0].bullets[0].text,'Implemented an accessible portal for customers.');
+    assert.equal(version.verification.status,'valid');
+  });
+  await test('drafts still too long after every rewrite fall back to approved wording without verifying',async()=>{
+    draftsTooLong=3;revisions.length=0;const before=calls;
+    const p=payload('request-always-long');await store.claimApplicationCvRun(job,{requestId:p.requestId,fingerprint:p.fingerprint,status:'queued'});
+    assert.equal((await run(p)).publication,'published');
+    assert.equal(calls-before,3);assert.deepEqual(revisions.map(revision=>revision?.attempt||1),[1,2,3]);
+    const version=await store.getApplicationCvVersion(job.id,p.requestId);
+    assert.equal(version.validation.adjusted.reason,'approved_wording');
+    assert.equal(version.content.experience[0].bullets[0].text,'Built an accessible customer portal.');
+    draftsTooLong=0;
   });
   await test('a rejected factual check publishes approved wording without a review step or new paid work',async()=>{
     verifierSafe=false;const p=payload('request-review');await store.claimApplicationCvRun(job,{requestId:p.requestId,fingerprint:p.fingerprint,status:'queued'});

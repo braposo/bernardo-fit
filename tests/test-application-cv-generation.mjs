@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 import {applicationCvFingerprint,applicationCvJobFingerprint} from '../lib/application-cv-fingerprint.js';
 import {materializeApplicationCv,validateApplicationCv,cvNeedsSemanticVerification,
-  verifyApplicationCv,interpretApplicationCvVerification} from '../lib/application-cv-generation.js';
-import {renderApplicationCvHtml,renderApplicationCvPdf} from '../lib/application-cv-render.js';
+  verifyApplicationCv,interpretApplicationCvVerification,estimateSelectionLines,layoutRevisionFeedback} from '../lib/application-cv-generation.js';
+import {renderApplicationCvHtml,renderApplicationCvPdf,measureApplicationCvBudget} from '../lib/application-cv-render.js';
 
 const source={identity:{name:'Test Candidate',headline:'Engineering manager',contacts:[
   {label:'test@example.com',href:'mailto:test@example.com'},
@@ -95,7 +95,36 @@ try {
 } finally {await pdfLoading.destroy();}
 const overfull=structuredClone(content);
 overfull.experience[0].bullets=Array.from({length:9},()=>({text:'A deliberately lengthy evidence sentence describing engineering delivery and collaboration. '.repeat(16),evidenceIds:['e1']}));
-await assert.rejects(renderApplicationCvPdf(overfull,{minBodyPx:13}),error=>error.code==='CV_PDF_OVERFLOW');
+let overflowLayout=null;
+await assert.rejects(renderApplicationCvPdf(overfull,{minBodyPx:13}),error=>{overflowLayout=error.layout;return error.code==='CV_PDF_OVERFLOW';});
+assert.ok(overflowLayout.spacePx<0);
+assert.equal(overflowLayout.bulletLines[0].length,9);
+assert.ok(overflowLayout.bulletLines[0].every(lines=>lines>=10));
+// The writer is told how many wrapped bullet lines fit before it writes.
+const budget=await measureApplicationCvBudget(content,{minBodyPx:13});
+assert.equal(budget.roles,content.experience.length);
+assert.ok(budget.maxLines>=20 && budget.maxLines<60,`unexpected line budget ${budget.maxLines}`);
+assert.ok(budget.charsPerLine>=70 && budget.charsPerLine<=110,`unexpected characters per line ${budget.charsPerLine}`);
+assert.ok(budget.extraBulletLineCost>0 && budget.extraBulletLineCost<1);
+// A draft filling the budget with two-line bullets renders on one page.
+const twoLine='Led the web platform team through a migration that improved delivery speed, accessibility and editorial workflows for product teams.'
+  .slice(0,Math.floor(budget.charsPerLine*1.6));
+const filled=structuredClone(content);
+filled.experience.forEach(role=>{role.bullets=[];});
+for (let index=0,lines=0;;index++) {
+  const role=filled.experience[index%filled.experience.length],cost=2+(role.bullets.length?budget.extraBulletLineCost:0);
+  if (role.bullets.length>=3 || lines+cost>budget.maxLines) break;
+  role.bullets.push({text:twoLine,evidenceIds:['e1']});lines+=cost;
+}
+const filledSelection={roles:filled.experience.map(role=>({id:role.roleId,bullets:role.bullets}))};
+assert.ok(estimateSelectionLines(filledSelection,budget)<=budget.maxLines);
+assert.ok((await renderApplicationCvPdf(filled,{minBodyPx:13})).layout.spacePx>=0);
+const feedback=layoutRevisionFeedback({selection:{roles:[{id:'r1',bullets:overfull.experience[0].bullets}]},
+  issues:[{code:'CV_PDF_OVERFLOW',message:'CV exceeds one readable A4 page.'}],layout:overflowLayout,budget,sourceSnapshot:source});
+assert.ok(feedback.overLines>0);
+assert.equal(feedback.usedLines,overflowLayout.bulletLines.flat().reduce((sum,lines)=>sum+lines,0));
+assert.ok(feedback.targetLines<feedback.usedLines-feedback.overLines);
+assert.equal(feedback.roles[0].bullets[0].renderedLines,overflowLayout.bulletLines[0][0]);
 const job={id:'job-1',fitReportId:'report-1',company:'Example',role:'Manager',jobDescription:'Lead a portal team',instructions:''};
 assert.notEqual(applicationCvJobFingerprint(job),applicationCvJobFingerprint({...job,jobDescription:'Different'}));
 assert.notEqual(applicationCvFingerprint(job,source,{id:'report-1'},'gpt-5.6-sol'),

@@ -48,8 +48,15 @@
   .entry-details{display:grid;gap:8px;margin:10px 0 0}
   .entry-detail{font:15px/1.65 var(--sans);color:var(--body);margin:0;max-width:72ch;text-wrap:pretty;padding-left:12px;border-left:2px solid var(--line)}
   .entry-links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;font-size:13px}
+  .cv-summary+.cv-summary{margin-top:14px}
+  .detailed .entry-scope{font:15px/1.65 var(--sans);color:var(--body);margin:8px 0 0;max-width:72ch;text-wrap:pretty}
+  .detailed .entry-detail:not(.entry-highlight)+.entry-highlight{margin-top:8px}.em{color:var(--ink);font-weight:600}.jobs .role+.role{margin-top:40px}
+  .entry-facts{font-size:14px;line-height:1.55;color:var(--body);margin:10px 0 0;max-width:72ch}.entry-facts+.entry-facts{margin-top:4px}.entry-facts+.entry-details{margin-top:14px}
+  .facts-label{font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-right:6px}
+  .skills,.contributions{display:grid;gap:10px}.skill,.contribution{font:15px/1.65 var(--sans);color:var(--body);margin:0;max-width:80ch;text-wrap:pretty}.skill strong,.contribution strong{color:var(--ink);font-weight:600}
+  .contribution a{margin-left:8px;font-size:13px;white-space:nowrap}.section-intro{font:15px/1.65 var(--sans);color:var(--body);margin:0 0 16px;max-width:72ch}
   .footer{margin:44px 0 48px;font:11px var(--mono);color:var(--sub)}
-  @media(max-width:700px){.row{grid-template-columns:1fr;gap:7px}.rows{gap:22px}.role{grid-template-columns:1fr}.role-meta{order:2;flex-direction:row;flex-wrap:wrap;gap:0 10px;padding:4px 0 0}.role-meta .place::before{content:"· ";color:var(--sub)}.role-body{display:contents}.role h3{order:1}.entry-details,.entry-links{order:3}.role+.role{margin-top:26px}.cv{border-radius:14px}.cv-title{flex-direction:column}}
+  @media(max-width:700px){.row{grid-template-columns:1fr;gap:7px}.rows{gap:22px}.role{grid-template-columns:1fr}.role-meta{order:2;flex-direction:row;flex-wrap:wrap;gap:0 10px;padding:4px 0 0}.role-meta .place::before{content:"· ";color:var(--sub)}.role-body{display:contents}.role h3{order:1}.entry-details,.entry-links,.entry-scope,.entry-facts{order:3}.role+.role{margin-top:26px}.cv{border-radius:14px}.cv-title{flex-direction:column}}
   :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 </style></head><body><div class="frame"><header class="masthead"><a class="mark" href="/">Bernardo Raposo<span class="dot">.</span></a><span class="kicker">A fit report and application CV</span></header><main>
 <!-- REPORT -->
