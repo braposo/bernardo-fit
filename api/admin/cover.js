@@ -9,13 +9,14 @@ import { getJob, mutateJob } from "../../lib/store.js";
 import { getApplicationCv, claimApplicationCvRun, updateApplicationCvRun } from "../../lib/application-cv-store.js";
 import { resolveModel } from "../../lib/models.js";
 import { clearActiveRun, getReceiptForRequest, getRunReceipt, saveActiveRun, saveRunReceipt } from "../../lib/run-receipts.js";
-import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, ANALYSE_ALL_TASK_ID, SCORE_LISTED_TASK_ID, ANSWER_TASK_ID, BRIEF_TASK_ID,
+import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, APPLICATION_TASK_ID, ANALYSE_ALL_TASK_ID, SCORE_LISTED_TASK_ID, ANSWER_TASK_ID, BRIEF_TASK_ID,
   COVER_TASK_ID, CV_TASK_ID, PREPARE_SCREEN_TASK_ID, RESEARCH_TASK_ID, TERMINAL_RUN_STATUSES,
   coverDispatchEnabled, screenDispatchEnabled } from "../../lib/task-policy.js";
 
 const SPECS = {
   "jev-score": { taskId: "jev-score", field: "jevRun" },
   cover: { taskId: COVER_TASK_ID, field: "coverRun" },
+  application: { taskId: APPLICATION_TASK_ID, field: "applicationRun" },
   cv: { taskId: CV_TASK_ID, field: "cvRun", applicationCv: true },
   research: { taskId: RESEARCH_TASK_ID, field: "researchRun" },
   brief: { taskId: BRIEF_TASK_ID, field: "briefRun" },
@@ -161,7 +162,7 @@ async function handler(req, res) {
     if (!spec.global && !job) return res.status(404).json({ error: "Job not found" });
     const model = resolved?.model || resolveModel(body.model);
     const built = resolved
-      ? { fingerprint: resolved.workFingerprint, payload: { ...resolved.payload, ...(["cover", "cv"].includes(kind) ? { origin: origin() } : {}) } }
+      ? { fingerprint: resolved.workFingerprint, payload: { ...resolved.payload, ...(["cover", "cv", "application"].includes(kind) ? { origin: origin() } : {}) } }
       : { fingerprint: digest({ kind, requestId, model }), payload: { model } };
     const prior = spec.applicationCv ? (await getApplicationCv(ownerId))?.run
       : spec.field === "questionRun" ? job?.questions?.find(q => q.id === body.questionId)?.run : job?.[spec.field];

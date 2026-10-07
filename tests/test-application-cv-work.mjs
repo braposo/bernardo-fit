@@ -49,17 +49,20 @@ await withApplicationCvStore(adapter,()=>withApplicationCvSource(source,async()=
     assert.equal((await store.getApplicationCvVersion(job.id,p.requestId)).verification.overviewCoverage[0].covered,true);
     assert.equal((await run(p)).publication,'published');assert.equal(calls,2);
   });
-  await test('a rejected factual check preserves the last public pair and resumes without new paid work',async()=>{
+  await test('a rejected factual check publishes approved wording without a review step or new paid work',async()=>{
     verifierSafe=false;const p=payload('request-review');await store.claimApplicationCvRun(job,{requestId:p.requestId,fingerprint:p.fingerprint,status:'queued'});
-    assert.equal((await run(p)).outcome,'needs_review');const after=calls;
-    assert.equal((await store.getApplicationCv(job.id)).currentVersionId,'request-first');
-    assert.equal((await run(p)).outcome,'needs_review');assert.equal(calls,after);
+    const result=await run(p);assert.equal(result.outcome,'completed');assert.equal(result.publication,'published');const after=calls;
+    const version=await store.getApplicationCvVersion(job.id,p.requestId);
+    assert.equal(version.validation.status,'valid');assert.equal(version.validation.adjusted.reason,'approved_wording');
+    assert.equal(version.content.experience[0].bullets[0].text,'Built an accessible customer portal.');
+    assert.equal((await store.getApplicationCv(job.id)).currentVersionId,'request-review');
+    assert.equal((await run(p)).publication,'published');assert.equal(calls,after);
   });
   await test('new valid output after submission is saved privately and leaves the submitted version fixed',async()=>{
     verifierSafe=true;await store.markApplicationCvSubmitted(job.id);
     const p=payload('request-after-applied');await store.claimApplicationCvRun(job,{requestId:p.requestId,fingerprint:p.fingerprint,status:'queued'});
     assert.equal((await run(p)).publication,'saved');const app=await store.getApplicationCv(job.id);
-    assert.equal(app.currentVersionId,'request-first');assert.equal(app.submittedVersionId,'request-first');
+    assert.equal(app.currentVersionId,'request-review');assert.equal(app.submittedVersionId,'request-review');
   });
   await test('changed job inputs supersede the old request before any model call',async()=>{
     const p=payload('request-stale');await store.claimApplicationCvRun(job,{requestId:p.requestId,fingerprint:p.fingerprint,status:'queued'});

@@ -643,7 +643,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var watchedActions = new Map();
   var recoveringActions = new Map();
   var finishedRuns = new Set();
-  var actionNames = { cover: 'Cover letter', cv: 'Customised CV', research: 'Company research', brief: 'Screen brief', 'prepare-screen': 'Interview preparation', analyse: 'Fit analysis', regenerate: 'Fit analysis', answer: 'Application answer', 'jev-score': 'Fit assessment', 'jev-score-all': 'Listed role assessments', adopt: 'Add reports', ingest: 'Import roles' };
+  var actionNames = { application: 'Fit page & CV', cover: 'Cover letter', cv: 'Customised CV', research: 'Company research', brief: 'Screen brief', 'prepare-screen': 'Interview preparation', analyse: 'Fit analysis', regenerate: 'Fit analysis', answer: 'Application answer', 'jev-score': 'Fit assessment', 'jev-score-all': 'Listed role assessments', adopt: 'Add reports', ingest: 'Import roles' };
   function actionKey(id, kind, questionId) {
     return [id || 'batch', kind === 'regenerate' ? 'analyse' : kind === 'brief' ? 'prepare-screen' : kind, questionId || ''].join(':');
   }
@@ -656,12 +656,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       (kind === 'research' && pendingActions.has(actionKey(id, 'prepare-screen'))) ||
       ((kind === 'prepare-screen' || kind === 'brief') && pendingActions.has(actionKey(id, 'research'))) ||
       (kind === 'jev-score' && pendingActions.has(actionKey('batch', 'jev-score-all'))) ||
+      (kind === 'application' && (pendingActions.has(actionKey(id, 'analyse')) || pendingActions.has(actionKey(id, 'cv')))) ||
+      ((kind === 'analyse' || kind === 'cv') && pendingActions.has(actionKey(id, 'application'))) ||
       (kind === 'jev-score-all' && Array.from(pendingActions.values()).some(function (action) { return action.kind === 'jev-score'; }));
   }
   function applyActionLocks() {
     document.querySelectorAll('.row-item').forEach(function (row) {
       var id = row.getAttribute('data-id');
-      var kinds = { cover: 'cover', cvgenerate: 'cv', briefrewrite: 'prepare-screen', researchrefresh: 'research', runfit: 'analyse', regen: 'analyse', jevscore: 'jev-score', qdraft: 'answer' };
+      var kinds = { appgenerate: 'application', cover: 'cover', briefrewrite: 'prepare-screen', researchrefresh: 'research', jevscore: 'jev-score', qdraft: 'answer' };
       row.querySelectorAll('[data-act]').forEach(function (button) {
         var kind = kinds[button.getAttribute('data-act')];
         if (!kind) return;
@@ -761,7 +763,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
   function recoverActions() {
     jobs.forEach(function (job) {
-      [['coverRun','cover'],['researchRun','research'],['prepareRun','prepare-screen'],['briefRun','brief'],['analysisRun','analyse'],['jevRun','jev-score']].forEach(function (entry) {
+      [['applicationRun','application'],['coverRun','cover'],['researchRun','research'],['prepareRun','prepare-screen'],['briefRun','brief'],['analysisRun','analyse'],['jevRun','jev-score']].forEach(function (entry) {
         var run = job[entry[0]];
         if (run && run.runId && ['dispatching','queued'].indexOf(run.status) !== -1) recoverWork(job.id, run.runId, null, entry[1], false);
       });
@@ -981,7 +983,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="document-summary" data-summary="'+kind+'">'+meta+'</div>'+((kind==='fit'&&j.jd&&j.jd.stale)||(kind==='brief'&&j.briefStale)||(kind==='research'&&j.researchStale)?'<p class="field-help">Outdated · saved version remains readable</p>':'')+'<div class="material-actions">'+actions+'</div>'+
       '<div class="document-versions" data-act="document-versions" data-key="'+esc(key)+'" data-open="'+expandedVersions.has(key)+'"><button class="versions-trigger" data-act="versions-toggle">Versions <span data-count="'+kind+'"></span><span data-icon="chevron"></span></button><div class="versions-content"><div class="verlist" data-kind="'+kind+'" aria-live="polite">Loading versions…</div></div></div></section>';
   }
-  function cvMaterialRow(j, active) {
+  // The fit analysis and its tailored CV are generated together and share one
+  // public fit page, so they are one document here with one version history.
+  function applicationMaterialRow(j, active, hasDescription, fitLink) {
     var cv = j.applicationCv || {};
     var ready = !!(cv.currentVersionId || cv.downloadUrl || cv.fitUrl);
     var savedVersion = cv.latestVersion || null;
@@ -989,33 +993,28 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var savedOnly = !ready && !!savedVersionId && savedVersion && savedVersion.validationStatus === 'valid';
     var generalCv = j.generalCv || {};
     var generalCvUrl = generalCv.available === true && generalCv.downloadUrl === '/bernardo-raposo-cv.pdf' ? generalCv.downloadUrl : '';
-    var status = cv.status || (ready ? (cv.stale ? 'stale' : 'ready') : 'missing');
-    var run = cv.run || j.cvRun;
-    var running = active || !!(run && run.runId && ['dispatching','queued','running'].indexOf(run.status) !== -1);
-    var failedWithPrevious = ready && status === 'failed';
-    var needsReview = status === 'needs_review' || cv.validationStatus === 'needs_review' || (cv.validationSummary && cv.validationSummary.status === 'needs_review') || (savedVersion && savedVersion.validationStatus === 'needs_review');
-    var lastRunFailed = status === 'failed' || (run && run.status === 'failed');
-    var meta = ready ? 'Application CV · ' + (running ? 'Updating · previous version remains live' : failedWithPrevious || lastRunFailed ? 'Update failed · previous version remains live' : cv.stale ? 'Outdated · previous version remains live' : 'Live') :
-      savedOnly ? 'Saved · not live' + (lastRunFailed ? ' · Last update failed' : needsReview ? ' · New version needs review' : '') :
-      status === 'failed' ? 'No saved version · the last attempt failed' : needsReview ? 'Needs review · no live version' : generalCvUrl ? 'No customised CV yet' : 'Not generated yet';
-    if (needsReview) meta += ' · Review before submitting';
-    if (j.stage === 'applied') {
-      if (cv.submittedVersionId) meta += ' · Applied · submitted version recorded';
-      else meta += ' · Applied · submission version not recorded';
-    }
-    if (cv.createdAt) meta += ' · ' + esc(fmtDate(cv.createdAt));
-    var actions = ready ? '<button class="read-link" data-act="cvopen">Open CV</button>' + (cv.downloadUrl ? '<button class="read-link" data-act="cvdownload">Download CV</button>' : '') :
-      (savedOnly ? '<button class="read-link" data-act="cvopen" data-version="'+esc(savedVersionId)+'">Preview saved CV</button>' + (savedVersion.hasPdf ? '<button class="read-link" data-act="cvdownload" data-version="'+esc(savedVersionId)+'">Download saved CV</button>' : '') : '');
-    if (!ready && !savedOnly && generalCvUrl) actions += '<a class="read-link" data-act="generalcvdownload" href="'+esc(generalCvUrl)+'" target="_blank" rel="noopener">Download general CV</a>';
-    actions += '<button class="generation' + ((ready || savedOnly) ? ' generation-outline' : '') + '" data-act="cvgenerate"' + (running ? ' disabled aria-busy="true"' : '') + '>' +
-      ((ready || savedOnly) ? 'Generate new version' : 'Generate CV') + '</button>';
-    var alert = needsReview
-      ? '<p class="cv-validation" role="status">Review this version before submitting.</p>' :
-        status === 'failed' && !ready ? '<p class="cv-validation" role="status">Generation failed. Try again from here.</p>' : '';
+    var run = j.applicationRun && j.applicationRun.status ? j.applicationRun : (cv.run || j.cvRun);
+    var lastFailed = !active && !!run && ['failed', 'needs_review'].indexOf(run.status) !== -1;
+    var hasFit = !!j.fitReportId;
+    var note = ready ? (active ? 'Updating · current version stays live' : lastFailed ? 'Last update failed · current version stays live' : cv.stale || (j.jd && j.jd.stale) ? 'Outdated after role changes · current version stays live' : '') :
+      savedOnly ? 'Saved · not live' : '';
+    if (j.stage === 'applied') note += (note ? ' · ' : '') + (cv.submittedVersionId ? 'Applied · submitted version recorded' : 'Applied · submission version not recorded');
+    var meta = ready || savedOnly ? 'Fit page and tailored CV' + (note ? ' · ' + note : '') + (cv.createdAt ? ' · ' + fmtDate(cv.createdAt) : '') :
+      active ? 'Generating the fit analysis and CV' :
+      hasFit ? 'Fit analysis only · no tailored CV yet' : 'Not generated';
+    var actions = fitLink ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">Open fit page</a>' : '';
+    if (ready) actions += '<button class="read-link" data-act="cvopen">Open CV</button>' + (cv.downloadUrl ? '<button class="read-link" data-act="cvdownload">Download CV</button>' : '');
+    else if (savedOnly) actions += '<button class="read-link" data-act="cvopen" data-version="'+esc(savedVersionId)+'">Preview saved CV</button>' + (savedVersion.hasPdf ? '<button class="read-link" data-act="cvdownload" data-version="'+esc(savedVersionId)+'">Download saved CV</button>' : '');
+    else if (generalCvUrl) actions += '<a class="read-link" data-act="generalcvdownload" href="'+esc(generalCvUrl)+'" target="_blank" rel="noopener">Download general CV</a>';
+    var existing = ready || savedOnly || hasFit;
+    actions += '<button class="generation' + (existing ? ' generation-outline' : '') + '" data-act="appgenerate"' + (active || !hasDescription ? ' disabled' : '') + (active ? ' aria-busy="true"' : '') + '>' +
+      (existing ? 'Generate new version' : 'Generate fit page &amp; CV') + '</button>';
+    var alert = lastFailed && !ready ? '<p class="cv-validation" role="status">The last attempt failed. Try again from here.</p>' :
+      !hasDescription ? '<p class="field-help">Add the job description in Role details first.</p>' : '';
     var submitted = cv.submittedVersionId ? '<p class="field-help cv-submitted">Applied version recorded: <span data-submitted-version></span></p>' : '';
-    var badge = ready ? 'Live' : savedOnly ? 'Saved · not live' : needsReview ? 'Needs review' : '';
-    return '<section class="material-row cv-material-row" data-document="cv" data-job-id="'+esc(j.id)+'"><div class="document-title"><span class="document-icon" data-icon="file"></span><h3>Customised CV</h3><span class="document-live" data-live="cv">'+esc(badge)+'</span></div>' +
-      '<div class="document-summary" data-summary="cv">'+meta+'</div>'+alert+submitted+'<div class="material-actions">'+actions+'</div>' +
+    var badge = ready ? 'Live' : savedOnly ? 'Saved · not live' : active ? 'Generating' : hasFit ? 'Fit only' : '';
+    return '<section class="material-row cv-material-row" data-document="cv" data-job-id="'+esc(j.id)+'"><div class="document-title"><span class="document-icon" data-icon="file"></span><h3>Fit page &amp; CV</h3><span class="document-live" data-live="cv">'+esc(badge)+'</span></div>' +
+      '<div class="document-summary" data-summary="cv" data-note="'+esc(note)+'">'+esc(meta)+'</div>'+alert+submitted+'<div class="material-actions">'+actions+'</div>' +
       '<div class="document-versions cv-document-versions" data-act="document-versions" data-key="'+esc(j.id+':cv')+'" data-open="'+expandedVersions.has(j.id+':cv')+'" data-cv-history><button class="versions-trigger" data-act="cvversions-toggle">Versions <span data-cv-count></span><span data-icon="chevron"></span></button><div class="versions-content"><div class="verlist" data-cv-list aria-live="polite">Loading versions…</div></div></div></section>';
   }
 
@@ -1037,6 +1036,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var hasLetter = !!j.hasCoverLetter;
     var cvRun = (j.applicationCv && j.applicationCv.run) || j.cvRun;
     var cvActive = !!(cvRun && cvRun.runId && ['dispatching','queued','running'].indexOf(cvRun.status) !== -1);
+    var applicationActive = cvActive || [j.applicationRun, j.analysisRun].some(function (run) { return run && run.runId && ['dispatching', 'queued'].indexOf(run.status) !== -1; });
     var coverActive = !!(j.coverRun && j.coverRun.runId &&
       (j.coverRun.status === "dispatching" || j.coverRun.status === "queued"));
     var screenActive = [j.prepareRun, j.briefRun].some(function (run) { return run && run.runId && ['dispatching', 'queued'].indexOf(run.status) !== -1; });
@@ -1054,11 +1054,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       owed = '<div class="owed">Reply owed</div>';
     }
 
-    var fitActions = fitLink
-      ? '<a class="read-link" href="' + esc(fitLink) + '" target="_blank" rel="noopener">Open fit page</a>' +
-
-        '<button class="generation generation-outline" data-act="regen">Generate new version</button>'
-      : '<button class="generation" data-act="runfit"' + (hasDescription ? "" : " disabled") + '>Generate analysis</button>';
     var letterActions = (hasLetter ? '<button class="read-link" data-act="letteropen">Open letter</button>' : '') +
       '<button class="generation' + (hasLetter ? ' generation-outline' : '') + '" data-act="cover"' + (coverActive || !coverDispatchEnabled || !j.fitReportId ? ' disabled' : '') + '>' +
       (hasLetter ? 'Generate new version' : 'Generate letter') + '</button>';
@@ -1085,10 +1080,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     } else if (workspaceSection === "materials") {
       panel = '<section class="workspace-panel" id="panel-materials" role="tabpanel"><h2>Documents</h2>' +
         '<div class="material-list" data-act="verbox">' +
-          materialRow('Fit analysis', j.fitReportId ? 'Shareable page' + (j.jd && j.jd.stale ? ' · Outdated after description change' : ' · Current') : 'Not generated', fitActions, 'fit', j) +
-          cvMaterialRow(j, cvActive) +
-          materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), letterActions, 'letter', j) +
-          materialRow('Interview brief', 'Private · ' + (j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate fit analysis first' : '')), briefActions, 'brief', j) +
+          applicationMaterialRow(j, applicationActive, hasDescription, fitLink) +
+          materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate the fit page first' : '')), letterActions, 'letter', j) +
+          materialRow('Interview brief', 'Private · ' + (j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate the fit page first' : '')), briefActions, 'brief', j) +
           materialRow('Company research', 'Private · ' + (j.hasResearch ? (j.researchStale ? 'Outdated' : 'Current') + ' · ' + Number(j.researchSourceCount || 0) + ' sources' : 'Not generated'), researchActions, 'research', j) +
         '</div>' + questionsHtml(j) + '</section>';
     } else if (workspaceSection === "context") {
@@ -1238,40 +1232,43 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       parts.push('<section><h4>'+esc(heading || 'Experience')+'</h4>'+(dates ? '<p class="cv-preview-meta">'+esc(dates)+'</p>' : '')+
         '<ul>'+(Array.isArray(role.bullets) ? role.bullets : []).map(function (bullet) { return '<li>'+esc(typeof bullet === 'string' ? bullet : (bullet && bullet.text) || '')+'</li>'; }).join('')+'</ul></section>');
     });
-    var issues = validation && Array.isArray(validation.issues) ? validation.issues : [];
-    if (issues.length) parts.push('<section class="cv-preview-issues"><h4>Review before submitting</h4><ul>'+issues.map(function (issue) { return '<li>'+esc(typeof issue === 'string' ? issue : issue.message || 'This version needs review.')+'</li>'; }).join('')+'</ul></section>');
     return parts.join('') || '<p class="field-help">No preview content is available for this version.</p>';
   }
   function paintCvVersions(card, data) {
     if (!card.isConnected) return;
-    var versions = data.versions || [];
+    var versions = (data.versions || []).filter(function (version) { return !(version.validation && version.validation.status === 'needs_review'); });
     var cv = data.application || {};
+    var owner = jobs.find(function (job) { return job.id === card.getAttribute('data-job-id'); }) || {};
     var list = card.querySelector('[data-cv-list]');
     var count = card.querySelector('[data-cv-count]');
     var currentId = cv.currentVersionId || '';
     var submittedId = cv.submittedVersionId || '';
     var currentIndex = versions.findIndex(function (version) { return cvVersionId(version) === currentId; });
+    var shown = currentIndex >= 0 ? versions[currentIndex] : versions[0];
+    var summary = card.querySelector('[data-summary="cv"]');
+    if (shown && summary) {
+      var note = summary.getAttribute('data-note') || '';
+      renderAdmin(summary, '<div class="version-summary"><strong>Version '+(versions.length - versions.indexOf(shown))+'</strong><span>'+esc(modelLabel(shown.model)||shown.model||'Model not recorded')+'</span></div><p class="document-age">'+timeHtml(shown.createdAt,'Created ')+'</p><p class="field-help">Shareable fit page with tailored CV'+(note ? ' · '+esc(note) : '')+'</p>');
+    }
     if (currentIndex >= 0) {
       card.querySelector('[data-live="cv"]').textContent = 'Live · v' + (versions.length - currentIndex);
     } else if (cv.latestVersionId || cv.latestVersion) card.querySelector('[data-live="cv"]').textContent = 'Saved · not live';
-    else if (cv.status === 'needs_review' || (cv.validationStatus === 'needs_review')) card.querySelector('[data-live="cv"]').textContent = 'Needs review';
-    else if (cv.status === 'failed') card.querySelector('[data-live="cv"]').textContent = 'Failed';
+    else if (owner.fitReportId) card.querySelector('[data-live="cv"]').textContent = 'Fit only';
+    else if (cv.status === 'failed' || cv.status === 'needs_review') card.querySelector('[data-live="cv"]').textContent = 'Failed';
     else card.querySelector('[data-live="cv"]').textContent = 'Not generated';
     count.textContent = versions.length;
     var submitted = card.querySelector('[data-submitted-version]');
     if (submitted) submitted.textContent = cvVersionLabel(versions, submittedId);
-    if (!versions.length) { renderAdmin(list, '<p class="field-help">No CV versions yet.</p>'); return; }
+    if (!versions.length) { renderAdmin(list, '<p class="field-help">No fit page and CV versions yet.</p>'); return; }
     renderAdmin(list, versions.map(function (version, index) {
       var id = cvVersionId(version);
       var live = id && id === currentId;
-      var needsReview = version.validation && version.validation.status === 'needs_review';
       var created = version.createdAt;
       var bits = [created ? 'Created ' + relativeTime(created) : 'Date unavailable', modelLabel(version.model) || version.model || 'Model not recorded'];
-      if (needsReview) bits.push('Review before submitting');
       return '<div class="ver" data-cv-version="'+esc(id)+'"><strong>Version '+(versions.length-index)+'</strong><span class="vmeta">'+esc(bits.join(' · '))+'</span>' +
-        '<button class="ghost" type="button" data-act="cvpreview" data-version="'+esc(id)+'" aria-expanded="false">Preview content</button>' +
-        (version.hasPdf && !needsReview ? '<button class="ghost" type="button" data-act="cvversion-download" data-version="'+esc(id)+'">Download PDF</button>' : '') +
-        (live ? '<span class="vlive">Live</span>' : needsReview ? '<span class="cv-review-needed">Needs review</span>' : '<button class="ghost" type="button" data-act="cvpublish" data-version="'+esc(id)+'">Publish live</button>') +
+        '<button class="ghost" type="button" data-act="cvpreview" data-version="'+esc(id)+'" aria-expanded="false">Preview CV</button>' +
+        (version.hasPdf ? '<button class="ghost" type="button" data-act="cvversion-download" data-version="'+esc(id)+'">Download PDF</button>' : '') +
+        (live ? '<span class="vlive">Live</span>' : '<button class="ghost" type="button" data-act="cvpublish" data-version="'+esc(id)+'">Publish live</button>') +
         (version.versionInstructions ? '<details class="version-instructions"><summary>Additional instructions</summary><p>'+esc(version.versionInstructions)+'</p></details>' : '') +
         '<div class="vpreview" hidden></div></div>';
     }).join(''));
@@ -1279,7 +1276,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       button.addEventListener('click', function () {
         var preview = button.parentElement.querySelector('.vpreview');
         preview.hidden = !preview.hidden;
-        button.textContent = preview.hidden ? 'Preview content' : 'Hide preview';
+        button.textContent = preview.hidden ? 'Preview CV' : 'Hide preview';
         button.setAttribute('aria-expanded', String(!preview.hidden));
         if (preview.hidden || preview.dataset.loaded) return;
         preview.textContent = 'Loading version…';
@@ -1354,7 +1351,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var currentReview = null;
     var versionInstructions = '';
     var instructionsTimer;
-    var supportsVersionInstructions = ['cover','cv','analyse','regenerate','research','brief','prepare-screen'].indexOf(options.kind) !== -1;
+    var supportsVersionInstructions = ['application','cover','cv','analyse','regenerate','research','brief','prepare-screen'].indexOf(options.kind) !== -1;
     var submitting = false;
     var requestId = newRequestId();
     var loadingSequence = 0;
@@ -1380,9 +1377,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
         return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
       renderAdmin(bodyEl, '<p class="review-description">' + esc(review.description || 'We’ll generate the requested content using your saved details.') + '</p>' +
-        jobsHtml + (options.kind === 'jev-score' || options.kind === 'jev-score-all' || review.routing && review.routing.source === 'jev' ? '' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
+        jobsHtml + (options.kind === 'jev-score' || options.kind === 'jev-score-all' || options.kind === 'application' || review.routing && review.routing.source === 'jev' ? '' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
-        (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="Add to this job’s generic instructions for this version only…">'+esc(versionInstructions)+'</textarea>' : ''));
+        (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="'+(options.kind === 'application' ? 'Applies to both the fit analysis and the CV for this version only…' : 'Add to this job’s generic instructions for this version only…')+'">'+esc(versionInstructions)+'</textarea>' : ''));
       var instructionsEl = dialog.querySelector('[data-version-instructions]');
       if (instructionsEl) {
         if (restoreInstructions) { instructionsEl.focus(); instructionsEl.setSelectionRange(caret[0], caret[1]); }
@@ -2044,7 +2041,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         if (cvCard) {
         var cvHistoryButton = cvCard.querySelector('[data-act="cvversions-toggle"]');
         var cvVersionsLoaded = false;
-        cvHistoryButton.addEventListener('click', function () {
+        var loadCvVersions = function () {
           if (cvVersionsLoaded) return;
           cvVersionsLoaded = true;
           api('/api/admin/cv?id=' + encodeURIComponent(id), { method: 'GET' }).then(function (out) {
@@ -2052,14 +2049,16 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
             if (!out.ok) { cvVersionsLoaded = false; cvCard.querySelector('[data-cv-list]').textContent = out.d.error || 'Could not load CV versions. Reopen to retry.'; return; }
             paintCvVersions(cvCard, out.d);
           });
-        });
+        };
+        cvHistoryButton.addEventListener('click', loadCvVersions);
+        loadCvVersions();
         var cvOpen = cvCard.querySelector('[data-act="cvopen"]');
         if (cvOpen) cvOpen.addEventListener('click', function () { openApplicationCv(id, 'open', cvOpen.getAttribute('data-version')); });
         var cvDownload = cvCard.querySelector('[data-act="cvdownload"]');
         if (cvDownload) cvDownload.addEventListener('click', function () { openApplicationCv(id, 'download', cvDownload.getAttribute('data-version')); });
-        var cvGenerate = cvCard.querySelector('[data-act="cvgenerate"]');
-        if (cvGenerate) cvGenerate.addEventListener('click', function () {
-          openGenerationReview({ id: id, kind: 'cv', trigger: cvGenerate, status: status,
+        var appGenerate = cvCard.querySelector('[data-act="appgenerate"]');
+        if (appGenerate) appGenerate.addEventListener('click', function () {
+          openGenerationReview({ id: id, kind: 'application', trigger: appGenerate, status: status,
             subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
         });
       }
@@ -2118,14 +2117,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (scoreFit) scoreFit.addEventListener('click', function () {
         openGenerationReview({ id: id, kind: 'jev-score', trigger: scoreFit, status: status });
       });
-      var runFit = rowEl.querySelector('[data-act="runfit"]');
-      if (runFit) {
-        runFit.addEventListener("click", function () {
-          openGenerationReview({ id: id, kind: 'analyse', trigger: runFit, status: status,
-            subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
-        });
-      }
-
       var coverBtn = rowEl.querySelector('[data-act="cover"]');
       if (coverBtn) {
         coverBtn.addEventListener("click", function () {
@@ -2149,14 +2140,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         openGenerationReview({ id: id, kind: 'research', trigger: researchRefresh, status: status,
           subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
       });
-
-      var regen = rowEl.querySelector('[data-act="regen"]');
-      if (regen) {
-        regen.addEventListener("click", function () {
-          openGenerationReview({ id: id, reportId: job.fitReportId, kind: 'regenerate', trigger: regen, status: status,
-            subject: (job.company || 'No company') + ' · ' + (job.role || 'Untitled role') });
-        });
-      }
 
       var archiveBtn = rowEl.querySelector('[data-act="archive"]');
       if (archiveBtn) {
