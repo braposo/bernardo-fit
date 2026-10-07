@@ -118,7 +118,7 @@ try {
     if (url.pathname === '/api/admin/reports') return reply({ days: [], breakdown: [] });
     if (url.pathname === '/api/admin/cover' && body?.action === 'review') {
       reviews++;
-      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'jev-1.13.0' : body.model || 'gpt-5.6-sol',
+      return reply({ review: { effectiveKind: body.kind, fingerprint: 'fixture-reviewed', model: body.kind === 'jev-score' ? 'jev-1.13.0' : body.model || 'gpt-6.1-sol',
         routing: jevRoutesModels ? { source: 'jev', reason: 'Standard synthesis uses balanced Sol.' } : null,
         submitLabel: 'Generate analysis', description: body.kind === 'cv' ? 'We’ll tailor a CV to this role using your experience.' : 'We’ll write a cover letter tailored to this role and your experience.', inputSummary: 'Saved fixture inputs',
         publication: 'Becomes active', costText: 'Estimate unavailable. May incur costs.' } });
@@ -382,7 +382,7 @@ try {
   check('review explains the result in a natural paragraph', await page.locator('.review-description').textContent() === 'We’ll write a cover letter tailored to this role and your experience.' && await page.locator('[data-review-body] ol').count() === 0 && !(await page.locator('[data-review-body]').textContent()).includes('Work to run'));
   await page.locator('[data-version-instructions]').fill('Highlight mentoring and platform ownership');
   await page.locator('[data-review-submit]:enabled').waitFor();
-  await page.locator('[data-review-model]').selectOption('claude-sonnet-5');
+  await page.locator('[data-review-model]').selectOption('claude-sonnet-5-5');
   await page.locator('[data-review-submit]:enabled').waitFor();
   check('version instructions survive model changes', await page.locator('[data-version-instructions]').inputValue() === 'Highlight mentoring and platform ownership');
   await audit('Generation review');

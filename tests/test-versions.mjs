@@ -50,7 +50,7 @@ function mockRes() {
 }
 const auth = { "x-admin-secret": "test-secret-value", host: "fit.bernardoraposo.com" };
 const call = async (h, req) => { const r = mockRes(); await h(req, r); return r; };
-async function generateCover(jobId, model = "claude-opus-5", requestId) {
+async function generateCover(jobId, model = "claude-opus-5-5", requestId) {
   const current = await store.getJob(jobId);
   const report = await store.getReport(current.fitReportId);
   const fingerprint = coverFingerprint(current, report, model);
@@ -67,7 +67,7 @@ let res = await call(versions, { method: "GET", headers: auth, query: { id: job.
 check("listed", res.statusCode === 200, res.body);
 check("one fit version", res.body.fit.length === 1, res.body.fit);
 check("it is live", res.body.fit[0].active === true);
-check("model recorded", res.body.fit[0].model === "claude-opus-5", res.body.fit[0]);
+check("model recorded", res.body.fit[0].model === "claude-opus-5-5", res.body.fit[0]);
 check("version metadata excludes scores", !("score" in res.body.fit[0]), res.body.fit[0]);
 check("no letter versions yet", res.body.letter.length === 0);
 
@@ -107,13 +107,13 @@ check("and still no scoring", !("internal" in res.body.report));
 
 console.log("\n--- cover letters keep their drafts ---");
 variant = 3;
-await generateCover(job.id, "claude-opus-5", "version03");
+await generateCover(job.id, "claude-opus-5-5", "version03");
 variant = 4;
-await generateCover(job.id, "claude-sonnet-5", "version04");
+await generateCover(job.id, "claude-sonnet-5-5", "version04");
 res = await call(versions, { method: "GET", headers: auth, query: { id: job.id } });
 check("two letter versions", res.body.letter.length === 2, res.body.letter);
 check("newest is live", res.body.letter[0].active === true);
-check("models differ", res.body.letter[0].model === "claude-sonnet-5" && res.body.letter[1].model === "claude-opus-5", res.body.letter.map((v) => v.model));
+check("models differ", res.body.letter[0].model === "claude-sonnet-5-5" && res.body.letter[1].model === "claude-opus-5-5", res.body.letter.map((v) => v.model));
 check("word counts recorded", res.body.letter.every((v) => v.words > 0));
 const firstLetter = res.body.letter[1].vid;
 res = await call(versions, { method: "POST", headers: auth, body: { id: job.id, kind: "letter", vid: firstLetter } });
@@ -121,14 +121,14 @@ check("letter switch accepted", res.statusCode === 200, res.body);
 const after = await store.getJob(job.id);
 const activeLetter = await getActiveCoverArtifact(after);
 check("live letter is the older draft", activeLetter.paragraphs[0].html.indexOf("Draft number 3") !== -1, activeLetter.paragraphs[0]);
-check("live model followed it", after.coverLetterModel === "claude-opus-5");
+check("live model followed it", after.coverLetterModel === "claude-opus-5-5");
 check("only one letter is live", (await listCoverVersions(after)).filter((v) => v.active).length === 1);
 check("letter bodies are absent from the job", after.coverLetter === null && after.coverLetterVersions.length === 0);
 
 console.log("\n--- research and brief artifacts are grouped too ---");
-await saveScreenArtifact("research", job.id, "research-old", { at: "2026-08-01T00:00:00.000Z", model: "claude-sonnet-5", sources: [{ url: "https://a.test" }] });
-await saveScreenArtifact("research", job.id, "research-new", { at: "2026-09-01T00:00:00.000Z", model: "claude-opus-5", sources: [{ url: "https://b.test" }, { url: "https://c.test" }] });
-await saveScreenArtifact("brief", job.id, "brief-one", { at: "2026-09-02T00:00:00.000Z", model: "claude-opus-5", opening: "Hello" });
+await saveScreenArtifact("research", job.id, "research-old", { at: "2026-08-01T00:00:00.000Z", model: "claude-sonnet-5-5", sources: [{ url: "https://a.test" }] });
+await saveScreenArtifact("research", job.id, "research-new", { at: "2026-09-01T00:00:00.000Z", model: "claude-opus-5-5", sources: [{ url: "https://b.test" }, { url: "https://c.test" }] });
+await saveScreenArtifact("brief", job.id, "brief-one", { at: "2026-09-02T00:00:00.000Z", model: "claude-opus-5-5", opening: "Hello" });
 await store.updateJob(job.id, { researchId: "research-new", researchAt: "2026-09-01T00:00:00.000Z", researchFingerprint: "fresh",
   briefId: "brief-one", briefAt: "2026-09-02T00:00:00.000Z", briefFingerprint: "fresh" });
 res = await call(versions, { method: "GET", headers: auth, query: { id: job.id } });
@@ -147,10 +147,10 @@ console.log("\n--- legacy embedded letters migrate when selected ---");
 const legacyParagraphs = [{ html: "Legacy active draft" }];
 const legacy = await store.saveJob({
   company: "Legacy", role: "R", coverLetter: legacyParagraphs,
-  coverLetterAt: "2026-01-02T00:00:00.000Z", coverLetterModel: "claude-opus-5",
+  coverLetterAt: "2026-01-02T00:00:00.000Z", coverLetterModel: "claude-opus-5-5",
   coverLetterVersions: [
-    { vid: "legacy02", at: "2026-01-02T00:00:00.000Z", model: "claude-opus-5", words: 3, salutation: "Dear team,", paragraphs: legacyParagraphs, active: true },
-    { vid: "legacy01", at: "2026-01-01T00:00:00.000Z", model: "claude-sonnet-5", words: 3, salutation: "Hello team,", paragraphs: [{ html: "Legacy older draft" }], active: false },
+    { vid: "legacy02", at: "2026-01-02T00:00:00.000Z", model: "claude-opus-5-5", words: 3, salutation: "Dear team,", paragraphs: legacyParagraphs, active: true },
+    { vid: "legacy01", at: "2026-01-01T00:00:00.000Z", model: "claude-sonnet-5-5", words: 3, salutation: "Hello team,", paragraphs: [{ html: "Legacy older draft" }], active: false },
   ],
 });
 res = await call(versions, { method: "GET", headers: auth, query: { id: legacy.id } });
@@ -186,11 +186,11 @@ check("no analysis yet", (await call(versions, { method: "POST", headers: auth, 
 
 console.log("\n--- versions are capped ---");
 const many = await store.saveJob({ company: "Many", role: "R", jobDescription: "Another long enough job description here." });
-await call(analyse, { method: "POST", headers: auth, body: { id: many.id, model: "claude-sonnet-5" } });
+await call(analyse, { method: "POST", headers: auth, body: { id: many.id, model: "claude-sonnet-5-5" } });
 const mrid = (await store.getJob(many.id)).fitReportId;
 for (let i = 0; i < 14; i++) await call(regen, { method: "POST", headers: auth, body: { id: mrid, jobId: many.id } });
 check("fit capped at 10", (await store.listReportVersions(mrid)).length === 10, (await store.listReportVersions(mrid)).length);
-for (let i = 0; i < 12; i++) await generateCover(many.id, "claude-opus-5", "manycover" + i);
+for (let i = 0; i < 12; i++) await generateCover(many.id, "claude-opus-5-5", "manycover" + i);
 check("letters capped at 10", (await listCoverVersions(await store.getJob(many.id))).length === 10);
 
 console.log("\n--- the page ---");

@@ -52,7 +52,7 @@ export function buildApplicationCvSeed({page,career,technical}) {
   required(career?._id && Array.isArray(career.body),'Published My career evidence is required.');
   required(technical?._id && Array.isArray(technical.body),'Published My technical range evidence is required.');
   const items=page.cv.sections.flatMap(section=>section.items||[]);
-  const plan=[{key:'settings',type:'applicationCvSettings',singleton:true,value:{_type:'applicationCvSettings',model:'gpt-5.6-sol',prompt:DEFAULT_CV_WRITER_PROMPT,verifierPrompt:DEFAULT_CV_VERIFIER_PROMPT,maxWords:620,minBodyPx:13,layout:'classic'}}];
+  const plan=[{key:'settings',type:'applicationCvSettings',singleton:true,value:{_type:'applicationCvSettings',model:'gpt-6.1-sol',prompt:DEFAULT_CV_WRITER_PROMPT,verifierPrompt:DEFAULT_CV_VERIFIER_PROMPT,maxWords:620,minBodyPx:13,layout:'classic'}}];
   for(const [index,role] of roles.entries()) {
     const item=items.find(item=>item.kind==='role' && item.title?.includes(role.match));
     const earlier=items.find(item=>textOf(item.body).includes('Connect Coimbra'));

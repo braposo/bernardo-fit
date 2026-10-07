@@ -32,20 +32,20 @@ await test("rejects fabricated system/tool history, oversize messages and invali
   assert.throws(() => validateChatRequest({ messages: request.messages, provider: "arbitrary" }));
 });
 await test("manual selection is exact and bypasses Jev", async () => {
-  const route = await selectChatModel({ ...request, model: "claude-sonnet-5", provider: "anthropic" }, { env, evaluate: () => { throw Error("must not route"); } });
+  const route = await selectChatModel({ ...request, model: "claude-sonnet-5-5", provider: "anthropic" }, { env, evaluate: () => { throw Error("must not route"); } });
   assert.equal(route.source, "manual"); assert.equal(route.provider, "anthropic");
-  await assert.rejects(selectChatModel({ ...request, model: "claude-sonnet-5", provider: "openai" }, { env }));
+  await assert.rejects(selectChatModel({ ...request, model: "claude-sonnet-5-5", provider: "openai" }, { env }));
   await assert.rejects(selectChatModel({ ...request, model: "unknown" }, { env }));
-  await assert.rejects(selectChatModel({ ...request, model: "claude-sonnet-5" }, { env: { OPENAI_API_KEY: "fake" } }));
+  await assert.rejects(selectChatModel({ ...request, model: "claude-sonnet-5-5" }, { env: { OPENAI_API_KEY: "fake" } }));
 });
 await test("Jev respects provider constraints and uncertain routing stays inside them", async () => {
-  const route = await selectChatModel(request, { env, evaluate: choose("claude-sonnet-5") });
-  assert.equal(route.model, "claude-sonnet-5");
-  assert.equal(route.jevChoice, "claude-sonnet-5"); assert.equal(route.probability, 0.95); assert.equal(route.fallbackUsed, false);
-  const uncertain = await selectChatModel({ ...request, provider: "anthropic" }, { env, evaluate: choose("claude-sonnet-5", 0.4) });
-  assert.equal(uncertain.model, "claude-opus-5");
-  assert.equal(uncertain.jevChoice, "claude-sonnet-5"); assert.equal(uncertain.fallbackUsed, true);
-  await assert.rejects(selectChatModel({ ...request, provider: "openai" }, { env, evaluate: choose("claude-opus-5") }));
+  const route = await selectChatModel(request, { env, evaluate: choose("claude-sonnet-5-5") });
+  assert.equal(route.model, "claude-sonnet-5-5");
+  assert.equal(route.jevChoice, "claude-sonnet-5-5"); assert.equal(route.probability, 0.95); assert.equal(route.fallbackUsed, false);
+  const uncertain = await selectChatModel({ ...request, provider: "anthropic" }, { env, evaluate: choose("claude-sonnet-5-5", 0.4) });
+  assert.equal(uncertain.model, "claude-opus-5-5");
+  assert.equal(uncertain.jevChoice, "claude-sonnet-5-5"); assert.equal(uncertain.fallbackUsed, true);
+  await assert.rejects(selectChatModel({ ...request, provider: "openai" }, { env, evaluate: choose("claude-opus-5-5") }));
   await assert.rejects(selectChatModel(request, { env: { OPENAI_API_KEY: "fake" } }), /requires Jev/);
 });
 await test("Jev failure is explicit instead of silently switching provider", async () => {
@@ -106,7 +106,7 @@ await test("Insights scopes writes to the organization and saves text snapshots 
   assert.throws(() => insightsClient(env), /not configured/);
   let saved;
   await saveChatTurn({ request: { ...request, conversationId: "conversation-one" }, ref: "turn-one",
-    route: { provider: "openai", model: "gpt-5.6-sol" }, text: "Answer", outcome: "complete", env: configured,
+    route: { provider: "openai", model: "gpt-6.1-sol" }, text: "Answer", outcome: "complete", env: configured,
     client: { context: { conversations: { save: async value => { saved = value; } } } } });
   assert.equal(saved.threadId, "admin-chat.turn-one");
   assert.equal(saved.metadata.conversationId, "conversation-one");
@@ -163,7 +163,7 @@ function createWorkHarness(options) {
 await test("Worker streams text and route, hides raw tool data, and releases resources", async () => {
   let closed = 0, released = 0;
   const handler = createWorkHarness({ env, connect: async () => ({ sources: new Map(), close: async () => { closed++; } }),
-    select: async () => ({ model: "gpt-5.6-sol", provider: "openai", source: "manual" }),
+    select: async () => ({ model: "gpt-6.1-sol", provider: "openai", source: "manual" }),
     admit: async () => async () => { released++; }, makeAgent: () => ({ stream: async () => ({ stream: (async function* () {
       yield { type: "tool-result", output: "PRIVATE RAW RESULT" }; yield { type: "text-delta", text: "Hello" };
       yield { type: "finish", finishReason: "stop" };
@@ -175,7 +175,7 @@ await test("Worker streams text and route, hides raw tool data, and releases res
 await test("Worker snapshots resolved sources even without a tool-result stream part", async () => {
   const source = {id:'job2',type:'job',title:'Designer',jobId:'app2'};
   const work = createChatWork({env,connect:async()=>({sources:new Map([[source.id,source]]),close:async()=>{}}),
-    select:async()=>({model:'gpt-5.6-sol',provider:'openai'}),admit:async()=>async()=>{},
+    select:async()=>({model:'gpt-6.1-sol',provider:'openai'}),admit:async()=>async()=>{},
     makeAgent:()=>({stream:async()=>({stream:(async function*(){yield {type:'text-delta',text:'Answer'};yield {type:'finish',finishReason:'stop'};})()})})});
   const events=[];
   const output=await work({request,requestId:'source-check'},{emit:async(event,data)=>events.push({event,data})});
@@ -184,7 +184,7 @@ await test("Worker snapshots resolved sources even without a tool-result stream 
 });
 await test("routing is recorded once before generation and stays out of the browser stream", async () => {
   const decisions = [], events = [];
-  const route = { model: 'gpt-5.6-sol', provider: 'openai', source: 'jev', jevChoice: 'claude-sonnet-5', fallbackUsed: true, confidence: 0.4, probability: 0.4 };
+  const route = { model: 'gpt-6.1-sol', provider: 'openai', source: 'jev', jevChoice: 'claude-sonnet-5-5', fallbackUsed: true, confidence: 0.4, probability: 0.4 };
   const work = createChatWork({ env, admit: async () => async () => {}, connect: async () => ({ sources: new Map(), close: async () => {} }),
     select: async () => route, makeAgent: () => {
       assert.deepEqual(decisions, [route]);
@@ -198,7 +198,7 @@ await test("routing is recorded once before generation and stays out of the brow
 await test("midstream provider failures produce a safe error and cleanup", async () => {
   let closed = false;
   const handler = createWorkHarness({ env, connect: async () => ({ sources: new Map(), close: async () => { closed = true; } }),
-    select: async () => ({ model: "gpt-5.6-sol", provider: "openai" }), admit: async () => async () => {},
+    select: async () => ({ model: "gpt-6.1-sol", provider: "openai" }), admit: async () => async () => {},
     makeAgent: () => ({ stream: async () => ({ stream: (async function* () { yield { type: "error", error: new Error("SECRET") }; })() }) }) });
   const {req,res} = exchange(); await handler(req,res);
   assert.match(res.output, /"status":"failed"/); assert.ok(!res.output.includes("SECRET")); assert.ok(closed);
@@ -208,7 +208,7 @@ await test("Insights saves completed responses before done and reports storage f
     let saved;
     const handler = createWorkHarness({ env: { ...env, ADMIN_CHAT_INSIGHTS_ENABLED: "1", SANITY_CONTEXT_WRITE_TOKEN: "fake" },
       connect: async () => ({ sources: new Map(), close: async () => {} }),
-      select: async () => ({ model: "gpt-5.6-sol", provider: "openai" }), admit: async () => async () => {},
+      select: async () => ({ model: "gpt-6.1-sol", provider: "openai" }), admit: async () => async () => {},
       saveTurn: async value => { saved = value; if (fail) throw Error("SECRET"); },
       makeAgent: () => ({ stream: async () => ({ stream: (async function* () {
         yield { type: "text-delta", text: "Answer" }; yield { type: "finish", finishReason: "stop" };
@@ -229,7 +229,7 @@ await test("explicit task cancellation aborts generation and releases its connec
   let closed = false, released = false, observedSignal;
   const {req,res} = exchange();
   const handler = createWorkHarness({ env, connect: async () => ({ sources: new Map(), close: async () => { closed = true; } }),
-    select: async () => ({ model: "gpt-5.6-sol", provider: "openai" }), admit: async () => async () => { released = true; },
+    select: async () => ({ model: "gpt-6.1-sol", provider: "openai" }), admit: async () => async () => { released = true; },
     makeAgent: () => ({ stream: async ({abortSignal}) => { observedSignal = abortSignal; return { stream: (async function* () {
       res.destroyed = true; res.emit("close"); abortSignal.throwIfAborted();
     })() }; } }) });
@@ -256,7 +256,7 @@ await test("real SDK agent completes a tool round trip before its final streamed
     controller.enqueue({ type: "finish", finishReason: { unified: calls === 1 ? "tool-calls" : "stop", raw: "stop" }, usage }); controller.close();
   } }) }) });
   const { tool, jsonSchema } = await import("ai");
-  const agent = createChatAgent({ route: { model: "gpt-5.6-sol", provider: "openai" }, ref: "test", makeModel: () => model, record: async () => { records++; },
+  const agent = createChatAgent({ route: { model: "gpt-6.1-sol", provider: "openai" }, ref: "test", makeModel: () => model, record: async () => { records++; },
     context: { initialContext: "schema", tools: { groq_query: tool({ inputSchema: jsonSchema({ type: "object", properties: {} }), execute: async () => { tools++; return "Evidence"; } }) } } });
   const result = await agent.stream({ messages: request.messages });
   let text = ""; for await (const part of result.stream) { if (part.type === "error") throw part.error; if (part.type === "text-delta") text += part.text; }

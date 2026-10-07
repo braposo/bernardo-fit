@@ -489,17 +489,19 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   // Which model writes the next analysis, letter or answer. Kept in
   // localStorage so a reload does not quietly send generations back to the
   // default halfway through a comparison.
-  var MODELS = [{ id: "gpt-5.6-sol", label: "Sol" }, { id: "gpt-6-astra", label: "Astra" },
-    { id: "claude-opus-5", label: "Opus" },
-    { id: "claude-sonnet-5", label: "Sonnet" }
+  var MODELS = [{ id: "gpt-6.1-sol", label: "Sol 6.1" }, { id: "gpt-6-astra", label: "Astra" },
+    { id: "claude-opus-5-5", label: "Opus 5.5" },
+    { id: "claude-sonnet-5-5", label: "Sonnet 5.5" }
   ];
+  // Older documents keep the label of the model that actually wrote them.
+  var MODEL_LABELS = { "gpt-5.6-sol": "Sol 5.6", "claude-opus-5": "Opus 5", "claude-sonnet-5": "Sonnet 5" };
   var MODEL_KEY = "fit.model";
-  var model = localStorage.getItem(MODEL_KEY) || "gpt-5.6-sol";
+  var model = localStorage.getItem(MODEL_KEY) || "gpt-6.1-sol";
   var economyAnswers = localStorage.getItem("fit.economyAnswers") !== "false";
-  if (!MODELS.some(function (m) { return m.id === model; })) model = "gpt-5.6-sol";
+  if (!MODELS.some(function (m) { return m.id === model; })) model = "gpt-6.1-sol";
   function modelLabel(id) {
     for (var i = 0; i < MODELS.length; i++) if (MODELS[i].id === id) return MODELS[i].label;
-    return "";
+    return MODEL_LABELS[id] || "";
   }
 
   function showUsage() {
@@ -1372,12 +1374,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       var restoreInstructions = active && active.hasAttribute('data-version-instructions');
       var caret = restoreInstructions ? [active.selectionStart, active.selectionEnd] : null;
       currentReview = review;
-      if (options.kind !== 'jev-score' && options.kind !== 'jev-score-all') { model = review.model; localStorage.setItem(MODEL_KEY, model); }
+      var routed = ['jev-score', 'jev-score-all', 'cv', 'application'].indexOf(options.kind) !== -1 || review.routing && review.routing.source === 'jev';
+      if (!routed) { model = review.model; localStorage.setItem(MODEL_KEY, model); }
       var models = MODELS.map(function (item) { return '<option value="' + esc(item.id) + '"' + (item.id === review.model ? ' selected' : '') + '>' + esc(item.label) + '</option>'; }).join('');
       var jobsHtml = review.jobs && review.jobs.length ? '<div class="review-jobs">' + review.jobs.map(function (item) {
         return '<div><strong>' + esc(item.company || 'No company') + '</strong> · ' + esc(item.role || 'Untitled role') + '</div>'; }).join('') + '</div>' : '';
       renderAdmin(bodyEl, '<p class="review-description">' + esc(review.description || 'We’ll generate the requested content using your saved details.') + '</p>' +
-        jobsHtml + (options.kind === 'jev-score' || options.kind === 'jev-score-all' || options.kind === 'application' || review.routing && review.routing.source === 'jev' ? '' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
+        jobsHtml + (routed ? '' : '<h3><label for="review-model">Model</label></h3><select id="review-model" class="review-model" data-review-model>' + models + '</select>') +
         (options.kind === 'answer' ? '<label class="field-help"><input type="checkbox" data-review-economy' + (economyAnswers ? ' checked' : '') + '> Use the economy path for routine answers when possible</label>' : '') +
         (supportsVersionInstructions ? '<label class="version-instructions-label" for="version-instructions">Instructions for this version <span>(optional)</span></label><textarea id="version-instructions" data-version-instructions maxlength="4000" placeholder="'+(options.kind === 'application' ? 'Applies to both the fit analysis and the CV for this version only…' : 'Add to this job’s generic instructions for this version only…')+'">'+esc(versionInstructions)+'</textarea>' : ''));
       var instructionsEl = dialog.querySelector('[data-version-instructions]');
@@ -2195,6 +2198,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       }
       if (out.d.stages && out.d.stages.length) stages = out.d.stages;
       if (out.d.models && out.d.models.length) MODELS = out.d.models;
+      if (out.d.modelLabels) MODEL_LABELS = out.d.modelLabels;
       if (out.d.archiveOnStage) ARCHIVE_ON_STAGE = out.d.archiveOnStage;
       coverDispatchEnabled = !out.d.features || out.d.features.coverDispatchEnabled !== false;
       screenDispatchEnabled = !out.d.features || out.d.features.screenDispatchEnabled !== false;

@@ -45,7 +45,7 @@ globalThis.fetch = async (url, options) => {
   if (url === "https://api.openai.com/v1/responses") {
     summaryCalls++;
     const body = JSON.parse(options.body);
-    assert.equal(body.model, "gpt-5.6-sol"); assert.equal(body.store, false);
+    assert.equal(body.model, "gpt-6.1-sol"); assert.equal(body.store, false);
     assert.equal(body.reasoning.effort, "low");
     assert.ok(body.instructions.includes("Do not recompute or change scores"));
     return { ok: true, status: 200, json: async () => ({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: summaryText }] }], usage: { input_tokens: 100, output_tokens: 30 } }) };

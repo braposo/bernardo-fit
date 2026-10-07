@@ -33,6 +33,21 @@ revised.dimensions[1].weight = 20;
 const changed = settingsFromDocument(revised);
 const job = {company: "Example", role: "Engineer", jobDescription: "Build a product with a small engineering team."};
 
+await test("writing-model options published under retired model IDs keep working until migrated", async () => {
+  const legacy = structuredClone(original);
+  const retired = { "gpt-6.1-sol": "gpt-5.6-sol", "claude-opus-5-5": "claude-opus-5", "claude-sonnet-5-5": "claude-sonnet-5" };
+  for (const option of legacy.questions.find(q => q.key === "writingModel").options) option.key = retired[option.key] || option.key;
+  const loaded = settingsFromDocument(legacy);
+  assert.deepEqual(Object.keys(loaded.questions.writingModel.criteria), Object.keys(snapshot.questions.writingModel.criteria));
+  assert.equal(loaded.fingerprint, snapshot.fingerprint);
+  const unknown = structuredClone(original);
+  unknown.questions.find(q => q.key === "writingModel").options[0].key = "gpt-4";
+  assert.throws(() => settingsFromDocument(unknown), /Analysis settings/);
+  const elsewhere = structuredClone(original);
+  elsewhere.questions.find(q => q.key === "posting").options[0].key = "gpt-5.6-sol";
+  assert.throws(() => settingsFromDocument(elsewhere), /Analysis settings/);
+});
+
 await test("admission threshold is validated without changing content or scoring fingerprints", async () => {
   assert.equal(snapshot.ingestMinimumScore, 50);
   const legacy = structuredClone(original); delete legacy.ingestMinimumScore;

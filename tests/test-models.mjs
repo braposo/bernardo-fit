@@ -56,8 +56,8 @@ function mockRes() {
 }
 const auth = { "x-admin-secret": "test-secret-value", host: "fit.bernardoraposo.com" };
 const reset = () => { sent = []; };
-const SOL = "gpt-5.6-sol", ASTRA = "gpt-6-astra";
-const OPUS = "claude-opus-5", SONNET = "claude-sonnet-5";
+const SOL = "gpt-6.1-sol", ASTRA = "gpt-6-astra";
+const OPUS = "claude-opus-5-5", SONNET = "claude-sonnet-5-5";
 
 console.log("\n--- the model list ---");
 check("sol is the default", M.DEFAULT_MODEL === SOL);
@@ -66,7 +66,9 @@ check("ids carry no date suffix", M.MODELS.every((m) => !/\d{8}$/.test(m.id)));
 check("resolves a known id", M.resolveModel(SONNET) === SONNET);
 check("falls back to the default on rubbish", M.resolveModel("gpt-4") === SOL);
 check("falls back on empty", M.resolveModel("") === SOL && M.resolveModel(undefined) === SOL);
-check("labels", M.modelLabel(OPUS) === "Opus" && M.modelLabel(SONNET) === "Sonnet");
+check("labels", M.modelLabel(OPUS) === "Opus 5.5" && M.modelLabel(SONNET) === "Sonnet 5.5");
+check("retired ids keep their labels", M.modelLabel("claude-opus-5") === "Opus 5" && M.modelLabel("gpt-5.6-sol") === "Sol 5.6");
+check("retired ids resolve to their replacement", M.resolveModel("claude-sonnet-5") === SONNET && M.resolveModel("gpt-5.6-sol") === SOL && M.isKnownModel("claude-opus-5"));
 
 console.log("\n--- generators send what they are given ---");
 reset(); await runAnalysis("A long enough job description for a role.", { model: OPUS });
@@ -162,7 +164,7 @@ console.log("\n--- the page ---");
 const html = fs.readFileSync(root + "public/admin.html", "utf8");
 check("picker present in the generation review", html.includes('data-review-model'));
 check("persisted", html.includes('localStorage.setItem(MODEL_KEY, model)'));
-check("page defaults to sol", html.includes('localStorage.getItem(MODEL_KEY) || "gpt-5.6-sol"'));
+check("page defaults to sol", html.includes('localStorage.getItem(MODEL_KEY) || "gpt-6.1-sol"'));
 check("guards a bad stored value", html.includes('if (!MODELS.some('));
 check("review sends the selected model", html.includes('model: modelEl ? modelEl.value : model'));
 check("fit page, CV and letter use shared review", html.includes("kind: 'application'") && html.includes("kind: 'cover'"));
