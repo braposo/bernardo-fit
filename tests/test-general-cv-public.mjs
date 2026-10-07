@@ -45,8 +45,9 @@ const shared=makeResponse();
 await sharedHandler({method:'GET',query:{page:'home',r:'shared'}},shared);
 assert.equal(shared.code,200);
 assert.match(shared.body,/<title>Platform Lead · Alex Morgan<\/title>/);
-for(const fragment of ['The fit','What I bring','A synthetic closing.','Led a small team delivering shared platform tools','href="/bernardo-raposo-cv.pdf"','"shared"'])
+for(const fragment of ['The fit','What I bring','Led a small team delivering shared platform tools','href="/bernardo-raposo-cv.pdf"','"shared"'])
   assert.ok(shared.body.includes(fragment),`shared report page is missing ${fragment}`);
+assert.doesNotMatch(shared.body,/A synthetic closing|class="closing"|Where I'd fit/);
 assert.doesNotMatch(shared.body,/Application CV|private triage|private-role-711|javascript:alert/);
 const missing=makeResponse();
 await sharedHandler({method:'GET',query:{page:'home',r:'missing'}},missing);
