@@ -22,8 +22,8 @@ const test=async(name,fn)=>{try{await fn();passed++;console.log('  ok   '+name);
 const source=applicationCvSourceFromDocument(twoPageCvDocument());
 const fitUrl='https://fit.example.test/fit/abc';
 const strip=doc=>({...doc,profile:undefined,settings:{...doc.settings,layout:'classic',pages:undefined,detailedPrompt:undefined},
-  roles:doc.roles.map(({depth,scope,responsibilities,achievementIds,stack,domains,...role})=>role),
-  projects:doc.projects.filter(project=>!project.featured).map(({featured,summary,scope,highlights,stack,domains,...project})=>project)});
+  roles:doc.roles.map(({depth,scope,responsibilities,achievementIds,stack,startsPage,...role})=>role),
+  projects:doc.projects.filter(project=>!project.featured).map(({featured,summary,scope,highlights,stack,...project})=>project)});
 
 await test('the one-page source ignores two-page fields, the featured project and the profile',()=>{
   const classic=applicationCvSourceFromDocument(twoPageCvDocument({layout:'classic'}));
@@ -91,7 +91,29 @@ await test('the agreed content renders within two A4 pages with every public fra
   assert.ok(fitted.rendered.layout.pageCount<=2);
   assert.ok(fitted.selection.roles.every(role=>role.achievementIds.length>=1));
   const html=await renderApplicationCvHtml(fitted.content);
-  for(const text of ['Profile','Core skills','Featured project','Other contributions','Earlier career','facts-label','entry-highlight'])assert.ok(html.includes(text),text);
+  for(const text of ['Profile','Core skills','Featured project','Side projects and community','facts-label','entry-highlight','<strong class="em">problems into products</strong>'])
+    assert.ok(html.includes(text),text);
+  for(const text of ['Earlier career','Other contributions','Domains','**'])assert.equal(html.includes(text),false,text);
+  // Critical Software closes Experience, and each role's Stack line sits between its scope and its items.
+  assert.ok(html.indexOf('Critical Software')<html.indexOf('Featured project'));
+  const singlestore=html.slice(html.indexOf('SingleStore</span>'),html.indexOf('TravelRepublic / Emirates Group</span>'));
+  assert.ok(singlestore.indexOf('entry-scope')<singlestore.indexOf('facts-label') && singlestore.indexOf('facts-label')<singlestore.indexOf('entry-detail'));
+  // EDITED is marked to open page 2, and the PDF does start it there.
+  assert.match(html,/<article class="entry page-start">.{0,300}EDITED/s);
+  const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const loading=getDocument({data:new Uint8Array(fitted.rendered.pdfBytes),useSystemFonts:false,disableFontFace:true});
+  const pdf=await loading.promise;
+  const page2=(await (await pdf.getPage(2)).getTextContent()).items.map(item=>item.str).join('').replace(/\s+/g,'');
+  await loading.destroy();
+  assert.ok(page2.startsWith('SeniorEngineer'),page2.slice(0,40));
+});
+
+await test('the one-page layout drops the bold markers from shared evidence',()=>{
+  const classic=applicationCvSourceFromDocument(twoPageCvDocument({layout:'classic'}));
+  const texts=classic.roles.flatMap(role=>role.evidence.map(e=>e.text));
+  assert.ok(texts.some(text=>text.startsWith('Owned engineering strategy and resourcing for SQRL')));
+  assert.equal(texts.some(text=>text.includes('**')),false);
+  assert.ok(source.roles[0].evidence.some(e=>e.text.includes('**')));
 });
 
 await test('a source too long for its page limit fails instead of shrinking the text',async()=>{
@@ -123,8 +145,10 @@ await test('public output and the fit page carry the two-page sections without p
   assert.equal(visible.layout,'detailed');assert.equal(visible.experience[0].stack[0],'TypeScript');
   assert.equal(visible.featured[0].highlights.length,6);assert.equal(visible.earlier[0].company,'Critical Software');
   const page=renderPublicApplication({publicId:'abc',report:{job_title:'Engineering Manager',company:'Example'},version:{content:visible}},'<!-- TITLE --><!-- REPORT --><!-- CV -->');
-  for(const text of ['I turn problems into products.','Core skills','entry-scope','Stack','Featured project','Earlier career','Critical Software','The common thread'])
+  for(const text of ['<strong class="em">problems into products</strong>','Core skills','entry-scope','Stack','Featured project','Side projects and community','Critical Software','The common thread'])
     assert.ok(page.includes(text),text);
+  for(const text of ['Earlier career','Domains','**'])assert.equal(page.includes(text),false,text);
+  assert.ok(page.indexOf('Critical Software')<page.indexOf('Featured project'));
 });
 
 await test('the seed plan fills only missing fields and stops for drafts',()=>{
@@ -141,6 +165,7 @@ await test('the seed plan fills only missing fields and stops for drafts',()=>{
   const ss=plan.patches.find(row=>row.label==='role:singlestore');
   assert.equal('scope' in ss.set,false);assert.equal(ss.set.achievements.length,8);
   assert.equal(plan.patches.find(row=>row.label==='role:connect-coimbra').set.title,'Co-founder and freelance web developer');
+  assert.equal(plan.patches.find(row=>row.label==='role:edited').set.startsPage,true);assert.equal('startsPage' in ss.set,false);
   assert.deepEqual(plan.patches.find(row=>row.label==='project:fit').set.featured,true);
   assert.equal(plan.patches.some(row=>row.label==='project:hermans'),false);
   assert.deepEqual(Object.keys(plan.patches.find(row=>row.label==='settings').set),['pages','detailedPrompt']);

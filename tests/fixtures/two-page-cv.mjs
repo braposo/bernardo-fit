@@ -19,7 +19,7 @@ export function twoPageCvDocument({layout='detailed',pages=2}={}) {
     const achievements=content.achievements.map(item=>fact(`${key}-${item.key}`,item.text,{contribution:item.contribution}));
     return {_id:`role-${key}`,_rev:`rev-role-${key}`,title,company,dates,location,order,overviewEvidenceId:overview._id,
       depth:content.depth,scope:content.scope,responsibilities:content.responsibilities,achievementIds:achievements.map(item=>item._id),
-      stack:content.stack,domains:content.domains,evidence:[overview,...achievements]};
+      stack:content.stack,startsPage:content.startsPage,evidence:[overview,...achievements]};
   });
   const project=(id,title,order,links,extra={})=>({_id:id,_rev:`rev-${id}`,title,dates:'',location:'',order,links,
     evidence:[fact(`${id}-fact`,`${title} approved fact.`)],...extra});
@@ -34,7 +34,7 @@ export function twoPageCvDocument({layout='detailed',pages=2}={}) {
       evidence:[fact('education-fact','MSc and BSc in Informatics Engineering, University of Coimbra.')]}],
     projects:[
       project('fit','Fit',0,[{label:'fit.bernardoraposo.com',href:'https://fit.example.test/'}],{featured:true,dates:TWO_PAGE_FEATURED.dates,
-        scope:TWO_PAGE_FEATURED.scope,highlights:TWO_PAGE_FEATURED.highlights,stack:TWO_PAGE_FEATURED.stack,domains:TWO_PAGE_FEATURED.domains}),
+        scope:TWO_PAGE_FEATURED.scope,highlights:TWO_PAGE_FEATURED.highlights,stack:TWO_PAGE_FEATURED.stack}),
       project('hermans','Hermans Club',1,[{label:'hermans.club',href:'https://hermans.example.test/'}],{summary:TWO_PAGE_CONTRIBUTIONS['project:hermans']}),
       project('open-source','Open source',2,['react-text-loop','react-responsive-picture','figma-graphql','nextjs-solana-starter-kit']
         .map(label=>({label,href:`https://github.example.test/${label}`})),{summary:TWO_PAGE_CONTRIBUTIONS['contributions:project:open-source:v5']}),

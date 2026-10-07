@@ -43,7 +43,7 @@ export function planTwoPageCvSeed({roles,projects,settings,profile,provenance,ev
     });
     const set={};
     const fill={depth:content.depth,scope:content.scope,responsibilities:content.responsibilities,
-      achievements:content.achievements.map(item=>ref(evidenceId(key,item.key),item.key)),stack:content.stack,domains:content.domains};
+      achievements:content.achievements.map(item=>ref(evidenceId(key,item.key),item.key)),stack:content.stack,startsPage:content.startsPage};
     for(const [field,value] of Object.entries(fill))if(missing(role[field]) && !missing(value))set[field]=value;
     if(content.title && role.title===content.title.from)set.title=content.title.to;
     if(Object.keys(set).length)patches.push({id:role._id,rev:role._rev,label:`role:${key}`,set});
@@ -51,7 +51,7 @@ export function planTwoPageCvSeed({roles,projects,settings,profile,provenance,ev
   const fit=projects.find(row=>row.seedKey===TWO_PAGE_FEATURED.seedKey);
   required(fit,'The Fit project record is missing.');
   const fitSet={};
-  for(const field of ['scope','highlights','stack','domains'])if(missing(fit[field]))fitSet[field]=TWO_PAGE_FEATURED[field];
+  for(const field of ['scope','highlights','stack'])if(missing(fit[field]))fitSet[field]=TWO_PAGE_FEATURED[field];
   if(fit.featured!==true)fitSet.featured=true;
   if(missing(fit.dates))fitSet.dates=TWO_PAGE_FEATURED.dates;
   if(fit.approvedPublic!==true)fitSet.approvedPublic=true;
@@ -77,8 +77,8 @@ async function readState(client) {
   const projectKeys=[TWO_PAGE_FEATURED.seedKey,...Object.keys(TWO_PAGE_CONTRIBUTIONS)];
   const evidenceIds=Object.entries(TWO_PAGE_ROLES).flatMap(([key,role])=>role.achievements.map(item=>evidenceId(key,item.key)));
   const state=await raw.fetch(`{
-    "roles":*[_type=="applicationCvRole" && seedKey in $roleKeys && !(_id in path("drafts.**"))]{_id,_rev,seedKey,title,company,depth,scope,responsibilities,achievements,stack,domains},
-    "projects":*[_type=="applicationCvProject" && seedKey in $projectKeys && !(_id in path("drafts.**"))]{_id,_rev,seedKey,dates,approvedPublic,featured,summary,scope,highlights,stack,domains},
+    "roles":*[_type=="applicationCvRole" && seedKey in $roleKeys && !(_id in path("drafts.**"))]{_id,_rev,seedKey,title,company,depth,scope,responsibilities,achievements,stack,startsPage},
+    "projects":*[_type=="applicationCvProject" && seedKey in $projectKeys && !(_id in path("drafts.**"))]{_id,_rev,seedKey,dates,approvedPublic,featured,summary,scope,highlights,stack},
     "settings":*[_id=="application-cv-settings"][0]{_id,_rev,layout,pages,detailedPrompt},
     "profile":*[_id==$profileId][0]{_id,_rev},
     "provenance":*[_id==$provenanceId][0]{_id,_rev,_type},

@@ -25,17 +25,19 @@ export const applicationCvRole=defineType({name:'applicationCvRole',title:'CV em
           params:{roleId:String(document?._id||'').replace(/^drafts\./,'')}})}})],
       validation:rule=>rule.max(2).unique()}),order,publicFlag,
     defineField({name:'depth',title:'Two-page CV depth',type:'string',initialValue:'full',
-      description:'Full shows scope, responsibilities, chosen achievements, stack and domains. Short shows scope and responsibilities. Earlier career shows the scope as one line.',
+      description:'Full shows scope, stack, responsibilities and chosen achievements. Short shows scope and responsibilities. Earlier career shows the scope as one line at the end of Experience.',
       options:{list:[{title:'Full',value:'full'},{title:'Short',value:'short'},{title:'Earlier career',value:'earlier'}],layout:'radio'}}),
-    defineField({name:'scope',title:'Scope',type:'text',rows:3,description:'One or two sentences on the company, the team and what the role owned.'}),
-    textList('responsibilities','Responsibilities','Shown in order on every two-page CV.'),
+    defineField({name:'scope',title:'Scope',type:'text',rows:3,description:'One or two sentences on the company, the team and what the role owned. Wrap key skills in **double asterisks** to show them in bold.'}),
+    textList('responsibilities','Responsibilities','Shown in order on every two-page CV. **Double asterisks** mark bold phrases.'),
     defineField({name:'achievements',title:'Achievements pool',type:'array',
       description:'Ordered approved delivered facts from this job. Tailored CVs pick two or three; the general CV uses the first three.',
       of:[defineArrayMember({type:'reference',to:[{type:'applicationCvEvidence'}],
         options:{filter:({document})=>({filter:'role._ref == $roleId && approvedPublic == true && status == "delivered"',
           params:{roleId:String(document?._id||'').replace(/^drafts\./,'')}})}})],
       validation:rule=>rule.unique()}),
-    tagList('stack','Stack','Fixed per role, not tailored.'),tagList('domains','Domains','Fixed per role, not tailored.')],
+    tagList('stack','Stack','Fixed per role, not tailored. Shown under the scope.'),
+    defineField({name:'startsPage',title:'Start a new PDF page',type:'boolean',initialValue:false,
+      description:'Two-page CV only: this role always begins a new page in the PDF.'})],
   preview:{select:{title:'title',subtitle:'company'}}})
 export const applicationCvEducation=defineType({name:'applicationCvEducation',title:'CV education',type:'document',icon:DocumentTextIcon,
   fields:[sourceKey,required('title','Qualification'),defineField({name:'dates',type:'string'}),defineField({name:'location',type:'string'}),order,publicFlag]})
@@ -45,10 +47,10 @@ export const applicationCvProject=defineType({name:'applicationCvProject',title:
       defineField({name:'href',title:'URL',type:'url',validation:rule=>rule.required().uri({scheme:['https','http']})})]})]}),order,publicFlag,
     defineField({name:'featured',title:'Featured project on the two-page CV',type:'boolean',initialValue:false,
       description:'Featured projects get their own section laid out like a role. The one-page CV leaves them out.'}),
-    defineField({name:'summary',title:'Two-page CV line',type:'text',rows:2,description:'One line for Other contributions. Falls back to the first approved fact.'}),
+    defineField({name:'summary',title:'Two-page CV line',type:'text',rows:2,description:'One line for Side projects and community. Falls back to the first approved fact.'}),
     defineField({name:'scope',title:'Scope',type:'text',rows:3,description:'Featured projects only.'}),
     textList('highlights','Highlights','Featured projects only, shown in order.'),
-    tagList('stack','Stack','Featured projects only.'),tagList('domains','Domains','Featured projects only.')]})
+    tagList('stack','Stack','Featured projects only.')]})
 export const applicationCvEvidence=defineType({name:'applicationCvEvidence',title:'CV evidence',type:'document',icon:DocumentTextIcon,
   fields:[sourceKey,required('text','CV-ready fact','text'),defineField({name:'source',title:'Original source document',type:'reference',to:[{type:'sitePage'},{type:'candidateEvidence'},{type:'candidateProfile'}],validation:rule=>rule.required()}),
     required('sourcePassage','Exact source passage','text'),
@@ -63,20 +65,20 @@ export const applicationCvSettings=defineType({name:'applicationCvSettings',titl
   fields:[required('model','Fallback generation model (used only without Jev)'),required('prompt','Generation instructions','text'),required('verifierPrompt','Factual verifier instructions','text'),
     defineField({name:'maxWords',type:'number',validation:rule=>rule.required().integer().min(150).max(1000)}),
     defineField({name:'minBodyPx',title:'Minimum PDF body size (px)',type:'number',validation:rule=>rule.required().min(13).max(18)}),
-    defineField({name:'layout',type:'string',description:'classic is the one-page CV; detailed is the two-page CV with scope, responsibilities, stack and domains per role.',
+    defineField({name:'layout',type:'string',description:'classic is the one-page CV; detailed is the two-page CV with scope, stack and responsibilities per role.',
       options:{list:['classic','detailed']},validation:rule=>rule.required()}),
     defineField({name:'pages',title:'Two-page CV page limit',type:'number',initialValue:2,validation:rule=>rule.integer().min(1).max(3)}),
     defineField({name:'detailedPrompt',title:'Two-page CV achievement selection instructions',type:'text'})]})
 
 // Singleton (document ID application-cv-profile) for the two-page CV's profile,
-// core skills and the line that introduces Other contributions.
+// core skills and the line that introduces Side projects and community.
 export const applicationCvProfile=defineType({name:'applicationCvProfile',title:'Two-page CV profile',type:'document',icon:DocumentTextIcon,
-  fields:[defineField({name:'paragraphs',title:'Profile paragraphs',type:'array',of:[defineArrayMember({type:'text',rows:4})],validation:rule=>rule.required().min(1)}),
+  fields:[defineField({name:'paragraphs',title:'Profile paragraphs',type:'array',description:'Wrap key skills in **double asterisks** to show them in bold.',of:[defineArrayMember({type:'text',rows:4})],validation:rule=>rule.required().min(1)}),
     defineField({name:'skills',title:'Core skills',type:'array',validation:rule=>rule.required().min(1),
       of:[defineArrayMember({type:'object',fields:[required('label','Group'),
         defineField({name:'items',type:'array',of:[defineArrayMember({type:'string'})],validation:rule=>rule.required().min(1)})],
         preview:{select:{title:'label'}}})]}),
-    defineField({name:'contributionsIntro',title:'Other contributions intro',type:'text',rows:2})],
+    defineField({name:'contributionsIntro',title:'Side projects and community intro',type:'text',rows:2})],
   preview:{prepare:()=>({title:'Two-page CV profile'})}})
 
 export const applicationCvJson=defineType({name:'applicationCvJson',title:'Stored application CV data',type:'object',
