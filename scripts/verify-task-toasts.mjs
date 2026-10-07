@@ -158,7 +158,7 @@ try {
   assert.equal(await page.locator('[data-task-id="run:run2"] button[aria-label^="Dismiss"]').textContent(), 'Dismiss', 'failed notification has no countdown');
   await page.waitForFunction(() => !document.querySelector('[data-act=cover]').disabled);
   await page.setViewportSize({ width: 1280, height: 900 });
-  for (const [section, selector] of [['materials','[data-act=regen]'],['materials','[data-act=researchrefresh]'],['materials','[data-act=briefrewrite]'],['materials','[data-act=qdraft]'],['overview','[data-act=jevscore]'],['overview','#assesslisted']]) {
+  for (const [section, selector] of [['materials','[data-act=appgenerate]'],['materials','[data-act=researchrefresh]'],['materials','[data-act=briefrewrite]'],['materials','[data-act=qdraft]'],['overview','[data-act=jevscore]'],['overview','#assesslisted']]) {
     await page.locator('[data-section=' + section + ']').click();
     await page.locator(selector).click();
     await page.locator('[data-review-submit]:enabled').click();
@@ -243,10 +243,11 @@ try {
   await page.locator('.task-toast-message').filter({hasText:'Cover letter dispatch unavailable.'}).waitFor();
   assert.equal(job.stage, 'reviewing', 'dispatch error does not revert saved stage');
   await page.locator('[data-section=materials]').click();
-  assert.equal(await page.locator('[data-act=regen]').isDisabled(), true, 'returned analysis run locks generation');
+  assert.equal(await page.locator('[data-act=appgenerate]').isDisabled(), true, 'returned analysis run locks generation');
   status = 'COMPLETED';
+  job.analysisRun.status = 'completed'; // the server settles the run before the role is refetched
   await page.evaluate(() => window.fixtureRuns['reviewing-analysis'].onUpdate({status:'COMPLETED'}));
-  await page.waitForFunction(() => !document.querySelector('[data-act=regen]')?.disabled);
+  await page.waitForFunction(() => !document.querySelector('[data-act=appgenerate]')?.disabled);
   await page.goto(origin + '/');
   await page.locator('#jd').fill('A sufficiently detailed synthetic engineering leadership role.');
   await page.locator('#go').click();

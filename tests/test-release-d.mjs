@@ -80,7 +80,7 @@ walk(path.join(root, "api"));
 check("Vercel function surface is twelve files including admin chat", apiFiles.length === 12, apiFiles);
 check("old synchronous handlers are deleted", ["analyse.js", "answer.js", "regenerate.js"].every((name) => !fs.existsSync(path.join(root, "api", "admin", name))));
 const html = fs.readFileSync(path.join(root, "public", "admin.html"), "utf8");
-check("browser uses the shared reviewed dispatch route", html.includes("kind: 'analyse'") && html.includes("kind: 'answer'") && html.includes("kind: 'regenerate'") && html.includes('reviewFingerprint'));
+check("browser uses the shared reviewed dispatch route", html.includes("kind: 'application'") && html.includes("kind: 'answer'") && html.includes('reviewFingerprint'));
 check("timestamp recovery is gone", !/recoverable|analysisLanded|answerLanded|regenLanded/.test(html));
 const parent = fs.readFileSync(path.join(root, "src", "trigger", "analyse-all.ts"), "utf8");
 check("parent uses Trigger batch wait", parent.includes("batchTriggerAndWait(items)"));

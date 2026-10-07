@@ -18,7 +18,8 @@ check("brief completion can open", workCompletion({ ok: true, d: { kind: "brief"
 check("bulk assessment reports completed scores", workCompletion({ ok: true, d: { kind: "jev-score-all", status: "COMPLETED", result: { outcome: "completed", assessed: 2, failed: 0 } } }).text === "2 assessed, 0 failed");
 check("published CV completion is clear", workCompletion({ ok: true, d: { kind: "cv", status: "COMPLETED", result: { outcome: "completed", publication: "published" } } }).text === "Customised CV published");
 check("saved CV completion is clear", workCompletion({ ok: true, d: { kind: "cv", status: "COMPLETED", result: { outcome: "completed", publication: "saved" } } }).text === "Customised CV saved");
-check("CV validation issue has a truthful outcome", workCompletion({ ok: true, d: { kind: "cv", status: "COMPLETED", result: { outcome: "needs_review" } } }).text === "CV needs review");
+check("an old CV review outcome asks for a new version", workCompletion({ ok: true, d: { kind: "cv", status: "COMPLETED", result: { outcome: "needs_review" } } }).text === "This CV attempt could not be used. Generate a new version.");
+check("application completion names both documents", workCompletion({ ok: true, d: { kind: "application", status: "COMPLETED", result: { outcome: "completed", publication: "published" } } }).text === "Fit page and CV ready");
 
 check('missing output does not imply a newer request', /details are unavailable/.test(workCompletion({ok:true,d:{status:'COMPLETED'}}).text));
 check('missing cover output does not imply a newer request', /details are unavailable/.test(coverCompletion({ok:true,d:{status:'COMPLETED'}}).text));
