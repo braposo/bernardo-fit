@@ -17,4 +17,4 @@ const log=[];
 assert.deepEqual(await removeFitReportClosing({client:fake([doc],log),apply:true}),{needed:false,applied:true});
 assert.deepEqual(log,[{id:'fit-analysis-settings',rev:'r1'},{'texts[_key=="analysis"].text':cleaned},'commit']);
 await assert.rejects(removeFitReportClosing({client:fake([doc,{_id:'drafts.fit-analysis-settings'}])}),/draft/);
-console.log('remove fit report closing: ok');
+console.log('passed 1, failed 0');
