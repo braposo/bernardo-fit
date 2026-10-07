@@ -28,6 +28,20 @@ The default CV is assembled deterministically from the same published identity, 
 
 A valid CV saved privately (for example, on an Interviewing role) is available directly from the main document card as **Saved · not live**, with authenticated preview and download actions for that exact version. The card separately tracks the current public version and latest valid saved version; drafts that need review and versions without a resolvable PDF do not supply these download actions. Generation failures or a newer version needing review do not hide an earlier valid saved CV. Publishing remains explicit for these saved versions, and opening the card never publishes or regenerates them.
 
+## Two-page layout
+
+Setting the published CV settings `layout` to `detailed` switches tailored and general CVs to the two-page format. Each employment role then carries a depth (`full`, `short` or `earlier`), a scope line, ordered responsibilities, an ordered achievements pool of its own approved delivered evidence, and fixed Stack and Domains lists. The `application-cv-profile` singleton holds the profile paragraphs, grouped core skills and the Other contributions intro. A project marked `featured` (Fit) gets its own section with scope, highlights, stack and domains; the one-page layout leaves featured projects out. Settings add `pages` (1–3) and the achievement selection instructions. The two-page source is validated only when that layout is published, so the one-page source and its fingerprint are unchanged until then.
+
+Every two-page sentence is approved Sanity text shown verbatim. A tailored CV makes one low-effort `cv-detailed` call through `durable-model-call` that only orders two or three achievement IDs per full role and returns the private requirement map; an unusable answer falls back to the editorial order and is recorded in the version's validation. There is no rewrite and no verifier call. The general CV uses each role's first three achievements. Rendering checks the real PDF page count against `pages`; while it runs over, one achievement is dropped from the role with the most, oldest roles first, keeping at least one per role, and a source that still does not fit fails with `CV_SOURCE_UNFIT`. PDF validation reads text and links from every page.
+
+```sh
+node --env-file=.env.local scripts/seed-two-page-cv.mjs
+node --env-file=.env.local scripts/seed-two-page-cv.mjs --apply
+node --env-file=.env.local scripts/seed-two-page-cv.mjs --apply --activate
+```
+
+The seed is a dry run by default. `--apply` creates the 2026-10-07 provenance record, the achievement evidence and the profile, and fills only missing two-page fields on the existing roles, projects and settings; drafts or changed role facts stop it, and writes use revision guards. `--activate` then validates the two-page source and switches the published layout. Register the new fields and the `applicationCvProfile` singleton in the standalone Studio.
+
 ## Cost and recovery
 
 Jev chooses the writer model for each CV from the published writing-model criteria; the CV generation review has no model picker. The published CV settings model (default `gpt-6.1-sol`) is used only when Jev is not configured. Generation uses low reasoning effort and bounded output. The CV queue has concurrency one and a ten-minute compute limit. Trigger owns retries and run state. Writer and verifier outputs are separate durable child results, so native retries within the same parent run reuse paid output after a failed render or Sanity write. A saved version resumes publication without rendering again. Identical in-flight inputs reuse the claimed request and Trigger idempotency key. An explicit new generation after a terminal failure is a new billable request; it does not inherit another parent run's child checkpoints.

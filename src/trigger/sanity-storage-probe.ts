@@ -15,12 +15,11 @@ export const sanityStorageProbe = task({
     let cv;
     if(payload.renderCv){
       const {loadApplicationCvSource}=await import('../../lib/application-cv-source.js');
-      const {buildGeneralApplicationCv}=await import('../../lib/application-cv-general.js');
+      const {renderGeneralApplicationCv}=await import('../../lib/application-cv-general.js');
       const {renderApplicationCvPdf}=await import('../../lib/application-cv-render.js');
       const {GENERAL_CV_PUBLIC_URL}=await import('../../lib/general-cv-availability.js');
       const source=await loadApplicationCvSource();
-      const {content}=buildGeneralApplicationCv(source,{publicUrl:GENERAL_CV_PUBLIC_URL});
-      const rendered=await renderApplicationCvPdf(content,{minBodyPx:source.settings.minBodyPx});
+      const {rendered}=await renderGeneralApplicationCv(source,{publicUrl:GENERAL_CV_PUBLIC_URL,render:renderApplicationCvPdf});
       cv={bytes:rendered.pdfBytes.length,pdfSha256:rendered.pdfSha256,layout:rendered.layout};
     }
     return payload.configurationOnly?{configuration,receiptVisible,cv}:{...await verifySanityStorage(),configuration,receiptVisible,cv};
