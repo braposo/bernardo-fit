@@ -5,7 +5,7 @@ import {createStorageClient} from '../lib/sanity/client.js';
 import {plainText} from '../lib/sanity/codecs.js';
 
 const roles=[
-  {key:'singlestore',title:'Engineering Manager',company:'SingleStore',dates:'Aug 2020 – May 2026',match:'SingleStore'},
+  {key:'singlestore',title:'Engineering Manager',company:'SingleStore',dates:'2020 – 2026',match:'SingleStore'},
   {key:'travelrepublic',title:'Principal Engineer',company:'TravelRepublic / Emirates Group',dates:'2018 – 2020',match:'TravelRepublic'},
   {key:'edited',title:'Senior Engineer',company:'EDITED',dates:'2014 – 2018',match:'EDITED'},
   {key:'connect-coimbra',title:'Co-founder',company:'Connect Coimbra',dates:'2010 – 2014',match:'Connect Coimbra'},

@@ -34,7 +34,7 @@ const tampered=structuredClone(source);
 tampered.roles[0].generalEvidenceIds=['missing'];
 assert.throws(()=>buildGeneralApplicationCv(tampered,{publicUrl:'https://fit.example.test/'}),/not approved delivered/);
 const published=[
-  {_id:'ss',_rev:'r1',_type:'applicationCvRole',seedKey:'role:singlestore',title:'Engineering Manager',company:'SingleStore',dates:'Aug 2020 – May 2026',approvedPublic:true,overviewId:'s0'},
+  {_id:'ss',_rev:'r1',_type:'applicationCvRole',seedKey:'role:singlestore',title:'Engineering Manager',company:'SingleStore',dates:'2020 – 2026',approvedPublic:true,overviewId:'s0'},
   {_id:'tr',_rev:'r2',_type:'applicationCvRole',seedKey:'role:travelrepublic',title:'Principal Engineer',company:'TravelRepublic / Emirates Group',dates:'2018 – 2020',approvedPublic:true,overviewId:'t0'},
   ...[['s0','public:singlestore:0','ss'],['tq7BTrlFd6TZUY20tKIzCa','public:singlestore:1','ss'],
     ['gqa1Mkwo5ifeRcwR4MdJ6f','public:singlestore:2','ss'],

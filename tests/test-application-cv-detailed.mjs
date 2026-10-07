@@ -149,6 +149,18 @@ await test('public output and the fit page carry the two-page sections without p
     assert.ok(page.includes(text),text);
   for(const text of ['Earlier career','Domains','**'])assert.equal(page.includes(text),false,text);
   assert.ok(page.indexOf('Critical Software')<page.indexOf('Featured project'));
+  // The fit page opens on a short summary (opening profile paragraph, each full
+  // role's most relevant pick, the featured project and a career timeline);
+  // the whole CV sits in a Show full CV disclosure.
+  const brief=page.slice(0,page.indexOf('<details class="cv-full">'));
+  assert.ok(brief.includes('Highlights for this role') && brief.includes('<ol class="timeline">'));
+  assert.equal((brief.match(/<li><p>/g)||[]).length,4);
+  for(const role of visible.experience.filter(role=>role.bullets.length))assert.ok(brief.includes(role.bullets[0].text.replace(/\*\*(.+?)\*\*/g,'<strong class="em">$1</strong>').replace(/'/g,'&#39;').slice(0,40)),role.company);
+  assert.equal(brief.includes(visible.experience[0].bullets[1].text.slice(0,30)),false);
+  assert.ok(brief.includes('Critical Software') && !brief.includes('Core skills') && !brief.includes('facts-label'));
+  assert.equal((page.match(/<details class="cv-full">/g)||[]).length,1);
+  const shared=renderPublicApplication({publicId:'abc',report:{job_title:'Engineering Manager'},version:{content:visible}},'<!-- CV -->',{shared:true});
+  assert.ok(shared.includes('>Highlights<') && !shared.includes('Highlights for this role'));
 });
 
 await test('the seed plan fills only missing fields and stops for drafts',()=>{
