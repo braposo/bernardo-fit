@@ -6,7 +6,7 @@ import {loadApplicationCvSource} from '../lib/application-cv-source.js';
 
 const required=(condition,message)=>{if(!condition)throw Error(message);};
 const choices=[
-  {roleKey:'role:singlestore',title:'Engineering Manager',company:'SingleStore',dates:'Aug 2020 – May 2026',
+  {roleKey:'role:singlestore',title:'Engineering Manager',company:'SingleStore',dates:'2020 – 2026',
     overviewKey:'public:singlestore:0',evidenceKeys:['public:singlestore:1','public:singlestore:2'],
     evidenceIds:['tq7BTrlFd6TZUY20tKIzCa','gqa1Mkwo5ifeRcwR4MdJ6f'],evidenceTexts:[
       'Led Docs v2 from beta to general availability, covering the frontend, Algolia search and deployment infrastructure. Coordinated work with Docs, Product and Design.',
