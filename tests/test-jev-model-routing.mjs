@@ -75,9 +75,9 @@ assert.equal(calls, before + 1);
 assert.equal(writing, publicWriting, "public retry reuses the page without any model calls");
 const fs = await import("node:fs");
 const reviewSource = fs.readFileSync(new URL("../lib/generation-review.js", import.meta.url), "utf8");
-assert.match(reviewSource, /routing = await selectWritingModel\(\{ kind, job, report, fallback: sourceSnapshot\.settings\.model \}\)/,
+assert.match(reviewSource, /routing = await selectWritingModel\(\{ kind: "cv", job, report, fallback: sourceSnapshot\.settings\.model \}\)/,
   "Jev picks the CV writer, with the published CV setting as its fallback");
-assert.doesNotMatch(reviewSource, /resolveModel\(body\.model \|\| sourceSnapshot/, "the CV review ignores a requested model");
+assert.doesNotMatch(reviewSource, /resolveModel\(body\.model \|\| sourceSnapshot|resolveModel\(requestedModel \|\| sourceSnapshot/, "the CV review ignores a requested model");
 const adminHtml = fs.readFileSync(new URL("../public/admin.html", import.meta.url), "utf8");
-assert.ok(adminHtml.includes("var routed = ['jev-score', 'jev-score-all', 'cv'].indexOf(options.kind) !== -1"), "the CV review shows no model picker");
+assert.ok(adminHtml.includes("var routed = ['jev-score', 'jev-score-all', 'cv', 'application'].indexOf(options.kind) !== -1"), "the CV review shows no model picker");
 console.log("passed 1, failed 0");

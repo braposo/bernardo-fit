@@ -144,9 +144,9 @@ try {
       }
     }
     if (process.env.ADMIN_UX_CV_GENERAL_FALLBACK && !process.env.ADMIN_UX_BASELINE) {
-      assert.equal((await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).trim(), 'No customised CV yet');
+      assert.equal((await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).trim(), 'Fit analysis only · no tailored CV yet');
       assert.equal(await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').getAttribute('href'), '/bernardo-raposo-cv.pdf');
-      assert.equal(await page.locator('[data-document="cv"] [data-act="cvgenerate"]').textContent(), 'Generate CV');
+      assert.equal(await page.locator('[data-document="cv"] [data-act="appgenerate"]').textContent(), 'Generate new version');
       assert.equal(await page.locator('[data-document="cv"] [data-act="cvopen"]').count(), 0);
       assert.equal(await page.locator('[data-document="cv"] [data-act="cvdownload"]').count(), 0);
     }
@@ -294,7 +294,9 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-save-for="notes"]').textContent === 'Saved');
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-document="letter"] .version-summary').waitFor();
-  check('document cards use shadcn Card', await page.locator('.material-row[data-slot="card"]').count() === 5);
+  check('document cards use shadcn Card', await page.locator('.material-row[data-slot="card"]').count() === 4);
+  check('fit analysis and CV share one document card', await page.locator('[data-document="fit"]').count() === 0 &&
+    (await page.locator('[data-document="cv"] h3').textContent()) === 'Fit page & CV');
   check('published CV remains live and directly openable', /live/i.test(await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()) &&
     await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible());
   await page.locator('[data-select-job="job4"]').click();
@@ -305,17 +307,17 @@ try {
     await page.locator('[data-document="cv"] [data-act="cvdownload"]').getAttribute('data-version') === 'cv-v2');
   await page.locator('[data-select-job="job3"]').click();
   await page.locator('[data-section="materials"]').click();
-  check('failed update keeps the previous public CV reachable', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('Update failed · previous version remains live') &&
+  check('failed update keeps the previous public CV reachable', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('Last update failed · current version stays live') &&
     await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible());
   await page.locator('[data-select-job="job2"]').click();
   await page.locator('[data-section="materials"]').click();
-  check('needs-review state keeps a valid live CV reachable', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('Review before submitting') &&
+  check('an old review state is not shown as a gate', !/needs review|review before/i.test(await page.locator('[data-document="cv"]').textContent()) &&
     await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible());
   await page.locator('[data-select-job="job5"]').click();
   await page.locator('[data-section="materials"]').click();
-  check('general CV is clearly separate from job-specific generation', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('No customised CV yet') &&
+  check('general CV is clearly separate from job-specific generation', (await page.locator('[data-document="cv"] [data-summary="cv"]').textContent()).includes('no tailored CV yet') &&
     await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').getAttribute('href') === '/bernardo-raposo-cv.pdf' &&
-    await page.locator('[data-document="cv"] [data-act="cvgenerate"]').textContent() === 'Generate CV');
+    await page.locator('[data-document="cv"] [data-act="appgenerate"]').textContent() === 'Generate new version');
   await page.locator('[data-select-job="job6"]').click();
   await page.locator('[data-section="materials"]').click();
   check('general CV fallback stays hidden when a tailored CV is live', await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible() &&
@@ -326,18 +328,18 @@ try {
     await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').count() === 0);
   await page.locator('[data-select-job="job8"]').click();
   await page.locator('[data-section="materials"]').click();
-  check('general CV fallback is omitted when the general file is unavailable', await page.locator('[data-document="cv"] [data-act="cvgenerate"]').isVisible() &&
+  check('general CV fallback is omitted when the general file is unavailable', await page.locator('[data-document="cv"] [data-act="appgenerate"]').isVisible() &&
     await page.locator('[data-document="cv"] [data-act="generalcvdownload"]').count() === 0);
   await page.locator('[data-select-job="job0"]').click();
   await page.locator('[data-section="materials"]').click();
   await page.locator('[data-document="letter"] .version-summary').waitFor();
-  check('fit page prefers the application-specific public link', await page.locator('[data-document="fit"] [data-act="openfit"], [data-document="fit"] a').first().getAttribute('href') === '/fit/personalised-job0');
-  check('CV has separate open, download and regenerate actions', await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible() &&
-    await page.locator('[data-document="cv"] [data-act="cvdownload"]').isVisible() && await page.locator('[data-document="cv"] [data-act="cvgenerate"]').isVisible());
+  check('fit page prefers the application-specific public link', await page.locator('[data-document="cv"] a.read-link').first().getAttribute('href') === '/fit/personalised-job0');
+  check('fit page and CV have open, download and one generate action', await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible() &&
+    await page.locator('[data-document="cv"] [data-act="cvdownload"]').isVisible() && await page.locator('[data-document="cv"] [data-act="appgenerate"]').count() === 1);
   check('CV and letter are separate with no combined action', await page.locator('[data-act="lettercv"]').count() === 0 && await page.locator('[data-document="letter"] [data-act="letteropen"]').isVisible());
   check('live version model and created time shown', (await page.locator('[data-document="letter"] .document-summary').textContent()).includes('Sol'));
   check('saved-document regeneration uses the outline button', await page.locator('[data-document="letter"] [data-act="cover"]').getAttribute('data-variant') === 'outline');
-  check('versions use shadcn Collapsible', await page.locator('[data-slot="collapsible"]').count() === 5 &&
+  check('versions use shadcn Collapsible', await page.locator('[data-slot="collapsible"]').count() === 4 &&
     await page.locator('[data-document="cv"] [data-slot="collapsible-trigger"]').count() === 1);
   await page.locator('[data-document="cv"] [data-act="cvversions-toggle"]').click();
   await page.locator('[data-document="cv"] [data-act="cvpreview"]').first().waitFor();
@@ -347,7 +349,8 @@ try {
     (await page.locator('[data-document="cv"] .vpreview').first().textContent()).includes('Led a synthetic team.') &&
     !(await page.locator('[data-document="cv"] .vpreview').first().textContent()).includes('internal-role-id') &&
     !(await page.locator('[data-document="cv"] .vpreview').first().textContent()).includes('never show keys'));
-  check('CV versions that need review cannot be published', await page.locator('[data-document="cv"] .cv-review-needed').isVisible());
+  check('unusable review drafts are not listed as versions', await page.locator('[data-document="cv"] [data-cv-version="cv-v0"]').count() === 0 &&
+    await page.locator('[data-document="cv"] .cv-review-needed').count() === 0);
   await page.locator('[data-document="cv"] [data-act="cvversion-download"]').last().waitFor();
   check('valid historical versions have a separate download action', await page.locator('[data-document="cv"] [data-act="cvversion-download"]').count() === 2);
   if (process.env.ADMIN_UX_SCREENSHOTS) {
@@ -441,7 +444,12 @@ try {
   await page.keyboard.press('Escape');
   await page.locator('[data-select-job="job1"]').click();
   await page.locator('[data-section="materials"]').click();
-  await page.locator('[data-act="runfit"]').click();
+  check('a new role offers one combined generation', await page.locator('[data-document="cv"] [data-act="appgenerate"]').textContent() === 'Generate fit page & CV');
+  await page.locator('[data-act="appgenerate"]').click();
+  await page.locator('[data-review-submit]:enabled').waitFor();
+  check('application review has one instructions field for both documents', await page.locator('[data-version-instructions]').count() === 1 &&
+    /fit analysis and the CV/.test(await page.locator('[data-version-instructions]').getAttribute('placeholder')) &&
+    await page.locator('[data-review-model]').count() === 0);
   await page.locator('[data-review-submit]:enabled').click();
   await page.getByRole('alert').filter({ hasText: 'Synthetic dispatch failure' }).waitFor();
   check('explicit submission dispatches once', dispatches === 1);
@@ -450,10 +458,6 @@ try {
   for (const width of [1280, 768, 390, 360]) {
     await page.setViewportSize({ width, height: 900 });
     if (width <= 900) check('desktop collapse control is hidden on mobile at ' + width, !(await page.locator('.pipeline-toggle').isVisible()));
-    const fitHistory = page.locator('[data-document="fit"] [data-slot="collapsible"]');
-    if (await fitHistory.getAttribute('data-state') !== 'open') await page.locator('[data-document="fit"] [data-act="versions-toggle"]').click();
-    await page.locator('[data-document="fit"] .ver').first().waitFor();
-    check('fit versions omit historical scores at ' + width, !(await page.locator('[data-document="fit"] .vmeta').allTextContents()).some(t => /score/i.test(t)));
     check('CV open and download actions fit at ' + width, await page.locator('[data-document="cv"] [data-act="cvopen"]').isVisible() && await page.locator('[data-document="cv"] [data-act="cvdownload"]').isVisible());
     check('combined CV and letter action stays removed at ' + width, await page.locator('[data-act="lettercv"]').count() === 0);
     check('document actions use single-line labels and a separate regeneration row at ' + width, await page.evaluate(() => {
@@ -514,7 +518,7 @@ try {
   await page.goto(origin + '/admin.html?job=job1');
   await page.locator('[data-section="materials"]').waitFor();
   await page.locator('[data-section="materials"]').click();
-  await page.locator('[data-act="runfit"]').click();
+  await page.locator('[data-act="appgenerate"]').click();
   await page.locator('[data-review-submit]:enabled').waitFor();
   check('automatic writing routing stays behind the scenes', !(await page.locator('[role="dialog"]').textContent()).includes('Jev'));
   check('Jev selected writer is fixed in review', await page.locator('[data-review-model]').count() === 0);

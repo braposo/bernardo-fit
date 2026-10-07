@@ -26,7 +26,7 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "cvMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml"];
+  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
 
@@ -102,8 +102,11 @@ const materials = render("materials", { briefStale: true, researchStale: true })
 for (const label of ["Open fit page", "Open letter", "Open CV", "Download CV", "Open previous brief", "Open research"]) check(label + " is present", materials.includes(label));
 check("CV and cover letter remain separate", !materials.includes("Open CV + letter") && !/combined=1/.test(html));
 check("cover-letter generation remains explicit", /data-act="cover"/.test(materials));
-check("saved documents use outline regeneration actions", [...materials.matchAll(/class="generation generation-outline" data-act="(regen|cover|briefrewrite|researchrefresh)"/g)].length === 4);
-check("first-generation actions retain their filled style", /class="generation" data-act="runfit"/.test(render("materials", { fitReportId: "", hasCoverLetter: false, hasBrief: false, hasResearch: false })));
+check("saved documents use outline regeneration actions", [...materials.matchAll(/class="generation generation-outline" data-act="(appgenerate|cover|briefrewrite|researchrefresh)"/g)].length === 4);
+const fresh = render("materials", { fitReportId: "", applicationCv: null, hasCoverLetter: false, hasBrief: false, hasResearch: false });
+check("first-generation actions retain their filled style", /class="generation" data-act="appgenerate"/.test(fresh));
+check("fit analysis and CV are generated together", fresh.includes(">Generate fit page &amp; CV<") && !/data-act="(runfit|regen|cvgenerate)"/.test(fresh));
+check("an old review state is not shown as a gate", !/review/i.test(render("materials", { applicationCv: { currentVersionId: "cv2", status: "needs_review", validationStatus: "needs_review", downloadUrl: "/fit/example/cv.pdf" } }).match(/data-document="cv"[\s\S]*?<\/section>/)[0]));
 check("stale brief remains openable", actions(materials).includes("briefopen"));
 check("visible cost legend is removed", !materials.includes("Sparkle actions"));
 check("no repeated Paid AI labels", !/Paid AI/.test(materials));
@@ -119,7 +122,7 @@ const context = render("context");
 for (const field of ["company", "role", "location", "salary", "sourceUrl", "jobDescription", "notes", "instructions"]) check("context labels " + field, context.includes('data-field="' + field + '"'));
 check("notes disclose AI use", /notes may be used as context/i.test(context));
 const activity = render("activity");
-check("versions live within document cards", !/Output versions/.test(activity) && (materials.match(/data-act="document-versions"/g)||[]).length === 5);
+check("versions live within document cards", !/Output versions/.test(activity) && (materials.match(/data-act="document-versions"/g)||[]).length === 4);
 check("record management is separate", /Record management/.test(activity));
 const version = R.versionRow({ vid: "v1", at: "2026-09-01", model: "gpt-5.6-sol", active: false, score: 88 }, "fit");
 check("version history ignores historical scores", !version.includes("score 88"));
