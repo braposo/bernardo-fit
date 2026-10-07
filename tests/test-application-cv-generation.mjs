@@ -12,7 +12,7 @@ const source={identity:{name:'Test Candidate',headline:'Engineering manager',con
     {id:'e1',text:'Led a cross-functional team delivering a customer portal.',status:'delivered',contribution:'team',skills:[]},
     {id:'e2',text:'Built a Next.js prototype for the internal help centre.',status:'delivered',contribution:'personal',skills:['Next.js']},
     {id:'e3',text:'Proposed a Sanity migration.',status:'proposed',contribution:'strategy',skills:['Sanity']},
-  ]},{id:'r2',title:'Senior Engineer',company:'Prior Co',dates:'2019–2022',location:'Remote',overviewEvidenceId:'e4',evidence:[
+  ]},{id:'r2',title:'Senior Engineer',company:'Prior Co',dates:'2019–2022',location:'Remote | Retail analytics',overviewEvidenceId:'e4',evidence:[
     {id:'e4',text:'Implemented a shared component library.',status:'delivered',contribution:'personal',skills:[]},
   ]}],education:[],projects:[],settings:{maxWords:400,minBodyPx:13,prompt:'Select evidence'},fingerprint:'source-1'};
 const selection={roles:[{id:'r1',bullets:[{text:'Led the cross-functional team that delivered a customer portal.',evidenceIds:['e1']}]},
@@ -76,6 +76,7 @@ const projectsHeading=html.indexOf('<h2>Other contributions</h2>');
 const openSourceEntry=html.indexOf('Open source');
 const speakingEntry=html.indexOf('Conference talk: Designing accessible product systems');
 assert.ok(projectsHeading>=0 && projectsHeading<openSourceEntry && openSourceEntry<speakingEntry);
+assert.ok(html.includes('<span class="entry-place">Remote</span><span class="entry-place">Retail analytics</span>'));
 const {pdfBytes,layout}=await renderApplicationCvPdf(projectsAndSpeaking,{minBodyPx:13});
 if(process.env.CV_TEST_PDF)await writeFile(process.env.CV_TEST_PDF,pdfBytes);
 assert.ok(pdfBytes.length>1000);
