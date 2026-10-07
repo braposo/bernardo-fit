@@ -35,14 +35,14 @@ try {
     const job = await store.saveJob({ company: "Review", role: "EM", jobDescription: "A complete engineering leadership role description." });
     const res = await call({ action: "review", kind: "analyse", id: job.id, model: "not-a-model" });
     assert.equal(res.code, 200);
-    assert.equal(res.body.review.model, "gpt-5.6-sol");
+    assert.equal(res.body.review.model, "gpt-6.1-sol");
     assert.equal(triggers.length, 0);
     assert.equal((await store.getJob(job.id)).analysisRun == null, true);
   });
 
   await test("generation without a reviewed fingerprint is rejected", async () => {
     const job = await store.saveJob({ company: "No review", role: "EM", jobDescription: "A complete engineering leadership role description." });
-    const res = await call({ kind: "analyse", id: job.id, model: "gpt-5.6-sol", requestId: "missingreview01" });
+    const res = await call({ kind: "analyse", id: job.id, model: "gpt-6.1-sol", requestId: "missingreview01" });
     assert.equal(res.code, 409);
     assert.equal(res.body.code, "REVIEW_STALE");
     assert.equal(triggers.length, 0);
@@ -50,7 +50,7 @@ try {
 
   await test("reviewed submit dispatches exactly once", async () => {
     const job = await store.saveJob({ company: "Submit", role: "EM", jobDescription: "A complete engineering leadership role description." });
-    const review = (await call({ action: "review", kind: "analyse", id: job.id, model: "gpt-5.6-sol" })).body.review;
+    const review = (await call({ action: "review", kind: "analyse", id: job.id, model: "gpt-6.1-sol" })).body.review;
     const before = triggers.length;
     const res = await call({ kind: review.effectiveKind, id: job.id, model: review.model,
       reviewFingerprint: review.fingerprint, requestId: "reviewedsubmit01" });
@@ -61,10 +61,10 @@ try {
 
   await test("changed inputs stop submission before dispatch", async () => {
     const job = await store.saveJob({ company: "Changed", role: "EM", jobDescription: "A complete engineering leadership role description." });
-    const review = await resolveGenerationReview({ kind: "analyse", id: job.id, model: "gpt-5.6-sol" });
+    const review = await resolveGenerationReview({ kind: "analyse", id: job.id, model: "gpt-6.1-sol" });
     await store.updateJob(job.id, { instructions: "Use a different angle." });
     const before = triggers.length;
-    const res = await call({ kind: "analyse", id: job.id, model: "gpt-5.6-sol",
+    const res = await call({ kind: "analyse", id: job.id, model: "gpt-6.1-sol",
       reviewFingerprint: review.fingerprint, requestId: "changedinputs01" });
     assert.equal(res.code, 409);
     assert.equal(res.body.code, "REVIEW_STALE");
@@ -108,12 +108,12 @@ try {
   await test("brief review uses selected-model research reuse truth", async () => {
     const reportId = await store.saveReport({ company: "Model", job_title: "EM", job_description: "JD", pitch: "p", categories: [], differentiators: [] });
     let job = await store.saveJob({ company: "Model", role: "EM", jobDescription: "JD", fitReportId: reportId });
-    await saveScreenArtifact("research", job.id, "research-model", { at: new Date().toISOString(), model: "claude-sonnet-5", sources: [] });
-    await store.updateJob(job.id, { researchId: "research-model", researchAt: new Date().toISOString(), researchModel: "claude-sonnet-5",
+    await saveScreenArtifact("research", job.id, "research-model", { at: new Date().toISOString(), model: "claude-sonnet-5-5", sources: [] });
+    await store.updateJob(job.id, { researchId: "research-model", researchAt: new Date().toISOString(), researchModel: "claude-sonnet-5-5",
       researchFingerprint: researchFingerprint(job) });
-    const same = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-sonnet-5" });
-    const different = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-opus-5" });
-    const instructed = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-sonnet-5", versionInstructions: "Emphasise leadership in the brief" });
+    const same = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-sonnet-5-5" });
+    const different = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-opus-5-5" });
+    const instructed = await resolveGenerationReview({ kind: "prepare-screen", id: job.id, model: "claude-sonnet-5-5", versionInstructions: "Emphasise leadership in the brief" });
     assert.equal(instructed.kind, "brief", "brief-specific instructions do not force another research call");
     assert.equal(instructed.payload.versionInstructions, "Emphasise leadership in the brief");
     assert.equal(same.kind, "brief");
@@ -123,7 +123,7 @@ try {
   });
   await test("supplemental instructions are reviewed, dispatched and never saved as generic instructions", async () => {
     const job = await store.saveJob({ company: "Instructions", role: "EM", jobDescription: "A complete engineering leadership role description.", instructions: "Generic guidance" });
-    const body = { kind: "analyse", id: job.id, model: "claude-sonnet-5", versionInstructions: "Highlight mentoring" };
+    const body = { kind: "analyse", id: job.id, model: "claude-sonnet-5-5", versionInstructions: "Highlight mentoring" };
     const review = (await call({ ...body, action: "review" })).body.review;
     const before = triggers.length;
     const stale = await call({ ...body, versionInstructions: "Focus on architecture", reviewFingerprint: review.fingerprint, requestId: "instructions-changed" });
