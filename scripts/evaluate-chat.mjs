@@ -18,7 +18,7 @@ const cases = [
 ];
 const settings = await loadChatSettings();
 let failed = 0;
-for (const route of [{ provider: "openai", model: "gpt-5.6-sol" }, { provider: "anthropic", model: "claude-sonnet-5" }]) {
+for (const route of [{ provider: "openai", model: "gpt-6.1-sol" }, { provider: "anthropic", model: "claude-sonnet-5-5" }]) {
   if (process.argv[2] && process.argv[2] !== route.provider) continue;
   for (const item of cases) {
     if (process.argv[3] && process.argv[3] !== item.name) continue;

@@ -55,7 +55,7 @@ function mockRes() {
 }
 const auth = { "x-admin-secret": "test-secret-value" };
 const hdrs = { ...auth, host: "fit.bernardoraposo.com" };
-async function generate(jobId, model = "claude-opus-5", requestId = "request01") {
+async function generate(jobId, model = "claude-opus-5-5", requestId = "request01") {
   const job = await store.getJob(jobId);
   const report = await store.getReport(job.fitReportId);
   const fingerprint = coverFingerprint(job, report, model);
@@ -64,7 +64,7 @@ async function generate(jobId, model = "claude-opus-5", requestId = "request01")
 }
 
 console.log("\n--- generation and sanitising ---");
-const out = await runCoverLetter({ model: "claude-opus-5", report: { job_title: "X" }, fitUrl: "https://fit.bernardoraposo.com/?r=abc" });
+const out = await runCoverLetter({ model: "claude-opus-5-5", report: { job_title: "X" }, fitUrl: "https://fit.bernardoraposo.com/?r=abc" });
 check("keeps the salutation", out.salutation === "Dear Sanity team,");
 check("keeps the lead flag", out.paragraphs[0].lead === true);
 check("keeps span.em", out.paragraphs[0].html.includes('<span class="em">'));
@@ -130,21 +130,21 @@ check("moves version bodies out of the row", saved.coverLetterVersions.length ==
 check("stores the body under its deterministic artifact id", (await getCoverArtifact(job.id, saved.coverLetterId)).paragraphs.length > 0);
 check("stamps the time", !!saved.coverLetterAt);
 const callsAfterSave = modelCalls;
-const recoveredGeneration = await generate(job.id, "claude-opus-5", "request01");
+const recoveredGeneration = await generate(job.id, "claude-opus-5-5", "request01");
 check("a task retry recovers the stored result", recoveredGeneration.outcome === "completed", recoveredGeneration);
 check("a task retry does not call the model again", modelCalls === callsAfterSave, modelCalls);
 
 console.log("\n--- a late draft cannot replace newer inputs ---");
 const beforeLate = await store.getJob(job.id);
 const lateReport = await store.getReport(beforeLate.fitReportId);
-const lateFingerprint = coverFingerprint(beforeLate, lateReport, "claude-opus-5");
+const lateFingerprint = coverFingerprint(beforeLate, lateReport, "claude-opus-5-5");
 await store.updateJob(job.id, { coverRun: { requestId: "request03", fingerprint: lateFingerprint, status: "queued" } });
 let releaseResponse;
 responseGate = new Promise((resolve) => { releaseResponse = resolve; });
 const fetchStarted = new Promise((resolve) => { markFetchStarted = resolve; });
 const late = executeCoverWork({
   jobId: job.id, requestId: "request03", fingerprint: lateFingerprint,
-  model: "claude-opus-5", origin: "https://fit.bernardoraposo.com",
+  model: "claude-opus-5-5", origin: "https://fit.bernardoraposo.com",
 });
 await fetchStarted;
 await store.updateJob(job.id, {

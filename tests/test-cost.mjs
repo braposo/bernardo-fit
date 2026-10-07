@@ -21,7 +21,7 @@ process.env.ANTHROPIC_API_KEY = 'mock'; process.env.ADMIN_SECRET = 'mock-admin';
 delete process.env.AI_CACHE_TTL;
 let pass = 0, fail = 0;
 async function test(name, fn) { try { await fn(); pass++; console.log('  ok   '+name); } catch(e) { fail++; console.log('  FAIL '+name+' '+e.stack); } }
-const opus='claude-opus-5', sonnet='claude-sonnet-5';
+const opus='claude-opus-5-5', sonnet='claude-sonnet-5-5';
 const reply = (text, extra={}) => ({ok:true,status:200,json:async()=>({content:[{type:'text',text}],stop_reason:'end_turn',usage:{input_tokens:10,output_tokens:5},...extra})});
 let calls=[];
 const mock = () => { calls=[]; globalThis.fetch=async(_url,opts)=>{calls.push(JSON.parse(opts.body));return reply('I build useful systems.');}; };
@@ -131,13 +131,13 @@ await test('facts complete through the durable answer worker and recover without
 await test('telemetry preserves mixed cache TTL rates and worker attribution',async()=>{
  const entry=await withGenerationContext({runId:'run-test',taskAttempt:2},()=>recordUsage({kind:'research',ref:'detailed',model:opus,effort:'medium',continuation:1,
  usage:{input_tokens:100,output_tokens:20,cache_read_input_tokens:1000,cache_creation_input_tokens:150,cache_creation:{ephemeral_5m_input_tokens:100,ephemeral_1h_input_tokens:50},server_tool_use:{web_search_requests:2}}}));
- assert.equal(entry.estimatedCostMicros,22625);assert.equal(entry.taskAttempt,2);assert.equal(entry.runId,'run-test');assert.equal(entry.continuation,1);
+ assert.equal(entry.estimatedCostMicros,21900);assert.equal(entry.taskAttempt,2);assert.equal(entry.runId,'run-test');assert.equal(entry.continuation,1);
  assert.equal(estimateCostMicros({model:'unknown'}),null);
- const rows=await recentBreakdowns(1);assert.ok(rows.some(r=>r.model===opus && r.kind==='research' && r.effort==='medium' && r.estimatedCostMicros>=22625));
+ const rows=await recentBreakdowns(1);assert.ok(rows.some(r=>r.model===opus && r.kind==='research' && r.effort==='medium' && r.estimatedCostMicros>=21900));
 });
 await test('OpenAI pricing preserves the long-prompt threshold and model-specific cache rates',()=>{
  for (const [model, inputRate, outputRate, cacheRate, writeRate] of [
-  ['gpt-5.6-sol',4,20,0.4,5], ['gpt-6-astra',10,50,1,12.5],
+  ['gpt-6.1-sol',2,10,0.1,2.5], ['gpt-6-astra',10,50,1,12.5], ['gpt-5.6-sol',4,20,0.4,5],
  ]) {
   const entry={model,input:270000,cacheRead:1000,cacheWrite:1000,output:100,searches:1};
   assert.equal(estimateCostMicros(entry),Math.round(270000*inputRate+1000*cacheRate+1000*writeRate+100*outputRate+10000));
