@@ -26,7 +26,7 @@ globalThis.fetch = async (url, options) => {
     summaryCalls++;
     if (summaryFails) return { ok: false, status: 503 };
     const body = JSON.parse(options.body);
-    assert.equal(body.model, "gpt-5.6-sol");
+    assert.equal(body.model, "gpt-6.1-sol");
     return { ok: true, status: 200, json: async () => ({ status: "completed", output: [{ type: "message",
       content: [{ type: "output_text", text: JSON.stringify({ position: "Lead the engineering team.", fit: "Leadership aligns; confirm practical details." }) }] }] }) };
   }

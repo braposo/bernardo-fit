@@ -35,14 +35,14 @@ const request = { system: { shared: "RULES", stable: "RULES profile", context: "
 await test("default Sol routes to Responses and preserves the complete prompt once", async () => {
   mock(); payload.output.unshift({ type: "message", phase: "commentary", content: [{ type: "output_text", text: "Working on it" }] }); const result = await complete(request); const call = calls[0];
   assert.equal(call.url, "https://api.openai.com/v1/responses");
-  assert.equal(call.body.model, "gpt-5.6-sol"); assert.equal(call.headers.Authorization, "Bearer fake-openai");
+  assert.equal(call.body.model, "gpt-6.1-sol"); assert.equal(call.headers.Authorization, "Bearer fake-openai");
   assert.equal(call.body.instructions, "RULES profile\n\nrole\n\nsteering");
   assert.deepEqual(call.body.input, request.messages); assert.equal(call.body.store, false);
   assert.equal(call.body.reasoning.effort, "high"); assert.equal(call.body.tools, undefined);
   assert.equal(result.text, "Hello");
   const [entry] = await readUsage(request.ref);
   assert.equal(entry.input, 500); assert.equal(entry.cacheRead, 400); assert.equal(entry.cacheWrite, 100);
-  assert.equal(entry.output, 300); assert.equal(entry.estimatedCostMicros, 8660);
+  assert.equal(entry.output, 300); assert.equal(entry.estimatedCostMicros, 4290);
 });
 await test("Astra selection, effort and costs", async () => {
   mock(); await complete({ ...request, model: "gpt-6-astra", effort: "medium", maxTokens: 1234 });
@@ -52,7 +52,7 @@ await test("Astra selection, effort and costs", async () => {
 });
 await test("Claude remains on its provider", async () => {
   mock(); payload = { content: [{ type: "text", text: "Claude" }], stop_reason: "end_turn" };
-  assert.equal((await complete({ ...request, model: "claude-opus-5" })).text, "Claude");
+  assert.equal((await complete({ ...request, model: "claude-opus-5-5" })).text, "Claude");
   assert.equal(calls[0].url, "https://api.anthropic.com/v1/messages");
 });
 await test("OpenAI key absence fails before fetching, without switching providers", async () => {
@@ -98,18 +98,18 @@ await test("Astra cover letter, Sol answers and brief use their existing parsers
   const letter = await runCoverLetter({ model: "gpt-6-astra", report: { job_description: "Engineer" }, fitUrl: "https://example.com" });
   assert.ok(letter.paragraphs.length); assert.equal(calls[0].body.model, "gpt-6-astra");
   mock("I led the platform team."); const answer = await runAnswer({ question: "Describe your leadership?" });
-  assert.equal(answer.model, "gpt-5.6-sol"); assert.equal(answer.answer, "I led the platform team.");
+  assert.equal(answer.model, "gpt-6.1-sol"); assert.equal(answer.answer, "I led the platform team.");
   mock(JSON.stringify({ opening: "Hello", questionsToAsk: [{ text: "What matters?" }] }));
   const brief = await runBrief({ job: { company: "Sanity", role: "Engineer" }, report: {}, research: { sources: [] } });
-  assert.equal(brief.model, "gpt-5.6-sol"); assert.equal(brief.opening, "Hello");
+  assert.equal(brief.model, "gpt-6.1-sol"); assert.equal(brief.opening, "Hello");
 });
 await test("unlabelled historical reports never satisfy Sol's cache", async () => {
   const jd = "Legacy report description for cache isolation.";
   await saveReport({ company: "Legacy", job_description: jd });
   const old = await findReportByHash(jd, { model: "claude-opus-5" });
-  assert.ok(old); assert.equal(await findReportByHash(jd, { model: "gpt-5.6-sol" }), null);
+  assert.ok(old); assert.equal(await findReportByHash(jd, { model: "gpt-6.1-sol" }), null);
 });
-for (const model of ["gpt-5.6-sol", "gpt-6-astra"]) await test(model + " supports every per-job generator", async () => {
+for (const model of ["gpt-6.1-sol", "gpt-6-astra"]) await test(model + " supports every per-job generator", async () => {
   mock(JSON.stringify({ job_title: "Engineer", company: "Sanity", pitch: "Fit", categories: [], differentiators: [], closing: "End" }));
   await runAnalysis("A sufficiently long job description.", { model });
   assert.equal(calls[0].body.model, model);
@@ -129,8 +129,8 @@ for (const model of ["gpt-5.6-sol", "gpt-6-astra"]) await test(model + " support
 await test("research reuse respects the selected model", async () => {
   const job = { company: "Sanity", role: "Engineer" };
   job.researchFingerprint = researchFingerprint(job);
-  const research = { at: new Date().toISOString(), model: "gpt-5.6-sol" };
-  assert.equal(researchIsReusable(job, research, Date.now(), "gpt-5.6-sol"), true);
+  const research = { at: new Date().toISOString(), model: "gpt-6.1-sol" };
+  assert.equal(researchIsReusable(job, research, Date.now(), "gpt-6.1-sol"), true);
   assert.equal(researchIsReusable(job, research, Date.now(), "gpt-6-astra"), false);
 });
 console.log(`passed ${pass}, failed ${fail}`);

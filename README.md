@@ -206,7 +206,7 @@ The initial content is already imported. `SANITY_CONTENT_ENABLED=1` connects app
 
 ## Model
 
-Admin generation defaults to `gpt-5.6-sol`. The picker also offers `gpt-6-astra`, `claude-opus-5` and `claude-sonnet-5`. Saved picker choices are preserved. Alternatives are selected manually; provider errors do not switch models automatically. Set `OPENAI_API_KEY` in both Vercel and Trigger.dev (Production and any Preview/Development environments you use), then deploy both the web app and workers. Keep `ANTHROPIC_API_KEY` for Claude and public generation. Public analysis is pinned to Sonnet. Model policy lives in `lib/models.js`.
+Admin generation defaults to `gpt-6.1-sol`. The roster also offers `gpt-6-astra`, `claude-opus-5-5` and `claude-sonnet-5-5`. With Jev configured, Jev chooses the writer for fit pages, letters, research, briefs, answers and customised CVs, and the generation review shows no model picker for those tasks; customised CVs never show a picker and fall back to the published CV settings model without Jev. Superseded IDs (`gpt-5.6-sol`, `claude-opus-5`, `claude-sonnet-5`) keep their labels and prices for history and resolve to their replacements for new work. Provider errors do not switch models automatically. Set `OPENAI_API_KEY` in both Vercel and Trigger.dev (Production and any Preview/Development environments you use), then deploy both the web app and workers. Keep `ANTHROPIC_API_KEY` for Claude and public generation. Public analysis is pinned to Sonnet. Model policy lives in `lib/models.js`.
 
 ## Cost & abuse protection
 
@@ -222,6 +222,6 @@ Claims, counters, input references and public receipts share the report KV store
 
 ## Model selection
 
-Admin writing defaults to Sol (`gpt-5.6-sol`), with Astra (`gpt-6-astra`), Opus and Sonnet available in the existing picker. Saved selections are preserved. Alternatives are manual; errors never silently switch providers. Public analysis stays on Sonnet.
+Admin writing defaults to Sol 6.1 (`gpt-6.1-sol`), with Astra (`gpt-6-astra`), Opus 5.5 and Sonnet 5.5 available. Jev routes writing tasks, including customised CVs, when configured. Errors never silently switch providers. Public analysis falls back to Sonnet 5.5 without Jev.
 
-Set `OPENAI_API_KEY` in both Vercel and Trigger.dev for each environment you use, then deploy both the web app and workers. Keep `ANTHROPIC_API_KEY` for Claude. Keys stay on the server. OpenAI calls use the Responses API with `store: false`; usage separates cached input and includes reasoning in output tokens. Per-call OpenAI cost estimates use published standard rates checked on 17 September 2026.
+Set `OPENAI_API_KEY` in both Vercel and Trigger.dev for each environment you use, then deploy both the web app and workers. Keep `ANTHROPIC_API_KEY` for Claude. Keys stay on the server. OpenAI calls use the Responses API with `store: false`; usage separates cached input and includes reasoning in output tokens. Per-call cost estimates use published standard rates checked on 7 October 2026.

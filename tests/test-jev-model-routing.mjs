@@ -17,7 +17,7 @@ globalThis.fetch = async (url, options) => {
   if (String(url).includes("/systemone")) {
     calls++;
     if (broken) return { ok: false, status: 503 };
-    const choice = body.state.description.includes("complex") ? "gpt-6-astra" : "claude-sonnet-5";
+    const choice = body.state.description.includes("complex") ? "gpt-6-astra" : "claude-sonnet-5-5";
     return { ok: true, status: 200, json: async () => ({ model: "jev-1.13.0", answers: { model: {
       type: "choice", choice, confidence,
       probabilities: Object.fromEntries(Object.keys(body.questions.model.criteria).map(k => [k, k === choice ? 1 : 0])),
@@ -31,7 +31,7 @@ const job = await saveJob({ company: "Route", role: "Manager", jobDescription: "
   questions: [{ id: "q1", q: "Why this company?", limit: 100 }] });
 const body = { kind: "analyse", id: job.id, model: "gpt-6-astra" };
 const first = await resolveGenerationReview(body);
-assert.equal(first.model, "claude-sonnet-5");
+assert.equal(first.model, "claude-sonnet-5-5");
 assert.equal(first.review.routing.source, "jev");
 assert.equal(writing, 0);
 const submitted = await resolveGenerationReview({ ...body, reviewFingerprint: first.fingerprint });
@@ -48,17 +48,17 @@ assert.equal(batch.model, "jev-1.13.0");
 assert.equal(batch.payload.jobs.length, 2);
 assert.equal(calls, 2, "bulk assessment does not route fit-page writing models");
 confidence = null;
-assert.equal((await selectWritingModel({ kind: "cover", job })).model, "gpt-5.6-sol");
+assert.equal((await selectWritingModel({ kind: "cover", job })).model, "gpt-6.1-sol");
 broken = true;
 await assert.rejects(selectWritingModel({ kind: "research", job }), /failed/);
 broken = false;
 const before = calls;
 await runAnswer({ question: "Why this company?", limit: 100, report: { pitch: "Evidence" },
-  model: "claude-opus-5", economy: true, modelRouting: true });
-assert.equal(sentModel, "claude-opus-5", "economy context cannot override Jev's selected writer");
+  model: "claude-opus-5-5", economy: true, modelRouting: true });
+assert.equal(sentModel, "claude-opus-5-5", "economy context cannot override Jev's selected writer");
 assert.equal(calls, before, "writer does not reroute");
 assert.ok(!buildSystemPrompt({}).stable.includes('"internal"'));
-const analysis = await runAnalysis("A role description", { model: "claude-sonnet-5" });
+const analysis = await runAnalysis("A role description", { model: "claude-sonnet-5-5" });
 assert.equal(analysis.internal, null);
 assert.ok(!("internal" in analysis.report));
 assert.equal(calls, before, "page generation does not invoke scoring");
@@ -68,9 +68,16 @@ await saveTaskInput("public-analysis", "public-routing", jd);
 const publicPayload = { requestId: "public-routing", inputId: "public-routing", fingerprint: publicAnalysisFingerprint(jd) };
 await executePublicAnalysisWork(publicPayload);
 assert.equal(calls, before + 1, "public page routes through Jev once");
-assert.equal(sentModel, "claude-sonnet-5");
+assert.equal(sentModel, "claude-sonnet-5-5");
 const publicWriting = writing;
 await executePublicAnalysisWork(publicPayload);
 assert.equal(calls, before + 1);
 assert.equal(writing, publicWriting, "public retry reuses the page without any model calls");
+const fs = await import("node:fs");
+const reviewSource = fs.readFileSync(new URL("../lib/generation-review.js", import.meta.url), "utf8");
+assert.match(reviewSource, /routing = await selectWritingModel\(\{ kind, job, report, fallback: sourceSnapshot\.settings\.model \}\)/,
+  "Jev picks the CV writer, with the published CV setting as its fallback");
+assert.doesNotMatch(reviewSource, /resolveModel\(body\.model \|\| sourceSnapshot/, "the CV review ignores a requested model");
+const adminHtml = fs.readFileSync(new URL("../public/admin.html", import.meta.url), "utf8");
+assert.ok(adminHtml.includes("var routed = ['jev-score', 'jev-score-all', 'cv'].indexOf(options.kind) !== -1"), "the CV review shows no model picker");
 console.log("passed 1, failed 0");

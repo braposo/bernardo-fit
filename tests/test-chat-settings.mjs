@@ -33,9 +33,9 @@ await test('editable model IDs, provider mapping, Jev version, thresholds and pr
   const doc=document();doc.jevModel='jev-test';doc.routingInstructions='Custom routing';doc.models[0].enabled=false;
   doc.models[1].id='new-openai-model';doc.models[1].fallbackPriority=1;doc.confidenceThreshold=0.9;
   const settings=chatSettingsFromDocument(doc);let input;
-  const route=await selectChatModel(request,{env,settings,evaluate:async args=>{input=args;return {answers:{model:{choice:'claude-sonnet-5',confidence:0.85,probabilities:{'claude-sonnet-5':0.99}}}};}});
+  const route=await selectChatModel(request,{env,settings,evaluate:async args=>{input=args;return {answers:{model:{choice:'claude-sonnet-5-5',confidence:0.85,probabilities:{'claude-sonnet-5-5':0.99}}}};}});
   assert.equal(input.model,'jev-test');assert.equal(input.questions.model.instructions,'Custom routing');
-  assert.ok(!Object.hasOwn(input.questions.model.criteria,'gpt-5.6-sol'));
+  assert.ok(!Object.hasOwn(input.questions.model.criteria,'gpt-6.1-sol'));
   assert.equal(route.model,'new-openai-model');assert.equal(route.provider,'openai');assert.equal(route.settingsRevision,'revision-one');
   assert.equal(route.settingsFingerprint,settings.fingerprint);
 });

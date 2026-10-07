@@ -17,7 +17,7 @@ import {
   editQuestion,
 } from "../../lib/store.js";
 import { jobSummary, jobDetail, matchesSearch } from "../../lib/job-view.js";
-import { MODELS } from "../../lib/models.js";
+import { MODELS, MODEL_LABELS } from "../../lib/models.js";
 import { deleteCoverArtifacts, getActiveCoverArtifact } from "../../lib/cover-artifacts.js";
 import { deleteScreenArtifacts, getActiveBrief, getActiveResearch } from "../../lib/screen-artifacts.js";
 import { deleteTaskResults } from "../../lib/task-results.js";
@@ -101,6 +101,7 @@ async function handler(req, res) {
         unlinked: unlinked.length,
         archivedCount: all.filter(j => j.archived).length,
         models: MODELS.map(({ id, label }) => ({ id, label })),
+        modelLabels: MODEL_LABELS,
         archiveOnStage: ARCHIVE_ON_STAGE,
         features: { coverDispatchEnabled: coverDispatchEnabled(), screenDispatchEnabled: screenDispatchEnabled(), jevEnabled: jevEnabled() },
         viewingArchived: onlyArchived,

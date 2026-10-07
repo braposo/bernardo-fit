@@ -38,7 +38,7 @@ export const applicationCvEvidence=defineType({name:'applicationCvEvidence',titl
     defineField({name:'skills',type:'array',of:[defineArrayMember({type:'string'})]}),order,publicFlag],
   preview:{select:{title:'text',subtitle:'status'}}})
 export const applicationCvSettings=defineType({name:'applicationCvSettings',title:'Application CV settings',type:'document',icon:CogIcon,
-  fields:[required('model','Generation model'),required('prompt','Generation instructions','text'),required('verifierPrompt','Factual verifier instructions','text'),
+  fields:[required('model','Fallback generation model (used only without Jev)'),required('prompt','Generation instructions','text'),required('verifierPrompt','Factual verifier instructions','text'),
     defineField({name:'maxWords',type:'number',validation:rule=>rule.required().integer().min(150).max(1000)}),
     defineField({name:'minBodyPx',title:'Minimum PDF body size (px)',type:'number',validation:rule=>rule.required().min(13).max(18)}),
     defineField({name:'layout',type:'string',options:{list:['classic']},validation:rule=>rule.required()})]})
