@@ -7,6 +7,10 @@ import { getJob, listJobs } from "../lib/store.js";
 import { settingsFromDocument } from "../lib/sanity/analysis-settings.js";
 import { initialSettingsDocument } from "../lib/sanity/settings-document.js";
 import handler from "../api/admin/jobs.js";
+import { completeMovedJob, startMovedJobCompletion } from "../lib/filtered-job-enrich.js";
+import { scoringFingerprint } from "../lib/jev-scoring.js";
+import { mutateJob } from "../lib/store.js";
+import { getRunReceipt } from "../lib/run-receipts.js";
 
 process.env.ADMIN_SECRET = "synthetic-admin";
 let passed = 0, failed = 0;
@@ -152,6 +156,66 @@ await test("admin API lists filtered roles and moves one into the pipeline", asy
   assert.equal(moved.status, 200); assert.equal(moved.body.job.stage, "new"); assert.equal(moved.body.job.score, 48);
   assert.equal((await call("GET", { query: { filtered: "1" } })).body.filtered.length, 0);
   assert.equal((await call("POST", { body: { action: "move-filtered" } })).status, 400);
+});
+
+await test("moving starts the background completion only when Jev is configured", async () => {
+  await recordFilteredJob({ opportunity: cardOpportunity({ id: "801", company: "Acme", role: "Head of Engineering",
+    sourceUrl: "https://www.linkedin.com/jobs/view/801" }), decision: "title-mismatch", relevanceProbability: 0.3 });
+  const job = await moveFilteredJob((await listFilteredJobs())[0].id);
+  const triggered = [];
+  const trigger = async (jobId, requestId) => { triggered.push({ jobId, requestId }); return { id: "run_enrich801" }; };
+  delete process.env.TYPESAFE_API_KEY;
+  assert.ok(!(await startMovedJobCompletion(job, { trigger })).jevRun); assert.equal(triggered.length, 0);
+  process.env.TYPESAFE_API_KEY = "synthetic";
+  try {
+    const started = await startMovedJobCompletion(job, { trigger });
+    assert.equal(triggered.length, 1);
+    assert.equal(started.jevRun.status, "queued"); assert.equal(started.jevRun.runId, "run_enrich801");
+    assert.equal(started.jevRun.requestId, triggered[0].requestId);
+    assert.equal((await getRunReceipt("run_enrich801")).kind, "filtered-enrich");
+    // A second move or click while it runs does not start another.
+    await startMovedJobCompletion(started, { trigger });
+    assert.equal(triggered.length, 1);
+  } finally { delete process.env.TYPESAFE_API_KEY; }
+});
+
+await test("completion fetches the LinkedIn description, then runs the full assessment", async () => {
+  await recordFilteredJob({ opportunity: cardOpportunity({ id: "802", company: "Acme", role: "Engineering Manager",
+    location: "London", sourceUrl: "https://www.linkedin.com/jobs/view/802" }), decision: "title-mismatch", relevanceProbability: 0.3 });
+  const job = await moveFilteredJob((await listFilteredJobs())[0].id);
+  await mutateJob(job.id, () => ({ jevRun: { requestId: "moved-802", runId: "run_802", status: "queued", fingerprint: "" } }));
+  const fetched = [], phases = [];
+  let assessed;
+  const result = await completeMovedJob({ jobId: job.id, requestId: "moved-802" }, {
+    progress: phase => phases.push(phase),
+    fetchDescription: async posting => { fetched.push(posting);
+      return { jobDescription: "Lead three platform teams.", notes: "Discovered through public LinkedIn search.", sourceType: "job-board" }; },
+    assess: async payload => { assessed = payload; return { outcome: "completed", ...payload }; } });
+  assert.equal(fetched[0].id, "802"); assert.equal(fetched[0].sourceUrl, "https://www.linkedin.com/jobs/view/802");
+  assert.deepEqual(phases, ["fetching", "scoring"]);
+  const saved = await getJob(job.id);
+  assert.equal(saved.jobDescription, "Lead three platform teams.");
+  assert.match(saved.notes, /kept out by the title screen/, "notes already on the role are kept");
+  assert.equal(assessed.fingerprint, scoringFingerprint(saved));
+  assert.equal(saved.jevRun.fingerprint, assessed.fingerprint);
+  assert.equal(result.outcome, "completed");
+});
+
+await test("completion keeps saved descriptions and stops when there is nothing to fetch", async () => {
+  await recordFilteredJob({ opportunity: opportunity("803"), decision: "below-threshold", assessment: assessment(46), minimumScore: 50 });
+  const job = await moveFilteredJob((await listFilteredJobs())[0].id);
+  await mutateJob(job.id, () => ({ jevRun: { requestId: "moved-803", status: "queued" } }));
+  const noFetch = async () => { throw new Error("should not fetch"); };
+  const result = await completeMovedJob({ jobId: job.id, requestId: "moved-803" }, { fetchDescription: noFetch,
+    assess: async payload => ({ outcome: "completed", ...payload }) });
+  assert.equal(result.outcome, "completed");
+  assert.equal((await getJob(job.id)).jobDescription, "A synthetic engineering leadership role.");
+  // A newer request owns the role: this run stands down without fetching or scoring.
+  assert.equal((await completeMovedJob({ jobId: job.id, requestId: "moved-old" }, { fetchDescription: noFetch })).outcome, "superseded");
+  await recordFilteredJob({ opportunity: { company: "Email Co", role: "Engineering Manager" }, decision: "needs-review" });
+  const bare = await moveFilteredJob((await listFilteredJobs())[0].id);
+  await mutateJob(bare.id, () => ({ jevRun: { requestId: "moved-804", status: "queued" } }));
+  await assert.rejects(completeMovedJob({ jobId: bare.id, requestId: "moved-804" }, { fetchDescription: noFetch }), { abort: true });
 });
 
 console.log(`passed ${passed}, failed ${failed}`);

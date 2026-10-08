@@ -11,7 +11,12 @@ Each posting is one `filteredJob` document with ID `filtered-job.<pipeline id>`,
 
 ## Moving a role into the pipeline
 
-**Move to pipeline** creates the job at New with the saved posting fields, description and assessment, and marks the record as moved (`movedAt`, `movedJobId`). It does not run Jev or generate anything. Title-screened roles move with the link only; add the description in Role details and assess fit. An existing pipeline or archived row for the same posting is reused rather than duplicated, and a moved record is never revived by a later screen.
+**Move to pipeline** creates the job at New with the saved posting fields, description and assessment, and marks the record as moved (`movedAt`, `movedJobId`). It then starts the `filtered-job-enrich` task so the role reaches the same level as roles the screens admitted:
+
+- When no description was saved (title-screened and backfilled records), the `filtered-job-description` child fetches the public LinkedIn posting. It takes the discovery source lock, so it never overlaps a daily scan; while a scan holds the lock it fails and Trigger retries with a backoff of 2 to 20 minutes, up to six attempts. Each LinkedIn request is a single attempt so the lock is never held through a provider cooldown.
+- The full Jev assessment and overview summary then run, exactly as **Assess fit** does.
+
+Progress is tracked on the job's `jevRun`, so the pipeline and toasts show it as a fit assessment. Nothing starts when Jev is not configured. If the posting has gone or LinkedIn fetching is paused, the run fails with a message and the role stays at New with its link; add the description in Role details and use Assess fit. An existing pipeline or archived row for the same posting is reused rather than duplicated, and a moved record is never revived by a later screen.
 
 ## Retention
 

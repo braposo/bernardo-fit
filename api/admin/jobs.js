@@ -31,6 +31,7 @@ import { reviewingGenerationResult } from "../../lib/reviewing-generation.js";
 import { getApplicationCvSummaries, getApplicationCv, markApplicationCvSubmitted } from "../../lib/application-cv-store.js";
 import { applicationCvFields, withApplicationCvFields, generalCvFields } from "../../lib/application-cv-view.js";
 import { listFilteredJobs, moveFilteredJob, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
+import { startMovedJobCompletion } from "../../lib/filtered-job-enrich.js";
 
 async function cvFields(job) {
   const { hasCv, cvRun, applicationFitUrl, applicationCv, generalCv } = await withApplicationCvFields(job);
@@ -132,7 +133,12 @@ async function handler(req, res) {
         const job = await moveFilteredJob(body.id);
         try { await appendAudit("job", job.id, auditEvent("admin.filtered_moved", "Moved from Filtered to the pipeline", "", { actor: "admin" })); }
         catch { console.warn("Moved a filtered job; its audit entry could not be written."); }
-        return res.status(200).json({ job: jobSummary(job) });
+        // The move itself has succeeded; fetching details and assessing fit
+        // follow in the background and can be retried with Assess fit.
+        let completed = job, completionError = "";
+        try { completed = await startMovedJobCompletion(job) || job; }
+        catch (error) { completionError = error.message || "Could not start the fit assessment."; }
+        return res.status(200).json({ job: jobSummary(completed), ...(completionError ? { completionError } : {}) });
       }
 
       if (body.action === "letter-token") {
