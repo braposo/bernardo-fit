@@ -245,6 +245,7 @@ The shared radius is 0.75rem. At the default 16px root size, the existing Tailwi
 
 - Describe the current experience. Keep migration notes, previous implementation details and explanations of when tracking began out of product copy. Preserve useful current-state labels such as estimated costs, stale content and unsaved edits; keep implementation history in documentation.
 - Reuse the current tokens and Radix-based shadcn components; preserve descriptive labels, keyboard access and visible focus.
+- Make every new control match the existing rules and dimensions of its neighbours (decided 2026-10-08). A control placed beside an input or select shares its height, border, radius and background, ideally by joining the same CSS rule rather than copying values; icon-only buttons in those rows are square at that height. Before shipping, measure computed sizes in the browser at desktop and mobile widths rather than judging by eye. Radix triggers rendered with `asChild` carry the trigger's `data-slot` (for example `popover-trigger`), so `[data-slot=button]` selectors do not reach them.
 - Keep Open and generation as separate actions. Keep Sparkles as the AI indicator without visible explanatory boilerplate.
 - Preserve drafts, current selection and previous outputs during background work.
 - Do not restore superseded amber generation styling, old section names or version-history placement from earlier wireframes.
