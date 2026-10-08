@@ -7,6 +7,9 @@
 body.admin-chat-open .task-toast-viewport { right:436px; width:min(390px,calc(100vw - 452px)); }
 @media(min-width:1200px) {
   body.admin-chat-open .frame, body.admin-chat-open #app { margin-right:420px; }
+  /* Keep the four views and the launcher on one masthead row beside the docked panel. */
+  body.admin-chat-open .masthead { gap:32px; }
+  body.admin-chat-open .topnav { gap:16px; }
 }
 .chat-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:24px 76px 16px 24px; flex-shrink:0; }
 .chat-heading > div { min-width:0; }

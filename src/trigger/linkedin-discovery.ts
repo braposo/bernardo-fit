@@ -80,6 +80,7 @@ export const linkedinDiscoveryTask = task({
           .set('prescreenSkipped', report.prescreening.filter((row: any) => row.decision === 'skip').length)
           .set('prescreenDeferred', report.prescreening.filter((row: any) => row.decision === 'defer').length)
           .set('excluded', report.excluded).set('deferred', report.deferred)
+          .set('filteredRecorded', report.filteredRecorded).set('filteredRecordFailures', report.filteredRecordFailures.length)
           .set('pendingBacklog', report.pendingBacklog).set('maxSearchResults', policy.maxSearchResults)
           .set('searchCoverageComplete', report.searchCoverageComplete).set('phase', report.status)
           .set('elapsedMs', Date.now() - started);

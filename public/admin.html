@@ -320,6 +320,13 @@
   .bulkbar { padding: 0 14px 16px 0; }
   .workspace { min-width: 0; padding: 24px clamp(20px, 3vw, 32px) 60px; }
   .workspace-empty { max-width: 540px; padding: 15vh 0; color: var(--sub); }
+  .filtered-intro { margin: 4px 0 0; }
+  .filtered-panel { margin-top: 8px; }
+  .filtered-panel h2 { margin-top: 0; }
+  .filtered-reason { max-width: 68ch; font-size: 15px; line-height: 1.7; }
+  .filtered-move { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 16px 0 0; }
+  .workspace-panel .filtered-scores-heading { margin: 32px 0 12px; }
+  .filtered-move .field-help { margin: 0; max-width: 60ch; }
   .back-pipeline { display: none; min-height: 44px; padding: 6px 0; margin: -8px 0 12px; background: transparent; color: var(--accent); }
   .role-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
   .role-kicker { color: var(--accent); font-weight: 600; font-size: 14px; margin-bottom: 3px; }
@@ -446,6 +453,7 @@
       <nav class="topnav" aria-label="Admin views">
         <button type="button" data-collection="active" aria-current="page">Pipeline</button>
         <button type="button" data-collection="archive">Archive</button>
+        <button type="button" data-collection="filtered">Filtered</button>
         <button type="button" id="usagebtn">AI activity &amp; usage</button>
       </nav>
     </div>
@@ -537,6 +545,12 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var unlinked = 0;
   var archivedCount = 0;
   var showArchived = false;
+  var showFiltered = false;
+  var filteredJobs = [];
+  var filteredKind = "";
+  var filteredRetentionDays = null;
+  var filteredLoaded = false;
+  var movedFiltered = {};
   var attachedCoverWatches = {};
   var activeRuns = {};
   var coverDispatchEnabled = true;
@@ -578,6 +592,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function readNavigationState() {
     var p = new URLSearchParams(location.search);
     showArchived = p.get("collection") === "archive";
+    showFiltered = p.get("collection") === "filtered";
     stageFilter = p.get("stage") || null;
     searchQuery = p.get("q") || "";
     selectedId = p.get("job") || "";
@@ -586,6 +601,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function navigationUrl() {
     var p = new URLSearchParams();
     if (showArchived) p.set("collection", "archive");
+    if (showFiltered) p.set("collection", "filtered");
     if (stageFilter) p.set("stage", stageFilter);
     if (searchQuery.trim()) p.set("q", searchQuery.trim());
     if (selectedId) p.set("job", selectedId);
@@ -596,7 +612,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     history[mode === "push" ? "pushState" : "replaceState"](state || { admin: true }, "", navigationUrl());
   }
   function scrollKey() {
-    return "fit.pipeline.scroll." + (showArchived ? "archive" : "active") + "." + (stageFilter || "all") + "." + searchQuery.trim().toLowerCase();
+    return "fit.pipeline.scroll." + (showFiltered ? "filtered" : showArchived ? "archive" : "active") + "." + (stageFilter || "all") + "." + searchQuery.trim().toLowerCase();
   }
   function rememberPipelineScroll() {
     var list = document.querySelector(".pipeline-list");
@@ -1472,6 +1488,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
 
   function renderJobs(workspaceOnly) {
+    if (showFiltered) return;
     workspaceOnly = workspaceOnly === true && !!document.querySelector('.admin-shell .workspace');
     // Keep live editors in place during background refreshes and search updates.
     var focused = document.activeElement;
@@ -1546,9 +1563,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       button.setAttribute('aria-description', 'Sparkle actions run AI and may incur costs.');
     });
 
-    document.querySelectorAll('[data-collection]').forEach(function (button) {
-      button.setAttribute('aria-current', button.getAttribute('data-collection') === (showArchived ? 'archive' : 'active') ? 'page' : 'false');
-    });
+    bindCollections();
 
     var pipelineToggle = workspaceOnly ? null : document.querySelector('.pipeline-toggle');
     if (pipelineToggle) pipelineToggle.addEventListener('click', function () {
@@ -1611,14 +1626,6 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var usageButton = document.getElementById("usagebtn");
     if (usageButton) usageButton.onclick = showUsage;
 
-    Array.prototype.forEach.call(workspaceOnly ? [] : document.querySelectorAll('[data-collection]'), function (button) {
-      button.onclick = function () {
-        var nextArchived = button.getAttribute('data-collection') === 'archive';
-        if (nextArchived === showArchived) return;
-        rememberPipelineScroll(); showArchived = nextArchived; stageFilter = null; selectedId = ""; searchMatches = null; searchRequested = "";
-        writeNavigation("push"); loadJobs(false);
-      };
-    });
 
     var archToggle = workspaceOnly ? null : document.getElementById("togglearchived");
     if (archToggle) {
@@ -2179,7 +2186,165 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   }
 
+  function currentCollection() { return showFiltered ? 'filtered' : showArchived ? 'archive' : 'active'; }
+  function bindCollections() {
+    document.querySelectorAll('[data-collection]').forEach(function (button) {
+      button.setAttribute('aria-current', button.getAttribute('data-collection') === currentCollection() ? 'page' : 'false');
+      button.onclick = function () {
+        var next = button.getAttribute('data-collection');
+        if (next === currentCollection()) return;
+        rememberPipelineScroll(); showArchived = next === 'archive'; showFiltered = next === 'filtered';
+        stageFilter = null; selectedId = ""; searchQuery = ""; searchMatches = null; searchRequested = ""; filteredKind = "";
+        writeNavigation("push"); loadJobs(false);
+      };
+    });
+  }
+
+  // Filtered: roles the automatic screens analysed and kept out of the pipeline.
+  var FILTERED_KINDS = [["below-threshold", "Below threshold"], ["title-mismatch", "Title screen"],
+    ["constraint-conflict", "Constraint conflict"], ["needs-review", "Unreadable posting"]];
+  function filteredKindLabel(f) {
+    if (f.decision === 'below-threshold') return f.minimumScore != null ? 'Below ' + f.minimumScore : 'Below threshold';
+    var kind = FILTERED_KINDS.find(function (k) { return k[0] === f.decision; });
+    return kind ? kind[1] : 'Filtered';
+  }
+  function filteredHaystack(f) {
+    return [f.company, f.role, f.location, f.reason, filteredKindLabel(f)].filter(Boolean).join(' ').toLowerCase();
+  }
+  function filteredScoreHtml(f) {
+    return '<span class="score-tile" aria-label="' + (f.score != null ? esc(f.score) + ' out of 100 fit score' : 'Not scored') + '">' + (f.score != null ? esc(f.score) : '—') + '</span>';
+  }
+  function filteredItemHtml(f) {
+    return '<button class="pipeline-item' + (selectedId === f.id ? ' selected' : '') + '" data-select-filtered="' + esc(f.id) + '" aria-pressed="' + (selectedId === f.id) + '">' +
+      '<span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">' + esc(f.company || 'No company') + '</span><span class="pipeline-role">' + esc(f.role || 'Untitled role') + '</span></span>' + filteredScoreHtml(f) + '</span>' +
+      '<span class="pipeline-location">' + esc(f.location || '') + '</span>' +
+      '<span class="pipeline-meta"><span class="pipeline-stage stage-filtered">' + esc(filteredKindLabel(f)) + '</span><span class="pipeline-added">' + timeHtml(f.filteredAt, 'Filtered ') + '</span></span></button>';
+  }
+  function filteredDetailHtml(f) {
+    var moved = movedFiltered[f.id];
+    var listing = safeSourceUrl(f.sourceUrl);
+    var dimensions = (f.dimensions || []).length ? '<div class="score-gauges jev-gauges">' + f.dimensions.map(function (d) {
+      return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-dimension-id="' + esc(d.id || '') + '" data-value="' + esc(d.score) + '" data-weight="' + esc(d.weight == null ? '' : d.weight) + '"></div></div>';
+    }).join('') + '</div>' : '';
+    var moveHelp = f.hasDescription
+      ? 'It joins the pipeline at New with its saved description' + (f.score != null ? ' and fit scores' : '') + '. Nothing is generated.'
+      : 'It joins the pipeline at New with the posting link only. Add the description in Role details, then assess fit.';
+    return '<article class="row-item filtered-detail" data-filtered-id="' + esc(f.id) + '"><button class="back-pipeline" data-act="back">← Back to Filtered</button>' +
+      '<header class="role-header"><div class="role-identity"><div class="role-kicker">' + esc(f.company || 'No company') + '</div><h1>' + esc(f.role || 'Untitled role') + '</h1>' +
+      '<div class="role-sub">' + (esc(f.location) || 'Location not recorded') + (f.postedDate ? ' · Posted ' + esc(fmtDate(f.postedDate)) : '') + '</div>' +
+      '<div class="role-added">' + timeHtml(f.filteredAt, 'Filtered ') + '</div>' +
+      '<div class="role-stage"><span class="pipeline-stage stage-filtered">' + esc(filteredKindLabel(f)) + '</span></div></div>' +
+      '<div class="score-actions">' + filteredScoreHtml(f) + '</div>' +
+      (listing ? '<a class="listing-link" href="' + esc(listing) + '" target="_blank" rel="noopener">View original listing <span data-icon="external"></span></a>' : '<span class="listing-unavailable field-help">No listing URL</span>') + '</header>' +
+      (moved ? '<div class="notice" data-moved-notice>Moved to the pipeline at New. <button class="read-link" data-open-moved="' + esc(moved) + '">Open in pipeline</button></div>' : '') +
+      '<section class="workspace-panel filtered-panel"><h2>Why it was filtered</h2><p class="filtered-reason">' + esc(f.reason || 'No reason was recorded.') + '</p>' +
+      (moved ? '' : '<div class="filtered-move"><button data-act="move-filtered">Move to pipeline</button><p class="field-help">' + esc(moveHelp) + '</p></div>') +
+      (dimensions ? '<h3 class="filtered-scores-heading">Fit scores</h3>' + dimensions : '') +
+      '<span class="row-status" role="status" aria-live="polite"></span></section></article>';
+  }
+  function renderFiltered() {
+    rememberPipelineScroll();
+    var focused = document.activeElement;
+    var searchFocused = focused && focused.id === 'search';
+    var searchStart = searchFocused ? focused.selectionStart : null, searchEnd = searchFocused ? focused.selectionEnd : null;
+    var terms = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    var searched = filteredJobs.filter(function (f) {
+      if (movedFiltered[f.id] && f.id !== selectedId) return false;
+      var text = filteredHaystack(f);
+      return terms.every(function (t) { return text.indexOf(t) !== -1; });
+    });
+    var counts = {};
+    searched.forEach(function (f) { counts[f.decision] = (counts[f.decision] || 0) + 1; });
+    var shown = searched.filter(function (f) { return !filteredKind || f.decision === filteredKind; });
+    // Newest screening day first; within a day, the closest calls first.
+    shown.sort(function (a, b) {
+      var day = String(b.filteredAt).slice(0, 10).localeCompare(String(a.filteredAt).slice(0, 10));
+      if (day) return day;
+      var as = a.score != null ? a.score : (a.relevanceProbability || 0) - 1, bs = b.score != null ? b.score : (b.relevanceProbability || 0) - 1;
+      return bs - as;
+    });
+    if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) { selectedId = shown[0].id; writeNavigation("replace"); }
+    var selected = filteredJobs.find(function (f) { return f.id === selectedId; });
+    var options = '<option value=""' + (filteredKind ? '' : ' selected') + '>All filtered (' + searched.length + ')</option>' +
+      FILTERED_KINDS.map(function (k) { return '<option value="' + k[0] + '"' + (filteredKind === k[0] ? ' selected' : '') + '>' + esc(k[1]) + ' (' + (counts[k[0]] || 0) + ')</option>'; }).join('');
+    var emptyText = !filteredLoaded ? 'Loading…' : !filteredJobs.length ? 'Nothing has been filtered out yet.' : terms.length && !searched.length ? 'No filtered roles match this search.' : 'No filtered roles of this kind.';
+    var listHtml = shown.length ? shown.map(filteredItemHtml).join('') : '<div class="pipeline-empty">' + emptyText + '</div>';
+    var workspaceHtml = selected ? filteredDetailHtml(selected) : selectedId && filteredLoaded
+      ? '<div class="workspace-empty"><h1>Role unavailable</h1><p>This filtered role is no longer here. It may have been moved to the pipeline or removed after the retention period.</p><button class="ghost" data-return-list>Return to Filtered</button></div>'
+      : '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a filtered role to see why it was kept out and move it to the pipeline.</p></div>';
+    renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="Filtered roles">' +
+      '<button class="pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '"><span data-icon="sidebar-toggle"></span></button>' +
+      '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>Filtered</h1><span class="pipeline-total">' + shown.length + ' roles</span></div>' +
+      '<p class="field-help filtered-intro">Roles the daily screens analysed and kept out of the pipeline' + (filteredRetentionDays ? ', kept for ' + esc(filteredRetentionDays) + ' days' : '') + '.</p>' +
+      '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search filtered roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search filtered roles">' +
+      '<label class="sr-only" for="filteredkind">Filter by reason</label><select id="filteredkind" aria-label="Filter by reason">' + options + '</select></div></div>' +
+      '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
+    renderedScrollKey = scrollKey();
+    restorePipelineScroll();
+    if (searchFocused) { var restored = document.getElementById('search'); restored.focus(); restored.setSelectionRange(searchStart, searchEnd); }
+    bindCollections();
+    var usageButton = document.getElementById("usagebtn");
+    if (usageButton) usageButton.onclick = showUsage;
+    var toggle = document.querySelector('.pipeline-toggle');
+    if (toggle) toggle.addEventListener('click', function () {
+      pipelineCollapsed = !pipelineCollapsed;
+      localStorage.setItem('fit.pipeline.collapsed', String(pipelineCollapsed));
+      renderFiltered();
+    });
+    var searchEl = document.getElementById('search');
+    searchEl.addEventListener('input', function () { searchQuery = searchEl.value; writeNavigation('replace'); renderFiltered(); });
+    searchEl.addEventListener('keydown', function (e) { if (e.key === 'Escape') { searchQuery = ''; writeNavigation('replace'); renderFiltered(); } });
+    document.getElementById('filteredkind').addEventListener('change', function (e) { filteredKind = e.target.value; renderFiltered(); });
+    document.querySelectorAll('[data-select-filtered]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var next = button.getAttribute('data-select-filtered');
+        if (next === selectedId) return;
+        selectedId = next; writeNavigation('push', { admin: true, selectedFromList: true }); renderFiltered();
+      });
+    });
+    document.querySelectorAll('[data-return-list], .filtered-detail [data-act="back"]').forEach(function (button) {
+      button.addEventListener('click', function () { suppressAutoSelect = true; selectedId = ''; writeNavigation('push'); renderFiltered(); });
+    });
+    var openMoved = document.querySelector('[data-open-moved]');
+    if (openMoved) openMoved.addEventListener('click', function () {
+      showFiltered = false; showArchived = false; selectedId = openMoved.getAttribute('data-open-moved'); searchQuery = ''; stageFilter = null;
+      workspaceSection = 'overview'; writeNavigation('push'); loadJobs(false);
+    });
+    var moveButton = document.querySelector('[data-act="move-filtered"]');
+    if (moveButton) moveButton.addEventListener('click', function () {
+      var id = selectedId, status = document.querySelector('.filtered-detail .row-status');
+      moveButton.disabled = true; setButtonLabel(moveButton, 'Moving…');
+      api('/api/admin/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'move-filtered', id: id }) }).then(function (out) {
+        if (unauthorised(out)) return;
+        if (!out.ok) {
+          moveButton.disabled = false; setButtonLabel(moveButton, 'Move to pipeline');
+          if (status) status.textContent = (out.d && out.d.error) || "Couldn't move this role.";
+          return;
+        }
+        movedFiltered[id] = out.d.job.id;
+        if (selectedId === id) renderFiltered();
+      });
+    });
+  }
+  function loadFiltered(firstTry) {
+    var sequence = ++listSequence;
+    if (!filteredLoaded) renderFiltered();
+    api('/api/admin/jobs?filtered=1', { method: 'GET' }).then(function (out) {
+      if (sequence !== listSequence || !showFiltered) return;
+      if (unauthorised(out, firstTry)) return;
+      if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
+      sessionStorage.setItem(SECRET_KEY, secret);
+      chat.setAuthenticated(true);
+      filteredJobs = out.d.filtered || [];
+      filteredRetentionDays = out.d.retentionDays || null;
+      filteredLoaded = true;
+      if (filteredKind && !FILTERED_KINDS.some(function (k) { return k[0] === filteredKind; })) filteredKind = '';
+      renderFiltered();
+    });
+  }
+
   function loadJobs(firstTry) {
+    if (showFiltered) return loadFiltered(firstTry);
     var sequence = ++listSequence;
     var requestedArchive = showArchived;
     api("/api/admin/jobs" + (showArchived ? "?archived=1" : ""), { method: "GET" }).then(function (out) {
@@ -2233,7 +2398,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var url = new URL(event.detail, location.href);
     if (url.origin !== location.origin || url.pathname !== '/admin') return;
     event.preventDefault();
-    var wasArchived = showArchived, wasStage = stageFilter, wasSearch = searchQuery;
+    var wasArchived = showArchived, wasFiltered = showFiltered, wasStage = stageFilter, wasSearch = searchQuery;
     rememberPipelineScroll();
     var current = new URL(navigationUrl(), location.origin);
     ['collection', 'stage', 'q'].forEach(function (key) {
@@ -2243,7 +2408,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     readNavigationState();
     selectedMissing = false;
     suppressAutoSelect = false;
-    if (wasArchived !== showArchived) loadJobs(false);
+    if (wasArchived !== showArchived || wasFiltered !== showFiltered) loadJobs(false);
+    else if (showFiltered) renderFiltered();
     else {
       if (wasStage !== stageFilter || wasSearch !== searchQuery) {
         searchMatches = null; searchRequested = '';
@@ -2254,10 +2420,11 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   });
 
   window.addEventListener('popstate', function () {
-    var wasArchived = showArchived, wasStage = stageFilter, wasSearch = searchQuery;
+    var wasArchived = showArchived, wasFiltered = showFiltered, wasStage = stageFilter, wasSearch = searchQuery;
     readNavigationState();
     selectedMissing = false;
-    if (wasArchived !== showArchived) loadJobs(false);
+    if (wasArchived !== showArchived || wasFiltered !== showFiltered) loadJobs(false);
+    else if (showFiltered) renderFiltered();
     else {
       if (wasStage !== stageFilter || wasSearch !== searchQuery) {
         searchMatches = null; searchRequested = "";
