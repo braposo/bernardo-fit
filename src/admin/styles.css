@@ -438,7 +438,7 @@ body {
   background:#fcebec;
   color:#ae4554;
 }
-.pipeline-stage.stage-new,.pipeline-stage.stage-expired,.pipeline-stage.stage-not_interested {
+.pipeline-stage.stage-new,.pipeline-stage.stage-expired,.pipeline-stage.stage-not_interested,.pipeline-stage.stage-filtered {
   background:#eceef2;
   color:#626a7b;
 }

@@ -30,6 +30,7 @@ import { jevEnabled } from "../../lib/jev.js";
 import { reviewingGenerationResult } from "../../lib/reviewing-generation.js";
 import { getApplicationCvSummaries, getApplicationCv, markApplicationCvSubmitted } from "../../lib/application-cv-store.js";
 import { applicationCvFields, withApplicationCvFields, generalCvFields } from "../../lib/application-cv-view.js";
+import { listFilteredJobs, moveFilteredJob, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
 
 async function cvFields(job) {
   const { hasCv, cvRun, applicationFitUrl, applicationCv, generalCv } = await withApplicationCvFields(job);
@@ -41,6 +42,7 @@ async function cvWriteFields(job, errors) {
 }
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
+// GET    /api/admin/jobs?filtered=1   -> { filtered }       (screened out, not moved)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...)
 // DELETE /api/admin/jobs?id=abc       -> remove
@@ -51,6 +53,9 @@ async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
+      if (req.query?.filtered === "1") {
+        return res.status(200).json({ filtered: await listFilteredJobs(), retentionDays: filteredJobRetentionDays() });
+      }
       if (req.query?.id) {
         const job = await getJob(req.query.id);
         if (!job) return res.status(404).json({ error: "Job not found" });
@@ -119,6 +124,15 @@ async function handler(req, res) {
         if (!job || !Object.hasOwn(labels, body.event)) return res.status(400).json({ error: "Invalid job activity" });
         await appendAudit("job", job.id, auditEvent("admin." + body.event, labels[body.event], "", { actor: "admin" }));
         return res.status(200).json({ ok: true });
+      }
+
+      // Moves a screened-out job into the pipeline at New. No AI work runs.
+      if (body.action === "move-filtered") {
+        if (typeof body.id !== "string" || !body.id) return res.status(400).json({ error: "Missing filtered job id" });
+        const job = await moveFilteredJob(body.id);
+        try { await appendAudit("job", job.id, auditEvent("admin.filtered_moved", "Moved from Filtered to the pipeline", "", { actor: "admin" })); }
+        catch { console.warn("Moved a filtered job; its audit entry could not be written."); }
+        return res.status(200).json({ job: jobSummary(job) });
       }
 
       if (body.action === "letter-token") {
