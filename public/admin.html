@@ -560,7 +560,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var filteredKind = "";
   var filteredRetentionDays = null;
   var filteredLoaded = false;
-  var movedFiltered = {};
+  var movedFiltered = {}, movedNotes = {};
   // List order per collection, remembered on this browser only.
   var SORTS = [["score-desc", "Highest score"], ["score-asc", "Lowest score"], ["newest", "Newest first"], ["oldest", "Oldest first"]];
   var sortOrders = {};
@@ -2278,8 +2278,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       return '<div class="assessment-dimension"><div data-score-gauge="' + esc(d.label) + '" data-dimension-id="' + esc(d.id || '') + '" data-value="' + esc(d.score) + '" data-weight="' + esc(d.weight == null ? '' : d.weight) + '"></div></div>';
     }).join('') + '</div>' : '';
     var moveHelp = f.hasDescription
-      ? 'It joins the pipeline at New with its saved description' + (f.score != null ? ' and fit scores' : '') + '. Nothing is generated.'
-      : 'It joins the pipeline at New with the posting link only. Add the description in Role details, then assess fit.';
+      ? 'It joins the pipeline at New with its saved description, then gets a full fit assessment like other new roles.'
+      : 'It joins the pipeline at New, then the job details are fetched from LinkedIn and fit is assessed like other new roles.';
     return '<article class="row-item filtered-detail" data-filtered-id="' + esc(f.id) + '"><button class="back-pipeline" data-act="back">← Back to Filtered</button>' +
       '<header class="role-header"><div class="role-identity"><div class="role-kicker">' + esc(f.company || 'No company') + '</div><h1>' + esc(f.role || 'Untitled role') + '</h1>' +
       '<div class="role-sub">' + (esc(f.location) || 'Location not recorded') + (f.postedDate ? ' · Posted ' + esc(fmtDate(f.postedDate)) : '') + '</div>' +
@@ -2287,7 +2287,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="role-stage"><span class="pipeline-stage stage-filtered">' + esc(filteredKindLabel(f)) + '</span></div></div>' +
       '<div class="score-actions">' + filteredScoreHtml(f) + '</div>' +
       (listing ? '<a class="listing-link" href="' + esc(listing) + '" target="_blank" rel="noopener">View original listing <span data-icon="external"></span></a>' : '<span class="listing-unavailable field-help">No listing URL</span>') + '</header>' +
-      (moved ? '<div class="notice" data-moved-notice>Moved to the pipeline at New. <button class="read-link" data-open-moved="' + esc(moved) + '">Open in pipeline</button></div>' : '') +
+      (moved ? '<div class="notice" data-moved-notice>Moved to the pipeline at New.' + (movedNotes[f.id] ? ' ' + esc(movedNotes[f.id]) : '') + ' <button class="read-link" data-open-moved="' + esc(moved) + '">Open in pipeline</button></div>' : '') +
       '<section class="workspace-panel filtered-panel"><h2>Why it was filtered</h2><p class="filtered-reason">' + esc(f.reason || 'No reason was recorded.') + '</p>' +
       (moved ? '' : '<div class="filtered-move"><button data-act="move-filtered">Move to pipeline</button><p class="field-help">' + esc(moveHelp) + '</p></div>') +
       (dimensions ? '<h3 class="filtered-scores-heading">Fit scores</h3>' + dimensions : '') +
@@ -2367,7 +2367,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           if (status) status.textContent = (out.d && out.d.error) || "Couldn't move this role.";
           return;
         }
-        movedFiltered[id] = out.d.job.id;
+        var moved = out.d.job, run = moved.jevRun;
+        movedFiltered[id] = moved.id;
+        if (run && run.runId && ['dispatching', 'queued'].indexOf(run.status) !== -1) {
+          var record = filteredJobs.find(function (f) { return f.id === id; });
+          movedNotes[id] = record && record.hasDescription ? 'Assessing fit now.' : 'Fetching the job details and assessing fit now.';
+          watchWork(moved.id, run.runId, null, 'jev-score', false);
+        } else if (out.d.completionError) movedNotes[id] = 'The fit assessment could not start: ' + out.d.completionError + ' Use Assess fit on the role.';
         if (selectedId === id) renderFiltered();
       });
     });

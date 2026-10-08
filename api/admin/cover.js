@@ -10,11 +10,13 @@ import { getApplicationCv, claimApplicationCvRun, updateApplicationCvRun } from 
 import { resolveModel } from "../../lib/models.js";
 import { clearActiveRun, getReceiptForRequest, getRunReceipt, saveActiveRun, saveRunReceipt } from "../../lib/run-receipts.js";
 import { ADOPT_TASK_ID, ANALYSIS_TASK_ID, APPLICATION_TASK_ID, ANALYSE_ALL_TASK_ID, SCORE_LISTED_TASK_ID, ANSWER_TASK_ID, BRIEF_TASK_ID,
-  COVER_TASK_ID, CV_TASK_ID, PREPARE_SCREEN_TASK_ID, RESEARCH_TASK_ID, TERMINAL_RUN_STATUSES,
+  COVER_TASK_ID, CV_TASK_ID, FILTERED_ENRICH_TASK_ID, PREPARE_SCREEN_TASK_ID, RESEARCH_TASK_ID, TERMINAL_RUN_STATUSES,
   coverDispatchEnabled, screenDispatchEnabled } from "../../lib/task-policy.js";
 
 const SPECS = {
   "jev-score": { taskId: "jev-score", field: "jevRun" },
+  // Started by moving a role out of Filtered; reported like a fit assessment.
+  "filtered-enrich": { taskId: FILTERED_ENRICH_TASK_ID, field: "jevRun", statusOnly: true },
   cover: { taskId: COVER_TASK_ID, field: "coverRun" },
   application: { taskId: APPLICATION_TASK_ID, field: "applicationRun" },
   cv: { taskId: CV_TASK_ID, field: "cvRun", applicationCv: true },

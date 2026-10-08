@@ -3,6 +3,7 @@ export function coverPhaseText(run) {
   if (run?.status === "REATTEMPTING") return "Retrying…";
   if (run?.status === "WAITING") return "Waiting…";
   if (run?.status === "DELAYED") return "Scheduled…";
+  if (run?.phase === "fetching") return "Fetching job details…";
   if (run?.phase === "scoring") return "Assessing fit…";
   if (run?.phase === "researching") return "Researching…";
   if (run?.phase === "analysing") return "Analysing…";
@@ -33,7 +34,7 @@ export function workCompletion(out) {
     if (out.d.result?.outcome === "completed" && out.d.result.publication === "saved") return { text: "Customised CV saved", tone: "ok", open: false };
   }
   if (out.d?.result?.outcome !== "completed") return { text: "Task completed, but its result details are unavailable.", tone: "err", open: false };
-  if (out.d.kind === "jev-score") return { text: "Fit assessment ready", tone: "ok", open: false };
+  if (out.d.kind === "jev-score" || out.d.kind === "filtered-enrich") return { text: "Fit assessment ready", tone: "ok", open: false };
   if (out.d.kind === "research") return { text: (out.d.result.sources || 0) + " sources", tone: "ok", open: true };
   if (out.d.kind === "analyse" || out.d.kind === "regenerate") return { text: "Analysis ready", tone: "ok", open: false };
   if (out.d.kind === "answer") return { text: (out.d.result.refused ? "Needs you" : (out.d.result.words || 0) + " words") +
