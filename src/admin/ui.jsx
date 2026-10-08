@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 export { mountAdminChat } from './chat/ChatPanel';
 import { flushSync } from 'react-dom';
 import parse, { attributesToProps, domToReact, Element } from 'html-react-parser';
-import { Sparkles, FileText, ExternalLink, SlidersHorizontal, ChevronDown, ChevronLeft } from 'lucide-react';
+import { Sparkles, FileText, ExternalLink, SlidersHorizontal, ChevronDown, ChevronLeft, ArrowUpDown, Check } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -57,7 +57,7 @@ const options = {
     const children = () => domToReact(node.children, options);
     if (props['data-score-gauge']) return <ScoreGauge dimension={props['data-dimension-id']} label={props['data-score-gauge']} value={props['data-value']} weight={props['data-weight']} />;
     if (props['data-icon']) {
-      const Icon = { file: FileText, external: ExternalLink, settings: SlidersHorizontal, chevron: ChevronDown, 'sidebar-toggle': ChevronLeft }[props['data-icon']];
+      const Icon = { file: FileText, external: ExternalLink, settings: SlidersHorizontal, chevron: ChevronDown, 'sidebar-toggle': ChevronLeft, sort: ArrowUpDown, check: Check }[props['data-icon']];
       return Icon ? (has("document-icon") ? <span className="document-icon"><Icon aria-hidden="true" className="ui-icon" /></span> : <Icon aria-hidden="true" className="ui-icon" />) : null;
     }
     if (has('document-versions')) return <Collapsible {...props} defaultOpen={props['data-open'] === 'true'} onOpenChange={open => document.dispatchEvent(new CustomEvent('admin:versions', { detail: { key: props['data-key'], open } }))}>{children()}</Collapsible>;
@@ -66,6 +66,9 @@ const options = {
     if (has('stage-control')) return <Popover><div {...props}>{children()}</div></Popover>;
     if (has('status-edit')) return <PopoverTrigger asChild><Button {...props} variant="ghost">{children()}</Button></PopoverTrigger>;
     if (has('stage-popover')) return <PopoverContent {...props} align="start">{children()}</PopoverContent>;
+    if (has('sort-control')) return <Popover><div {...props}>{children()}</div></Popover>;
+    if (has('sort-trigger')) return <PopoverTrigger asChild><Button {...props} variant="outline">{children()}</Button></PopoverTrigger>;
+    if (has('sort-menu')) return <PopoverContent {...props} align="end">{children()}</PopoverContent>;
     if (has('material-row') || has('role-header')) return <Card {...props}>{children()}</Card>;
     if (has('pipeline-stage') || has('document-live') || has('assessment-status')) return <Badge {...props} variant="secondary">{children()}</Badge>;
     if (node.name === 'a' && has('listing-link')) return <Button asChild variant="link"><a {...props}>{children()}</a></Button>;
@@ -85,7 +88,7 @@ const options = {
     if (node.name === 'button') {
       const variant = has('generation-outline') ? 'outline' : has('generation') ? 'generation' : has('danger') ? 'destructive' :
         has('read-link') || has('back-pipeline') ? 'link' : has('pipeline-toggle') ? 'secondary' : has('ghost') ? 'outline' :
-          has('pipeline-item') || props['data-collection'] || props.id === 'usagebtn' ? 'ghost' : 'default';
+          has('pipeline-item') || has('sort-option') || props['data-collection'] || props.id === 'usagebtn' ? 'ghost' : 'default';
       return <Button type="button" {...props} variant={variant}>
         {has('generation') ? <><Sparkles aria-hidden="true" /><span data-button-label>{children()}</span></> : children()}
       </Button>;

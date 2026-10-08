@@ -405,6 +405,38 @@ body {
   display:block;
   margin-bottom:10px;
 }
+.sort-trigger[data-slot=button] {
+  width:44px;
+  height:auto;
+  min-height:44px;
+  padding:0;
+  flex:none;
+  border-color:var(--hair-strong);
+  background:var(--card);
+  color:var(--sub);
+}
+.sort-menu[data-slot=popover-content] {
+  width:auto;
+  min-width:180px;
+  padding:4px;
+  border:1px solid var(--hair-strong);
+  background:var(--card);
+  display:grid;
+}
+.sort-option[data-slot=button] {
+  justify-content:flex-start;
+  gap:8px;
+  min-height:44px;
+  padding:0 12px 0 8px;
+  font-weight:400;
+}
+.sort-option[aria-pressed=true] {
+  font-weight:600;
+}
+.sort-check {
+  width:16px;
+  flex:none;
+}
 [data-slot=badge].pipeline-stage {
   font-size:11px;
   border:0;

@@ -303,6 +303,8 @@
   .pipeline-controls .searchbox, .pipeline-controls select { width: 100%; min-height: 44px; border: 1px solid var(--hair-strong);
     background-color: var(--surface); border-radius: 7px; font: 400 15px/1.3 var(--sans); letter-spacing: 0; text-transform: none; }
   .pipeline-controls .searchbox { padding: 10px 12px; }
+  .pipeline-filter-row { display: flex; gap: 8px; align-items: stretch; }
+  .pipeline-filter-row [data-slot=native-select-wrapper], .pipeline-filter-row > select { flex: 1; min-width: 0; }
   .pipeline-list { padding: 0 14px 28px 0; display: grid; grid-auto-rows: max-content; gap: 4px; overflow-y: auto; min-height: 0; align-content: start; }
   .pipeline-head, .bulkbar { flex-shrink: 0; }
   .vpreview { flex-basis: 100%; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -469,6 +471,11 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   "use strict";
 
   document.addEventListener("admin:stage", function(e) { if(document.onAdminStage) document.onAdminStage(e.detail); });
+  // Sort options render in a portalled popover, outside the list's own bindings.
+  document.addEventListener("click", function (e) {
+    var option = e.target.closest && e.target.closest("[data-sort]");
+    if (option) setSortOrder(option.getAttribute("data-sort"));
+  });
   var app = document.getElementById("app");
   var topnav = document.querySelector('.topnav');
   renderAdmin(topnav, topnav.innerHTML);
@@ -551,6 +558,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var filteredRetentionDays = null;
   var filteredLoaded = false;
   var movedFiltered = {};
+  // List order per collection, remembered on this browser only.
+  var SORTS = [["score-desc", "Highest score"], ["score-asc", "Lowest score"], ["newest", "Newest first"], ["oldest", "Oldest first"]];
+  var sortOrders = {};
   var attachedCoverWatches = {};
   var activeRuns = {};
   var coverDispatchEnabled = true;
@@ -612,7 +622,45 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     history[mode === "push" ? "pushState" : "replaceState"](state || { admin: true }, "", navigationUrl());
   }
   function scrollKey() {
-    return "fit.pipeline.scroll." + (showFiltered ? "filtered" : showArchived ? "archive" : "active") + "." + (stageFilter || "all") + "." + searchQuery.trim().toLowerCase();
+    return "fit.pipeline.scroll." + (showFiltered ? "filtered" : showArchived ? "archive" : "active") + "." + (stageFilter || "all") + "." + sortOrder() + "." + searchQuery.trim().toLowerCase();
+  }
+  function sortOrder() {
+    var collection = currentCollection();
+    if (!sortOrders[collection]) {
+      var saved = null;
+      try { saved = localStorage.getItem('fit.pipeline.sort.' + collection); } catch (_) {}
+      sortOrders[collection] = SORTS.some(function (s) { return s[0] === saved; }) ? saved : collection === 'filtered' ? 'newest' : 'score-desc';
+    }
+    return sortOrders[collection];
+  }
+  function setSortOrder(order) {
+    if (!SORTS.some(function (s) { return s[0] === order; })) return;
+    rememberPipelineScroll();
+    sortOrders[currentCollection()] = order;
+    try { localStorage.setItem('fit.pipeline.sort.' + currentCollection(), order); } catch (_) {}
+    if (showFiltered) renderFiltered(); else renderJobs();
+    requestAnimationFrame(function () { var trigger = document.querySelector('.sort-trigger'); if (trigger) trigger.focus(); });
+  }
+  // Unscored roles stay last in both score orders; ties fall back to the other key.
+  function sortRoles(list, score, time) {
+    var order = sortOrder();
+    return list.sort(function (a, b) {
+      var sa = score(a), sb = score(b), ta = Date.parse(time(a)) || 0, tb = Date.parse(time(b)) || 0;
+      var byScore = (sb == null ? -1e9 : sb) - (sa == null ? -1e9 : sa), byTime = tb - ta;
+      if (order === 'score-asc' && sa != null && sb != null) byScore = -byScore;
+      if (order === 'newest') return byTime || byScore;
+      if (order === 'oldest') return -byTime || byScore;
+      return byScore || byTime;
+    });
+  }
+  function sortControlHtml() {
+    var order = sortOrder();
+    var label = SORTS.find(function (s) { return s[0] === order; })[1];
+    return '<div class="sort-control"><button class="ghost sort-trigger" aria-label="Sort: ' + esc(label) + '" title="Sort: ' + esc(label) + '"><span data-icon="sort"></span></button>' +
+      '<div class="sort-menu" role="group" aria-label="Sort roles">' + SORTS.map(function (s) {
+        return '<button class="sort-option" data-sort="' + s[0] + '" aria-pressed="' + (s[0] === order) + '">' +
+          (s[0] === order ? '<span data-icon="check"></span>' : '<span class="sort-check"></span>') + esc(s[1]) + '</button>';
+      }).join('') + '</div></div>';
   }
   function rememberPipelineScroll() {
     var list = document.querySelector(".pipeline-list");
@@ -1507,7 +1555,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     stages.forEach(function (s) { counts[s] = 0; });
     searched.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
     var shown = searched.filter(function (j) { return !stageFilter || j.stage === stageFilter; });
-    shown.sort(function (a, b) { return (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score); });
+    sortRoles(shown, function (j) { return j.score; }, function (j) { return j.createdAt; });
     var assessmentIds = shown.map(function (j) { return j.id; });
 
     if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) {
@@ -1544,7 +1592,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
       '<span class="pipeline-total">'+shown.length+' opportunities</span>' + '</div>' +
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
-      '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select></div></div>' +
+      '<div class="pipeline-filter-row"><label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>' + sortControlHtml() + '</div></div></div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
       ((!showArchived && jevEnabled && assessmentIds.length && !searchLoading || activeRuns['jev-score-all']) ? '<div class="bulkbar"><button class="generation" id="assesslisted"' + (activeRuns['jev-score-all'] ? ' disabled' : '') + '>' +
         (activeRuns['jev-score-all'] ? 'Assessing…' : 'Assess listed roles (' + assessmentIds.length + ')') + '</button></div>' : '') +
@@ -2256,13 +2304,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var counts = {};
     searched.forEach(function (f) { counts[f.decision] = (counts[f.decision] || 0) + 1; });
     var shown = searched.filter(function (f) { return !filteredKind || f.decision === filteredKind; });
-    // Newest screening day first; within a day, the closest calls first.
-    shown.sort(function (a, b) {
-      var day = String(b.filteredAt).slice(0, 10).localeCompare(String(a.filteredAt).slice(0, 10));
-      if (day) return day;
-      var as = a.score != null ? a.score : (a.relevanceProbability || 0) - 1, bs = b.score != null ? b.score : (b.relevanceProbability || 0) - 1;
-      return bs - as;
-    });
+    // Time sorts compare screening days, so the closest calls lead within each day.
+    sortRoles(shown, function (f) { return f.score; }, function (f) { return String(f.filteredAt).slice(0, 10); });
     if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) { selectedId = shown[0].id; writeNavigation("replace"); }
     var selected = filteredJobs.find(function (f) { return f.id === selectedId; });
     var options = '<option value=""' + (filteredKind ? '' : ' selected') + '>All filtered (' + searched.length + ')</option>' +
@@ -2277,7 +2320,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>Filtered</h1><span class="pipeline-total">' + shown.length + ' roles</span></div>' +
       '<p class="field-help filtered-intro">Roles the daily screens analysed and kept out of the pipeline' + (filteredRetentionDays ? ', kept for ' + esc(filteredRetentionDays) + ' days' : '') + '.</p>' +
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search filtered roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search filtered roles">' +
-      '<label class="sr-only" for="filteredkind">Filter by reason</label><select id="filteredkind" aria-label="Filter by reason">' + options + '</select></div></div>' +
+      '<div class="pipeline-filter-row"><label class="sr-only" for="filteredkind">Filter by reason</label><select id="filteredkind" aria-label="Filter by reason">' + options + '</select>' + sortControlHtml() + '</div></div></div>' +
       '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
     renderedScrollKey = scrollKey();
     restorePipelineScroll();
