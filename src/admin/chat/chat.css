@@ -4,7 +4,6 @@
 .admin-chat-launcher[data-slot]:hover { background:#e4e1ed; color:#514d65; }
 .admin-chat-panel .chat-scroll-button:hover { background:#e4e1ed; color:#514d65; }
 .admin-chat-panel[data-slot=sheet-content] { width:min(420px,calc(100vw - 64px)); padding:0; gap:0; background:#fff; color:#252631; overflow:hidden; }
-body.admin-chat-open .task-toast-viewport { right:436px; width:min(390px,calc(100vw - 452px)); }
 @media(min-width:1200px) {
   body.admin-chat-open .frame, body.admin-chat-open #app { margin-right:420px; }
   /* Keep the four views and the launcher on one masthead row beside the docked panel. */
@@ -81,7 +80,6 @@ body.admin-chat-open .task-toast-viewport { right:436px; width:min(390px,calc(10
   #admin-chat-root { position:fixed; right:max(16px,env(safe-area-inset-right)); bottom:max(16px,env(safe-area-inset-bottom)); margin-left:0; z-index:40; }
   .admin-chat-launcher[data-slot] { border-color:#51448f; border-radius:999px; background:#51448f; color:#fff; box-shadow:0 4px 14px #25263133; }
   .admin-chat-launcher[data-slot]:hover { background:#392a77; color:#fff; }
-  body:has(#admin-chat-root .admin-chat-launcher) .task-toast-viewport { bottom:calc(max(16px,env(safe-area-inset-bottom)) + 60px); max-height:calc(45vh - 60px); }
   .admin-chat-panel[data-slot=sheet-content] { width:100%; border:0; }
   body.admin-chat-open .task-toast-viewport { visibility:hidden; pointer-events:none; }
   .chat-heading { padding:18px 64px 16px 16px; flex-direction:column; align-items:flex-start; gap:12px; }

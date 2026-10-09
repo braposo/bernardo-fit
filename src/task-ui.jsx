@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { useRealtimeRun } from '@trigger.dev/react-hooks';
 import { Toaster, toast } from 'sonner';
-import { Button } from './admin/components/ui/button';
 
 const notices = new Map();
 const dismissTimers = new Map();
@@ -51,29 +50,22 @@ export function taskToast(id, update, replaceId) {
     const host = document.createElement('div');
     document.body.append(host);
     toastRoot = createRoot(host);
-    flushSync(() => toastRoot.render(<Toaster className="task-toast-viewport" position="bottom-right" expand
-      visibleToasts={Infinity} duration={Infinity} containerAriaLabel="Task notifications"
+    flushSync(() => toastRoot.render(<Toaster className="task-toast-viewport" position="bottom-right"
+      offset={16} mobileOffset={16} gap={8} duration={Infinity} containerAriaLabel="Task notifications"
       toastOptions={{ unstyled: true }} />));
   }
   toast.custom(() => <TaskNotice id={id} notice={notice} />, {
     id, duration: Infinity, onDismiss: () => { if (notices.has(id)) dismissNotice(id); },
   });
 }
-function DismissCountdown({ dismissAt }) {
-  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
-  useEffect(() => {
-    setRemaining(Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
-    const interval = setInterval(() => {
-      setRemaining(Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
-    }, 200);
-    return () => clearInterval(interval);
-  }, [dismissAt]);
-  return <span aria-hidden="true"> ({remaining}s)</span>;
-}
 function TaskNotice({ id, notice }) {
-  return <div className="task-toast" data-task-id={id} data-tone={notice.tone || 'pending'}>
-      <div className="task-toast-title">{notice.title || 'Background work'}</div>
-      <div className="task-toast-message" role="status" aria-live="polite" aria-atomic="true">{notice.message}</div>
+  const title = notice.title || 'Background work';
+  return <div className="task-toast" data-task-id={id} data-tone={notice.tone || 'pending'} data-dismiss-at={notice.dismissAt}>
+      <span className="task-toast-dot" aria-hidden="true" />
+      <div className="task-toast-text">
+        <div className="task-toast-title" title={title}>{title}</div>
+        <div className="task-toast-message" role="status" aria-live="polite" aria-atomic="true">{notice.message}</div>
+      </div>
       <div className="task-toast-actions">
         {notice.href && <a href={notice.href} onClick={event => {
           if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -82,8 +74,9 @@ function TaskNotice({ id, notice }) {
           const navigation = new CustomEvent('admin:navigate', { detail: url.href, cancelable: true });
           if (!document.dispatchEvent(navigation)) event.preventDefault();
         }}>{notice.linkLabel || 'Open result'}</a>}
-        {notice.retry && <Button variant="outline" onClick={notice.retry}>Reconnect</Button>}
-        <Button onClick={() => dismissNotice(id)} variant="ghost" aria-label={`Dismiss ${notice.title || 'notification'}`}>Dismiss{notice.dismissAt && <DismissCountdown dismissAt={notice.dismissAt} />}</Button>
+        {notice.retry && <button type="button" className="task-toast-retry" onClick={notice.retry}>Reconnect</button>}
+        {/* Swiping dismisses; this control appears only for keyboard focus. */}
+        <button type="button" className="task-toast-dismiss" onClick={() => dismissNotice(id)} aria-label={`Dismiss ${title}`}>Dismiss</button>
       </div>
   </div>;
 }

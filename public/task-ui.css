@@ -1,12 +1,20 @@
-.task-toast-viewport{position:fixed;bottom:16px;right:16px;z-index:1000;display:flex;flex-direction:column;gap:10px;width:min(390px,calc(100vw - 32px));max-height:45vh;overflow:auto;margin:0;padding:4px;list-style:none;font:14px/1.5 'IBM Plex Sans',system-ui,sans-serif;box-sizing:border-box}
-.task-toast{background:#fff;color:#252631;border:1px solid #e0e3eb;border-left:4px solid #6055a6;border-radius:12px;padding:14px 16px;box-shadow:0 4px 20px #25263120;overflow-wrap:anywhere}
-.task-toast[data-tone=err]{border-left-color:#a02929}.task-toast[data-tone=ok]{border-left-color:#367b4c}
-.task-toast-title{font-weight:600}.task-toast-message{margin-top:3px}.task-toast-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.task-toast-actions:empty{display:none}.task-toast-actions a{color:#514779;text-decoration:underline;display:inline-flex;align-items:center;min-height:44px}.task-toast-actions button{font:inherit;min-height:44px;cursor:pointer}.task-toast-actions :focus-visible{outline:2px solid #6055a6;outline-offset:2px}
-
-/* Sonner owns toast delivery; normal flow keeps all task cards scrollable. */
-[data-sonner-toaster].task-toast-viewport[data-x-position]{position:fixed;bottom:16px;right:16px;left:auto;z-index:1000;display:flex;flex-direction:column;gap:10px;width:min(390px,calc(100vw - 32px));height:auto;max-height:45vh;overflow:auto;margin:0;padding:4px;font:14px/1.5 'IBM Plex Sans',system-ui,sans-serif;box-sizing:border-box}
-[data-sonner-toaster].task-toast-viewport [data-sonner-toast]{position:relative!important;inset:auto!important;transform:none!important;opacity:1!important;height:auto!important;width:100%;flex-shrink:0;box-sizing:border-box}
-.task-toast-viewport [data-sonner-toast][data-removed=true]{display:none!important}
-.task-toast{width:100%;box-sizing:border-box}
-body.admin-chat-open [data-sonner-toaster].task-toast-viewport{right:436px;width:min(390px,calc(100vw - 452px))}
-@media(max-width:600px){body:has(#admin-chat-root .admin-chat-launcher) [data-sonner-toaster].task-toast-viewport{bottom:calc(max(16px,env(safe-area-inset-bottom)) + 60px);max-height:calc(45vh - 60px)}}
+/* Sonner owns placement, stacking and animation; these rules only style the compact notice. */
+[data-sonner-toaster].task-toast-viewport{z-index:1000;font:13px/1.4 'IBM Plex Sans',system-ui,sans-serif}
+[data-sonner-toaster].task-toast-viewport [data-sonner-toast]{width:var(--width)}
+[data-sonner-toaster].task-toast-viewport [data-sonner-toast][data-expanded=false][data-front=false] .task-toast>*{opacity:0}
+.task-toast{display:flex;align-items:center;gap:10px;height:100%;min-height:52px;box-sizing:border-box;padding:8px 12px;background:#fff;color:#252631;border:1px solid #e0e3eb;border-radius:10px;box-shadow:0 4px 12px #25263114;overflow:hidden;overflow-wrap:anywhere}
+.task-toast-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#6055a6}
+.task-toast[data-tone=err] .task-toast-dot{background:#a02929}.task-toast[data-tone=ok] .task-toast-dot{background:#367b4c}
+.task-toast-text{flex:1;min-width:0}
+.task-toast-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-toast-message{color:#666d7b;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.task-toast-message:empty{display:none}
+.task-toast-actions{flex:none;display:flex;align-items:center;gap:2px;margin-left:auto;margin-right:-8px}
+.task-toast-actions a,.task-toast-actions button{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:32px;padding:0 8px;border:0;border-radius:6px;background:none;font:500 12px/1.4 'IBM Plex Sans',system-ui,sans-serif;color:#514779;text-decoration:none;white-space:nowrap;cursor:pointer}
+.task-toast-actions a:hover,.task-toast-actions button:hover{background:#efedf5}
+.task-toast-actions .task-toast-dismiss:not(:focus){position:absolute;width:1px;height:1px;min-height:0;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.task-toast-actions .task-toast-dismiss{color:#666d7b}
+.task-toast-actions :focus-visible{outline:2px solid #6055a6;outline-offset:1px}
+@media(max-width:600px){[data-sonner-toaster].task-toast-viewport{width:auto}[data-sonner-toaster].task-toast-viewport [data-sonner-toast]{width:100%}.task-toast-actions a,.task-toast-actions button{min-height:44px}.task-toast{padding-block:4px}}
+@media(min-width:601px){body.admin-chat-open [data-sonner-toaster].task-toast-viewport{--offset-right:436px!important;--width:min(356px,calc(100vw - 452px))!important}}
+@media(max-width:600px){body:has(#admin-chat-root .admin-chat-launcher) [data-sonner-toaster].task-toast-viewport{--mobile-offset-bottom:calc(max(16px,env(safe-area-inset-bottom)) + 60px)!important}}
