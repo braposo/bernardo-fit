@@ -151,6 +151,26 @@ try { await withApplicationCvStore(cvStore,()=>withApplicationCvSource(cvSource,
     assert.equal((await cvStore.getApplicationCv(job.id)).run.status, "queued");
     assert.equal([...dispatched.values()].at(-1).taskId, "application-cv");
   });
+  await test("worker dispatches the CV without the app-only storage guard", async () => {
+    const job = await create({ stage: "reviewing" });
+    await ensureReviewingGeneration(job.id);
+    const payload = [...dispatched.values()].at(-1).payload;
+    await store.saveReportWithId(payload.requestId, { company: "Synthetic", job_title: "Manager", job_description: job.jobDescription, model: payload.model });
+    // Any app-side guard failure works here; switching on Sanity storage would
+    // also swap this test's in-memory store.
+    const saved = { vercel: process.env.VERCEL_ENV, key: process.env.TRIGGER_SECRET_KEY };
+    process.env.VERCEL_ENV = "preview"; process.env.TRIGGER_SECRET_KEY = "tr_prod_synthetic";
+    try {
+      const result = await executeAnalysisWithFollowup(payload);
+      assert.equal(result.generationErrors, undefined);
+      assert.equal([...dispatched.values()].at(-1).taskId, "application-cv");
+      const appSide = await reviewingGenerationResult(await create({ stage: "reviewing", fitReportId: await report() }));
+      assert.match(appSide.generationErrors[0], /same content storage/);
+    } finally {
+      for (const [name, value] of [["VERCEL_ENV", saved.vercel], ["TRIGGER_SECRET_KEY", saved.key]])
+        if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  });
   await test("worker keeps completed analysis when CV dispatch fails", async () => {
     const job = await create({ stage: "reviewing" });
     await ensureReviewingGeneration(job.id);
