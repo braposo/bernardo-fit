@@ -192,6 +192,12 @@ try {
   const secondToast = page.locator('[data-task-id="run:' + secondAssessment + '"]');
   await firstToast.getByText('Assessing fit…', {exact:true}).waitFor();
   await secondToast.getByText('Waiting…', {exact:true}).waitFor();
+  // Sonner stacks toasts collapsed and spreads them out while the pointer is over the stack.
+  await page.mouse.move(0, 0);
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-sonner-toast]')].every(el => el.dataset.expanded === 'false'));
+  await page.locator('[data-sonner-toast][data-front=true]').hover();
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-sonner-toast]')].every(el => el.dataset.expanded === 'true'));
+  await page.mouse.move(0, 0);
   status = 'COMPLETED';
   await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), firstAssessment);
   await firstToast.getByText('Fit assessment ready', {exact:true}).waitFor();
