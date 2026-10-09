@@ -32,18 +32,18 @@ await test("keys ignore legal suffixes, recruiter prefixes and broad locations",
 await test("same company, title and place is a repost settled by the rules", () => {
   const existing = [job("4430630705", "Benifex", "Engineering Manager", "Southampton, England, United Kingdom")];
   const found = findRepeat(card("4473483428", "Benifex", "Engineering Manager", "Southampton, England, United Kingdom"), existing);
-  assert.equal(found.by, "rules"); assert.equal(found.repeat.id, "4430630705");
+  assert.deepEqual(found.rules.map(r => r.id), ["4430630705"]);
   // A country-wide listing matches a city listing of the same title.
   assert.equal(findRepeat(card("4472888317", "Lead Forensics", "Software Development Manager", "United Kingdom"),
-    [job("4468796356", "Lead Forensics", "Software Development Manager", "Manchester, England, United Kingdom")]).by, "rules");
+    [job("4468796356", "Lead Forensics", "Software Development Manager", "Manchester, England, United Kingdom")]).rules.length, 1);
   assert.equal(findRepeat(card("4472529792", "Relay Technologies", "Engineering Manager", "London Area, United Kingdom"),
-    [job("4471856960", "Relay Technologies", "Engineering Manager", "Greater London, England, United Kingdom")]).by, "rules");
+    [job("4471856960", "Relay Technologies", "Engineering Manager", "Greater London, England, United Kingdom")]).rules.length, 1);
 });
 
 await test("different cities and reworded titles are close calls for Jev, not repeats", () => {
   const ashby = findRepeat(card("4403618575", "Ashby", "Engineering Manager - UK", "Birmingham, England, United Kingdom"),
     [job("4403602812", "Ashby", "Engineering Manager - UK", "Manchester, England, United Kingdom")]);
-  assert.equal(ashby.repeat, undefined); assert.equal(ashby.near.length, 1);
+  assert.deepEqual(ashby.rules, []); assert.equal(ashby.near.length, 1);
   const formula = findRepeat(card("1", "Formula", "Engineering Manager", "United Kingdom"),
     [job("2", "Formula", "Software Engineering Manager", "United Kingdom")]);
   assert.equal(formula.near.length, 1);
@@ -55,11 +55,26 @@ await test("different cities and reworded titles are close calls for Jev, not re
 
 await test("the same listing is left to the existing exact match", () => {
   const found = findRepeat(card("9", "Acme", "Engineering Manager", ""), [{ ...job("9", "Acme", "Engineering Manager", ""), kind: "filtered" }]);
-  assert.equal(found.repeat, undefined); assert.deepEqual(found.near, []);
+  assert.deepEqual(found.rules, []); assert.deepEqual(found.near, []);
 });
 
 const settings = DEFAULT_DUPLICATE_SETTINGS;
 const answer = (choice, repeat) => ({ choice, probabilities: { repeat, different: 1 - repeat } });
+
+await test("a rule match with a different description is a recruiter's other role, checked by Jev", async () => {
+  const role = "Lead the payments platform team building card issuing services for merchants across Europe. ".repeat(3);
+  const other = "Head a data engineering group delivering warehouse pipelines, analytics tooling and reporting for retail clients. ".repeat(3);
+  const existing = [job("4472743478", "Few&Far", "Software Engineering Manager", "England, United Kingdom", { jobDescription: role })];
+  const same = await checkRepeat(card("4474319557", "Few&Far", "Software Engineering Manager", "England, United Kingdom", { jobDescription: role + " Apply now." }),
+    existing, { settings, evaluate: async () => assert.fail("rules settle a matching description") });
+  assert.equal(same.by, "rules");
+  let asked = 0;
+  const different = await checkRepeat(card("4474319558", "Few&Far", "Software Engineering Manager", "England, United Kingdom", { jobDescription: other }),
+    existing, { settings, evaluate: async ({ questions }) => { asked++; return { answers: Object.fromEntries(Object.keys(questions).map(k => [k, answer("different", 0.02)])) }; } });
+  assert.equal(different, null); assert.equal(asked, 1);
+  // Without a description on either side the rule stands.
+  assert.equal((await checkRepeat(card("4474319559", "Few&Far", "Software Engineering Manager", ""), existing, { settings })).by, "rules");
+});
 
 await test("Jev compares descriptions and only a confident repeat counts", async () => {
   const near = [job("1", "Ashby", "Engineering Manager - UK", "Manchester", { jobDescription: "Lead the platform team." }),
@@ -127,11 +142,11 @@ await test("a repost is recorded on the pipeline job instead of a new row", asyn
 await test("a repost of a filtered job refreshes it and is not reassessed", async () => {
   resetFilteredJobsForTests();
   await recordFilteredJob({ opportunity: { company: "Immersum", role: "Engineering Manager", externalId: "linkedin-11",
-    sourceUrl: li("11"), jobDescription: "Original." }, decision: "below-threshold", assessment: { score: 36, dimensions: [] },
+    sourceUrl: li("11"), jobDescription: "Build the immersive training platform team." }, decision: "below-threshold", assessment: { score: 36, dimensions: [] },
     minimumScore: 50, now: new Date("2026-06-01T00:00:00Z") });
   let screened = 0;
   const result = await executeIngestBatch([{ company: "Immersum", role: "Engineering Manager", externalId: "linkedin-12",
-    sourceUrl: li("12"), jobDescription: "Reposted." }], { screen: async () => { screened++; return { decision: "below-threshold" }; } });
+    sourceUrl: li("12"), jobDescription: "Build the immersive training platform team. Reposted." }], { screen: async () => { screened++; return { decision: "below-threshold" }; } });
   assert.equal(screened, 0); assert.equal(result.repeated, 1); assert.equal(result.repeatedRows[0].kind, "filtered");
   const [record] = await listFilteredForMatching();
   assert.equal(record.externalId, "linkedin-11");
@@ -163,25 +178,25 @@ await test("a close call goes to Jev with the existing description; a failed che
   assert.equal(broken.failed, 1); assert.equal(broken.screeningRows[0].decision, "repeat-check-failed"); assert.equal(screened, 1);
 });
 
-await test("discovery settles rule repeats from the card before screening or fetching", async () => {
-  const recorded = [];
-  const posting = { id: "4475564856", company: "Burns Sheehan", role: "Engineering Manager", location: "London Area, United Kingdom",
+await test("discovery sends a likely repost straight to the description check, skipping the title screen", async () => {
+  const posting = { id: "4475564856", company: "Benifex", role: "Engineering Manager", location: "Southampton, England, United Kingdom",
     sourceUrl: li("4475564856") };
   const fresh = { id: "4475564857", company: "New Co", role: "Engineering Manager", location: "Leeds", sourceUrl: li("4475564857") };
-  let screenedIds;
+  let screenedIds, ingested = [];
   const report = await discoverLinkedIn({
     search: async () => ({ jobs: [posting, fresh], scans: [], complete: true }),
-    list: async () => [{ id: "existing-1", company: "Burns Sheehan", role: "Engineering Manager", location: "London",
-      externalId: "linkedin-4468620392", sourceUrl: li("4468620392"), stage: "expired", archived: true }],
+    list: async () => [{ id: "existing-1", company: "Benifex", role: "Engineering Manager", location: "Southampton",
+      externalId: "linkedin-4430630705", sourceUrl: li("4430630705"), stage: "reviewing" }],
     listFiltered: async () => [],
-    recordRepeat: async (match, entry) => recorded.push([match.repeat.id, entry.externalId]),
     prescreenBatch: async cards => { screenedIds = cards.map(c => String(c.id)); return cards.map(c => ({ postingId: c.id, decision: "skip" })); },
+    describe: async p => ({ ...p, externalId: `linkedin-${p.id}`, jobDescription: "Same role." }),
+    ingest: async input => { ingested.push(input[0].externalId);
+      return { screeningRows: [], addedRows: [], repeatedRows: [{ repeatOf: "existing-1", kind: "job", by: "rules" }] }; },
     recordFiltered: async () => ({ recorded: 1, failures: [] }), purgeFiltered: async () => ({ removed: 0 }),
-    describe: async () => assert.fail("a repeat needs no description"),
   });
   assert.deepEqual(screenedIds, ["4475564857"]);
-  assert.deepEqual(recorded, [["existing-1", "linkedin-4475564856"]]);
-  assert.equal(report.repeats.length, 1); assert.equal(report.repeats[0].by, "rules");
+  assert.deepEqual(ingested, ["linkedin-4475564856"]);
+  assert.equal(report.repeats.length, 1); assert.equal(report.repeats[0].repeatOf, "existing-1");
   assert.equal(report.status, "completed");
 });
 
