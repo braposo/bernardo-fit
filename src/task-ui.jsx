@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { useRealtimeRun } from '@trigger.dev/react-hooks';
@@ -58,20 +58,9 @@ export function taskToast(id, update, replaceId) {
     id, duration: Infinity, onDismiss: () => { if (notices.has(id)) dismissNotice(id); },
   });
 }
-function DismissCountdown({ dismissAt }) {
-  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
-  useEffect(() => {
-    setRemaining(Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
-    const interval = setInterval(() => {
-      setRemaining(Math.max(0, Math.ceil((dismissAt - Date.now()) / 1000)));
-    }, 200);
-    return () => clearInterval(interval);
-  }, [dismissAt]);
-  return <span className="task-toast-countdown" aria-hidden="true">{remaining}s</span>;
-}
 function TaskNotice({ id, notice }) {
   const title = notice.title || 'Background work';
-  return <div className="task-toast" data-task-id={id} data-tone={notice.tone || 'pending'}>
+  return <div className="task-toast" data-task-id={id} data-tone={notice.tone || 'pending'} data-dismiss-at={notice.dismissAt}>
       <span className="task-toast-dot" aria-hidden="true" />
       <div className="task-toast-text">
         <div className="task-toast-title" title={title}>{title}</div>
@@ -86,10 +75,8 @@ function TaskNotice({ id, notice }) {
           if (!document.dispatchEvent(navigation)) event.preventDefault();
         }}>{notice.linkLabel || 'Open result'}</a>}
         {notice.retry && <button type="button" className="task-toast-retry" onClick={notice.retry}>Reconnect</button>}
-        <button type="button" className="task-toast-dismiss" onClick={() => dismissNotice(id)} aria-label={`Dismiss ${title}`}>
-          {notice.dismissAt && <DismissCountdown dismissAt={notice.dismissAt} />}
-          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
-        </button>
+        {/* Swiping dismisses; this control appears only for keyboard focus. */}
+        <button type="button" className="task-toast-dismiss" onClick={() => dismissNotice(id)} aria-label={`Dismiss ${title}`}>Dismiss</button>
       </div>
   </div>;
 }

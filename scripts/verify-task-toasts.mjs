@@ -117,7 +117,8 @@ try {
   status = 'COMPLETED';
   await page.evaluate(() => window.fixtureRuns.run1.onUpdate({ status: 'COMPLETED' }));
   await page.locator('.task-toast-message').filter({ hasText: '320 words' }).waitFor();
-  assert.match(await page.locator('[data-task-id="run:run1"] button[aria-label^="Dismiss"]').textContent(), /^[1-5]s$/, 'successful notification shows a countdown');
+  assert.ok(Number(await page.locator('[data-task-id="run:run1"]').getAttribute('data-dismiss-at')) > Date.now(), 'successful notification has a dismissal deadline');
+  assert.ok((await page.locator('[data-task-id="run:run1"] button[aria-label^="Dismiss"]').boundingBox()).width <= 1, 'dismiss control stays hidden until keyboard focus');
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => document.fonts.ready);
@@ -150,13 +151,16 @@ try {
   await page.goForward();
   const axe = await new AxeBuilder({ page }).include('.task-toast-viewport').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   assert.deepEqual(axe.violations, []);
-  await page.getByRole('button', { name: 'Dismiss Cover letter', exact: false }).click();
+  // Swiping is the pointer dismissal; the hidden control is the keyboard path.
+  await page.getByRole('button', { name: 'Dismiss Cover letter', exact: false }).focus();
+  assert.ok((await page.getByRole('button', { name: 'Dismiss Cover letter', exact: false }).boundingBox()).width > 20, 'dismiss control appears on keyboard focus');
+  await page.keyboard.press('Enter');
   await page.locator('.task-toast').waitFor({ state: 'detached' });
   await page.locator('[data-act=cover]').click(); await page.locator('[data-review-submit]:enabled').click();
   await page.waitForFunction(() => window.fixtureRuns?.run2);
   status = 'FAILED'; await page.evaluate(() => window.fixtureRuns.run2.onUpdate({ status: 'FAILED' }));
   await page.locator('.task-toast-message').filter({ hasText: 'Provider unavailable' }).waitFor();
-  assert.equal(await page.locator('[data-task-id="run:run2"] button[aria-label^="Dismiss"]').textContent(), '', 'failed notification has no countdown');
+  assert.equal(await page.locator('[data-task-id="run:run2"]').getAttribute('data-dismiss-at'), null, 'failed notification has no dismissal deadline');
   await page.waitForFunction(() => !document.querySelector('[data-act=cover]').disabled);
   await page.setViewportSize({ width: 1280, height: 900 });
   for (const [section, selector] of [['materials','[data-act=appgenerate]'],['materials','[data-act=researchrefresh]'],['materials','[data-act=briefrewrite]'],['materials','[data-act=qdraft]'],['overview','[data-act=jevscore]'],['overview','#assesslisted']]) {
@@ -214,13 +218,14 @@ try {
   assert.equal(await secondToast.getByText('Fit assessment ready', {exact:true}).count(), 1);
   await page.evaluate(id => window.fixtureRuns[id].onUpdate({ status:'COMPLETED' }), nextAssessment);
   await page.waitForFunction(() => !document.querySelector('[data-act=jevscore]').disabled);
-  const countdown = page.locator('[data-task-id="run:' + nextAssessment + '"] button[aria-label^="Dismiss"]');
-  await countdown.getByText(/^[1-4]s$/).waitFor();
+  const deadlineToast = page.locator('[data-task-id="run:' + nextAssessment + '"][data-dismiss-at]');
+  await deadlineToast.waitFor();
+  const deadline = await deadlineToast.getAttribute('data-dismiss-at');
   await page.evaluate(async id => {
     const { taskToast } = await import('/assets/task-ui-real.js');
     taskToast('run:' + id, { title: 'Updated role title' });
   }, nextAssessment);
-  assert.match(await countdown.textContent(), /^[1-4]s$/, 'later updates keep the original dismissal deadline');
+  assert.equal(await deadlineToast.getAttribute('data-dismiss-at'), deadline, 'later updates keep the original dismissal deadline');
   await page.locator('[data-task-id="run:' + nextAssessment + '"]').waitFor({ state: 'detached', timeout: 7000 });
   assert.equal(await page.locator('[data-task-id="run:run2"]').count(), 1, 'failed notification remains until dismissed');
   await page.evaluate(([a, b]) => sessionStorage.setItem('fit.activeTasks', JSON.stringify([
@@ -269,7 +274,11 @@ try {
   await page.locator('#jd').fill('A sufficiently detailed synthetic engineering leadership role.');
   await page.locator('#go').click();
   await page.waitForFunction(() => window.fixtureRuns?.public1);
-  await page.locator('[data-task-id="public-analysis"] button[aria-label^="Dismiss"]').click();
+  const swipe = await page.locator('[data-sonner-toast]:has([data-task-id="public-analysis"])').boundingBox();
+  await page.mouse.move(swipe.x + 40, swipe.y + swipe.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(swipe.x + 240, swipe.y + swipe.height / 2, { steps: 10 });
+  await page.mouse.up();
   await page.locator('[data-task-id="public-analysis"]').waitFor({ state: 'detached' });
   assert.equal(await page.locator('#go').count(), 0, 'dismissing running analysis leaves its action locked');
   await page.evaluate(() => window.fixtureRuns.public1.onUpdate({ status:'EXECUTING', metadata:{phase:'analysing'} }));
@@ -283,7 +292,8 @@ try {
     window.fixtureToast = taskToast;
     taskToast('fixture-action', {title:'Fixture task', message:'Starting…', terminal:false, tone:'pending'});
   });
-  await page.locator('[data-task-id="fixture-action"] button').click();
+  await page.locator('[data-task-id="fixture-action"] button').focus();
+  await page.keyboard.press('Enter');
   await page.locator('[data-task-id="fixture-action"]').waitFor({state:'detached'});
   await page.evaluate(() => window.fixtureToast('run:fixture-first', {message:'Queued…', terminal:false}, 'fixture-action'));
   assert.equal(await page.locator('[data-task-id="run:fixture-first"]').count(), 0);
