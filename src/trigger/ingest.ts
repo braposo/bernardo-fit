@@ -18,7 +18,7 @@ export const ingestTask = task({
     const policy = await getTaskInput("ingest-policy", payload.requestId);
     const result = await executeIngestBatch(input, { requestId: payload.requestId, minimumScore: policy?.minimumScore ?? ingestMinimumScore() });
     metadata.set("phase", "completed").set("added", result.added).set("updated", result.updated)
-      .set("filtered", result.filtered).set("filteredRecorded", result.filteredRecorded).set("needsReview", result.needsReview).set("failed", result.failed);
+      .set("filtered", result.filtered).set("repeated", result.repeated).set("filteredRecorded", result.filteredRecorded).set("needsReview", result.needsReview).set("failed", result.failed);
     return { outcome: "completed", ...result };
   }),
 });
