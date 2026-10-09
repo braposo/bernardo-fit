@@ -71,7 +71,7 @@ try {
   assert.equal(await page.locator('.masthead #admin-chat-root .admin-chat-launcher').count(),1);
   await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   await page.getByRole('heading',{name:'Your assistant'}).waitFor();
-  await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
+  await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.setAttribute('data-sonner-toaster','');viewport.style.cssText='position:fixed;right:16px;bottom:var(--mobile-offset-bottom,16px)';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications remain visible beside chat');
   await page.locator('.topnav [data-collection="archive"]').click();
   assert.equal(await page.getByRole('dialog').isVisible(),true,'chat remains open while browsing');
@@ -141,7 +141,7 @@ try {
   await page.getByLabel('Message',{exact:true}).fill('Draft survives closing');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications return after closing chat');
-  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'76px');
+  assert.equal(await page.locator('#chat-toast-fixture').evaluate(el=>getComputedStyle(el).bottom),'76px','notifications sit above the floating chat button');
   await page.getByRole('button',{name:'Ask your assistant',exact:true}).click();
   assert.equal(await page.getByLabel('Message',{exact:true}).inputValue(),'Draft survives closing');
   assert.equal(await page.getByText('Conversations are saved privately for Insights.').count(),0);
