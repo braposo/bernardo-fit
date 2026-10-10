@@ -8,7 +8,7 @@ const readOnly = (name: string, title: string, type: 'string' | 'text' | 'number
 
 export const filteredJob = defineType({
   name: 'filteredJob', title: 'Filtered job', type: 'document', icon: FilterIcon, readOnly: true,
-  description: 'A job the automatic screens analysed and kept out of the pipeline. Move it from the admin Filtered view.',
+  description: 'A job the automatic screens scored and kept out of the pipeline. Move it or clear the list from the admin Filtered view.',
   fields: [
     readOnly('identity', 'Pipeline job ID'),
     readOnly('company', 'Company'), readOnly('role', 'Role'), readOnly('location', 'Location'),
@@ -31,6 +31,7 @@ export const filteredJob = defineType({
     readOnly('assessment', 'Saved assessment (JSON)', 'text'),
     readOnly('firstFilteredAt', 'First filtered', 'datetime'), readOnly('filteredAt', 'Last filtered', 'datetime'),
     readOnly('movedAt', 'Moved to pipeline', 'datetime'), readOnly('movedJobId', 'Pipeline job'),
+    readOnly('clearedAt', 'Cleared from Filtered', 'datetime'),
     readOnly('lastSeenAt', 'Last reposted', 'datetime'),
     defineField({name: 'reposts', title: 'Later listings of this opening', type: 'array', readOnly: true,
       of: [defineArrayMember({type: 'object', fields: [

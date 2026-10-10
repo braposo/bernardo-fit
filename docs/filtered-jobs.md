@@ -1,11 +1,12 @@
 # Filtered jobs
 
-The admin's **Filtered** view lists roles the automatic screens analysed and kept out of the pipeline, with the reason and any fit scores, and moves one into the pipeline on request.
+The admin's **Filtered** view lists roles the automatic screens scored and kept out of the pipeline, with the reason and fit scores, and moves one into the pipeline on request. It works like a spam folder: check it, rescue anything worth a look, then **Clear all**.
 
 ## What is recorded
 
-- **Title screen** (`title-mismatch`): LinkedIn discovery cards Jev judged a confident mismatch from the card alone. Only the card is kept (company, title, location, link, visible posting date) with the title-screen relevance. Deferred (uncertain) cards are not filtered; they stay in the discovery backlog.
-- **Below threshold**, **Constraint conflict** and **Unreadable posting** (`below-threshold`, `constraint-conflict`, `needs-review`): any ingest batch (daily discovery or a manual import) that assessed a role and did not admit it. The cleaned posting, including its description, and the full Jev assessment are kept. Evaluation and summary failures are retried by their batch and are not recorded.
+- **Below threshold** and **Constraint conflict** (`below-threshold`, `constraint-conflict`): any ingest batch (daily discovery or a manual import) that scored a role and did not admit it. The cleaned posting, including its description, and the full Jev assessment are kept.
+
+Roles that never get a score are not recorded: cards the title screen skips (a confident mismatch from the card alone) and postings that could not be read. Evaluation and summary failures are retried by their batch and are not recorded either. Records with the older `title-mismatch` and `needs-review` decisions may still exist; they are listed and move like any other.
 
 Each posting is one `filteredJob` document with ID `filtered-job.<pipeline id>`, using the same identity the pipeline uses, so a later screen of the same posting refreshes the record. Recording is best effort: a storage failure is counted in the run metadata (`filteredRecordFailures`) and does not fail the batch.
 
@@ -17,6 +18,10 @@ Each posting is one `filteredJob` document with ID `filtered-job.<pipeline id>`,
 - The full Jev assessment and overview summary then run, exactly as **Assess fit** does.
 
 Progress is tracked on the job's `jevRun`, so the pipeline and toasts show it as a fit assessment. Nothing starts when Jev is not configured. If the posting has gone or LinkedIn fetching is paused, the run fails with a message and the role stays at New with its link; add the description in Role details and use Assess fit. An existing pipeline or archived row for the same posting is reused rather than duplicated, and a moved record is never revived by a later screen.
+
+## Clearing the list
+
+**Clear all** asks for confirmation, then sets `clearedAt` on every record the open list was loaded with (`filteredAt` at or before the list's `listedAt`), so a role filtered while the list is open stays. Cleared records are hidden from the list but kept: repost matching still sees them, so a later listing of a cleared job is noted on its record (`reposts`, `lastSeenAt`) instead of being assessed again and reappearing. A later screen of the same posting does not bring a cleared record back. Retention deletes cleared records like any other.
 
 ## Retention
 

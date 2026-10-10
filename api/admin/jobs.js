@@ -30,7 +30,7 @@ import { jevEnabled } from "../../lib/jev.js";
 import { reviewingGenerationResult } from "../../lib/reviewing-generation.js";
 import { getApplicationCvSummaries, getApplicationCv, markApplicationCvSubmitted } from "../../lib/application-cv-store.js";
 import { applicationCvFields, withApplicationCvFields, generalCvFields } from "../../lib/application-cv-view.js";
-import { listFilteredJobs, moveFilteredJob, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
+import { listFilteredJobs, moveFilteredJob, clearFilteredJobs, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
 import { startMovedJobCompletion } from "../../lib/filtered-job-enrich.js";
 
 async function cvFields(job) {
@@ -43,7 +43,7 @@ async function cvWriteFields(job, errors) {
 }
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
-// GET    /api/admin/jobs?filtered=1   -> { filtered }       (screened out, not moved)
+// GET    /api/admin/jobs?filtered=1   -> { filtered, listedAt } (screened out, not moved or cleared)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...)
 // DELETE /api/admin/jobs?id=abc       -> remove
@@ -55,7 +55,8 @@ async function handler(req, res) {
   try {
     if (req.method === "GET") {
       if (req.query?.filtered === "1") {
-        return res.status(200).json({ filtered: await listFilteredJobs(), retentionDays: filteredJobRetentionDays() });
+        const listedAt = new Date().toISOString();
+        return res.status(200).json({ filtered: await listFilteredJobs(), retentionDays: filteredJobRetentionDays(), listedAt });
       }
       if (req.query?.id) {
         const job = await getJob(req.query.id);
@@ -139,6 +140,13 @@ async function handler(req, res) {
         try { completed = await startMovedJobCompletion(job) || job; }
         catch (error) { completionError = error.message || "Could not start the fit assessment."; }
         return res.status(200).json({ job: jobSummary(completed), ...(completionError ? { completionError } : {}) });
+      }
+
+      // Empties Filtered up to when the list was loaded. Records stay hidden so
+      // reposts of cleared jobs are still recognised.
+      if (body.action === "clear-filtered") {
+        if (typeof body.before !== "string" || !body.before) return res.status(400).json({ error: "Reload Filtered and try again." });
+        return res.status(200).json(await clearFilteredJobs({ before: body.before }));
       }
 
       if (body.action === "letter-token") {
