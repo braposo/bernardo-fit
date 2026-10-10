@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { filteredJobRecord, recordFilteredJob, listFilteredJobs, moveFilteredJob, purgeFilteredJobs,
-  resetFilteredJobsForTests, filteredJobDocumentId } from "../lib/filtered-jobs.js";
+import { filteredJobRecord, recordFilteredJob, listFilteredJobs, moveFilteredJob, purgeFilteredJobs, clearFilteredJobs,
+  listFilteredForMatching, recordFilteredRepost, resetFilteredJobsForTests, filteredJobDocumentId } from "../lib/filtered-jobs.js";
 import { executeIngestBatch, ingestIdentity } from "../lib/ingest-work.js";
 import { discoverLinkedIn, cardOpportunity } from "../lib/linkedin-discovery.js";
 import { getJob, listJobs } from "../lib/store.js";
@@ -59,13 +59,15 @@ await test("records keep a factual reason, scores and the pipeline identity", ()
   assert.throws(() => filteredJobRecord({ opportunity: opportunity("104"), decision: "evaluation-failed" }));
 });
 
-await test("ingest records analysed rejections but not failed evaluations", async () => {
+await test("ingest records scored rejections but not unscored or failed ones", async () => {
   const screens = { "linkedin-201": { decision: "below-threshold", assessment: assessment(44) },
     "linkedin-202": { decision: "evaluation-failed", assessment: null, error: "Retry" },
-    "linkedin-203": { decision: "constraint-conflict", assessment: assessment(70, { blocked: true }) } };
-  const result = await executeIngestBatch(["201", "202", "203"].map(id => opportunity(id)),
+    "linkedin-203": { decision: "constraint-conflict", assessment: assessment(70, { blocked: true }) },
+    "linkedin-204": { decision: "needs-review", assessment: { status: "complete", score: null, posting: { choice: "inaccessible" } } },
+    "linkedin-205": { decision: "constraint-conflict", assessment: { status: "complete", score: null, blocked: true } } };
+  const result = await executeIngestBatch(["201", "202", "203", "204", "205"].map(id => opportunity(id)),
     { minimumScore: 50, screen: async opp => screens[opp.externalId] });
-  assert.equal(result.filtered, 2); assert.equal(result.failed, 1); assert.equal(result.filteredRecorded, 2);
+  assert.equal(result.filtered, 3); assert.equal(result.failed, 1); assert.equal(result.needsReview, 1); assert.equal(result.filteredRecorded, 2);
   const list = await listFilteredJobs();
   assert.deepEqual(list.map(f => f.company).sort(), ["Company 201", "Company 203"]);
   assert.equal(list.find(f => f.company === "Company 201").minimumScore, 50);
@@ -78,7 +80,7 @@ await test("a storage failure is reported without failing the batch", async () =
   assert.equal(result.filtered, 1); assert.equal(result.filteredRecordFailures.length, 1);
 });
 
-await test("discovery keeps title-screened cards with their relevance", async () => {
+await test("discovery drops title-screened cards instead of keeping them", async () => {
   const recorded = [];
   const posting = id => ({ id, company: `Card ${id}`, role: id === "301" ? "Sales Director" : "Engineering Manager",
     location: "London", sourceUrl: `https://www.linkedin.com/jobs/view/${id}` });
@@ -90,12 +92,30 @@ await test("discovery keeps title-screened cards with their relevance", async ()
       return { filtered: 1, screeningRows: [], addedRows: [], filteredRecorded: 1, filteredRecordFailures: [] }; },
     recordFiltered: async entries => { recorded.push(...entries); return { recorded: entries.length, failures: [] }; },
     purgeFiltered: async () => ({ removed: 3 }) });
-  assert.equal(recorded.length, 1);
-  assert.equal(recorded[0].decision, "title-mismatch");
-  assert.equal(recorded[0].relevanceProbability, 0.04);
-  assert.equal(recorded[0].opportunity.externalId, "linkedin-301");
-  assert.equal(report.filteredRecorded, 2); assert.equal(report.filteredPurged, 3);
+  assert.equal(recorded.length, 0);
+  assert.equal(report.excluded, 1);
+  assert.equal(report.filteredRecorded, 1); assert.equal(report.filteredPurged, 3);
   assert.equal(report.complete, true);
+});
+
+await test("clearing hides listed records but keeps them for repost matching", async () => {
+  await recordFilteredJob({ opportunity: opportunity("901"), decision: "below-threshold", assessment: assessment(40), minimumScore: 50,
+    now: new Date("2026-10-10T07:00:00Z") });
+  await recordFilteredJob({ opportunity: opportunity("902"), decision: "below-threshold", assessment: assessment(41), minimumScore: 50,
+    now: new Date("2026-10-10T07:30:00Z") });
+  // Filtered after the list was loaded, so it was never seen and stays.
+  await recordFilteredJob({ opportunity: opportunity("903"), decision: "below-threshold", assessment: assessment(42), minimumScore: 50,
+    now: new Date("2026-10-10T09:30:00Z") });
+  await assert.rejects(clearFilteredJobs({ before: "not a date" }), { status: 400 });
+  assert.deepEqual(await clearFilteredJobs({ before: "2026-10-10T09:00:00.000Z" }), { cleared: 2 });
+  assert.deepEqual((await listFilteredJobs()).map(f => f.company), ["Company 903"]);
+  assert.deepEqual((await listFilteredForMatching()).map(f => f.company).sort(), ["Company 901", "Company 902", "Company 903"]);
+  // A repost or a later screen of a cleared role does not bring it back.
+  const [cleared] = (await listFilteredForMatching()).filter(f => f.company === "Company 901");
+  await recordFilteredRepost(cleared.id, { externalId: "linkedin-9901", sourceUrl: "https://www.linkedin.com/jobs/view/9901", seenAt: "2026-10-11T07:00:00.000Z" });
+  await recordFilteredJob({ opportunity: opportunity("902"), decision: "below-threshold", assessment: assessment(41), minimumScore: 50 });
+  assert.deepEqual((await listFilteredJobs()).map(f => f.company), ["Company 903"]);
+  assert.deepEqual(await clearFilteredJobs({ before: "2026-10-10T09:00:00.000Z" }), { cleared: 0 });
 });
 
 await test("moving creates the job at New with its saved assessment and hides the record", async () => {
@@ -156,6 +176,16 @@ await test("admin API lists filtered roles and moves one into the pipeline", asy
   assert.equal(moved.status, 200); assert.equal(moved.body.job.stage, "new"); assert.equal(moved.body.job.score, 48);
   assert.equal((await call("GET", { query: { filtered: "1" } })).body.filtered.length, 0);
   assert.equal((await call("POST", { body: { action: "move-filtered" } })).status, 400);
+});
+
+await test("admin API clears Filtered up to when the list was loaded", async () => {
+  await recordFilteredJob({ opportunity: opportunity("711"), decision: "below-threshold", assessment: assessment(45), minimumScore: 50 });
+  const listed = await call("GET", { query: { filtered: "1" } });
+  assert.ok(!Number.isNaN(Date.parse(listed.body.listedAt)));
+  assert.equal((await call("POST", { body: { action: "clear-filtered" } })).status, 400);
+  const cleared = await call("POST", { body: { action: "clear-filtered", before: listed.body.listedAt } });
+  assert.equal(cleared.status, 200); assert.equal(cleared.body.cleared, 1);
+  assert.equal((await call("GET", { query: { filtered: "1" } })).body.filtered.length, 0);
 });
 
 await test("moving starts the background completion only when Jev is configured", async () => {
