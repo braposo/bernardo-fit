@@ -183,6 +183,25 @@ try { await withApplicationCvStore(cvStore,()=>withApplicationCvSource(cvSource,
     assert.deepEqual(result.generationErrors, ["Worker unavailable"]);
     assert.equal((await store.getJob(job.id)).analysisRun.status, "completed");
   });
+  await test("analysis inside a Fit page & CV run leaves the CV to that run", async () => {
+    const job = await create({ stage: "reviewing", fitReportId: await report(),
+      applicationRun: { requestId: "manual-app", runId: "run-app", status: "queued" } });
+    const before = dispatched.size;
+    await ensureReviewingGeneration(job.id, { fromWorker: true });
+    assert.equal(dispatched.size, before);
+    assert.equal(await cvStore.getApplicationCv(job.id), null);
+  });
+  await test("a finished Fit page & CV run no longer holds back the Reviewing CV", async () => {
+    const job = await create({ stage: "reviewing", fitReportId: await report(),
+      applicationRun: { requestId: "stale-app", runId: "run-stale", status: "queued" } });
+    runs.retrieve = async id => ({ id, status: id === "run-stale" ? "FAILED" : "EXECUTING" });
+    try {
+      const before = dispatched.size;
+      await ensureReviewingGeneration(job.id);
+      assert.equal(dispatched.size, before + 1);
+      assert.equal([...dispatched.values()].at(-1).taskId, "application-cv");
+    } finally { runs.retrieve = async id => ({ id, status: "EXECUTING" }); }
+  });
   await test("a needs-review CV is not automatically retried", async () => {
     const job=await create({stage:'reviewing',fitReportId:await report()});
     await cvStore.claimApplicationCvRun(job,{requestId:'review-cv',fingerprint:'review-fp',status:'queued'});
