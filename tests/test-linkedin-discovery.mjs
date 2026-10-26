@@ -150,6 +150,14 @@ await test('exhausted request task persists backlog and resumes without reproces
   assert.equal(next.complete, true); assert.deepEqual(descriptions, ['1', '2']);
   assert.equal(state.pending.length, 0);
 });
+await test('catch-up start replaces the saved checkpoint for one window', async () => {
+  let window, state;
+  await discoverLinkedIn({ ...base, state: { lastSearch: '2026-10-26T08:00:00Z' }, windowAfter: '2026-10-22T08:00:00Z',
+    now: new Date('2026-10-26T16:00:00Z'), search: async options => { window = options.window; return { jobs: [], scans: [], complete: true }; },
+    ingest: async () => ({ screeningRows: [], addedRows: [] }), saveState: async next => { state = next; } });
+  assert.deepEqual(window, { after: '2026-10-22T08:00:00.000Z', before: '2026-10-26T16:00:00.000Z' });
+  assert.equal(state.lastSearch, '2026-10-26T16:00:00.000Z');
+});
 await test('failed ingestion retains its fetched description for the next run', async () => {
   let state, calls = 0;
   const options = { ...base, search: async () => ({ jobs: [posting(1)], scans: [], complete: true }),

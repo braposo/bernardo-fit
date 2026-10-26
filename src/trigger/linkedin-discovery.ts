@@ -11,8 +11,17 @@ import type { linkedinPublicRequest } from './linkedin-public-request';
 export const linkedinDiscoveryTask = task({
   id: 'linkedin-job-discovery', maxDuration: 7200,
   queue: { concurrencyLimit: 1 }, retry: { maxAttempts: 1 },
-  run: async (payload: { date: string }, { ctx }) => {
+  run: async (payload: { date: string, catchUp?: { after: string, maxSearchResults: number } }, { ctx }) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.date)) throw new AbortTaskRunError('A London schedule date is required');
+    // Manual catch-up after missed days: search from a given time with a larger, one-run result cap.
+    const catchUp = payload.catchUp;
+    if (catchUp) {
+      const after = Date.parse(catchUp.after);
+      if (!Number.isFinite(after) || after > Date.now() || after < Date.now() - 14 * 86400000)
+        throw new AbortTaskRunError('A catch-up start within the last 14 days is required');
+      if (!Number.isInteger(catchUp.maxSearchResults) || catchUp.maxSearchResults < 1 || catchUp.maxSearchResults > 400)
+        throw new AbortTaskRunError('A catch-up needs a maxSearchResults bound between 1 and 400');
+    }
     if (!hasKV || process.env.SANITY_CONTENT_ENABLED !== '1' || process.env.SANITY_ANALYSIS_ENABLED !== '1')
       throw new AbortTaskRunError('Persistent storage and published Sanity analysis settings are required');
 
@@ -46,7 +55,7 @@ export const linkedinDiscoveryTask = task({
       };
       try {
         const lastSuccess = await client.get<string>('linkedin-discovery:last-success');
-        metadata.set('phase', 'discovering').set('date', payload.date).set('policyVersion', policy.policyVersion);
+        metadata.set('phase', 'discovering').set('date', payload.date).set('catchUp', !!catchUp).set('policyVersion', policy.policyVersion);
         const fetchImpl = async (url: string | URL) => {
           await assertOwner();
           metadata.set('phase', 'requesting');
@@ -63,8 +72,8 @@ export const linkedinDiscoveryTask = task({
           return new Response(result.output.body, { status: result.output.status });
         };
         const state = await client.get('linkedin-discovery:state') || {};
-        const report = await discoverLinkedIn({ lastSuccess, state, progress,
-          search: (options: any) => searchLinkedIn({ ...options, fetchImpl,
+        const report = await discoverLinkedIn({ lastSuccess, state, progress, windowAfter: catchUp?.after,
+          search: (options: any) => searchLinkedIn({ ...options, fetchImpl, maxSearchResults: catchUp?.maxSearchResults,
             onPage: (page: any) => progress({ phase: 'searching', page: page.page,
               searchFound: page.found, searchLocation: page.location }) }),
           describe: (posting: any) => linkedinOpportunity(posting, { fetchImpl }),
