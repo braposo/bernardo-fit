@@ -157,6 +157,21 @@ await test('page safety ceiling before maxSearchResults remains incomplete', () 
   assert.equal(result.scans[0].status, 'partial');
 }));
 
+await test('a catch-up result cap overrides the published maxSearchResults for one search', () => withEmPolicy(async () => {
+  const card = id => `<li><div data-entity-urn="urn:li:jobPosting:${id}"><h3>Engineering Manager</h3><h4>Company ${id}</h4></div></li>`;
+  const page = from => Array.from({length: 60}, (_, index) => card(from + index)).join('');
+  const result = await searchLinkedIn({ window: linkedinWindow(null), maxSearchResults: 150,
+    searches: [{ keywords: 'Engineering Manager', location: 'United Kingdom' }],
+    fetchImpl: async url => {
+      const start = Number(new URL(url).searchParams.get('start'));
+      return new Response(start === 0
+        ? `<section class="two-pane-serp-page__results-list"><ul class="jobs-search__results-list">${page(1)}</ul></section>` : page(start + 1));
+    },
+  });
+  assert.equal(result.jobs.length, 150);
+  assert.equal(result.complete, true);
+}));
+
 await test('enabled v2 search refuses to use a code fallback before maxSearchResults is published', async () => {
   const policy = { ...linkedinSettings() };
   delete policy.maxSearchResults;
