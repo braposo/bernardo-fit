@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { retry } from '@trigger.dev/sdk';
-import { londonSchedule, dispatchLinkedIn } from '../functions/discover-linkedin/schedule.js';
+import { londonSchedule, dispatchLinkedIn, triggerLinkedInDiscovery } from '../functions/discover-linkedin/schedule.js';
 import { parseLinkedInResults, linkedinWindow, searchLinkedIn, linkedinOpportunity } from '../lib/linkedin-source.js';
 import { discoverLinkedIn } from '../lib/linkedin-discovery.js';
 import { fetchLinkedInPage, retryAfterDate, linkedInRetryPolicy } from '../lib/linkedin-request.js';
@@ -50,6 +50,14 @@ await test('scheduler skips the other UTC tick and requires production credentia
       trigger:async(id,payload,options)=>{assert.equal(id,'linkedin-job-discovery');assert.equal(payload.date,'2026-09-28');keys.push(options.idempotencyKey);return {id:'run_test'};}});
     assert.equal(result.runId,'run_test');
   }
+  assert.deepEqual(keys[0],keys[1]);
+});
+await test('Trigger schedule dispatch shares the Sanity date key', async () => {
+  const keys=[];
+  const trigger=async(id,payload,options)=>{assert.equal(id,'linkedin-job-discovery');assert.equal(payload.date,'2026-10-26');keys.push(options.idempotencyKey);return {id:'run_test'};};
+  await dispatchLinkedIn({now:new Date('2026-10-26T09:00:00Z'),env:{TRIGGER_SECRET_KEY:'tr_prod_test'},trigger});
+  const result=await triggerLinkedInDiscovery(londonSchedule(new Date('2026-10-26T09:00:00Z')).date,trigger);
+  assert.equal(result.status,'dispatched');
   assert.deepEqual(keys[0],keys[1]);
 });
 const card = '<li><div data-entity-urn="urn:li:jobPosting:123"><h3>Engineering Manager</h3><h4>Acme &amp; Co</h4><span class="job-search-card__location">Leeds</span><time datetime="2026-09-28"></time></div></li>';
