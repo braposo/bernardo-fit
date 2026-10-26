@@ -12,6 +12,11 @@ export async function dispatchLinkedIn({ now = new Date(), env = process.env, tr
   if (!due) return { status: 'outside-london-9am', date };
   if (!env.TRIGGER_SECRET_KEY?.startsWith('tr_prod_') || env.TRIGGER_PREVIEW_BRANCH)
     throw new Error('LinkedIn scheduling requires the hosted Trigger Production worker');
+  return triggerLinkedInDiscovery(date, trigger);
+}
+
+// Shared by the Sanity function and the Trigger schedule: one discovery run per London date.
+export async function triggerLinkedInDiscovery(date, trigger = tasks.trigger) {
   const idempotencyKey = await idempotencyKeys.create(['linkedin-job-discovery', date], { scope: 'global' });
   const run = await trigger('linkedin-job-discovery', { date }, { idempotencyKey, idempotencyKeyTTL: '30d' });
   return { status: 'dispatched', date, runId: run.id };
