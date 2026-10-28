@@ -33,6 +33,7 @@ import { applicationCvFields, withApplicationCvFields, generalCvFields } from ".
 import { listFilteredJobs, moveFilteredJob, clearFilteredJobs, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
 import { startMovedJobCompletion } from "../../lib/filtered-job-enrich.js";
 import { recordReviewDecision, reviewReasonOptions, validateDecisionInput } from "../../lib/review-decisions.js";
+import { needsYouItems, needsYouResponse } from "../../lib/review-agent.js";
 
 async function cvFields(job) {
   const { hasCv, cvRun, applicationFitUrl, applicationCv, generalCv } = await withApplicationCvFields(job);
@@ -46,6 +47,7 @@ async function cvWriteFields(job, errors) {
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // GET    /api/admin/jobs?filtered=1   -> { filtered, listedAt } (screened out, not moved or cleared)
 // GET    /api/admin/jobs?reviewReasons=1 -> { advance, drop } (published quick picks, then learned ones)
+// GET    /api/admin/jobs?needsYou=1   -> { items, agreement } (New jobs with a review agent suggestion)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...); leaving New
 //                                        records a reviewDecision, with optional decision { reasons, note }
@@ -58,6 +60,7 @@ async function handler(req, res) {
   try {
     if (req.method === "GET") {
       if (req.query?.reviewReasons === "1") return res.status(200).json(await reviewReasonOptions());
+      if (req.query?.needsYou === "1") return res.status(200).json(await needsYouResponse(await listJobs()));
       if (req.query?.filtered === "1") {
         const listedAt = new Date().toISOString();
         return res.status(200).json({ filtered: await listFilteredJobs(), retentionDays: filteredJobRetentionDays(), listedAt });
@@ -111,6 +114,7 @@ async function handler(req, res) {
         stages: JOB_STAGES,
         unlinked: unlinked.length,
         archivedCount: all.filter(j => j.archived).length,
+        needsYouCount: needsYouItems(all).length,
         models: MODELS.map(({ id, label }) => ({ id, label })),
         modelLabels: MODEL_LABELS,
         archiveOnStage: ARCHIVE_ON_STAGE,

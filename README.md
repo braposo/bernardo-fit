@@ -188,6 +188,10 @@ A second daily source runs at **09:15 Europe/London**, after the LinkedIn scan o
 
 When a job leaves **New**, the admin asks why, with one-tap reasons and an optional note. Each move out of New is saved as a `reviewDecision` document in Sanity (the job, its fit score, where it moved, the reasons and the note), so a future review agent can learn what gets advanced and what gets dropped. The quick picks come from the published `reviewReasons` settings, followed by the reasons used most often before. See [Review decisions](docs/review-decisions.md).
 
+## Review agent (shadow mode)
+
+After a job is admitted at **New** (by a scan or import, or when a job moved from Filtered finishes its assessment), the `review-job` Trigger task asks Jev whether Bernardo would move it forward or drop it, and why, using the saved assessment, the hard-constraint check, the description and his five most similar past review decisions. The suggestion (`advance`, `drop` or `ask` with one short question) is saved on the job as `agentReview` and listed in the admin's Needs you queue (`GET /api/admin/jobs?needsYou=1`). It never changes a stage: each later review decision records the agent's lean, and the queue reports how often Bernardo agreed. Settings are the published `reviewAgent` object, seeded disabled. See [Review agent](docs/review-agent.md).
+
 ## Cover letters
 
 Any row with a fit analysis gets a **Write cover letter** button. The API admits a small ID-only request and Trigger.dev performs the durable generation with bounded retries and concurrency. Letter bodies and version history live under separate artifact keys; the job retains only the active artifact pointer, summary and current run pointer. Existing embedded letters remain readable and migrate when rewritten or selected. Completion opens a printable A4 page with the print dialog already up, so exporting a PDF is one click and a save. For applications that accept only one attachment, **Open CV + letter** prints the existing CV as page one and the saved letter as page two.

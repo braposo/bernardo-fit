@@ -15,7 +15,7 @@ Every stage change from `new` to any other stage saves one `reviewDecision` docu
 | `direction` | `advance` (Reviewing, Applied, Interviewing, Offer), `drop` (Not interested) or `other` (Rejected, Expired) |
 | `reasons[]` | Up to 5 reasons, each 1–60 characters, deduplicated case-insensitively |
 | `note` | Optional free text, up to 1,000 characters |
-| `agentLean`, `agentProbability` | Null until a review agent makes a suggestion |
+| `agentLean`, `agentProbability` | The [review agent](review-agent.md)'s lean on the job (`advance`, `drop` or `ask`) and its probability for the direction chosen (null for `other`); both null when the job had no suggestion |
 | `decidedAt` | ISO time of the move |
 
 The admin sends reasons with the stage change: `PATCH /api/admin/jobs?id=<id>` with `{ "stage": "not_interested", "decision": { "reasons": ["Too hands-on"], "note": "" } }`. An invalid `decision` returns 400 and nothing is saved. The pre-move stage is read inside the guarded job write, so concurrent moves cannot record twice. Recording never fails the stage change: if the write fails, the response's `generationErrors` says "The stage was saved, but the reason could not be recorded." Records are written once and never edited.
