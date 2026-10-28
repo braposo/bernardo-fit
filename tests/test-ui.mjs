@@ -26,15 +26,16 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml"];
+  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jevAssessmentHtml", "percentWords", "leanBadgeHtml", "agentReviewHtml", "jobHtml", "pipelineItemHtml"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
 
 const sandbox = [
   'var stages=["new","reviewing","applied","interviewing","offer","rejected","not_interested","expired"];',
   'var MODELS=[{id:"gpt-5.6-sol",label:"Sol"},{id:"claude-opus-5",label:"Opus"}];',
-  'var workspaceSection="overview",selectedId="j1",showArchived=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true,jevEnabled=true;',
+  'var workspaceSection="overview",selectedId="j1",showArchived=false,showNeeds=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true,jevEnabled=true;',
   'var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
+  ...[/var LEAN_LABELS = [^\n]*;/, /var LEAN_ARIA = [^\n]*;/].map(pattern => script.match(pattern)?.[0] || ''),
   needed.map(grab).join("\n"),
   'return {jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
 ].join("\n");
@@ -64,6 +65,13 @@ check("row has no editors or generation toolbar", !/textarea|data-act="cover"|da
 
 console.log("\n--- overview ---");
 const overview = render("overview");
+const agentReview = { lean: "ask", advanceProbability: 0.41, dropProbability: 0.22, reason: "Team size is unclear.", question: "Is this a player-coach role?" };
+const withAgent = render("overview", { stage: "new", agentReview });
+check("New role shows the agent recommendation with its question and both decisions",
+  /data-agent-review/.test(withAgent) && /Is this a player-coach role\?/.test(withAgent) && /41% move forward · 22% drop/.test(withAgent)
+    && /data-agent-decide="advance"/.test(withAgent) && /data-agent-decide="drop"/.test(withAgent));
+check("agent recommendation is hidden once the role leaves New", !/data-agent-review/.test(render("overview", { stage: "reviewing", agentReview })));
+check("New pipeline card carries the lean badge", /Agent: unsure/.test(R.pipelineItemHtml({ ...base, stage: "new", agentReview })));
 check("unassessed overview has five empty gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 5 && (overview.match(/data-value=""/g) || []).length === 5);
 check("document shortcuts stay out of Overview", !actions(overview).some(a => ["briefopen","letteropen","copyfit"].includes(a)) && !overview.includes("Ready to use"));
 check("overview offers the standalone Jev assessment", /class="generation" data-act="jevscore"/.test(overview));

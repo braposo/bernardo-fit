@@ -1990,7 +1990,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           // Either the row just left the pipeline, in which case the list and
           // the archived count both need refetching, or only the chip counts
           // changed and a re-render is enough.
-          var left = showNeeds || (ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived);
+          var left = ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived;
+          if (showNeeds) left = true; // a decided role always leaves Needs you
           if (!showNeeds && job.stage === "new" && job.agentReview && needsCount) setNeedsCount(needsCount - 1);
           setTimeout(left ? function () { loadJobs(false); } : renderJobs, 700);
         });
