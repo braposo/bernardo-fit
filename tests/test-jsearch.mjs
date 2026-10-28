@@ -107,6 +107,12 @@ await test('search stops on a short page and records a failed search', async () 
   assert.equal(found.scans[1].status, 'failed');
 });
 
+await test('one LinkedIn listing found by two searches is kept once', async () => {
+  const linked = n => job(n, { apply_options: [{ publisher: 'LinkedIn', apply_link: 'https://www.linkedin.com/jobs/view/4481458360', is_direct: false }] });
+  const found = await searchJSearch({ settings: { ...settings, pagesPerSearch: 1 }, request: async params => ({ jobs: [params.query.startsWith('Head') ? linked(8) : linked(7)] }) });
+  assert.equal(found.postings.length, 1);
+});
+
 await test('discovery skips known postings, drops confident mismatches and caps assessments', async () => {
   const jobs = [job(1), job(2), job(3), job(4), job(5), job(6, { job_description: '' })];
   const processedId = jsearchPosting(job(5)).id;
