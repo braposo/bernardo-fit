@@ -321,6 +321,13 @@
   .pipeline-role { display: block; margin-top: 2px; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
   .pipeline-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
   .pipeline-empty { padding: 32px 14px 32px 0; color: var(--sub); }
+  .pipeline-list .pipeline-meta { justify-content: flex-start; }
+  .pipeline-meta .pipeline-added { margin-left: auto; }
+  .pipeline-location.pipeline-agent-line { margin-top: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .agent-card .document-title { margin-bottom: 12px; }
+  .agent-card p { margin: 0 0 8px; max-width: 68ch; }
+  .agent-card .agent-question { color: var(--ink); }
+  .agent-card .agent-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
   .pipeline-empty button { margin-top: 12px; }
   .bulkbar { padding: 0 14px 16px 0; }
   .workspace { min-width: 0; padding: 24px clamp(20px, 3vw, 32px) 60px; }
@@ -458,6 +465,7 @@
     <div class="masthead">
       <div class="mark">bernardo-fit<span class="dot">.</span></div>
       <nav class="topnav" aria-label="Admin views">
+        <button type="button" data-collection="needs">Needs you<span data-needs-count></span></button>
         <button type="button" data-collection="active" aria-current="page">Pipeline</button>
         <button type="button" data-collection="archive">Archive</button>
         <button type="button" data-collection="filtered">Filtered</button>
@@ -558,6 +566,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var archivedCount = 0;
   var showArchived = false;
   var showFiltered = false;
+  var showNeeds = false;
+  var needsItems = [], needsAgreement = null, needsLoaded = false, needsCount = null;
   var filteredJobs = [];
   var filteredKind = "";
   var filteredRetentionDays = null, filteredListedAt = "";
@@ -608,6 +618,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var p = new URLSearchParams(location.search);
     showArchived = p.get("collection") === "archive";
     showFiltered = p.get("collection") === "filtered";
+    showNeeds = p.get("collection") === "needs";
     stageFilter = p.get("stage") || null;
     searchQuery = p.get("q") || "";
     selectedId = p.get("job") || "";
@@ -617,6 +628,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var p = new URLSearchParams();
     if (showArchived) p.set("collection", "archive");
     if (showFiltered) p.set("collection", "filtered");
+    if (showNeeds) p.set("collection", "needs");
     if (stageFilter) p.set("stage", stageFilter);
     if (searchQuery.trim()) p.set("q", searchQuery.trim());
     if (selectedId) p.set("job", selectedId);
@@ -627,7 +639,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     history[mode === "push" ? "pushState" : "replaceState"](state || { admin: true }, "", navigationUrl());
   }
   function scrollKey() {
-    return "fit.pipeline.scroll." + (showFiltered ? "filtered" : showArchived ? "archive" : "active") + "." + (stageFilter || "all") + "." + sortOrder() + "." + searchQuery.trim().toLowerCase();
+    return "fit.pipeline.scroll." + (showNeeds ? "needs" : showFiltered ? "filtered" : showArchived ? "archive" : "active") + "." + (stageFilter || "all") + "." + sortOrder() + "." + searchQuery.trim().toLowerCase();
   }
   function sortOrder() {
     var collection = currentCollection();
@@ -1140,6 +1152,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       panel = '<div class="workspace-panel"><p aria-live="polite">Loading role details…</p></div>';
     } else if (workspaceSection === "overview") {
       panel = '<section class="workspace-panel" id="panel-overview" role="tabpanel">' +
+        agentReviewHtml(j) +
         jevAssessmentHtml(j) +
         '<button class="generation" data-act="jevscore"' + (!jevEnabled || j.archived || (j.jevRun && ["dispatching", "queued"].indexOf(j.jevRun.status) !== -1) ? ' disabled' : '') + '>Assess fit</button>' +
         (!jevEnabled ? '<p class="field-help">Fit assessment is unavailable.</p>' : '') +
@@ -1175,7 +1188,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         '</div></section></section>';
     }
 
-    return '<article class="row-item" data-id="' + esc(j.id) + '"><button class="back-pipeline" data-act="back">← Back to pipeline</button>' +
+    return '<article class="row-item" data-id="' + esc(j.id) + '"><button class="back-pipeline" data-act="back">← Back to ' + (showNeeds ? 'Needs you' : 'pipeline') + '</button>' +
       '<header class="role-header"><div class="role-identity"><div class="role-kicker">' + esc(j.company || 'No company') + '</div><h1>' + esc(j.role || 'Untitled role') +
       '</h1><div class="role-sub">' + headerMeta + (j.closed ? ' · Posting closed' : '') + '</div><div class="role-added">'+timeHtml(j.createdAt,'Added ')+'</div>' +
       '<div class="role-stage"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><div class="stage-control"><button class="ghost status-edit" aria-label="Change status" title="Change status"><span data-icon="settings"></span></button><div class="stage-popover"><label for="job-stage">Change status</label><select id="job-stage" data-act="stage" aria-label="Stage for ' + esc(j.role || 'role') + '">' + stageOptions(j) + '</select></div></div></div></div>' +
@@ -1573,8 +1586,41 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     loadReview();
   }
 
+  var LEAN_LABELS = { advance: 'Agent: forward', drop: 'Agent: drop', ask: 'Agent: unsure' };
+  var LEAN_ARIA = { advance: 'Agent recommends moving forward', drop: 'Agent recommends dropping', ask: 'Agent is unsure' };
+  function leanBadgeHtml(lean) {
+    return LEAN_LABELS[lean] ? '<span class="pipeline-stage stage-filtered" aria-label="' + LEAN_ARIA[lean] + '">' + LEAN_LABELS[lean] + '</span>' : '';
+  }
+  function needsItemHtml(item) {
+    var selectedNow = selectedId === item.id;
+    return '<button class="pipeline-item' + (selectedNow ? ' selected' : '') + '" data-select-job="' + esc(item.id) + '" aria-pressed="' + selectedNow + '">' +
+      '<span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">' + esc(item.company || 'No company') + '</span><span class="pipeline-role">' + esc(item.role || 'Untitled role') + '</span></span>' +
+      '<span class="score-tile" aria-label="' + (item.score != null ? esc(item.score) + ' out of 100 fit score' : 'Not scored') + '">' + (item.score != null ? esc(item.score) : '—') + '</span></span>' +
+      '<span class="pipeline-location">' + esc(item.location || '') + '</span>' +
+      '<span class="pipeline-meta">' + leanBadgeHtml(item.lean) + '<span class="pipeline-added">' + timeHtml(item.reviewedAt, 'Reviewed ') + '</span></span>' +
+      (item.reason ? '<span class="pipeline-location pipeline-agent-line">' + esc(item.reason) + '</span>' : '') +
+      (item.lean === 'ask' && item.question ? '<span class="pipeline-location pipeline-agent-line">' + esc(item.question) + '</span>' : '') + '</button>';
+  }
+  function agreementText(a) {
+    if (!a || !a.decided) return 'No decisions to compare yet.';
+    var rate = a.rate != null ? a.rate : a.agreed / a.decided;
+    return 'Agent agreed with you on ' + a.agreed + ' of ' + a.decided + ' decision' + (a.decided === 1 ? '' : 's') + ' (' + Math.round(rate * 100) + '%)';
+  }
+  function percentWords(v) { var n = Number(v); return isFinite(n) ? Math.round(n > 1 ? n : n * 100) + '%' : ''; }
+  function agentReviewHtml(j) {
+    var r = j.agentReview;
+    if (!r || j.stage !== 'new' || !LEAN_LABELS[r.lean]) return '';
+    var odds = [percentWords(r.advanceProbability) && percentWords(r.advanceProbability) + ' move forward', percentWords(r.dropProbability) && percentWords(r.dropProbability) + ' drop'].filter(Boolean).join(' · ');
+    return '<section class="material-row agent-card" data-agent-review><div class="document-title"><h3>Agent recommendation</h3><span class="document-live">' + esc({ advance: 'Move forward', drop: 'Drop', ask: 'Unsure' }[r.lean]) + '</span></div>' +
+      (r.reason ? '<p>' + esc(r.reason) + '</p>' : '') +
+      (r.lean === 'ask' && r.question ? '<p class="agent-question"><strong>Question for you:</strong> ' + esc(r.question) + '</p>' : '') +
+      (odds ? '<p class="field-help">' + esc(odds) + '</p>' : '') +
+      '<p class="field-help">Shadow mode: the agent only recommends; you decide.</p>' +
+      '<div class="agent-actions"><button type="button" data-agent-decide="advance">Move forward</button><button class="ghost" type="button" data-agent-decide="drop">Drop</button></div></section>';
+  }
+
   function pipelineItemHtml(j) {
-    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score'+(j.jevStale?', from an outdated assessment':''):'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span>'+assessmentStatusHtml(j)+'<span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
+    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score'+(j.jevStale?', from an outdated assessment':''):'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span>'+assessmentStatusHtml(j)+'<span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span>'+(j.stage==='new'&&j.agentReview?leanBadgeHtml(j.agentReview.lean):'')+'<span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
   }
 
   function loadSelectedDetail(id) {
@@ -1613,6 +1659,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     stages.forEach(function (s) { counts[s] = 0; });
     searched.forEach(function (j) { if (counts[j.stage] != null) counts[j.stage]++; });
     var shown = searched.filter(function (j) { return !stageFilter || j.stage === stageFilter; });
+    if (showNeeds) shown = needsItems.slice(); else
     sortRoles(shown, function (j) { return j.score; }, function (j) { return j.createdAt; });
     var assessmentIds = shown.map(function (j) { return j.id; });
 
@@ -1628,12 +1675,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       allowedStages.map(function (s) { return '<option value="' + esc(s) + '"' + (stageFilter === s ? ' selected' : '') + '>' +
         esc(stageLabel(s)) + ' (' + (searchLoading ? '…' : counts[s]) + ')</option>'; }).join('');
 
-    var emptyText = !collectionJobs.length ? (showArchived ? 'Nothing archived.' : 'No opportunities yet.') :
+    var emptyText = showNeeds ? (needsLoaded ? 'Nothing needs you right now.' : 'Loading…') : !collectionJobs.length ? (showArchived ? 'Nothing archived.' : 'No opportunities yet.') :
       searchLoading ? 'Searching…' : q && !searched.length ? 'No roles match this search.' : 'No roles match this stage.';
-    var listHtml = shown.length ? shown.map(pipelineItemHtml).join('') : '<div class="pipeline-empty">' + emptyText +
-      (q && !searchLoading ? '<br><button class="ghost" data-clear-search>Clear search</button>' : stageFilter ? '<br><button class="ghost" data-all-stages>Show all stages</button>' : '') + '</div>';
-    var workspaceHtml = selectedMissing ? '<div class="workspace-empty"><h1>Role unavailable</h1><p>This role no longer exists or cannot be opened.</p><button class="ghost" data-return-list>Return to pipeline</button></div>' :
-      selected ? (!selectedVisible ? '<div class="notice">This role no longer matches the current pipeline view.<button class="read-link" data-return-list>Return to the list</button></div>' : '') + jobHtml(selected) :
+    var listHtml = shown.length ? shown.map(showNeeds ? needsItemHtml : pipelineItemHtml).join('') : '<div class="pipeline-empty">' + emptyText +
+      (showNeeds ? '' : q && !searchLoading ? '<br><button class="ghost" data-clear-search>Clear search</button>' : stageFilter ? '<br><button class="ghost" data-all-stages>Show all stages</button>' : '') + '</div>';
+    var workspaceHtml = selectedMissing ? '<div class="workspace-empty"><h1>Role unavailable</h1><p>This role no longer exists or cannot be opened.</p><button class="ghost" data-return-list>Return to ' + (showNeeds ? 'Needs you' : 'pipeline') + '</button></div>' :
+      selected ? (!selectedVisible ? '<div class="notice">' + (showNeeds ? 'This role has left Needs you.' : 'This role no longer matches the current pipeline view.') + '<button class="read-link" data-return-list>Return to the list</button></div>' : '') + jobHtml(selected) :
+      showNeeds ? '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a role the review agent has looked at to see its recommendation and decide.</p></div>' :
       '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a role from the pipeline to review its fit, materials, context and activity.</p></div>';
 
     if (workspaceOnly) {
@@ -1645,14 +1693,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         button.setAttribute('aria-pressed', String(isSelected));
       });
       renderAdmin(shell.querySelector('.workspace'), workspaceHtml);
-    } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="' + (showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
+    } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="' + (showNeeds ? 'Roles that need you' : showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
       '<button class="pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '"><span data-icon="sidebar-toggle"></span></button>' +
-      '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
-      '<span class="pipeline-total">'+shown.length+' opportunities</span>' + '</div>' +
-      '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
-      '<div class="pipeline-filter-row"><label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>' + sortControlHtml() + '</div></div></div>' +
+      '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showNeeds ? 'Needs you' : showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
+      '<span class="pipeline-total">'+shown.length+(showNeeds ? ' roles' : ' opportunities')+'</span>' + '</div>' +
+      (showNeeds ? (needsLoaded ? '<p class="field-help filtered-intro">' + esc(agreementText(needsAgreement)) + '</p>' : '') : '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
+      '<div class="pipeline-filter-row"><label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>' + sortControlHtml() + '</div></div>') + '</div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
-      ((!showArchived && jevEnabled && assessmentIds.length && !searchLoading || activeRuns['jev-score-all']) ? '<div class="bulkbar"><button class="generation" id="assesslisted"' + (activeRuns['jev-score-all'] ? ' disabled' : '') + '>' +
+      ((!showArchived && !showNeeds && jevEnabled && assessmentIds.length && !searchLoading || activeRuns['jev-score-all']) ? '<div class="bulkbar"><button class="generation" id="assesslisted"' + (activeRuns['jev-score-all'] ? ' disabled' : '') + '>' +
         (activeRuns['jev-score-all'] ? 'Assessing…' : 'Assess listed roles (' + assessmentIds.length + ')') + '</button></div>' : '') +
       '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
 
@@ -1928,6 +1976,11 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           renderJobs();
         });
       };
+      rowEl.querySelectorAll('[data-agent-decide]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          document.onAdminStage(b.getAttribute('data-agent-decide') === 'drop' ? 'not_interested' : 'reviewing');
+        });
+      });
       function saveStage(next, decision) {
         status.textContent = "Saving…"; status.className = "row-status";
         var body = { stage: next };
@@ -1938,6 +1991,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           // the archived count both need refetching, or only the chip counts
           // changed and a re-render is enough.
           var left = ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived;
+          if (showNeeds) left = true; // a decided role always leaves Needs you
+          if (!showNeeds && job.stage === "new" && job.agentReview && needsCount) setNeedsCount(needsCount - 1);
           setTimeout(left ? function () { loadJobs(false); } : renderJobs, 700);
         });
       }
@@ -2305,14 +2360,20 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   }
 
-  function currentCollection() { return showFiltered ? 'filtered' : showArchived ? 'archive' : 'active'; }
+  function currentCollection() { return showNeeds ? 'needs' : showFiltered ? 'filtered' : showArchived ? 'archive' : 'active'; }
+  function setNeedsCount(n) { needsCount = n; syncNeedsNav(); }
+  function syncNeedsNav() {
+    var el = document.querySelector('[data-needs-count]');
+    if (el) el.textContent = needsCount == null ? '' : ' ' + needsCount;
+  }
   function bindCollections() {
+    syncNeedsNav();
     document.querySelectorAll('[data-collection]').forEach(function (button) {
       button.setAttribute('aria-current', button.getAttribute('data-collection') === currentCollection() ? 'page' : 'false');
       button.onclick = function () {
         var next = button.getAttribute('data-collection');
         if (next === currentCollection()) return;
-        rememberPipelineScroll(); showArchived = next === 'archive'; showFiltered = next === 'filtered';
+        rememberPipelineScroll(); showArchived = next === 'archive'; showFiltered = next === 'filtered'; showNeeds = next === 'needs';
         stageFilter = null; selectedId = ""; searchQuery = ""; searchMatches = null; searchRequested = ""; filteredKind = "";
         writeNavigation("push"); loadJobs(false);
       };
@@ -2426,7 +2487,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     });
     var openMoved = document.querySelector('[data-open-moved]');
     if (openMoved) openMoved.addEventListener('click', function () {
-      showFiltered = false; showArchived = false; selectedId = openMoved.getAttribute('data-open-moved'); searchQuery = ''; stageFilter = null;
+      showFiltered = false; showNeeds = false; showArchived = false; selectedId = openMoved.getAttribute('data-open-moved'); searchQuery = ''; stageFilter = null;
       workspaceSection = 'overview'; writeNavigation('push'); loadJobs(false);
     });
     var clearButton = document.getElementById('clearfiltered');
@@ -2480,13 +2541,34 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       filteredRetentionDays = out.d.retentionDays || null;
       filteredListedAt = out.d.listedAt || "";
       filteredLoaded = true;
+      if (needsCount == null) api('/api/admin/jobs?needsYou=1', { method: 'GET' }).then(function (n) { if (n.ok && n.d && Array.isArray(n.d.items)) setNeedsCount(n.d.items.length); });
       if (filteredKind && !FILTERED_KINDS.some(function (k) { return k[0] === filteredKind; })) filteredKind = '';
       renderFiltered();
     });
   }
 
+  // Needs you: new roles the review agent has looked at, ask first, then drop, then advance.
+  function loadNeeds(firstTry) {
+    var sequence = ++listSequence;
+    api('/api/admin/jobs?needsYou=1', { method: 'GET' }).then(function (out) {
+      if (sequence !== listSequence || !showNeeds) return;
+      if (unauthorised(out, firstTry)) return;
+      if (!out.ok) { renderGate(out.d && out.d.error ? out.d.error : "Something went wrong."); return; }
+      sessionStorage.setItem(SECRET_KEY, secret);
+      chat.setAuthenticated(true);
+      needsItems = out.d.items || [];
+      needsAgreement = out.d.agreement || null;
+      needsLoaded = true;
+      setNeedsCount(needsItems.length);
+      // Keep only the open role: its workspace stays readable after it leaves the list.
+      jobs = jobs.filter(function (j) { return j.id === selectedId; }).map(function (j) { return Object.assign({}, j, { _outOfCollection: false }); });
+      renderJobs();
+    });
+  }
+
   function loadJobs(firstTry) {
     if (showFiltered) return loadFiltered(firstTry);
+    if (showNeeds) return loadNeeds(firstTry);
     var sequence = ++listSequence;
     var requestedArchive = showArchived;
     api("/api/admin/jobs" + (showArchived ? "?archived=1" : ""), { method: "GET" }).then(function (out) {
@@ -2513,6 +2595,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (!MODELS.some(function (m) { return m.id === model; })) model = MODELS[0].id;
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;
+      if (typeof out.d.needsYouCount === 'number') setNeedsCount(out.d.needsYouCount);
       activeRuns = out.d.activeRuns || {};
       if (stageFilter && stages.indexOf(stageFilter) === -1) stageFilter = null;
       renderJobs();
@@ -2540,7 +2623,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var url = new URL(event.detail, location.href);
     if (url.origin !== location.origin || url.pathname !== '/admin') return;
     event.preventDefault();
-    var wasArchived = showArchived, wasFiltered = showFiltered, wasStage = stageFilter, wasSearch = searchQuery;
+    var wasArchived = showArchived, wasFiltered = showFiltered, wasNeeds = showNeeds, wasStage = stageFilter, wasSearch = searchQuery;
     rememberPipelineScroll();
     var current = new URL(navigationUrl(), location.origin);
     ['collection', 'stage', 'q'].forEach(function (key) {
@@ -2550,7 +2633,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     readNavigationState();
     selectedMissing = false;
     suppressAutoSelect = false;
-    if (wasArchived !== showArchived || wasFiltered !== showFiltered) loadJobs(false);
+    if (wasArchived !== showArchived || wasFiltered !== showFiltered || wasNeeds !== showNeeds) loadJobs(false);
     else if (showFiltered) renderFiltered();
     else {
       if (wasStage !== stageFilter || wasSearch !== searchQuery) {
@@ -2562,10 +2645,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   });
 
   window.addEventListener('popstate', function () {
-    var wasArchived = showArchived, wasFiltered = showFiltered, wasStage = stageFilter, wasSearch = searchQuery;
+    var wasArchived = showArchived, wasFiltered = showFiltered, wasNeeds = showNeeds, wasStage = stageFilter, wasSearch = searchQuery;
     readNavigationState();
     selectedMissing = false;
-    if (wasArchived !== showArchived || wasFiltered !== showFiltered) loadJobs(false);
+    if (wasArchived !== showArchived || wasFiltered !== showFiltered || wasNeeds !== showNeeds) loadJobs(false);
     else if (showFiltered) renderFiltered();
     else {
       if (wasStage !== stageFilter || wasSearch !== searchQuery) {
