@@ -59,6 +59,7 @@
 [data-slot="button"].generation::before { content: none; }
 [data-slot="button"].pipeline-item { @apply block h-auto whitespace-normal text-left; }
 [data-slot="button"].pipeline-item.selected { background: #eaf1f8; }
+[data-slot="button"].decision-pick[aria-pressed="true"] { border-color: var(--accent); background: #eaf1f8; color: var(--accent-deep); font-weight: 600; }
 [data-slot="button"].back-pipeline { align-self: flex-start; justify-content: flex-start; padding-left: 0; }
 [data-slot="button"]:hover { filter: brightness(.97); }
 [data-slot="button"]:focus-visible, [data-slot="input"]:focus-visible,

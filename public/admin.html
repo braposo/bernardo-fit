@@ -415,7 +415,9 @@
     text-transform: none; letter-spacing: 0; }
   .review-actions { position: sticky; bottom: 0; border-top: 1px solid var(--hair); background: var(--surface);
     display: flex; justify-content: flex-end; gap: 10px; }
-  .review-actions .ghost, .review-actions .generation { min-height: 44px; }
+  .review-actions .ghost, .review-actions .generation, .review-actions .decision-save { min-height: 44px; }
+  .decision-picks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .decision-pick { min-height: 44px; }
   [hidden] { display: none !important; }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
     clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
@@ -441,7 +443,7 @@
     .material-actions .generation, .material-actions .ghost { padding: 10px 12px; }
     .review-head, .review-body, .review-actions { padding-left: 16px; padding-right: 16px; }
     .review-actions { display: grid; grid-template-columns: 1fr; }
-    .review-actions .generation { grid-row: 1; }
+    .review-actions .generation, .review-actions .decision-save { grid-row: 1; }
   }
   @media (forced-colors: active) {
     .pipeline-item.selected, .generation { border: 2px solid ButtonText; }
@@ -1405,6 +1407,59 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       }).join('') + '</div>';
   }
 
+  // Decision reasons: leaving "new" for an advance or a drop asks why, so the
+  // review agent can learn from it. Quick picks load once per page.
+  var DECISION_DIRECTION = { reviewing: "advance", applied: "advance", interviewing: "advance", offer: "advance", not_interested: "drop" };
+  var DECISION_MAX_REASONS = 5;
+  var reviewReasonsPromise = null;
+  function loadReviewReasons() {
+    if (!reviewReasonsPromise) {
+      reviewReasonsPromise = api("/api/admin/jobs?reviewReasons=1").then(function (out) {
+        return out.ok && out.d ? { advance: out.d.advance || [], drop: out.d.drop || [] } : { advance: [], drop: [] };
+      }, function () { return { advance: [], drop: [] }; });
+    }
+    return reviewReasonsPromise;
+  }
+  function askDecisionReason(job, direction, next, onConfirm, onCancel) {
+    var drop = direction === "drop";
+    var decided = false;
+    var selected = [];
+    var dialog = createAdminDialog({
+      title: drop ? 'Why drop this role?' : 'Why move this forward?',
+      description: 'A short reason helps the review agent learn what you look for. Optional.', className: 'review-dialog decision-dialog',
+      content: '<div class="review-body">' +
+        '<p class="review-description"><strong>' + esc(job.company || 'No company') + '</strong> · ' + esc(job.role || 'Untitled role') + '</p>' +
+        '<div data-decision-picks></div>' +
+        '<label class="version-instructions-label" for="decision-note">Anything else <span>(optional)</span></label>' +
+        '<textarea id="decision-note" data-decision-note maxlength="1000"></textarea></div>' +
+        '<div class="review-actions"><button class="ghost" type="button" data-decision-skip>Skip</button>' +
+        '<button class="decision-save" type="button" data-decision-save>' + (drop ? 'Save and drop' : 'Save and move') + '</button></div>'
+    });
+    dialog.addEventListener('close', function () { if (!decided) onCancel(); });
+    function finish(decision) { decided = true; dialog.close(); onConfirm(decision); }
+    dialog.querySelector('[data-decision-skip]').addEventListener('click', function () { finish(null); });
+    dialog.querySelector('[data-decision-save]').addEventListener('click', function () {
+      finish({ reasons: selected.slice(), note: dialog.querySelector('[data-decision-note]').value.trim() });
+    });
+    loadReviewReasons().then(function (all) {
+      var list = (all[direction] || []).filter(function (r) { return typeof r === 'string' && r; });
+      var host = dialog.querySelector('[data-decision-picks]');
+      if (!list.length || !host || !dialog.isConnected) return;
+      renderAdmin(host, '<div class="decision-picks" role="group" aria-label="Quick picks">' + list.map(function (r) {
+        return '<button class="ghost decision-pick" type="button" aria-pressed="false" data-reason="' + esc(r) + '">' + esc(r) + '</button>';
+      }).join('') + '</div>');
+      var picks = [].slice.call(host.querySelectorAll('.decision-pick'));
+      function sync() { picks.forEach(function (b) {
+        b.disabled = selected.length >= DECISION_MAX_REASONS && selected.indexOf(b.getAttribute('data-reason')) === -1; }); }
+      picks.forEach(function (b) { b.addEventListener('click', function () {
+        var reason = b.getAttribute('data-reason'), at = selected.indexOf(reason);
+        if (at === -1 && selected.length < DECISION_MAX_REASONS) selected.push(reason); else if (at !== -1) selected.splice(at, 1);
+        b.setAttribute('aria-pressed', String(selected.indexOf(reason) !== -1)); sync();
+      }); });
+    });
+    dialog.querySelector('[data-decision-note]').focus();
+  }
+
   function openGenerationReview(options) {
     options = options || {};
     if (actionBusy(options.id, options.kind, options.questionId)) return;
@@ -1862,9 +1917,22 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       });
 
       var sel = rowEl.querySelector('[data-act="stage"]');
+      loadReviewReasons();
       document.onAdminStage = function (next) {
+        var direction = job.stage === "new" ? DECISION_DIRECTION[next] : "";
+        if (!direction) { saveStage(next); return; }
+        askDecisionReason(job, direction, next, function (decision) {
+          saveStage(next, decision);
+        }, function () {
+          if (sel) sel.value = job.stage;
+          renderJobs();
+        });
+      };
+      function saveStage(next, decision) {
         status.textContent = "Saving…"; status.className = "row-status";
-        patch({ stage: next }, function () {
+        var body = { stage: next };
+        if (decision) body.decision = decision;
+        patch(body, function () {
           status.textContent = "Saved"; status.className = "row-status ok";
           // Either the row just left the pipeline, in which case the list and
           // the archived count both need refetching, or only the chip counts
@@ -1872,7 +1940,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           var left = ARCHIVE_ON_STAGE.indexOf(next) !== -1 && !showArchived;
           setTimeout(left ? function () { loadJobs(false); } : renderJobs, 700);
         });
-      };
+      }
 
       // ---- application questions ----
       function saveQuestion(edit, done) {
