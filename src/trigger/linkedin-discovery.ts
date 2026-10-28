@@ -7,10 +7,11 @@ import { linkedinSettings } from '../../lib/sanity/analysis-settings.js';
 import { claimLinkedInSource } from '../../lib/linkedin-run-lock.js';
 import { screenLinkedInCards } from '../../lib/linkedin-card-screening.js';
 import type { linkedinPublicRequest } from './linkedin-public-request';
+import { discoveryQueue } from './discovery-queue';
 
 export const linkedinDiscoveryTask = task({
   id: 'linkedin-job-discovery', maxDuration: 7200,
-  queue: { concurrencyLimit: 1 }, retry: { maxAttempts: 1 },
+  queue: discoveryQueue, retry: { maxAttempts: 1 },
   run: async (payload: { date: string, catchUp?: { after: string, maxSearchResults: number } }, { ctx }) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.date)) throw new AbortTaskRunError('A London schedule date is required');
     // Manual catch-up after missed days: search from a given time with a larger, one-run result cap.
