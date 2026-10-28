@@ -13,9 +13,9 @@ The `review-job` Trigger task (payload `{ jobId }`) is triggered:
 - by ingestion (`executeIngestBatch`: daily LinkedIn and JSearch scans, imports), for each job it newly admits at New;
 - by `executeJevWork` whenever a fit assessment completes on a job at New. That covers a job moved from Filtered once its assessment finishes, and **Assess fit** on a New job, which re-reviews it.
 
-The idempotency key is the job plus its assessment (`fingerprint:assessedAt`), global scope, kept 30 days, so each assessment is reviewed once and a re-assessment is reviewed again. A failed trigger is logged and never fails the ingest or the assessment. Nothing is triggered while the settings are unpublished or `enabled` is false.
+The idempotency key is `review-job:<job id>:<fingerprint>:<assessedAt>:<REVIEW_POLICY>`, global scope, kept 30 days, so each assessment is reviewed once per policy: a re-assessment or a policy bump is reviewed again. A failed trigger is logged and never fails the ingest or the assessment. Nothing is triggered while the settings are unpublished or `enabled` is false.
 
-The task does nothing (and makes no Jev request) when the settings are unpublished or disabled, the job no longer exists, is archived or not at New, has no saved assessment, or already has a review of the same assessment. It saves its result only while the job is still at New on the same assessment. The Jev request is a durable model call: the provider task owns HTTP retries and the answer is reused if the final write is retried.
+The task does nothing (and makes no Jev request) when the settings are unpublished or disabled, the job no longer exists, is archived or not at New, has no saved assessment, or already has a current review (same assessment and same `REVIEW_POLICY`). A review written under an older policy is outdated and is redone even when the assessment is unchanged. It saves its result only while the job is still at New on the same assessment. The Jev request is a durable model call: the provider task owns HTTP retries and the answer is reused if the final write is retried.
 
 ## What Jev is asked
 
@@ -29,7 +29,16 @@ Three questions:
 | `drop` | boolean | Would he drop it as Not interested without reviewing it further? |
 | `reason` | choice | Which of his reasons (published quick picks, then the reasons he has used most) is the main one for his call? Left out when fewer than two reasons exist. |
 
-The prompts are in `lib/review-agent.js` (`REVIEW_QUESTIONS`, `reasonQuestion`), versioned by `REVIEW_POLICY`.
+The prompts are in `lib/review-agent.js` (`REVIEW_QUESTIONS`, `reasonQuestion`, `REVIEW_NOTE_PROMPT`), versioned by `REVIEW_POLICY` (currently `2026-10-29-review-2`). Bump it whenever a prompt or rule changes, then run the backfill with `--refresh`.
+
+## The written note
+
+Jev returns only probabilities and choices, so a second, small call writes the text. Once the lean is known, `writeReviewNote` asks `gpt-6.1-sol` at low reasoning effort (the same path as overview summaries: `lib/openai.js` through `durableModelCall`, so the provider task owns retries and the result is checkpointed) for JSON `{ reason, question }`:
+
+- `reason`: one sentence naming the most decisive concrete fact behind the call (place and office days, salary, team size, stack, seniority, hands-on share, industry). Used for every lean.
+- `question`: only for an ask. One question naming a concrete fact from this posting that settles the call, such as "The posting asks for 4 office days in Manchester; is that a deal-breaker?". It asks about a flagged constraint first, then what his past decisions turn on, then the biggest unknown.
+
+Its input is the lean, the job and description, the assessment summary, the constraint flags and the same past decisions Jev saw. The candidate profile goes in the private system context only, after the fixed prompt, so the shared prefix is cached across jobs. Posting text and notes are marked untrusted data. Each field is checked: a non-empty string of at most 200 characters with no markup or links, and a question must end with "?". A field that fails, an empty answer or a failed call keeps the templated text below; the review itself never fails because of the note. Expected cost is about $0.02–0.03 per review (around 9–12k input tokens, most of it the cacheable profile, and under 1k output tokens).
 
 ## Result rules
 
@@ -37,7 +46,7 @@ The prompts are in `lib/review-agent.js` (`REVIEW_QUESTIONS`, `reasonQuestion`),
 - **drop** when the drop probability is at least `dropThreshold`.
 - **ask** otherwise, including when both probabilities pass their thresholds (the answers contradict).
 
-The reason is one plain sentence (for example "Likely a drop. Main reason: Too hands-on."). An ask also has one short question, such as `Does "Too hands-on" outweigh "Right stack" here?` or "Is the possible constraint conflict a deal-breaker for this one?". Both are at most 200 characters. The candidate profile is never saved or shown.
+Without a written note, the reason is a templated sentence (for example "Likely a drop. Main reason: Too hands-on.") and an ask has a templated question, such as `Does "Too hands-on" outweigh "Right stack" here?` or "Is the possible constraint conflict a deal-breaker for this one?". Both are at most 200 characters. The candidate profile is never saved or shown.
 
 ## Saved on the job
 
@@ -53,7 +62,7 @@ The reason is one plain sentence (for example "Likely a drop. Main reason: Too h
 | `model` | The Jev model that answered |
 | `examples` | How many past decisions were shown |
 
-Two internal fields stay out of the API: `assessment` (the assessment key the review read) and `policy`.
+Three internal fields stay out of the API: `assessment` (the assessment key the review read), `policy` (the `REVIEW_POLICY` it was written under) and `noteModel` (the writer model, empty when the templated text was used).
 
 ## Needs you and agreement
 
@@ -95,9 +104,10 @@ To review jobs already at New:
 ```sh
 node --env-file=.env.local scripts/review-new-jobs.mjs          # dry run: lists job ids
 node --env-file=.env.local scripts/review-new-jobs.mjs --apply  # triggers review-job for each
+node --env-file=.env.local scripts/review-new-jobs.mjs --refresh --apply  # also redoes reviews from an older policy
 ```
 
-It picks every job at New with a saved assessment and no `agentReview`, and refuses `--apply` while the agent is disabled. It uses the same idempotency key as the automatic hook, so repeating it is safe. Run it with the Trigger key for the environment that should do the work.
+It picks every job at New with a saved assessment and no `agentReview`; `--refresh` also picks those whose `agentReview.policy` is not the current `REVIEW_POLICY`. It refuses `--apply` while the agent is disabled. It uses the same idempotency key as the automatic hook, so repeating it is safe. Run it with the Trigger key for the environment that should do the work.
 
 ## Studio
 
