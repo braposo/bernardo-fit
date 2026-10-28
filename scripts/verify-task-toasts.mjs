@@ -249,6 +249,8 @@ try {
   await page.locator('.status-edit').click();
   const beforeReviewing = dispatches;
   await page.locator('#job-stage').selectOption('reviewing');
+  // Leaving New asks for a reason first; Skip saves the stage without one.
+  await page.locator('[data-decision-skip]').click();
   await page.waitForFunction(() => window.fixtureRuns?.['reviewing-analysis']);
   assert.equal(dispatches, beforeReviewing, 'status save does not open a manual generation dispatch');
   assert.equal(await page.locator('[data-review-submit]').count(), 0, 'automatic run needs no review dialog');

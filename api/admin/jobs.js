@@ -32,6 +32,7 @@ import { getApplicationCvSummaries, getApplicationCv, markApplicationCvSubmitted
 import { applicationCvFields, withApplicationCvFields, generalCvFields } from "../../lib/application-cv-view.js";
 import { listFilteredJobs, moveFilteredJob, clearFilteredJobs, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
 import { startMovedJobCompletion } from "../../lib/filtered-job-enrich.js";
+import { recordReviewDecision, reviewReasonOptions, validateDecisionInput } from "../../lib/review-decisions.js";
 
 async function cvFields(job) {
   const { hasCv, cvRun, applicationFitUrl, applicationCv, generalCv } = await withApplicationCvFields(job);
@@ -44,8 +45,10 @@ async function cvWriteFields(job, errors) {
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // GET    /api/admin/jobs?filtered=1   -> { filtered, listedAt } (screened out, not moved or cleared)
+// GET    /api/admin/jobs?reviewReasons=1 -> { advance, drop } (published quick picks, then learned ones)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
-// PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...)
+// PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...); leaving New
+//                                        records a reviewDecision, with optional decision { reasons, note }
 // DELETE /api/admin/jobs?id=abc       -> remove
 
 async function handler(req, res) {
@@ -54,6 +57,7 @@ async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
+      if (req.query?.reviewReasons === "1") return res.status(200).json(await reviewReasonOptions());
       if (req.query?.filtered === "1") {
         const listedAt = new Date().toISOString();
         return res.status(200).json({ filtered: await listFilteredJobs(), retentionDays: filteredJobRetentionDays(), listedAt });
@@ -191,9 +195,15 @@ async function handler(req, res) {
         res.status(400).json({ error: "Unknown stage" });
         return;
       }
+      let decision;
+      try { decision = validateDecisionInput(body.decision); }
+      catch (error) { return res.status(400).json({ error: error.message }); }
+      // Read inside the guarded write so a concurrent move cannot record twice.
+      let previousStage;
       // Shared storage applies terminal-stage archiving and explicit restores.
       let job = body.question ? await editQuestion(id, body.question)
         : await mutateJob(id, current => {
+          previousStage = normaliseJobStage(current.stage) || "new";
           const changed = key => body[key] !== undefined && JSON.stringify(body[key]) !== JSON.stringify(current[key] ?? "");
           const invalidation = {};
           if (["company", "role", "sourceUrl"].some(changed)) invalidation.researchFingerprint = "";
@@ -206,6 +216,15 @@ async function handler(req, res) {
       }
       let generationErrors = [];
       if (patch.stage === "reviewing" && !body.question) ({ job, generationErrors } = await reviewingGenerationResult(job));
+      // After the reviewing result, which replaces generationErrors.
+      if (!body.question && patch.stage !== undefined && previousStage === "new" && job.stage && job.stage !== "new") {
+        try {
+          await recordReviewDecision({ job, fromStage: "new", toStage: job.stage, decision, score: jobSummary(job).score });
+        } catch (error) {
+          console.warn("Saved a stage change; its review decision could not be recorded.", error?.message || "");
+          generationErrors.push("The stage was saved, but the reason could not be recorded.");
+        }
+      }
       if (patch.stage === "applied" && !body.question) {
         try {
           const application = await getApplicationCv(job.id);

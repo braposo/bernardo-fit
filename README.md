@@ -184,6 +184,10 @@ The server holds no mail credentials. `scripts/ingest-opportunities.mjs` reads `
 
 A second daily source runs at **09:15 Europe/London**, after the LinkedIn scan on the same discovery queue: JSearch searches Google for Jobs, covering LinkedIn, Indeed, Glassdoor, Reed and employers' careers pages, with full descriptions. Results use the same dedupe, Jev screening, minimum score and Filtered rules; a result LinkedIn also lists keeps its LinkedIn identity. It needs `JSEARCH_API_KEY` in Trigger.dev and the published, enabled `jsearchDiscovery` settings. See [JSearch discovery](docs/jsearch-discovery.md).
 
+## Review decisions
+
+When a job leaves **New**, the admin asks why, with one-tap reasons and an optional note. Each move out of New is saved as a `reviewDecision` document in Sanity (the job, its fit score, where it moved, the reasons and the note), so a future review agent can learn what gets advanced and what gets dropped. The quick picks come from the published `reviewReasons` settings, followed by the reasons used most often before. See [Review decisions](docs/review-decisions.md).
+
 ## Cover letters
 
 Any row with a fit analysis gets a **Write cover letter** button. The API admits a small ID-only request and Trigger.dev performs the durable generation with bounded retries and concurrency. Letter bodies and version history live under separate artifact keys; the job retains only the active artifact pointer, summary and current run pointer. Existing embedded letters remain readable and migrate when rewritten or selected. Completion opens a printable A4 page with the print dialog already up, so exporting a PDF is one click and a save. For applications that accept only one attachment, **Open CV + letter** prints the existing CV as page one and the saved letter as page two.
