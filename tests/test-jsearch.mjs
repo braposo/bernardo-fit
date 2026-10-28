@@ -152,5 +152,5 @@ await test('evaluator failures and failed ingests are retried on the next run', 
   assert.deepEqual(saved.processed, {});
 });
 
-console.log(`${passed} passed, ${failed} failed`);
+console.log(`passed ${passed}, failed ${failed}`);
 if (failed) process.exit(1);
