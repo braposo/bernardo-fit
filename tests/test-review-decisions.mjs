@@ -51,7 +51,7 @@ await test("records carry the job, the call and empty agent fields", async () =>
     toStage: "not_interested", decision: { reasons: ["Too hands-on"], note: "" }, score: 41, now });
   assert.deepEqual(record, { _id: `review-decision.abc.${now.getTime()}`, _type: "reviewDecision", jobId: "abc", company: "Acme", role: "EM",
     score: 41, source: "JSearch · Indeed", sourceUrl: "https://acme.example/1", fromStage: "new", toStage: "not_interested",
-    direction: "drop", reasons: ["Too hands-on"], note: "", agentLean: null, agentProbability: null, decidedAt: now.toISOString() });
+    direction: "drop", reasons: ["Too hands-on"], note: "", agentLean: null, agentProbability: null, decidedBy: "bernardo", overridesAgent: false, decidedAt: now.toISOString() });
   assert.equal(reviewDecisionRecord({ job: { id: "x" }, toStage: "applied" }).score, null);
 });
 
