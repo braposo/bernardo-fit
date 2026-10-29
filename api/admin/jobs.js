@@ -34,6 +34,8 @@ import { listFilteredJobs, moveFilteredJob, clearFilteredJobs, filteredJobRetent
 import { startMovedJobCompletion } from "../../lib/filtered-job-enrich.js";
 import { recordReviewDecision, reviewReasonOptions, validateDecisionInput } from "../../lib/review-decisions.js";
 import { needsYouItems, needsYouResponse } from "../../lib/review-agent.js";
+import { POSTING_ACTIONS, checkable, postingActionPatch, requestPostingCheck } from "../../lib/posting-check.js";
+import { postingCheckSettings } from "../../lib/sanity/analysis-settings.js";
 
 async function cvFields(job) {
   const { hasCv, cvRun, applicationFitUrl, applicationCv, generalCv } = await withApplicationCvFields(job);
@@ -47,8 +49,11 @@ async function cvWriteFields(job, errors) {
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // GET    /api/admin/jobs?filtered=1   -> { filtered, listedAt } (screened out, not moved or cleared)
 // GET    /api/admin/jobs?reviewReasons=1 -> { advance, drop } (published quick picks, then learned ones)
-// GET    /api/admin/jobs?needsYou=1   -> { items, agreement } (New jobs with a review agent suggestion)
+// GET    /api/admin/jobs?needsYou=1   -> { items, agreement } (New jobs with a review agent suggestion,
+//                                        then Reviewing jobs with posting gaps or form answers to approve)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
+// POST   { action: "dismiss-gap" | "draft-gap-question" | "paste-questions" | "approve-answer" |
+//          "skip-answer" | "rerun-posting-check", id, ... } -> posting check actions (docs/posting-check.md)
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...); leaving New
 //                                        records a reviewDecision, with optional decision { reasons, note }
 // DELETE /api/admin/jobs?id=abc       -> remove
@@ -168,6 +173,27 @@ async function handler(req, res) {
         const artifact = body.kind === "research" ? await getActiveResearch(job) : await getActiveBrief(job);
         if (!job || !artifact) return res.status(404).json({ error: `No ${body.kind === "research" ? "research" : "screen brief"} for this role yet.` });
         return res.status(200).json({ token: makeViewToken(job.id) });
+      }
+
+      // Posting check: gaps and drafted form answers wait for Bernardo. Nothing
+      // is ever submitted; an approved answer joins the job's questions.
+      if (POSTING_ACTIONS.includes(body.action)) {
+        if (typeof body.id !== "string" || !body.id) return res.status(400).json({ error: "Missing job id" });
+        if (body.action === "rerun-posting-check") {
+          if (!postingCheckSettings()?.enabled) return res.status(409).json({ error: "Turn on the posting check in Sanity first." });
+          const job = await getJob(body.id);
+          if (!job) return res.status(404).json({ error: "Job not found" });
+          if (!checkable(job)) return res.status(409).json({ error: "Move the job to Reviewing to check its posting." });
+          const result = await requestPostingCheck(job, { force: true });
+          if (!result.requested) return res.status(502).json({ error: "The posting check could not be started. Try again." });
+          return res.status(202).json({ requested: true, runId: result.runId });
+        }
+        const job = await mutateJob(body.id, current => postingActionPatch(current, body));
+        if (!job) return res.status(404).json({ error: "Job not found" });
+        // Pasted questions are drafted by a check run (only while the check is on).
+        const requested = body.action === "paste-questions" ? (await requestPostingCheck(job)).requested : undefined;
+        return res.status(200).json({ job: { ...jobSummary(job), questions: job.questions || [] },
+          ...(requested !== undefined ? { requested } : {}) });
       }
 
       if (!body.company && !body.role) {
