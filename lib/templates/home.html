@@ -25,6 +25,8 @@
     --body2: #45423a;
     --hair: rgba(33, 31, 26, 0.11);
     --hair-strong: rgba(33, 31, 26, 0.2);
+    --sheet: #ffffff;
+    --line: #e9e5dc;
     --sans: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
     --display: 'Schibsted Grotesk', 'Helvetica Neue', sans-serif;
     --mono: 'IBM Plex Mono', monospace;
@@ -74,16 +76,20 @@
   textarea:focus { outline: none; border-bottom-color: var(--accent); }
 
   .row { display: flex; align-items: center; gap: 20px; margin-top: 26px; flex-wrap: wrap; }
-  button.primary {
-    appearance: none; border: none; background: var(--ink); color: var(--paper);
-    font-family: var(--sans); font-weight: 500; font-size: 15px; letter-spacing: 0.01em;
-    padding: 15px 30px; border-radius: 100px; cursor: pointer;
-    transition: background 0.22s var(--ease), transform 0.14s var(--ease), box-shadow 0.22s var(--ease);
+  /* The role button and the hero actions share one pill: same height, radius and type. */
+  button.primary, .cta {
+    appearance: none; border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+    font-family: var(--sans); font-weight: 500; font-size: 15px; line-height: 1.2; letter-spacing: 0.01em;
+    min-height: 50px; padding: 0 30px; border-radius: 100px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.22s var(--ease), border-color 0.22s var(--ease), color 0.22s var(--ease), transform 0.14s var(--ease), box-shadow 0.22s var(--ease);
     width: 100%; box-shadow: 0 1px 2px rgba(33,31,26,0.08);
   }
-  @media (min-width: 480px) { button.primary { width: auto; } }
-  button.primary:hover { background: var(--accent-deep); box-shadow: 0 6px 20px oklch(0.42 0.14 250 / 0.28); transform: translateY(-1px); }
-  button.primary:active { transform: translateY(0); }
+  @media (min-width: 480px) { button.primary, .cta { width: auto; } }
+  button.primary:hover, .cta:hover { background: var(--accent-deep); border-color: var(--accent-deep); color: var(--paper); box-shadow: 0 6px 20px oklch(0.42 0.14 250 / 0.28); transform: translateY(-1px); }
+  button.primary:active, .cta:active { transform: translateY(0); }
+  .cta.outline { background: transparent; color: var(--ink); border-color: var(--hair-strong); box-shadow: none; }
+  .cta.outline:hover { background: transparent; color: var(--accent-deep); border-color: var(--accent); box-shadow: none; }
   .hint { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.04em; color: var(--sub); }
 
   .loading {
@@ -185,9 +191,67 @@
     display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
   }
 
+  /* Homepage introduction, from the published general CV */
+  .nav { display: flex; gap: 6px 22px; flex-wrap: wrap; font-size: 14px; }
+  .hero { padding-top: clamp(40px, 10vw, 104px); }
+  .hero .kicker { display: block; }
+  .hero-lede {
+    font-family: var(--display); font-size: clamp(38px, 7vw, 76px); font-weight: 600;
+    line-height: 1.02; letter-spacing: -0.035em; margin: 18px 0 0; max-width: 17ch; text-wrap: balance;
+  }
+  .hero-lede strong { font-weight: inherit; color: var(--accent); }
+  .hero .sub { max-width: 52ch; }
+  .sub strong, .prose strong, .feature strong { color: var(--ink); font-weight: 600; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: clamp(28px, 4vw, 36px); }
+  .intro-section { margin-top: clamp(64px, 10vw, 112px); }
+  .intro-section > .section-label { margin-top: 0; }
+  .prose { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px clamp(24px, 4.5vw, 56px); }
+  .prose p { margin: 0; font-size: 16px; line-height: 1.7; color: var(--body2); text-wrap: pretty; }
+  .bring { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .bring-card { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 24px; }
+  .bring-card h3 { margin: 0 0 10px; font-family: var(--display); font-weight: 600; font-size: clamp(16px, 2.2vw, 21px); letter-spacing: -0.01em; line-height: 1.3; }
+  .bring-card p { margin: 0; font-size: 15px; line-height: 1.65; color: var(--body2); }
+  .timeline { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hair); }
+  .timeline li {
+    display: grid; grid-template-columns: minmax(0, 15ch) 1fr auto; gap: 4px clamp(20px, 4vw, 48px);
+    align-items: baseline; padding: 16px 0; border-bottom: 1px solid var(--hair);
+  }
+  .timeline .dates { font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
+  .timeline .role { font-size: 15px; line-height: 1.5; color: var(--body2); }
+  .timeline .role strong { font-family: var(--display); font-weight: 600; color: var(--ink); }
+  .timeline .role .company { color: var(--accent); }
+  .timeline .field { font-size: 13px; color: var(--sub); text-align: right; }
+  .feature { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: clamp(22px, 4vw, 32px); }
+  .feature-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .feature h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(22px, 3vw, 28px); letter-spacing: -0.02em; }
+  .feature .dates { font-family: var(--mono); font-size: 12px; color: var(--sub); }
+  .feature p { margin: 12px 0 0; font-size: 16px; line-height: 1.7; color: var(--body2); max-width: 68ch; text-wrap: pretty; }
+  .entry-links { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; font-size: 13.5px; }
+  .projects { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px clamp(24px, 4vw, 40px); margin-top: 28px; }
+  .projects-intro { margin: 28px 0 0; font-size: 15px; line-height: 1.65; color: var(--sub); max-width: 68ch; }
+  .project { padding-left: 12px; border-left: 2px solid var(--line); }
+  .project h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
+  .project p { margin: 6px 0 0; font-size: 15px; line-height: 1.65; color: var(--body2); text-wrap: pretty; }
+  .fit-check {
+    margin-top: clamp(64px, 10vw, 112px); scroll-margin-top: 24px; background: var(--sheet); border: 1px solid var(--line);
+    border-radius: 18px; padding: clamp(24px, 5.5vw, 56px); box-shadow: 0 1px 2px #211f1a08, 0 12px 32px -18px #211f1a26;
+  }
+  .fit-check .section-label { margin-top: 0; }
+  .fit-check h2 {
+    font-family: var(--display); font-size: clamp(30px, 4.6vw, 50px); font-weight: 600; line-height: 1.08;
+    letter-spacing: -0.035em; margin: 0; max-width: 20ch; text-wrap: balance;
+  }
+  .fit-check h2 em { font-style: normal; color: var(--accent); }
+  .fit-check .sub { margin-top: 18px; }
+
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
+  @media (max-width: 700px) {
+    .timeline li { grid-template-columns: 1fr; gap: 2px; }
+    .timeline .field { text-align: left; }
+    .fit-check { border-radius: 14px; }
+  }
   @media (max-width: 560px) {
     .cat { grid-template-columns: 1fr; row-gap: 8px; }
     .diff { grid-template-columns: 1fr; row-gap: 4px; }
@@ -243,18 +307,74 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
       '<div class="mark">' + esc(content.name) + '<span class="dot">.</span></div>' +
     '</div></div>';
 
+  var MASTHEAD_NAV =
+    '<div class="frame"><div class="masthead">' +
+      '<div class="mark">' + esc(content.name) + '<span class="dot">.</span></div>' +
+      '<nav class="nav" aria-label="Site"><a href="/cv">CV</a><a href="#fit">Check a role</a></nav>' +
+    '</div></div>';
+
   var FOOTER =
     '<div class="frame"><div class="footer" style="justify-content: flex-end">' +
       '<span>' + content.contactsHtml + '</span>' +
     '</div></div>';
 
+  // Approved CV copy marks key phrases with **double asterisks**.
+  function rich(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
+  function attr(s) { return esc(s).replace(/"/g, "&quot;"); }
+  function linksHtml(links) {
+    return links && links.length ? '<div class="entry-links">' + links.map(function (l) {
+      return '<a href="' + attr(l.href) + '" rel="noopener">' + esc(l.label) + '</a>';
+    }).join("") + '</div>' : "";
+  }
+
+  // An introduction from the published general CV, then the role input.
+  function showcaseHtml(sc) {
+    var first = String(sc.profile[0] || ""), split = first.match(/^(.+?[.!?])\s+([\s\S]+)$/);
+    var lede = split ? split[1] : first, rest = split ? split[2] : "";
+    var skills = sc.skills.map(function (g) {
+      return '<div class="bring-card"><h3>' + esc(g.label) + '</h3><p>' + esc(g.items.join(", ")) + '</p></div>';
+    }).join("");
+    var career = sc.career.map(function (r) {
+      return '<li><span class="dates">' + esc(r.dates) + '</span>' +
+        '<span class="role"><strong>' + esc(r.title) + '</strong>' + (r.company ? ' <span class="company">· ' + esc(r.company) + '</span>' : '') + '</span>' +
+        '<span class="field">' + esc(r.field) + '</span></li>';
+    }).join("");
+    var featured = sc.featured.map(function (f) {
+      return '<div class="feature"><div class="feature-head"><h3>' + esc(f.title) + '</h3><span class="dates">' + esc(f.dates) + '</span></div>' +
+        (f.scope ? '<p>' + rich(f.scope) + '</p>' : '') + linksHtml(f.links) + '</div>';
+    }).join("");
+    var projects = sc.projects.map(function (p) {
+      return '<div class="project"><h3>' + esc(p.title) + '</h3>' + (p.text ? '<p>' + rich(p.text) + '</p>' : '') + linksHtml(p.links) + '</div>';
+    }).join("");
+    var more = sc.profile.slice(1).map(function (para) { return '<p>' + rich(para) + '</p>'; }).join("");
+    return (
+      '<section class="hero">' +
+        (sc.headline ? '<span class="kicker">' + esc(sc.headline.replace(/\s*\|\s*/g, " · ")) + '</span>' : '') +
+        '<h1 class="hero-lede">' + rich(lede) + '</h1>' +
+        (rest ? '<p class="sub">' + rich(rest) + '</p>' : '') +
+        '<div class="actions">' +
+          '<a class="cta" href="#fit">' + esc(content.buttonLabel) + '</a>' +
+          '<a class="cta outline" href="/cv">Read my CV</a>' +
+        '</div>' +
+      '</section>' +
+      (more ? '<section class="intro-section"><div class="section-label">About</div><div class="prose">' + more + '</div></section>' : '') +
+      (skills ? '<section class="intro-section"><div class="section-label">What I bring</div><div class="bring">' + skills + '</div></section>' : '') +
+      (career ? '<section class="intro-section"><div class="section-label">Career</div><ol class="timeline">' + career + '</ol></section>' : '') +
+      (featured || projects ? '<section class="intro-section"><div class="section-label">Now building</div>' + featured +
+        (sc.projectsIntro && projects ? '<p class="projects-intro">' + esc(sc.projectsIntro) + '</p>' : '') +
+        (projects ? '<div class="projects">' + projects + '</div>' : '') + '</section>' : '')
+    );
+  }
+
   function renderInput() {
     if (pendingAnalysis) { state.view = "loading"; return renderLoading(); }
     document.title = defaultTitle;
+    var sc = content.showcase;
     app.innerHTML =
-      MASTHEAD +
+      (sc ? MASTHEAD_NAV : MASTHEAD) +
       '<div class="frame">' +
-        '<h1 class="lede">' + content.headingHtml + '</h1>' +
+        (sc ? showcaseHtml(sc) + '<section class="fit-check" id="fit"><div class="section-label">Check a role</div><h2>' + content.headingHtml + '</h2>'
+          : '<h1 class="lede">' + content.headingHtml + '</h1>') +
         '<p class="sub">' + content.introductionHtml + '</p>' +
         '<div class="composer">' +
           '<textarea id="jd" placeholder="' + esc(content.placeholder).replace(/"/g, '&quot;') + '" aria-label="Job description">' + esc(state.jd) + '</textarea>' +
@@ -264,11 +384,15 @@ import { createRunWatcher, coverPhaseText } from "/admin-run.js";
             '<span class="hint">' + (DEMO ? 'Demo mode — no API call' : esc(content.hint)) + '</span>' +
           '</div>' +
         '</div>' +
+        (sc ? '</section>' : '') +
       '</div>' +
       FOOTER;
 
     document.getElementById("go").addEventListener("click", runAnalyze);
     var ta = document.getElementById("jd");
+    Array.prototype.forEach.call(document.querySelectorAll('a[href="#fit"]'), function (a) {
+      a.addEventListener("click", function () { setTimeout(function () { ta.focus({ preventScroll: true }); }, 0); });
+    });
     ta.addEventListener("input", function () { state.jd = ta.value; });
     ta.addEventListener("keydown", function (e) {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runAnalyze();

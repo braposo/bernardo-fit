@@ -11,6 +11,7 @@ import {
   loadPublicPage,
   DEMO_QUERY,
   homeContent,
+  homeShowcase,
   cvHeader,
   cvBody,
   contactHtml,
@@ -102,6 +103,10 @@ export function createSiteHandler(getClient = createContentClient, applicationHa
             name: identityPage.cv.name,
             contactsHtml: contactHtml(identityPage.cv.contacts),
           },
+          // Without a published general CV the page is the role input alone.
+          showcase: (() => {
+            try { return homeShowcase(generalCvContent(identityPage)); } catch { return null; }
+          })(),
         };
         const demoReport =
           req.query?.demo === "1" ? await client.fetch(DEMO_QUERY) : null;
