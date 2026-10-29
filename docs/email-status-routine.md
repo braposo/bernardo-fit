@@ -6,7 +6,7 @@ Applying a proposal moves the job through the same path as a manual stage change
 
 The routine itself is not part of the app. It is created by hand, after Bernardo approves it (see [Rollout](#rollout)).
 
-**Trigger replacement.** The same check now also runs inside the app as the Trigger task `gmail-status-check` (daily, 07:10 London), which reads Gmail itself with read-only OAuth credentials, prefilters by rule and makes one small model call only for messages that match a job. It uses the matcher and create function described here. Setup, settings (`emailStatusProposals.gmailCheck`), cost and how to switch over from this routine are in [gmail-status-check.md](gmail-status-check.md).
+**Trigger replacement.** The same check now also runs inside the app as the Trigger task `gmail-status-check` (daily, 07:10 London), which reads Gmail itself with read-only OAuth credentials, prefilters by rule and, only for messages that match a job, lets Jev decide which job and what it means, with one small model call to write the summary of relevant ones. It uses the matcher and create function described here. Setup, settings (`emailStatusProposals.gmailCheck`), cost and how to switch over from this routine are in [gmail-status-check.md](gmail-status-check.md).
 
 ## What is stored
 

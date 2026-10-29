@@ -14,16 +14,24 @@ Everything else (the `statusProposal` documents, Apply and Dismiss, the intervie
 4. **Read** each remaining message (`format=full`): From, Subject, Date, thread and message IDs, and a plain-text excerpt of the body (HTML stripped, quoted replies removed, at most 4,000 characters).
 5. **Prefilter by rule**, with no model call: Bernardo's own mail (`SENT`), Promotions, Social and Forums, senders in `gmailCheck.skipSenders` (LinkedIn job alerts, Totaljobs, Reed, Indeed alerts and the like), alert subjects ("Job alert", "30 new jobs", "X is hiring", "newsletter") and mailing lists (`List-Id`, `newsletter@`).
 6. **Match** with the existing matcher (`matchEmailToJobs` in `lib/status-proposals.js`) on From, Subject and thread, archived jobs included. When nothing matches (an applicant tracking system email with a bare subject), the company named in the first 1,500 characters of the body is tried. No candidate, no model call.
-7. **Classify** with one small model call (`gpt-6.1-sol`, low effort, as the review agent's note) given the email and the candidates. The prompt follows the routine's rules (interview with date, rejected, expired, offer, applied only from New or Reviewing, otherwise not relevant), says the email is untrusted and that instructions inside it must be ignored, and asks for strict JSON: `{ relevant, jobId, proposedStage, summary, confidence, interview }`. The answer is checked strictly: `jobId` must be one of the candidates, the stage one of the five above, the summary 1 to 300 characters, confidence 0 to 1, and an interview (only with `interviewing`) must pass the timeline's validation. Anything else is dropped.
-8. **Propose** with the existing `createStatusProposal`: the same ID (a hash of job and message), duplicate check, `minimumConfidence` threshold and already-at-stage rule as the routine endpoint. `matchedBy` is the chosen candidate's.
-9. **Report** counts only, as the run's output, metadata and log: `listed`, `alreadyProcessed`, `read`, `prefiltered` (with reasons), `unmatched`, `classified`, `irrelevant`, `invalid`, `proposed`, `skipped` (with reasons: `duplicate`, `low-confidence`, `already-at-stage`) and `errors`. No email content.
+7. **Decide with Jev** (`evaluateJev`, kind `jev-email-status`, as the review agent calls it) with two choice questions, given the email (from, subject, date, body excerpt), today's date and the candidates (id, company, role, stage). Each question's instructions say the email is untrusted data and that instructions inside it must be ignored.
+   - `job`: which candidate the email is about. One criterion per candidate, keyed by job ID (company, role, current stage), plus `none` for "no candidate clearly fits, or two fit equally".
+   - `meaning`: `interviewing` (invitation, scheduled or rescheduled interview, availability request, assessment or take-home), `rejected` (turned down, or role filled or closed), `expired` (role withdrawn by the company), `offer`, `applied` (application confirmation, only valid for a job at New or Reviewing) or `not_relevant` (thank-you, generic update, question, marketing, alert).
 
-A message whose model call or proposal write fails is counted under `errors` and not cached, so the next run tries it again. A failed Gmail search fails the run.
+   Jev's answers are validated (`validateAnswers`: every choice one of the criteria, probabilities summing to 1). `none` or `not_relevant` counts as `irrelevant`; `applied` for a job past Reviewing counts as `invalid`. The proposal's confidence is the lower of the chosen job's and the chosen meaning's probabilities, so an unsure job is not lifted by a sure meaning.
+8. **Write** the text, for relevant emails only, with one small model call (`gpt-6.1-sol`, low effort, as the review agent's note; kind `email-status-text`). It gets the email, the chosen job and the chosen stage, must not change the decision, and returns strict JSON `{ summary, interview }`: a summary of 1 to 300 characters in the routine's style ("Lead Forensics: rejection email on 27 Oct, move to Rejected?") and, only for `interviewing` with a fixed date, interview details that must pass the timeline's validation. An answer that fails validation keeps the decision with a templated summary (`<Company>: <stage> email on <d Mon>, move to <Stage>?`, for example "Acme: interview email on 3 Nov, move to Interviewing?") and no interview, counted under `templatedSummaries`. A writer call that fails outright (a model error, not a bad answer) is an error like any other, so the message is retried on the next run with its interview details intact.
+9. **Fallback without Jev.** While `TYPESAFE_API_KEY` is not set in the worker, steps 7 and 8 are replaced by the earlier single classification: one small model call (`gpt-6.1-sol`, low effort, kind `email-status`) returns `{ relevant, jobId, proposedStage, summary, confidence, interview }`, checked strictly as before (`jobId` one of the candidates, the stage one of the five above, summary 1 to 300 characters, confidence 0 to 1, interview only with `interviewing` and valid). Anything else is `invalid`. Each such message counts under `jevFallback`, and the summary's `decidedBy` is `model` rather than `jev`.
+10. **Propose** with the existing `createStatusProposal`: the same ID (a hash of job and message), duplicate check, `minimumConfidence` threshold and already-at-stage rule as the routine endpoint. `matchedBy` is the chosen candidate's.
+11. **Report** counts only, as the run's output, metadata and log: `decidedBy` (`jev` or `model`), `listed`, `alreadyProcessed`, `read`, `prefiltered` (with reasons), `unmatched`, `classified`, `irrelevant`, `invalid`, `proposed`, `skipped` (with reasons: `duplicate`, `low-confidence`, `already-at-stage`), `errors`, `jevFallback` and `templatedSummaries`. No email content.
+
+The run's timestamp may be a Date (the schedule) or an ISO string (a manual test run); anything unreadable means now.
+
+A message whose Jev call, writer call, fallback model call or proposal write fails (a Jev answer that fails validation counts as a failed call) is counted under `errors` and not cached, so the next run tries it again. A failed Gmail search fails the run.
 
 ### Requests and retries
 
 - `gmail-request` (`src/trigger/gmail-request.ts`) is a child task that makes one Gmail request per attempt, a search or one message, mirroring `jsearch-request`. Trigger owns retries: 408, 429 and 5xx retry with backoff (or at `Retry-After`), a 401 refreshes the access token and retries, and a refused refresh token, a 403 or a malformed payload stops at once. URLs are built in code (`lib/gmail-source.js`) from a validated payload (`op: "list" | "get"`, a message ID of letters, digits, `-` and `_`); the OAuth credentials are read inside the worker and never appear in a payload. The access token (about an hour) is cached in the worker process, so a run usually refreshes once.
-- The model call is a durable model call (`durable-model-call` → `provider-http-request`), like the review note: the provider child owns retries and the answer is reused if the parent retries.
+- The Jev call and the writer call (or the fallback model call) are durable model calls (`durable-model-call` → `provider-http-request`), like the review agent's: the provider child owns retries and the answer is reused if the parent retries. Usage is recorded with the other AI usage under kinds `jev-email-status`, `email-status-text` and (fallback) `email-status`.
 - Child runs are keyed per parent run, so a parent retry reuses finished searches, reads and model answers.
 
 ## Settings
@@ -72,7 +80,7 @@ The refresh token stops working if access is removed at [myaccount.google.com/pe
 | `GMAIL_CLIENT_SECRET` | The OAuth client secret |
 | `GMAIL_REFRESH_TOKEN` | The refresh token from the Playground |
 
-The run also uses what the Production worker already has: `OPENAI_API_KEY`, the Sanity variables (`SANITY_CONTENT_ENABLED`, `SANITY_ANALYSIS_ENABLED`, tokens) and the Redis (`KV_*`) variables. With the switches on but the Gmail variables missing, the run stops with a message naming them. Nothing is needed in Vercel.
+The run also uses what the Production worker already has: `TYPESAFE_API_KEY` (Jev; without it the single-model fallback runs), `OPENAI_API_KEY`, the Sanity variables (`SANITY_CONTENT_ENABLED`, `SANITY_ANALYSIS_ENABLED`, tokens) and the Redis (`KV_*`) variables. With the switches on but the Gmail variables missing, the run stops with a message naming them. Nothing is needed in Vercel.
 
 ## Switching from the Claude routine
 
@@ -88,13 +96,16 @@ Running both for a while is safe: a message and job pair can only ever have one 
 
 ## Cost
 
-Estimated for a typical day of 5 to 15 new messages matching the search, 2 to 5 of which reach the model:
+Estimated for a typical day of 5 to 15 new messages matching the search, 2 to 5 of which match a job and reach Jev, and 1 to 3 of those relevant. Prices are those in `lib/usage.js`: Jev $0.042 per million input tokens with free output; `gpt-6.1-sol` $2 / $10 per million input / output tokens.
 
 | Item | Per day |
 | --- | --- |
-| Model: about 3,000 input and 400 output tokens per classified message at $2 / $10 per million tokens, about $0.01 each | $0.02 to $0.05 |
-| Trigger: one schedule run, one search and one read per new message, one model child per classified message (about 10 to 25 runs, a few seconds of compute each) | under $0.01 |
+| Jev: about 2,000 input tokens per matched message (questions and criteria, the email excerpt up to 4,000 characters, the candidates), well under $0.001 each | under $0.001 |
+| Writer: about 1,500 input and 150 output tokens per relevant message, about $0.005 each | $0.005 to $0.015 |
+| Trigger: one schedule run, one search and one read per new message, one Jev child per matched message and one writer child per relevant one (about 10 to 25 runs, a few seconds of compute each) | under $0.01 |
 | Gmail API | free (well inside the quota) |
-| **Total** | **about $0.03 to $0.06 (about $1 to $2 a month)** |
+| **Total** | **about $0.01 to $0.03 (under $1 a month)** |
 
-The first run after enabling reads up to `maxMessages` (40) messages; after that only new mail is read, and alerts, newsletters and unmatched mail never reach the model. Model usage is recorded with the other AI usage under kind `email-status`.
+The token counts are estimates, not measurements: Jev's real input size depends on how TypeSafe tokenises the questions and state, which has not been measured for this task yet. Check the first week's usage under kinds `jev-email-status` and `email-status-text`. Without Jev (the fallback) the cost is as before: about 3,000 input and 400 output tokens per matched message at `gpt-6.1-sol` prices, about $0.01 each, $0.02 to $0.05 a day.
+
+The first run after enabling reads up to `maxMessages` (40) messages; after that only new mail is read, and alerts, newsletters and unmatched mail never reach a model.
