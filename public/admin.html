@@ -300,13 +300,13 @@
   .pipeline-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .pipeline h1 { font: 600 24px/1.2 var(--display); margin: 0; }
   .pipeline-controls { display: grid; gap: 8px; }
-  .pipeline-controls .searchbox, .pipeline-controls select, .pipeline-controls .sort-trigger { width: 100%; min-height: 44px; border: 1px solid var(--hair-strong);
+  .pipeline-controls .searchbox, .pipeline-controls select, .pipeline-controls .sort-trigger, .pipeline-controls .view-switch-option { width: 100%; min-height: 44px; border: 1px solid var(--hair-strong);
     background-color: var(--surface); border-radius: 7px; font: 400 15px/1.3 var(--sans); letter-spacing: 0; text-transform: none; }
   .pipeline-controls .searchbox { padding: 10px 12px; }
   .pipeline-filter-row { display: flex; gap: 8px; align-items: stretch; }
   .pipeline-filter-row [data-slot=native-select-wrapper], .pipeline-filter-row > select { flex: 1; min-width: 0; }
-  /* The sort trigger shares the dropdown's box (rule above); only its square width differs. */
-  .pipeline-controls .sort-trigger { flex: none; width: 44px; height: 44px; padding: 0; color: var(--ink);
+  /* The sort trigger and view switch share the dropdown's box (rule above); only their square width differs. */
+  .pipeline-controls .sort-trigger, .pipeline-controls .view-switch-option { flex: none; width: 44px; height: 44px; padding: 0; color: var(--ink);
     display: inline-flex; align-items: center; justify-content: center; }
   .pipeline-list { padding: 0 14px 28px 0; display: grid; grid-auto-rows: max-content; gap: 4px; overflow-y: auto; min-height: 0; align-content: start; }
   .pipeline-head, .bulkbar { flex-shrink: 0; }
@@ -345,7 +345,7 @@
   .role-header h1 { margin: 0; font: 600 clamp(24px, 3vw, 28px)/1.18 var(--display); letter-spacing: -.02em; }
   .role-sub { color: var(--sub); margin-top: 6px; }
   .stage-control { flex: none; display: grid; gap: 5px; color: var(--sub); font-size: 14px; }
-  .stage-control select { min-height: 44px; min-width: 170px; background-color: var(--surface); font: 500 14px var(--sans);
+  .stage-control select, .timeline-fields select { min-height: 44px; min-width: 170px; background-color: var(--surface); font: 500 14px var(--sans);
     text-transform: none; letter-spacing: 0; color: var(--ink); border-color: var(--hair-strong); }
   .owed { color: var(--ink); background: var(--surface); border-color: var(--hair-strong); }
   .qa-answer.refused, .qa-count.over { color: var(--weak); }
@@ -393,7 +393,7 @@
   .context-grid { max-width: 760px; }
   .question-list { margin-top: 24px; }
   .qa { padding: 18px 0; }
-  .qa textarea { margin-top: 0; background: var(--surface); font-size: 16px; }
+  .qa textarea, .needs-textarea { margin-top: 0; background: var(--surface); font-size: 16px; }
   .qa-bar label { font: 500 13px var(--sans); letter-spacing: 0; text-transform: none; }
   .qa-bar input[type=number] { min-height: 40px; background: var(--surface); }
   .qa-answer { background: var(--surface); border: 1px solid var(--hair); }
@@ -479,6 +479,7 @@
 import { subscribeRun, taskToast } from "./assets/task-ui.js";
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 import { summariseUsage } from "./admin-usage.js";
+import { BOARD_COLUMNS, groupByColumn, columnActivity, boardColumnId } from "./pipeline-board.js";
 import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError, mountAdminChat } from "./assets/admin-ui.js";
 (function () {
   "use strict";
@@ -576,6 +577,17 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   // List order per collection, remembered on this browser only.
   var SORTS = [["score-desc", "Highest score"], ["score-asc", "Lowest score"], ["newest", "Newest first"], ["oldest", "Oldest first"]];
   var sortOrders = {};
+  // Desktop Pipeline view: "list" (list + workspace) or "board" (one column per active stage).
+  var DESKTOP_QUERY = '(min-width: 901px)';
+  var pipelineView = (function () {
+    try { return localStorage.getItem('fit.pipeline.view') === 'board' ? 'board' : 'list'; } catch (_) { return 'list'; }
+  })();
+  var boardScroll = { left: 0, columns: {} };
+  function isDesktop() { return window.matchMedia(DESKTOP_QUERY).matches; }
+  function boardAllowed() { return isDesktop() && !showArchived && !showFiltered && !showNeeds; }
+  // The board is shown while no role is open; opening a card switches to the existing
+  // list + workspace, and the View switch brings the board back.
+  function boardActive() { return boardAllowed() && pipelineView === 'board' && !selectedId; }
   var attachedCoverWatches = {};
   var activeRuns = {};
   var coverDispatchEnabled = true;
@@ -678,6 +690,53 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         return '<button class="sort-option" data-sort="' + s[0] + '" aria-pressed="' + (s[0] === order) + '">' +
           (s[0] === order ? '<span data-icon="check"></span>' : '<span class="sort-check"></span>') + esc(s[1]) + '</button>';
       }).join('') + '</div></div>';
+  }
+  var VIEW_OPTIONS = [['list', 'List view', 'list'], ['board', 'Board view', 'board']];
+  function viewSwitchHtml(active) {
+    return '<div class="view-switch" role="group" aria-label="Pipeline view">' + VIEW_OPTIONS.map(function (o) {
+      return '<button type="button" class="ghost view-switch-option" data-view="' + o[0] + '" aria-label="' + o[1] + '" title="' + o[1] + '" aria-pressed="' + (active === o[0]) + '"><span data-icon="' + o[2] + '"></span></button>';
+    }).join('') + '</div>';
+  }
+  function setPipelineView(view) {
+    if (view !== 'list' && view !== 'board') return;
+    rememberPipelineScroll(); captureBoardScroll();
+    pipelineView = view;
+    try { localStorage.setItem('fit.pipeline.view', view); } catch (_) {}
+    if (view === 'board') { selectedId = ''; selectedMissing = false; suppressAutoSelect = true; } else suppressAutoSelect = false;
+    writeNavigation('push'); renderJobs();
+    requestAnimationFrame(function () { var button = document.querySelector('[data-view="' + view + '"]'); if (button) button.focus(); });
+  }
+  function captureBoardScroll() {
+    var board = document.querySelector('[data-board]');
+    if (!board) return;
+    boardScroll.left = board.scrollLeft;
+    board.querySelectorAll('[data-board-column]').forEach(function (column) {
+      var cards = column.querySelector('.board-cards');
+      boardScroll.columns[column.getAttribute('data-board-column')] = cards ? cards.scrollTop : 0;
+    });
+  }
+  function restoreBoardScroll() {
+    var board = document.querySelector('[data-board]');
+    if (!board) return;
+    board.scrollLeft = boardScroll.left;
+    board.querySelectorAll('[data-board-column]').forEach(function (column) {
+      var cards = column.querySelector('.board-cards');
+      if (cards) cards.scrollTop = boardScroll.columns[column.getAttribute('data-board-column')] || 0;
+    });
+  }
+  function boardHtml(searched, query) {
+    var groups = groupByColumn(searched);
+    var emptyText = searchLoading ? 'Searching…' : query ? 'No matches' : 'Nothing here yet';
+    return '<div class="board" data-board role="group" aria-label="Pipeline board">' + BOARD_COLUMNS.map(function (column) {
+      var items = groups[column.id];
+      var activity = columnActivity(items);
+      return '<section class="board-column" data-board-column="' + column.id + '" aria-labelledby="board-' + column.id + '">' +
+        '<header class="board-column-head"><h2 id="board-' + column.id + '">' + esc(column.label) + '</h2><span class="board-count" aria-label="' + items.length + (items.length === 1 ? ' role' : ' roles') + '">' + (searchLoading ? '…' : items.length) + '</span></header>' +
+        (activity ? '<p class="board-activity" role="status">' + esc(activity) + '</p>' : '') +
+        '<ul class="board-cards" role="list" aria-label="' + esc(column.label) + ' roles">' +
+        (items.length ? items.map(function (j) { return '<li>' + pipelineItemHtml(j, column.id === 'ready' ? { stageText: 'Ready to apply' } : null) + '</li>'; }).join('') :
+          '<li class="board-empty">' + emptyText + '</li>') + '</ul></section>';
+    }).join('') + '</div>';
   }
   function rememberPipelineScroll() {
     var list = document.querySelector(".pipeline-list");
@@ -1159,6 +1218,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         '<section class="overview-summary"><h2>Summary</h2>' +
           (j.overviewSummary && !j.jevStale && j.jevAssessment && j.overviewSummary.fingerprint === j.jevAssessment.fingerprint && j.overviewSummary.assessedAt === j.jevAssessment.assessedAt ? '<h3>The position</h3><p>' + esc(j.overviewSummary.position) + '</p><h3>Your fit</h3><p>' + esc(j.overviewSummary.fit) + '</p>' :
             '<p class="field-help">' + (j.jevStale ? 'Reassess fit to update the summary.' : 'Assess fit to add a summary.') + '</p>') + '</section>' +
+        timelineHtml(j) +
         owed +
         '</section>';
     } else if (workspaceSection === "materials") {
@@ -1168,7 +1228,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           materialRow('Cover letter', 'Private · ' + (hasLetter ? 'Saved ' + (j.coverLetterAt ? ' · ' + esc(fmtDate(j.coverLetterAt)) : '') + (j.coverLetterModel ? ' · ' + esc(modelLabel(j.coverLetterModel) || j.coverLetterModel) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate the fit page first' : '')), letterActions, 'letter', j) +
           materialRow('Interview brief', 'Private · ' + (j.hasBrief ? (j.briefStale ? 'Outdated · previous brief remains readable' : 'Current') + (j.briefAt ? ' · ' + esc(fmtDate(j.briefAt)) : '') : 'Not generated' + (!j.fitReportId ? ' · Generate the fit page first' : '')), briefActions, 'brief', j) +
           materialRow('Company research', 'Private · ' + (j.hasResearch ? (j.researchStale ? 'Outdated' : 'Current') + ' · ' + Number(j.researchSourceCount || 0) + ' sources' : 'Not generated'), researchActions, 'research', j) +
-        '</div>' + questionsHtml(j) + '</section>';
+        '</div>' + postingCheckHtml(j) + questionsHtml(j) + '</section>';
     } else if (workspaceSection === "context") {
       panel = '<section class="workspace-panel context-grid" id="panel-context" role="tabpanel">' +
         '<div class="field"><label for="company">Company</label><input id="company" type="text" data-field="company" value="' + esc(j.company || '') + '"><div class="field-status" data-save-for="company"></div></div>' +
@@ -1191,7 +1251,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     return '<article class="row-item" data-id="' + esc(j.id) + '"><button class="back-pipeline" data-act="back">← Back to ' + (showNeeds ? 'Needs you' : 'pipeline') + '</button>' +
       '<header class="role-header"><div class="role-identity"><div class="role-kicker">' + esc(j.company || 'No company') + '</div><h1>' + esc(j.role || 'Untitled role') +
       '</h1><div class="role-sub">' + headerMeta + (j.closed ? ' · Posting closed' : '') + '</div><div class="role-added">'+timeHtml(j.createdAt,'Added ')+'</div>' +
-      '<div class="role-stage"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span><div class="stage-control"><button class="ghost status-edit" aria-label="Change status" title="Change status"><span data-icon="settings"></span></button><div class="stage-popover"><label for="job-stage">Change status</label><select id="job-stage" data-act="stage" aria-label="Stage for ' + esc(j.role || 'role') + '">' + stageOptions(j) + '</select></div></div></div></div>' +
+      '<div class="role-stage"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span>'+autoMoveBadgeHtml(j)+'<div class="stage-control"><button class="ghost status-edit" aria-label="Change status" title="Change status"><span data-icon="settings"></span></button><div class="stage-popover"><label for="job-stage">Change status</label><select id="job-stage" data-act="stage" aria-label="Stage for ' + esc(j.role || 'role') + '">' + stageOptions(j) + '</select></div></div></div></div>' +
       '<div class="score-actions"><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score'+(j.jevStale?', from an outdated assessment':''):'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span>'+assessmentStatusHtml(j)+'</div>'+ (safeSourceUrl(j.sourceUrl)?'<a class="listing-link" href="'+esc(safeSourceUrl(j.sourceUrl))+'" target="_blank" rel="noopener">View original listing <span data-icon="external"></span></a>':'<span class="listing-unavailable field-help">No listing URL</span>')+'</header>' +
       '<nav class="workspace-tabs" role="tablist" aria-label="Role sections">' +
       [["overview","Overview"],["materials","Documents"],["context","Role details"],["activity","Activity"]].map(function (item) {
@@ -1592,6 +1652,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     return LEAN_LABELS[lean] ? '<span class="pipeline-stage stage-filtered" aria-label="' + LEAN_ARIA[lean] + '">' + LEAN_LABELS[lean] + '</span>' : '';
   }
   function needsItemHtml(item) {
+    if (item.kind) return needsCardHtml(item);
     var selectedNow = selectedId === item.id;
     return '<button class="pipeline-item' + (selectedNow ? ' selected' : '') + '" data-select-job="' + esc(item.id) + '" aria-pressed="' + selectedNow + '">' +
       '<span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">' + esc(item.company || 'No company') + '</span><span class="pipeline-role">' + esc(item.role || 'Untitled role') + '</span></span>' +
@@ -1619,8 +1680,204 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="agent-actions"><button type="button" data-agent-decide="advance">Move forward</button><button class="ghost" type="button" data-agent-decide="drop">Drop</button></div></section>';
   }
 
-  function pipelineItemHtml(j) {
-    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score'+(j.jevStale?', from an outdated assessment':''):'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span>'+assessmentStatusHtml(j)+'<span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span>'+(j.stage==='new'&&j.agentReview?leanBadgeHtml(j.agentReview.lean):'')+'<span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
+  // ---- Posting check, application answers, email status proposals and the interview timeline ----
+  // Needs you cards and the job workspace share these renderers. Click handling is delegated
+  // (see the document listeners near the end of the script), so re-rendering never rebinds.
+  var NEEDS_KIND_LABELS = { 'posting-gaps': 'Posting gaps', 'application-answers': 'Application answers', 'status-proposal': 'Email status', 'preference-proposal': 'Learned rule' };
+  var rulesUi = { rules: [], learnedAt: '', loaded: false };
+  var DIRECTION_LABELS = { advance: 'Moved forward', drop: 'Dropped' };
+  var needsUi = { editing: {}, drafts: {}, kept: {}, busy: {} };
+  var pcPaste = {}, tlDrafts = {};
+  var TIMELINE_KIND_LABELS = { phone: 'Phone', video: 'Video', onsite: 'On-site', assessment: 'Assessment', other: 'Other' };
+  var ANSWER_STATE_LABELS = { pending: 'Needs an answer', drafted: 'Draft ready', approved: 'Approved', skipped: 'Skipped' };
+  function needsJobId(item) { return item.jobId || item.id; }
+  function draftOf(key, fallback) { return Object.prototype.hasOwnProperty.call(needsUi.drafts, key) ? needsUi.drafts[key] : fallback; }
+  function postJobAction(body) {
+    return api('/api/admin/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  }
+  function actionToast(title, message, tone, extra) {
+    taskToast('action:' + title + ':' + Date.now(), Object.assign({ title: title, message: message, terminal: true, tone: tone || 'ok' }, extra || {}));
+  }
+  function mergeJobCache(patch) {
+    var i = jobs.findIndex(function (j) { return j.id === patch.id; });
+    if (i !== -1) jobs[i] = Object.assign({}, jobs[i], patch);
+  }
+  function mergeJobFields(id, fields) {
+    var i = jobs.findIndex(function (j) { return j.id === id; });
+    if (i !== -1) jobs[i] = Object.assign({}, jobs[i], fields);
+  }
+
+  // One open gap: label, why it matters, the suggested recruiter question and its actions.
+  function gapItemHtml(jobId, gap) {
+    var key = 'gap:' + jobId + ':' + gap.id, state = gap.state || 'open';
+    var attrs = ' data-pc-job="' + esc(jobId) + '" data-pc-gap="' + esc(gap.id) + '"';
+    var head = '<div class="needs-item" data-gap-item="' + esc(gap.id) + '"><strong class="needs-item-label">' + esc(gap.label) + '</strong>' +
+      (gap.why ? '<p class="needs-item-why">' + esc(gap.why) + '</p>' : '');
+    if (state === 'dismissed') return head + '<p class="needs-item-why">Dismissed</p></div>';
+    if (state === 'asked') return head + '<p class="needs-item-why">Recruiter question</p><p class="needs-quote" data-question-text>' + esc(gap.question) + '</p>' +
+      '<div class="needs-actions"><button class="ghost" type="button" data-pc-act="copy-question"' + attrs + '>Copy question</button><span class="needs-note" role="status">Saved</span></div></div>';
+    if (needsUi.editing[key]) return head + '<label class="needs-item-why" for="gap-q-' + esc(jobId + '-' + gap.id) + '">Question for the recruiter</label>' +
+      '<textarea id="gap-q-' + esc(jobId + '-' + gap.id) + '" class="needs-textarea" data-needs-edit data-draft-key="' + esc(key) + '" maxlength="300">' + esc(draftOf(key, gap.question || '')) + '</textarea>' +
+      '<div class="needs-actions"><button type="button" data-pc-act="save-question"' + attrs + '>Save question</button><button class="ghost" type="button" data-pc-act="cancel-question"' + attrs + '>Cancel</button></div></div>';
+    return head + (gap.question ? '<p class="needs-item-why">Suggested question</p><p class="needs-quote">' + esc(gap.question) + '</p>' : '') +
+      '<div class="needs-actions"><button type="button" data-pc-act="ask"' + attrs + '>Ask recruiter</button><button class="ghost" type="button" data-pc-act="dismiss-gap"' + attrs + '>Dismiss</button></div></div>';
+  }
+
+  // One application question with its drafted answer in an editable textarea.
+  function answerItemHtml(jobId, q) {
+    var key = 'q:' + jobId + ':' + q.id, state = q.state || (q.answerDraft ? 'drafted' : 'pending');
+    var attrs = ' data-pc-job="' + esc(jobId) + '" data-pc-question="' + esc(q.id) + '"';
+    var title = '<strong class="needs-item-label">' + esc(q.text) + (q.required ? ' <span class="needs-required">Required</span>' : '') + '</strong>';
+    var options = q.options && q.options.length ? '<p class="needs-item-why">Options: ' + esc(q.options.join(' · ')) + '</p>' : '';
+    if (state === 'approved') return '<div class="needs-item" data-answer-item="' + esc(q.id) + '">' + title + options +
+      '<span class="document-live" aria-label="Answer approved">Approved</span>' + (q.answerDraft ? '<div class="qa-answer">' + esc(q.answerDraft) + '</div>' : '') + '</div>';
+    if (state === 'skipped') return '<div class="needs-item" data-answer-item="' + esc(q.id) + '">' + title + options + '<p class="needs-item-why">Skipped</p></div>';
+    return '<div class="needs-item" data-answer-item="' + esc(q.id) + '">' + title + options +
+      (q.needsYou ? '<div class="qa-answer refused">Needs you: ' + esc(q.reason || 'this one is personal.') + '</div>' : '') +
+      '<label class="sr-only" for="answer-' + esc(jobId + '-' + q.id) + '">Answer</label>' +
+      '<textarea id="answer-' + esc(jobId + '-' + q.id) + '" class="needs-textarea" data-needs-edit data-draft-key="' + esc(key) + '" maxlength="8000" placeholder="' + (q.needsYou ? 'Write your answer…' : 'No draft yet. Write your answer…') + '">' + esc(draftOf(key, q.answerDraft || '')) + '</textarea>' +
+      '<div class="needs-actions"><button type="button" data-pc-act="approve-answer"' + attrs + '>Approve</button><button class="ghost" type="button" data-pc-act="skip-answer"' + attrs + '>Skip</button></div></div>';
+  }
+
+  function needsOpenHtml(item, meta) {
+    var jobId = needsJobId(item);
+    return '<button class="needs-open" type="button" data-select-job="' + esc(jobId) + '" aria-pressed="' + (selectedId === jobId) + '">' +
+      '<span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">' + esc(item.company || 'No company') + '</span><span class="pipeline-role">' + esc(item.role || 'Untitled role') + '</span></span>' +
+      (item.score === undefined ? '' : '<span class="score-tile" aria-label="' + (item.score != null ? esc(item.score) + ' out of 100 fit score' : 'Not scored') + '">' + (item.score != null ? esc(item.score) : '—') + '</span>') + '</span>' +
+      (item.location ? '<span class="pipeline-location">' + esc(item.location) + '</span>' : '') +
+      '<span class="pipeline-meta">' + meta + '</span></button>';
+  }
+  function interviewLine(interview) {
+    if (!interview) return '';
+    return [interview.round, TIMELINE_KIND_LABELS[interview.kind] || '', interview.date ? timelineDateText(interview.date) : ''].filter(Boolean).join(' · ');
+  }
+  function proposalBodyHtml(item) {
+    var email = item.email || {}, link = safeSourceUrl(email.link);
+    var sameStage = item.stage === item.proposedStage;
+    var line = interviewLine(item.interview);
+    return '<div class="needs-body">' +
+      (item.summary ? '<p class="needs-summary">' + esc(item.summary) + '</p>' : '') +
+      (line ? '<p class="needs-item-why"><strong>Interview:</strong> ' + esc(line) + '</p>' : '') +
+      '<p class="needs-item-why"><strong>Email:</strong> ' + esc(email.subject || 'No subject') + (email.from ? ' · ' + esc(email.from) : '') + (email.date ? ' · ' + esc(fmtDate(email.date)) : '') + '</p>' +
+      '<div class="needs-actions"><button type="button" data-px-act="apply" data-px-id="' + esc(item.id) + '">' + (sameStage ? 'Add to timeline' : 'Apply') + '</button>' +
+      '<button class="ghost" type="button" data-px-act="dismiss" data-px-id="' + esc(item.id) + '">Dismiss</button>' +
+      (link ? '<a class="read-link" href="' + esc(link) + '" target="_blank" rel="noopener">Open email ↗</a>' : '') + '</div></div>';
+  }
+  function preferenceCardHtml(item) {
+    var key = 'pf:' + item.id, attrs = ' data-pf-id="' + esc(item.id) + '"';
+    var sources = (item.sources || []).map(function (src) {
+      return '<li><button class="read-link" type="button" data-select-job="' + esc(src.jobId) + '">' + esc(src.company || 'No company') + ' · ' + esc(src.role || 'Untitled role') +
+        ' · ' + esc(DIRECTION_LABELS[src.direction] || src.direction || '') + '</button></li>';
+    }).join('');
+    var editing = !!needsUi.editing[key];
+    return '<section class="needs-card" data-needs-kind="preference-proposal" data-needs-id="' + esc(item.id) + '" aria-label="Learned rule proposal">' +
+      '<div class="needs-open"><span class="pipeline-company">Proposed rule</span>' +
+      '<span class="pipeline-meta"><span class="pipeline-stage stage-filtered">Learned rule</span><span class="pipeline-added">' + timeHtml(item.createdAt, 'Proposed ') + '</span></span></div>' +
+      '<div class="needs-body"><div class="needs-item">' +
+      (editing ? '<label class="needs-item-why" for="pf-text-' + esc(item.id) + '">Rule wording</label><textarea id="pf-text-' + esc(item.id) + '" class="needs-textarea" data-needs-edit data-draft-key="' + esc(key) + '" maxlength="200">' + esc(draftOf(key, item.text)) + '</textarea>' +
+        '<div class="needs-actions"><button type="button" data-pf-act="save-edit"' + attrs + '>Save and accept</button><button class="ghost" type="button" data-pf-act="cancel-edit"' + attrs + '>Cancel</button></div>' :
+        '<p class="needs-summary needs-rule-text">' + esc(item.text) + '</p>' +
+        '<div class="needs-actions"><button type="button" data-pf-act="accept"' + attrs + '>Accept</button><button class="ghost" type="button" data-pf-act="edit"' + attrs + '>Edit</button><button class="ghost" type="button" data-pf-act="reject"' + attrs + '>Reject</button></div>') +
+      '</div>' + (sources ? '<div class="needs-item"><p class="needs-item-why">Learned from</p><ul class="needs-sources">' + sources + '</ul></div>' : '') + '</div></section>';
+  }
+  // Accepted rules, at the bottom of Needs you: where proposals are decided, so where their outcome is kept.
+  function rulesHtml() {
+    if (!rulesUi.loaded) return '';
+    var items = rulesUi.rules.map(function (r) {
+      var key = 'pr:' + r.id, attrs = ' data-pr-id="' + esc(r.id) + '"', text = r.editedText || r.text;
+      return '<div class="needs-item" data-rule-id="' + esc(r.id) + '">' + (needsUi.editing[key] ?
+        '<label class="needs-item-why" for="pr-text-' + esc(r.id) + '">Rule wording</label><textarea id="pr-text-' + esc(r.id) + '" class="needs-textarea" data-needs-edit data-draft-key="' + esc(key) + '" maxlength="200">' + esc(draftOf(key, text)) + '</textarea>' +
+        '<div class="needs-actions"><button type="button" data-pr-act="save-edit"' + attrs + '>Save rule</button><button class="ghost" type="button" data-pr-act="cancel-edit"' + attrs + '>Cancel</button></div>' :
+        '<p class="needs-summary needs-rule-text">' + esc(text) + '</p><div class="needs-actions"><button class="ghost" type="button" data-pr-act="edit"' + attrs + '>Edit</button><button class="ghost" type="button" data-pr-act="delete"' + attrs + '>Delete</button></div>') + '</div>';
+    }).join('');
+    return '<section class="needs-card learned-rules" aria-labelledby="learned-rules-heading"><div class="needs-open"><h2 class="pipeline-company" id="learned-rules-heading">Learned rules</h2>' +
+      '<span class="pipeline-location">' + (rulesUi.learnedAt ? timeHtml(rulesUi.learnedAt, 'Last learned ') : 'Nothing learned yet') + '</span></div>' +
+      '<div class="needs-body">' + (items || '<p class="needs-item-why">No accepted rules yet. Proposed rules appear above for you to accept.</p>') + '</div></section>';
+  }
+  function autoMoveBadgeHtml(j) {
+    var move = j.agentReview && j.agentReview.autoMove;
+    if (!move || move.overriddenAt) return '';
+    return '<span class="pipeline-stage stage-filtered" aria-label="Moved by agent to ' + esc(stageLabel(move.stage)) + (move.at ? ' on ' + esc(fmtDate(move.at)) : '') + '">Moved by agent</span>';
+  }
+  function needsCardHtml(item) {
+    if (item.kind === 'preference-proposal') return preferenceCardHtml(item);
+    var jobId = needsJobId(item), selectedNow = selectedId === jobId;
+    var badge = '<span class="pipeline-stage stage-filtered">' + esc(NEEDS_KIND_LABELS[item.kind] || 'Needs you') + '</span>';
+    var meta, body;
+    if (item.kind === 'status-proposal') {
+      meta = '<span class="pipeline-stage stage-' + esc(item.stage) + '">' + esc(stageLabel(item.stage)) + '</span><span class="needs-arrow" aria-hidden="true">→</span><span class="sr-only">moves to</span>' +
+        '<span class="pipeline-stage stage-' + esc(item.proposedStage) + '">' + esc(stageLabel(item.proposedStage)) + '</span><span class="pipeline-added">' + timeHtml(item.createdAt, 'Proposed ') + '</span>';
+      body = proposalBodyHtml(item);
+    } else {
+      meta = badge + '<span class="pipeline-added">' + timeHtml(item.checkedAt, 'Checked ') + '</span>';
+      body = '<div class="needs-body">' + (item.kind === 'posting-gaps' ? (item.gaps || []).map(function (g) { return gapItemHtml(jobId, g); }) :
+        (item.questions || []).map(function (q) { return answerItemHtml(jobId, q); })).join('') + '</div>';
+    }
+    return '<section class="needs-card' + (selectedNow ? ' selected' : '') + '" data-needs-kind="' + esc(item.kind) + '" data-needs-id="' + esc(item.id) + '" aria-label="' + esc(NEEDS_KIND_LABELS[item.kind] + ': ' + (item.company || 'No company') + ', ' + (item.role || 'Untitled role')) + '">' +
+      needsOpenHtml(item, meta) + body + '</section>';
+  }
+
+  // The posting check section of Documents (Reviewing roles): gaps, form questions, paste box, re-run.
+  function postingCheckHtml(j) {
+    if (j.stage !== 'reviewing') return '';
+    var pc = j.postingCheck, form = pc && pc.form || {};
+    var gaps = pc ? pc.gaps || [] : [], questions = form.questions || [];
+    var status = !pc ? 'This role has not been checked yet.' :
+      (pc.checkedAt ? 'Checked ' + relativeTime(pc.checkedAt) : 'Not checked yet') + (pc.status === 'partial' ? ' · the posting or application form could not be read in full' : '');
+    var fetched = form.source && form.source !== 'pasted' && form.status === 'ready';
+    var body = '';
+    if (pc) {
+      body += '<h3>What the posting leaves out</h3>' + (gaps.length ? gaps.map(function (g) { return gapItemHtml(j.id, g); }).join('') :
+        '<p class="field-help">' + (pc.status === 'partial' && !questions.length ? 'The gap check did not finish.' : 'No gaps found.') + '</p>');
+      body += '<h3>Application form' + (form.source ? ' <span class="needs-source">' + esc(form.source === 'pasted' ? 'Pasted' : stageLabel(form.source)) + '</span>' : '') + '</h3>';
+      if (questions.length) {
+        if (pc.draftStatus === 'waiting-for-fit') body += '<p class="field-help">Answers are drafted once the fit page exists.</p>';
+        body += questions.map(function (q) { return answerItemHtml(j.id, q); }).join('');
+      } else body += '<p class="field-help">' + ({ unavailable: 'The application form could not be read.', 'not-detected': 'No supported application form was found for this posting.',
+        'no-questions': 'This form publishes no custom questions.', off: 'Reading application forms is turned off.' }[form.status] || 'No application questions yet.') + '</p>';
+    }
+    var pasteText = Object.prototype.hasOwnProperty.call(pcPaste, j.id) ? pcPaste[j.id] : '';
+    var paste = fetched ? '' : '<div class="field posting-paste"><label for="paste-' + esc(j.id) + '">Paste application questions</label>' +
+      '<p class="field-help">One question per line. End a line with * or (required) to mark it required.</p>' +
+      '<textarea id="paste-' + esc(j.id) + '" data-pc-paste="' + esc(j.id) + '">' + esc(pasteText) + '</textarea>' +
+      '<div class="needs-actions"><button type="button" data-pc-act="paste" data-pc-job="' + esc(j.id) + '">Save questions</button></div></div>';
+    return '<section class="question-list qabox posting-check" aria-labelledby="posting-check-heading"><h2 id="posting-check-heading">Posting check</h2>' +
+      '<p class="field-help">' + esc(status) + '</p>' + body + paste +
+      '<div class="needs-actions"><button class="ghost" type="button" data-pc-act="rerun" data-pc-job="' + esc(j.id) + '">' + (pc ? 'Re-run check' : 'Run check') + '</button></div></section>';
+  }
+
+  // Interview timeline (Overview): dated rounds with editable private notes, added by email proposals or by hand.
+  function timelineDateText(value) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    return fmtDateTime(value);
+  }
+  function timelineHtml(j) {
+    var entries = j.interviewTimeline || [];
+    if (!entries.length && ['applied', 'interviewing', 'offer'].indexOf(j.stage) === -1) return '';
+    var draft = tlDrafts[j.id] || {};
+    var list = entries.map(function (e) {
+      return '<div class="timeline-entry" data-entry-id="' + esc(e.id) + '"><div class="timeline-head"><time class="timeline-date" datetime="' + esc(e.date) + '">' + esc(timelineDateText(e.date)) + '</time>' +
+        '<strong class="needs-item-label">' + esc(e.round) + '</strong><span class="needs-item-why">' + esc(TIMELINE_KIND_LABELS[e.kind] || 'Other') + '</span>' +
+        '<span class="document-live" aria-label="Added by ' + (e.source === 'email' ? 'email' : 'hand') + '">' + (e.source === 'email' ? 'Email' : 'Manual') + '</span></div>' +
+        '<label class="sr-only" for="timeline-notes-' + esc(e.id) + '">Notes for ' + esc(e.round) + '</label>' +
+        '<textarea id="timeline-notes-' + esc(e.id) + '" class="needs-textarea" data-tl-notes data-tl-job="' + esc(j.id) + '" data-tl-entry="' + esc(e.id) + '" data-saved="' + esc(e.notes || '') + '" maxlength="4000" placeholder="Private notes">' + esc(e.notes || '') + '</textarea>' +
+        '<div class="needs-actions"><button class="ghost" type="button" data-tl-act="remove" data-tl-job="' + esc(j.id) + '" data-tl-entry="' + esc(e.id) + '">Remove</button><span class="field-status" data-tl-status role="status"></span></div></div>';
+    }).join('');
+    var kinds = Object.keys(TIMELINE_KIND_LABELS).map(function (k) { return '<option value="' + k + '"' + ((draft.kind || 'phone') === k ? ' selected' : '') + '>' + TIMELINE_KIND_LABELS[k] + '</option>'; }).join('');
+    return '<section class="interview-timeline" aria-labelledby="timeline-heading-' + esc(j.id) + '"><h2 id="timeline-heading-' + esc(j.id) + '">Interview timeline</h2>' +
+      '<p class="field-help">Dated rounds. Private notes feed the interview brief.</p>' +
+      (list ? '<div class="timeline-list">' + list + '</div>' : '<p class="field-help">No interviews recorded yet.</p>') +
+      '<div class="timeline-add" data-tl-add="' + esc(j.id) + '"><h3>Add an interview</h3><div class="timeline-fields">' +
+      '<div class="field"><label for="tl-date-' + esc(j.id) + '">Date</label><input id="tl-date-' + esc(j.id) + '" type="date" data-tl-field="date" value="' + esc(draft.date || '') + '"></div>' +
+      '<div class="field"><label for="tl-round-' + esc(j.id) + '">Round</label><input id="tl-round-' + esc(j.id) + '" type="text" data-tl-field="round" maxlength="80" placeholder="Hiring manager screen" value="' + esc(draft.round || '') + '"></div>' +
+      '<div class="field"><label for="tl-kind-' + esc(j.id) + '">Kind</label><select id="tl-kind-' + esc(j.id) + '" data-tl-field="kind">' + kinds + '</select></div></div>' +
+      '<div class="field"><label for="tl-notes-' + esc(j.id) + '">Notes <span class="needs-source">(optional)</span></label><textarea id="tl-notes-' + esc(j.id) + '" data-tl-field="notes" maxlength="4000">' + esc(draft.notes || '') + '</textarea></div>' +
+      '<div class="needs-actions"><button type="button" data-tl-act="add" data-tl-job="' + esc(j.id) + '">Add entry</button></div></div></section>';
+  }
+
+  function pipelineItemHtml(j, opts) {
+    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score'+(j.jevStale?', from an outdated assessment':''):'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span>'+assessmentStatusHtml(j)+'<span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(opts && opts.stageText || stageLabel(j.stage))+'</span>'+autoMoveBadgeHtml(j)+(j.stage==='new'&&j.agentReview?leanBadgeHtml(j.agentReview.lean):'')+'<span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
   }
 
   function loadSelectedDetail(id) {
@@ -1641,16 +1898,18 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   function renderJobs(workspaceOnly) {
     if (showFiltered) return;
-    workspaceOnly = workspaceOnly === true && !!document.querySelector('.admin-shell .workspace');
+    var board = boardActive();
+    // A board/list layout change needs a full render, not just the workspace.
+    workspaceOnly = workspaceOnly === true && !board && !!document.querySelector('.admin-shell:not(.board-view) .workspace');
     // Keep live editors in place during background refreshes and search updates.
     var focused = document.activeElement;
     var preserveWorkspace = renderedRole === selectedId && renderedSection === workspaceSection &&
-      focused && focused.matches('.workspace input, .workspace textarea');
+      focused && focused.matches('.workspace input, .workspace textarea, .pipeline-list textarea');
     if (preserveWorkspace) return;
     var searchFocused = focused && focused.id === 'search';
     var searchStart = searchFocused ? focused.selectionStart : null;
     var searchEnd = searchFocused ? focused.selectionEnd : null;
-    rememberPipelineScroll();
+    rememberPipelineScroll(); captureBoardScroll();
     if (!showArchived && ARCHIVE_ON_STAGE.indexOf(stageFilter) !== -1) stageFilter = null;
     var q = searchQuery.trim().toLowerCase();
     var collectionJobs = jobs.filter(function (j) { return !j._outOfCollection; });
@@ -1661,14 +1920,15 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var shown = searched.filter(function (j) { return !stageFilter || j.stage === stageFilter; });
     if (showNeeds) shown = needsItems.slice(); else
     sortRoles(shown, function (j) { return j.score; }, function (j) { return j.createdAt; });
+    if (board) shown = sortRoles(searched.filter(function (j) { return boardColumnId(j) !== null; }), function (j) { return j.score; }, function (j) { return j.createdAt; });
     var assessmentIds = shown.map(function (j) { return j.id; });
 
-    if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) {
-      selectedId = shown[0].id;
+    if (!selectedId && !suppressAutoSelect && !board && window.innerWidth > 900 && shown.length) {
+      selectedId = needsJobId(shown[0]);
       writeNavigation("replace");
     }
     var selected = jobs.find(function (j) { return j.id === selectedId; });
-    var selectedVisible = !!selected && shown.some(function (j) { return j.id === selected.id; });
+    var selectedVisible = !!selected && shown.some(function (j) { return needsJobId(j) === selected.id || (j.sources || []).some(function (src) { return src.jobId === selected.id; }); });
     var allowedStages = stages.filter(function (s) { return showArchived || ARCHIVE_ON_STAGE.indexOf(s) === -1; });
     var countText = searchLoading ? "…" : searched.length;
     var filterOptions = '<option value=""' + (stageFilter ? '' : ' selected') + '>All stages (' + countText + ')</option>' +
@@ -1677,8 +1937,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
     var emptyText = showNeeds ? (needsLoaded ? 'Nothing needs you right now.' : 'Loading…') : !collectionJobs.length ? (showArchived ? 'Nothing archived.' : 'No opportunities yet.') :
       searchLoading ? 'Searching…' : q && !searched.length ? 'No roles match this search.' : 'No roles match this stage.';
-    var listHtml = shown.length ? shown.map(showNeeds ? needsItemHtml : pipelineItemHtml).join('') : '<div class="pipeline-empty">' + emptyText +
-      (showNeeds ? '' : q && !searchLoading ? '<br><button class="ghost" data-clear-search>Clear search</button>' : stageFilter ? '<br><button class="ghost" data-all-stages>Show all stages</button>' : '') + '</div>';
+    var listHtml = (shown.length ? shown.map(showNeeds ? needsItemHtml : pipelineItemHtml).join('') : '<div class="pipeline-empty">' + emptyText +
+      (showNeeds ? '' : q && !searchLoading ? '<br><button class="ghost" data-clear-search>Clear search</button>' : stageFilter ? '<br><button class="ghost" data-all-stages>Show all stages</button>' : '') + '</div>') + (showNeeds ? rulesHtml() : '');
     var workspaceHtml = selectedMissing ? '<div class="workspace-empty"><h1>Role unavailable</h1><p>This role no longer exists or cannot be opened.</p><button class="ghost" data-return-list>Return to ' + (showNeeds ? 'Needs you' : 'pipeline') + '</button></div>' :
       selected ? (!selectedVisible ? '<div class="notice">' + (showNeeds ? 'This role has left Needs you.' : 'This role no longer matches the current pipeline view.') + '<button class="read-link" data-return-list>Return to the list</button></div>' : '') + jobHtml(selected) :
       showNeeds ? '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a role the review agent has looked at to see its recommendation and decide.</p></div>' :
@@ -1691,22 +1951,24 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         var isSelected = button.getAttribute('data-select-job') === selectedId;
         button.classList.toggle('selected', isSelected);
         button.setAttribute('aria-pressed', String(isSelected));
+        var card = button.closest('.needs-card');
+        if (card) card.classList.toggle('selected', isSelected);
       });
       renderAdmin(shell.querySelector('.workspace'), workspaceHtml);
-    } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="' + (showNeeds ? 'Roles that need you' : showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
+    } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (board ? ' board-view' : pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="' + (showNeeds ? 'Roles that need you' : showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
       '<button class="pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '"><span data-icon="sidebar-toggle"></span></button>' +
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showNeeds ? 'Needs you' : showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
-      '<span class="pipeline-total">'+shown.length+(showNeeds ? ' roles' : ' opportunities')+'</span>' + '</div>' +
+      '<span class="pipeline-total">'+shown.length+(showNeeds ? (shown.length === 1 ? ' item' : ' items') : ' opportunities')+'</span>' + '</div>' +
       (showNeeds ? (needsLoaded ? '<p class="field-help filtered-intro">' + esc(agreementText(needsAgreement)) + '</p>' : '') : '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
-      '<div class="pipeline-filter-row"><label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>' + sortControlHtml() + '</div></div>') + '</div>' +
+      '<div class="pipeline-filter-row">' + (board ? '' : '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>') + sortControlHtml() + (boardAllowed() ? viewSwitchHtml(board ? 'board' : 'list') : '') + '</div></div>') + '</div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
       ((!showArchived && !showNeeds && jevEnabled && assessmentIds.length && !searchLoading || activeRuns['jev-score-all']) ? '<div class="bulkbar"><button class="generation" id="assesslisted"' + (activeRuns['jev-score-all'] ? ' disabled' : '') + '>' +
         (activeRuns['jev-score-all'] ? 'Assessing…' : 'Assess listed roles (' + assessmentIds.length + ')') + '</button></div>' : '') +
-      '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
+      (board && collectionJobs.length ? boardHtml(shown, q) : '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div>') + '</aside>' + (board ? '' : '<main class="workspace">' + workspaceHtml + '</main>') + '</div>');
 
     renderedRole = selectedId; renderedSection = workspaceSection;
     renderedScrollKey = scrollKey();
-    restorePipelineScroll();
+    restorePipelineScroll(); restoreBoardScroll();
     if (searchFocused) {
       var restoredSearch = document.getElementById('search');
       restoredSearch.focus(); restoredSearch.setSelectionRange(searchStart, searchEnd);
@@ -1799,12 +2061,16 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     if (stageFilterEl) stageFilterEl.addEventListener("change", function () {
       rememberPipelineScroll(); stageFilter = stageFilterEl.value || null; writeNavigation("push"); renderJobs(); restorePipelineScroll();
     });
+    Array.prototype.forEach.call(workspaceOnly ? [] : document.querySelectorAll('[data-view]'), function (button) {
+      button.addEventListener('click', function () { setPipelineView(button.getAttribute('data-view')); });
+    });
     Array.prototype.forEach.call(workspaceOnly ? [] : document.querySelectorAll('[data-select-job]'), function (button) {
       button.addEventListener('click', function () {
         var nextId = button.getAttribute('data-select-job');
         if (nextId === selectedId) return;
-        rememberPipelineScroll(); selectedId = nextId; selectedMissing = false;
-        writeNavigation('push', { admin: true, selectedFromList: true }); renderJobs(true); loadSelectedDetail(selectedId);
+        var fromBoard = !!button.closest('[data-board]');
+        rememberPipelineScroll(); captureBoardScroll(); selectedId = nextId; selectedMissing = false;
+        writeNavigation('push', { admin: true, selectedFromList: true }); renderJobs(!fromBoard); loadSelectedDetail(selectedId);
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-section-link]'), function (button) {
@@ -2558,6 +2824,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       chat.setAuthenticated(true);
       needsItems = out.d.items || [];
       needsAgreement = out.d.agreement || null;
+      needsUi.editing = {}; needsUi.kept = {};
+      reloadRules();
       needsLoaded = true;
       setNeedsCount(needsItems.length);
       // Keep only the open role: its workspace stays readable after it leaves the list.
@@ -2657,6 +2925,294 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       } else renderJobs(true);
       loadSelectedDetail(selectedId); restorePipelineScroll();
     }
+  });
+
+  // Crossing the desktop breakpoint swaps the board for the list (and back).
+  window.matchMedia(DESKTOP_QUERY).addEventListener('change', function () {
+    if (pipelineView === 'board' && !showArchived && !showFiltered && !showNeeds && jobs.length && document.querySelector('.admin-shell')) renderJobs();
+  });
+
+  // ---- Delegated actions: posting check, email status proposals, interview timeline ----
+  function needsDone(item) { return item.kind === 'posting-gaps' && (item.gaps || []).every(function (g) { return g.state === 'asked'; }); }
+  function syncNeedsCount() { setNeedsCount(needsItems.filter(function (item) { return !needsDone(item); }).length); }
+  function refreshNeedsCount() {
+    if (showNeeds) return;
+    api('/api/admin/jobs?needsYou=1', { method: 'GET' }).then(function (n) { if (n.ok && n.d && Array.isArray(n.d.items)) setNeedsCount(n.d.items.length); });
+  }
+  // After a posting check action: keep the cached job current and rebuild its Needs you cards from it.
+  function applyPostingJob(job) {
+    mergeJobCache(job);
+    var pc = job.postingCheck;
+    if (showNeeds && pc) {
+      needsItems = needsItems.map(function (item) {
+        if (needsJobId(item) !== job.id) return item;
+        if (item.kind === 'posting-gaps') {
+          var gaps = (pc.gaps || []).filter(function (g) { return g.state === 'open' || (g.state === 'asked' && needsUi.kept[job.id + ':' + g.id]); });
+          return gaps.length ? Object.assign({}, item, { gaps: gaps }) : null;
+        }
+        if (item.kind === 'application-answers') {
+          var questions = ((pc.form || {}).questions || []).filter(function (q) { return q.state === 'drafted' || (q.state === 'pending' && q.needsYou); });
+          return questions.length ? Object.assign({}, item, { questions: questions }) : null;
+        }
+        return item;
+      }).filter(Boolean);
+      syncNeedsCount();
+    } else refreshNeedsCount();
+    renderJobs();
+  }
+  function withBusy(key, button, run) {
+    if (needsUi.busy[key]) return;
+    needsUi.busy[key] = true;
+    if (button) button.disabled = true;
+    Promise.resolve(run()).then(function () { delete needsUi.busy[key]; if (button && button.isConnected) button.disabled = false; });
+  }
+  function failToast(title, out) {
+    if (unauthorised(out)) return;
+    actionToast(title, (out.d && out.d.error) || 'Something went wrong.', 'err');
+  }
+  function editorValue(el, selector) {
+    var field = el.closest('.needs-item, .posting-paste, .timeline-add').querySelector(selector || 'textarea');
+    return field ? field.value.trim() : '';
+  }
+
+  function postingAction(el) {
+    var act = el.getAttribute('data-pc-act'), id = el.getAttribute('data-pc-job') || '';
+    var gapId = el.getAttribute('data-pc-gap') || '', questionId = el.getAttribute('data-pc-question') || '';
+    var gapKey = 'gap:' + id + ':' + gapId;
+    var focusEditor = function () { var ta = document.querySelector('[data-draft-key="' + gapKey + '"]'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } };
+    if (act === 'ask') { needsUi.editing[gapKey] = true; renderJobs(); focusEditor(); return; }
+    if (act === 'cancel-question') { delete needsUi.editing[gapKey]; delete needsUi.drafts[gapKey]; renderJobs(); return; }
+    if (act === 'copy-question') {
+      var text = (el.closest('.needs-item').querySelector('[data-question-text]') || {}).textContent || '';
+      navigator.clipboard.writeText(text).then(function () { actionToast('Question copied', 'Paste it into your email to the recruiter.'); }, function () { actionToast('Could not copy', 'Select the question and copy it by hand.', 'err'); });
+      return;
+    }
+    if (act === 'save-question') {
+      var question = editorValue(el);
+      if (!question) { actionToast('Write the question first', 'The recruiter question cannot be empty.', 'err'); return; }
+      withBusy(gapKey, el, function () {
+        return postJobAction({ action: 'draft-gap-question', id: id, gapId: gapId, question: question }).then(function (out) {
+          if (!out.ok) return failToast('Could not save the question', out);
+          delete needsUi.editing[gapKey]; delete needsUi.drafts[gapKey]; needsUi.kept[id + ':' + gapId] = true;
+          actionToast('Question saved', 'Copy it into your email to the recruiter. Nothing was sent.');
+          applyPostingJob(out.d.job);
+        });
+      });
+      return;
+    }
+    if (act === 'dismiss-gap') {
+      withBusy(gapKey, el, function () {
+        return postJobAction({ action: 'dismiss-gap', id: id, gapId: gapId }).then(function (out) {
+          if (!out.ok) return failToast('Could not dismiss the gap', out);
+          actionToast('Gap dismissed', 'It will not come back unless you re-run the check.');
+          applyPostingJob(out.d.job);
+        });
+      });
+      return;
+    }
+    if (act === 'approve-answer' || act === 'skip-answer') {
+      var key = 'q:' + id + ':' + questionId, approve = act === 'approve-answer';
+      var answer = approve ? editorValue(el) : '';
+      if (approve && !answer) { actionToast('Write an answer first', 'Approve needs some text to save.', 'err'); return; }
+      withBusy(key, el, function () {
+        var body = { action: act, id: id, questionId: questionId };
+        if (approve) body.answer = answer;
+        return postJobAction(body).then(function (out) {
+          if (!out.ok) return failToast(approve ? 'Could not approve the answer' : 'Could not skip the question', out);
+          delete needsUi.drafts[key];
+          actionToast(approve ? 'Answer approved' : 'Question skipped', approve ? 'Saved with this role’s application questions.' : 'It no longer waits on you.');
+          applyPostingJob(out.d.job);
+        });
+      });
+      return;
+    }
+    if (act === 'paste') {
+      var field = document.getElementById('paste-' + id), pasted = field ? field.value.trim() : '';
+      if (!pasted) { actionToast('Paste the questions first', 'Add one question per line.', 'err'); return; }
+      withBusy('paste:' + id, el, function () {
+        return postJobAction({ action: 'paste-questions', id: id, text: pasted }).then(function (out) {
+          if (!out.ok) return failToast('Could not save the questions', out);
+          delete pcPaste[id];
+          actionToast('Questions saved', out.d.requested === false ? 'Drafting answers is off, so write them under Application questions.' : 'Answers are being drafted. They appear here when ready.');
+          applyPostingJob(out.d.job);
+        });
+      });
+      return;
+    }
+    if (act === 'rerun') {
+      var before = ((jobs.find(function (j) { return j.id === id; }) || {}).postingCheck || {}).checkedAt || '';
+      withBusy('rerun:' + id, el, function () {
+        return postJobAction({ action: 'rerun-posting-check', id: id }).then(function (out) {
+          if (!out.ok) return failToast('Could not run the check', out);
+          actionToast('Posting check requested', 'Results appear here when it finishes.');
+          pollPostingCheck(id, before, 0);
+        });
+      });
+    }
+  }
+  // A re-run is a background task: look for the new result every few seconds for about a minute.
+  function pollPostingCheck(id, before, attempt) {
+    setTimeout(function () {
+      api('/api/admin/jobs?id=' + encodeURIComponent(id), { method: 'GET' }).then(function (out) {
+        if (!out.ok || !out.d || !out.d.job) return;
+        var checkedAt = out.d.job.postingCheck && out.d.job.postingCheck.checkedAt || '';
+        if (checkedAt && checkedAt !== before) { mergeJobCache(out.d.job); renderJobs(); refreshNeedsCount(); actionToast('Posting check finished', 'The results are up to date.'); }
+        else if (attempt < 12) pollPostingCheck(id, before, attempt + 1);
+      });
+    }, 5000);
+  }
+
+  function proposalAction(el) {
+    var act = el.getAttribute('data-px-act'), id = el.getAttribute('data-px-id');
+    var item = needsItems.find(function (i) { return i.kind === 'status-proposal' && i.id === id; });
+    if (!item) return;
+    var label = item.company || 'this role';
+    function removeItem() { needsItems = needsItems.filter(function (i) { return i !== item; }); syncNeedsCount(); }
+    if (act === 'dismiss') {
+      withBusy('px:' + id, el, function () {
+        return postJobAction({ action: 'dismiss-proposal', id: id }).then(function (out) {
+          if (!out.ok) return failToast('Could not dismiss the proposal', out);
+          removeItem(); actionToast('Proposal dismissed', 'The email changed nothing for ' + label + '.'); renderJobs();
+        });
+      });
+      return;
+    }
+    var moves = item.stage !== item.proposedStage, to = stageLabel(item.proposedStage);
+    var confirmation = null;
+    if (moves && item.proposedStage === 'reviewing') confirmation = { title: 'Move ' + label + ' to Reviewing?', confirmLabel: 'Move to Reviewing',
+      description: 'Moving a role to Reviewing starts its fit page and tailored CV, and checks the posting for gaps.' + (item.interview ? ' The interview is added to its timeline.' : '') };
+    else if (moves && ARCHIVE_ON_STAGE.indexOf(item.proposedStage) !== -1) confirmation = { title: 'Move ' + label + ' to ' + to + '?', confirmLabel: 'Move to ' + to,
+      description: 'This takes the role out of the pipeline and into the Archive.' + (item.interview ? ' The interview is added to its timeline.' : '') };
+    function run() {
+      withBusy('px:' + id, el, function () {
+        return postJobAction({ action: 'apply-proposal', id: id }).then(function (out) {
+          if (!out.ok) return failToast('Could not apply the proposal', out);
+          if (out.d.job) mergeJobCache(out.d.job);
+          showGenerationErrors(item.jobId, out.d.generationErrors);
+          removeItem();
+          actionToast(moves ? 'Status updated' : 'Interview added', moves ? label + ' moved to ' + to + '.' : 'Added to the interview timeline for ' + label + '.',
+            'ok', { href: '/admin?job=' + encodeURIComponent(item.jobId), linkLabel: 'Open role' });
+          renderJobs();
+        });
+      });
+    }
+    if (confirmation) confirmAdmin(confirmation).then(function (ok) { if (ok) run(); }); else run();
+  }
+
+  function timelineAction(el) {
+    var act = el.getAttribute('data-tl-act'), id = el.getAttribute('data-tl-job');
+    if (act === 'add') {
+      var box = el.closest('.timeline-add'), value = function (name) { var f = box.querySelector('[data-tl-field="' + name + '"]'); return f ? f.value.trim() : ''; };
+      var entry = { date: value('date'), round: value('round'), kind: value('kind') || 'other', notes: value('notes') };
+      if (!entry.date || !entry.round) { actionToast('Add a date and a round', 'Both are needed for an interview entry.', 'err'); return; }
+      withBusy('tl:add:' + id, el, function () {
+        return postJobAction({ action: 'timeline-add', id: id, entry: entry }).then(function (out) {
+          if (!out.ok) return failToast('Could not add the interview', out);
+          delete tlDrafts[id]; mergeJobFields(id, { interviewTimeline: out.d.interviewTimeline });
+          actionToast('Interview added', 'It is now on the timeline.'); renderJobs();
+        });
+      });
+      return;
+    }
+    if (act === 'remove') {
+      var entryId = el.getAttribute('data-tl-entry');
+      confirmAdmin({ title: 'Remove interview?', description: 'This removes the entry and its notes from the timeline.', confirmLabel: 'Remove interview', destructive: true }).then(function (ok) {
+        if (!ok) return;
+        withBusy('tl:rm:' + entryId, null, function () {
+          return postJobAction({ action: 'timeline-remove', id: id, entryId: entryId }).then(function (out) {
+            if (!out.ok) return failToast('Could not remove the interview', out);
+            mergeJobFields(id, { interviewTimeline: out.d.interviewTimeline }); actionToast('Interview removed', 'It is no longer on the timeline.'); renderJobs();
+          });
+        });
+      });
+    }
+  }
+
+  function reloadRules() {
+    return api('/api/admin/jobs?preferences=1&state=accepted', { method: 'GET' }).then(function (out) {
+      if (!out.ok || !out.d) return;
+      rulesUi.rules = out.d.rules || []; rulesUi.learnedAt = out.d.lastLearnedAt || ''; rulesUi.loaded = true;
+      if (showNeeds) renderJobs();
+    });
+  }
+  function ruleErrorToast(title, out) {
+    failToast(title, out && out.status === 409 ? { status: 409, d: { error: 'That rule was already decided. The list will refresh.' } } : out);
+    if (out && out.status === 409) loadJobs(false);
+  }
+  function preferenceAction(el) {
+    var id = el.getAttribute('data-pf-id') || el.getAttribute('data-pr-id'), proposal = el.hasAttribute('data-pf-id');
+    var act = el.getAttribute(proposal ? 'data-pf-act' : 'data-pr-act'), key = (proposal ? 'pf:' : 'pr:') + id;
+    if (act === 'edit') { needsUi.editing[key] = true; renderJobs(); var ta = document.querySelector('[data-draft-key="' + key + '"]'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } return; }
+    if (act === 'cancel-edit') { delete needsUi.editing[key]; delete needsUi.drafts[key]; renderJobs(); return; }
+    var body, done, title;
+    if (act === 'save-edit') {
+      var text = el.closest('.needs-item').querySelector('textarea').value.trim();
+      if (!text || text.length > 200) { actionToast('Check the wording', 'A rule is 1 to 200 characters of plain text.', 'err'); return; }
+      body = { action: 'edit-preference', id: id, text: text }; title = 'Could not save the rule';
+      done = proposal ? ['Rule accepted', 'The agent will use your wording.'] : ['Rule saved', 'The agent will use your wording.'];
+    } else if (act === 'accept') { body = { action: 'accept-preference', id: id }; title = 'Could not accept the rule'; done = ['Rule accepted', 'The agent will use it from the next review.']; }
+    else if (act === 'reject') { body = { action: 'reject-preference', id: id }; title = 'Could not reject the rule'; done = ['Rule rejected', 'It will not be proposed again.']; }
+    else if (act === 'delete') {
+      confirmAdmin({ title: 'Delete this rule?', description: 'The agent stops using it. You can only get it back if it is learned again.', confirmLabel: 'Delete rule', destructive: true }).then(function (ok) {
+        if (ok) run({ action: 'delete-preference', id: id }, 'Could not delete the rule', ['Rule deleted', 'The agent no longer uses it.']);
+      });
+      return;
+    } else return;
+    run(body, title, done);
+    function run(b, t, d) {
+      withBusy(key, el, function () {
+        return postJobAction(b).then(function (out) {
+          if (!out.ok) return ruleErrorToast(t, out);
+          delete needsUi.editing[key]; delete needsUi.drafts[key];
+          needsItems = needsItems.filter(function (i) { return !(i.kind === 'preference-proposal' && i.id === id); });
+          syncNeedsCount(); actionToast(d[0], d[1]);
+          reloadRules().then(function () { renderJobs(); });
+        });
+      });
+    }
+  }
+  document.addEventListener('click', function (event) {
+    var pf = event.target.closest && event.target.closest('[data-pf-act], [data-pr-act]');
+    if (pf && !pf.disabled) { preferenceAction(pf); return; }
+    var el = event.target.closest && event.target.closest('[data-pc-act], [data-px-act], [data-tl-act]');
+    if (!el || el.disabled) return;
+    if (el.hasAttribute('data-pc-act')) postingAction(el);
+    else if (el.hasAttribute('data-px-act')) proposalAction(el);
+    else timelineAction(el);
+  });
+  // Keep unsent text across re-renders, and save timeline notes when the field is left.
+  document.addEventListener('input', function (event) {
+    var t = event.target, key = t.getAttribute && t.getAttribute('data-draft-key');
+    if (key) needsUi.drafts[key] = t.value;
+    else if (t.getAttribute && t.getAttribute('data-pc-paste')) pcPaste[t.getAttribute('data-pc-paste')] = t.value;
+    else if (t.getAttribute && t.getAttribute('data-tl-field')) {
+      var box = t.closest('[data-tl-add]'), id = box && box.getAttribute('data-tl-add');
+      if (id) tlDrafts[id] = Object.assign(tlDrafts[id] || {}, Object.fromEntries([[t.getAttribute('data-tl-field'), t.value]]));
+    }
+  });
+  document.addEventListener('change', function (event) {
+    var t = event.target;
+    if (t.getAttribute && t.getAttribute('data-tl-field') === 'kind') {
+      var box = t.closest('[data-tl-add]'), id = box && box.getAttribute('data-tl-add');
+      if (id) tlDrafts[id] = Object.assign(tlDrafts[id] || {}, { kind: t.value });
+    }
+  });
+  document.addEventListener('focusout', function (event) {
+    var t = event.target;
+    if (!t.hasAttribute || !t.hasAttribute('data-tl-notes')) return;
+    var id = t.getAttribute('data-tl-job'), entryId = t.getAttribute('data-tl-entry'), notes = t.value.trim();
+    if (notes === t.getAttribute('data-saved')) return;
+    var status = t.closest('.timeline-entry').querySelector('[data-tl-status]');
+    if (status) { status.textContent = 'Saving…'; status.className = 'field-status'; }
+    postJobAction({ action: 'timeline-edit', id: id, entryId: entryId, entry: { notes: notes } }).then(function (out) {
+      if (!out.ok) {
+        if (unauthorised(out)) return;
+        if (status) { status.textContent = (out.d && out.d.error) || 'Could not save. Leave the field again to retry.'; status.className = 'field-status err'; }
+        return;
+      }
+      t.setAttribute('data-saved', notes); mergeJobFields(id, { interviewTimeline: out.d.interviewTimeline });
+      if (status) status.textContent = 'Saved';
+    });
   });
 
   readNavigationState();

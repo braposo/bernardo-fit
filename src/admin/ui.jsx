@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 export { mountAdminChat } from './chat/ChatPanel';
 import { flushSync } from 'react-dom';
 import parse, { attributesToProps, domToReact, Element } from 'html-react-parser';
-import { Sparkles, FileText, ExternalLink, SlidersHorizontal, ChevronDown, ChevronLeft, ArrowUpDown, Check } from 'lucide-react';
+import { Sparkles, FileText, ExternalLink, SlidersHorizontal, ChevronDown, ChevronLeft, ArrowUpDown, Check, List, Columns3 } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -57,7 +57,7 @@ const options = {
     const children = () => domToReact(node.children, options);
     if (props['data-score-gauge']) return <ScoreGauge dimension={props['data-dimension-id']} label={props['data-score-gauge']} value={props['data-value']} weight={props['data-weight']} />;
     if (props['data-icon']) {
-      const Icon = { file: FileText, external: ExternalLink, settings: SlidersHorizontal, chevron: ChevronDown, 'sidebar-toggle': ChevronLeft, sort: ArrowUpDown, check: Check }[props['data-icon']];
+      const Icon = { file: FileText, external: ExternalLink, settings: SlidersHorizontal, chevron: ChevronDown, 'sidebar-toggle': ChevronLeft, sort: ArrowUpDown, check: Check, list: List, board: Columns3 }[props['data-icon']];
       return Icon ? (has("document-icon") ? <span className="document-icon"><Icon aria-hidden="true" className="ui-icon" /></span> : <Icon aria-hidden="true" className="ui-icon" />) : null;
     }
     if (has('document-versions')) return <Collapsible {...props} defaultOpen={props['data-open'] === 'true'} onOpenChange={open => document.dispatchEvent(new CustomEvent('admin:versions', { detail: { key: props['data-key'], open } }))}>{children()}</Collapsible>;
@@ -88,7 +88,7 @@ const options = {
     if (node.name === 'button') {
       const variant = has('generation-outline') ? 'outline' : has('generation') ? 'generation' : has('danger') ? 'destructive' :
         has('read-link') || has('back-pipeline') ? 'link' : has('pipeline-toggle') ? 'secondary' : has('ghost') ? 'outline' :
-          has('pipeline-item') || has('sort-option') || props['data-collection'] || props.id === 'usagebtn' ? 'ghost' : 'default';
+          has('pipeline-item') || has('needs-open') || has('sort-option') || props['data-collection'] || props.id === 'usagebtn' ? 'ghost' : 'default';
       return <Button type="button" {...props} variant={variant}>
         {has('generation') ? <><Sparkles aria-hidden="true" /><span data-button-label>{children()}</span></> : children()}
       </Button>;

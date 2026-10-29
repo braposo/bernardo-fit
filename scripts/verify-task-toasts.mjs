@@ -20,7 +20,7 @@ const server = createServer(async (req, res) => {
     return res.end(html.replace('/* SANITY_PUBLIC_CONTENT */', 'window.PUBLIC_CONTENT = ' + JSON.stringify({ name: 'Example candidate', headingHtml: 'Assess a role', introductionHtml: 'Paste a role', placeholder: 'Job description', buttonLabel: 'Assess fit', hint: '', contactsHtml: '' }) + ';'));
   }
   const file = path === '/assets/task-ui-real.js' ? '/assets/task-ui.js' : path === '/admin' ? '/admin.html' : path;
-  if (!['/admin.html','/admin-run.js','/admin-usage.js','/task-ui.css','/assets/task-ui.js','/assets/admin-ui.js','/assets/admin-ui.css'].includes(file)) { res.writeHead(404).end(); return; }
+  if (!['/admin.html','/admin-run.js','/admin-usage.js','/pipeline-board.js','/task-ui.css','/assets/task-ui.js','/assets/admin-ui.js','/assets/admin-ui.css'].includes(file)) { res.writeHead(404).end(); return; }
   res.end(await readFile(new URL('../public' + file, import.meta.url)));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
