@@ -88,7 +88,7 @@ const options = {
     if (node.name === 'button') {
       const variant = has('generation-outline') ? 'outline' : has('generation') ? 'generation' : has('danger') ? 'destructive' :
         has('read-link') || has('back-pipeline') ? 'link' : has('pipeline-toggle') ? 'secondary' : has('ghost') ? 'outline' :
-          has('pipeline-item') || has('sort-option') || props['data-collection'] || props.id === 'usagebtn' ? 'ghost' : 'default';
+          has('pipeline-item') || has('needs-open') || has('sort-option') || props['data-collection'] || props.id === 'usagebtn' ? 'ghost' : 'default';
       return <Button type="button" {...props} variant={variant}>
         {has('generation') ? <><Sparkles aria-hidden="true" /><span data-button-label>{children()}</span></> : children()}
       </Button>;

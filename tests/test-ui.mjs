@@ -26,7 +26,7 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "jevAssessmentHtml", "percentWords", "leanBadgeHtml", "agentReviewHtml", "jobHtml", "pipelineItemHtml"];
+  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "postingCheckHtml", "timelineHtml", "timelineDateText", "gapItemHtml", "answerItemHtml", "draftOf", "jevAssessmentHtml", "percentWords", "leanBadgeHtml", "agentReviewHtml", "jobHtml", "pipelineItemHtml"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
 
@@ -34,10 +34,10 @@ const sandbox = [
   'var stages=["new","reviewing","applied","interviewing","offer","rejected","not_interested","expired"];',
   'var MODELS=[{id:"gpt-5.6-sol",label:"Sol"},{id:"claude-opus-5",label:"Opus"}];',
   'var workspaceSection="overview",selectedId="j1",showArchived=false,showNeeds=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true,jevEnabled=true;',
-  'var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
+  'var needsUi={editing:{},drafts:{},kept:{},busy:{}}, pcPaste={}, tlDrafts={}; var TIMELINE_KIND_LABELS={phone:\"Phone\",video:\"Video\",onsite:\"On-site\",assessment:\"Assessment\",other:\"Other\"}; var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
   ...[/var LEAN_LABELS = [^\n]*;/, /var LEAN_ARIA = [^\n]*;/].map(pattern => script.match(pattern)?.[0] || ''),
   needed.map(grab).join("\n"),
-  'return {jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
+  'return {postingCheckHtml,timelineHtml,jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
 ].join("\n");
 let R;
 try { R = new Function(sandbox)(); check("render helpers evaluate", true); }
@@ -148,6 +148,24 @@ check("search replaces history", /searchQuery = searchEl\.value;\s*writeNavigati
 check("mobile collapses to one pane near 900px", /@media \(max-width: 900px\)/.test(style) && /\.admin-shell\.has-selection \.pipeline \{ display: none/.test(style));
 check("mobile actions do not scroll horizontally", !/material-actions[^}]*overflow-x/.test(style));
 check("generation uses amber tokens", style.includes("--generation: #fff0d4") && /\.generation \{/.test(style));
+
+
+console.log("\n--- posting check and interview timeline sections ---");
+const gaps = [{ id: "g1", kind: "salary", label: "Salary range", why: "Not stated.", question: "What is the pay?", state: "open" }];
+const checked = { status: "checked", checkedAt: "2026-10-28T09:00:00Z", draftStatus: "drafted", gaps,
+  form: { source: "greenhouse", status: "ready", questions: [{ id: "q1", text: "Why us?", required: true, options: [], answerDraft: "Because.", needsYou: false, reason: "", state: "drafted" }] } };
+const reviewing = render("materials", { stage: "reviewing", postingCheck: checked });
+check("Documents shows the posting check for Reviewing roles", /Posting check/.test(reviewing) && /data-pc-act="ask"/.test(reviewing) && /data-pc-act="approve-answer"/.test(reviewing) && /data-pc-act="rerun"/.test(reviewing));
+check("a fetched form has no paste box", !/data-pc-paste/.test(reviewing));
+check("a form that was not detected offers the paste box", /data-pc-paste/.test(render("materials", { stage: "reviewing", postingCheck: { ...checked, form: { source: "", status: "not-detected", questions: [] } } })));
+check("other stages and the Overview have no posting check", !/Posting check/.test(render("materials", { stage: "interviewing", postingCheck: checked })) && !/Posting check/.test(render("overview", { stage: "reviewing", postingCheck: checked })));
+check("a Reviewing role without a check can run one", /Run check/.test(render("materials", { stage: "reviewing", postingCheck: null })));
+check("approved answers are shown, not editable", !/data-pc-act="approve-answer"/.test(render("materials", { stage: "reviewing", postingCheck: { ...checked, form: { ...checked.form, questions: [{ ...checked.form.questions[0], state: "approved" }] } } })));
+const timeline = [{ id: "t1", date: "2026-11-03", round: "Final round", kind: "video", source: "email", notes: "Prep", proposalId: "p1" }];
+const interviewing = render("overview", { stage: "interviewing", interviewTimeline: timeline });
+check("Overview shows the interview timeline with source badge and notes", /Interview timeline/.test(interviewing) && /Final round/.test(interviewing) && />Email</.test(interviewing) && /data-tl-notes/.test(interviewing) && /data-tl-act="add"/.test(interviewing) && /data-tl-act="remove"/.test(interviewing));
+check("the timeline is hidden for early roles with no entries", !/Interview timeline/.test(render("overview", { stage: "reviewing", interviewTimeline: [] })));
+check("timeline text is escaped", !/<script>/.test(render("overview", { stage: "interviewing", interviewTimeline: [{ ...timeline[0], round: "<script>x</script>" }] })));
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

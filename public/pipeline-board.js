@@ -31,8 +31,16 @@ function answersComplete(job) {
   return done >= total;
 }
 
+// The posting check's drafted form answers (docs/posting-check.md) must be approved
+// or skipped. A job with no check, or a check with no form questions, needs none.
+function postingAnswersReady(job) {
+  const questions = job.postingCheck && job.postingCheck.form && job.postingCheck.form.questions;
+  if (!Array.isArray(questions)) return true;
+  return questions.every(question => question.state !== "pending" && question.state !== "drafted");
+}
+
 export function isReadyToApply(job) {
-  return !!job && job.stage === "reviewing" && !!job.fitReportId && hasTailoredCv(job) && answersComplete(job);
+  return !!job && job.stage === "reviewing" && !!job.fitReportId && hasTailoredCv(job) && answersComplete(job) && postingAnswersReady(job);
 }
 
 // The board column a job belongs in, or null for stages the board does not show.

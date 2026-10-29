@@ -21,6 +21,13 @@ check("unanswered application questions block ready", !isReadyToApply(ready({ qu
 check("answered application questions allow ready", isReadyToApply(ready({ questionCount: 3, answeredCount: 3 })));
 check("question arrays work when counts are absent", !isReadyToApply(ready({ questionCount: undefined, answeredCount: undefined, questions: [{ q: "Why?", a: "" }] })));
 check("refused questions count as done", isReadyToApply(ready({ questionCount: undefined, answeredCount: undefined, questions: [{ q: "Why?", refused: true }] })));
+const pc = (...states) => ({ postingCheck: { status: "checked", gaps: [], form: { source: "greenhouse", status: "ready", questions: states.map((state, i) => ({ id: "pq" + i, text: "Question " + i, state })) } } });
+check("a null posting check changes nothing", isReadyToApply(ready({ postingCheck: null })));
+check("a posting check with no form questions changes nothing", isReadyToApply(ready(pc())) && isReadyToApply(ready({ postingCheck: { status: "partial", gaps: [{ id: "g1", state: "open" }], form: { status: "unavailable", questions: [] } } })));
+check("a drafted posting answer blocks ready", !isReadyToApply(ready(pc("approved", "drafted"))));
+check("a pending posting answer blocks ready", !isReadyToApply(ready(pc("pending"))));
+check("approved and skipped posting answers allow ready", isReadyToApply(ready(pc("approved", "skipped"))));
+check("a check without a form object is tolerated", isReadyToApply(ready({ postingCheck: { status: "checked", gaps: [] } })));
 check("other stages are never ready", ["new", "applied", "interviewing", "offer", "rejected"].every(stage => !isReadyToApply(ready({ stage }))));
 check("missing job is not ready", !isReadyToApply(null) && !isReadyToApply(undefined));
 
