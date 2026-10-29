@@ -1,5 +1,8 @@
 // Approved two-page CV content, agreed with the owner on 2026-10-07 in the
 // "Two-page CV: draft role content" document and refined over PDF previews.
+// The profile, core skills and SingleStore scope were repositioned on 2026-10-29
+// ("Positioning: engineering manager for the AI era"); apply-ai-era-positioning.mjs
+// writes that change to Sanity.
 // **Double asterisks** mark the skills and capabilities shown in bold. Seeding writes it to Sanity,
 // which stays the source of truth; editors change it there afterwards.
 
@@ -7,15 +10,17 @@ export const TWO_PAGE_CV_SOURCE_KEY='two-page-cv:2026-10-07';
 
 export const TWO_PAGE_PROFILE={
   paragraphs:[
-    "I turn **problems into products**. Years across engineering, design, marketing, sales and running my own business help me **spot the problems worth solving**, often before anyone has named them, and shape them into features that improve customers' lives and open new revenue streams. As AI makes code cheaper to write, **knowing what to build and how to build it well** is where I add the most.",
-    "I'm a **generalist engineer and engineering manager** with over 15 years on difficult problems and a **strong feel for UX**. I lead by a line from The Inner Game of Tennis: performance equals potential minus interference. My job is to remove that interference by giving the team **ownership, a clear vision and goals**, and I keep working on my leadership through workshops, retreats and facilitator training.",
+    "I'm an **engineering manager for teams that build with AI**. As agents take on more of the code, the hard part moves to deciding what to build, how good it has to be, and how people and agents share the work. That takes a manager who understands every part of how a product gets made.",
+    "Over 15 years I've been a **staff and principal engineer**, built **design systems** and design tools, worked side by side with **marketing** on websites, docs and growth, and **built products** from B2B analytics to a consumer booking app. I've worked at every size of company, from my own business to a pre-IPO company of more than 500 people.",
+    "In my own time I'm testing **how people and agents work together**, and I invest in my own leadership through workshops, retreats and facilitator training. I lead by a line from The Inner Game of Tennis: performance equals potential minus interference. My job is to **remove the interference**, and AI now lets me raise the potential too.",
   ],
   skills:[
-    {label:'Product and business',items:['finding problems worth solving','turning ideas into products','monetising features','UX and UI design','design systems','working across marketing, sales and design']},
+    {label:'People and agents',items:['human and agent teams','agentic development workflows','AI products','MCP servers','LLM integration']},
     {label:'Leadership',items:['ownership-driven teams','hiring','coaching','performance and promotions','facilitation']},
-    {label:'Engineering',items:['TypeScript','React','Next.js','Node.js','GraphQL','frontend architecture','web performance']},
-    {label:'AI',items:['AI assistants','MCP servers','LLM integration']},
-    {label:'Data and infrastructure',items:['SingleStore','AWS','Vercel','Docker','CI/CD']},
+    {label:'Engineering',items:['TypeScript','React','Next.js','Node.js','GraphQL','frontend architecture','AWS','Vercel']},
+    {label:'Design',items:['design systems','UX and UI design','design tooling']},
+    {label:'Marketing and growth',items:['websites','documentation','SEO','tracking and experimentation']},
+    {label:'Product and business',items:['finding problems worth solving','turning ideas into products','monetising features','working with sales']},
   ],
   contributionsIntro:'The common thread in my side projects and open source is the human side of technology: making tools more approachable for the people who use them.',
 };
@@ -24,7 +29,7 @@ export const TWO_PAGE_PROFILE={
 // records, in this order; tailored CVs choose two or three of them.
 export const TWO_PAGE_ROLES={
   singlestore:{depth:'full',
-    scope:'**Hired and led the Web team** at a real-time distributed SQL database company, owning singlestore.com, the documentation platform, CMS infrastructure and AI integrations. Fully remote.',
+    scope:'Joined as a staff engineer and moved into engineering management, **hiring and leading the Web team** at a real-time distributed SQL database company: a pre-IPO Silicon Valley business of more than 500 people. The team owned singlestore.com, the documentation platform, CMS infrastructure and AI integrations. Fully remote.',
     responsibilities:[
       '**Hired, coached and grew the team**, running performance reviews and promotion cases',
       '**Set direction** across the website, docs and AI integrations with Product, Design, Docs and Marketing',

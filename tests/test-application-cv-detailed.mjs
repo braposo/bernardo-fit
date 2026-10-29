@@ -37,7 +37,7 @@ await test('the two-page source carries fixed role text, the achievement pool an
   assert.equal(source.settings.layout,'detailed');assert.equal(source.settings.pages,2);
   assert.deepEqual(source.roles.map(role=>role.detail.depth),['full','full','full','short','earlier']);
   assert.equal(source.roles[0].detail.achievementIds.length,8);
-  assert.equal(source.profile.skills[0].label,'Product and business');
+  assert.equal(source.profile.skills[0].label,'People and agents');
   assert.equal(source.projects.find(project=>project.title==='Fit').detail.featured,true);
 });
 
@@ -91,7 +91,7 @@ await test('the agreed content renders within two A4 pages with every public fra
   assert.ok(fitted.rendered.layout.pageCount<=2);
   assert.ok(fitted.selection.roles.every(role=>role.achievementIds.length>=1));
   const html=await renderApplicationCvHtml(fitted.content);
-  for(const text of ['Profile','Core skills','Featured project','Side projects and community','facts-label','entry-highlight','<strong class="em">problems into products</strong>'])
+  for(const text of ['Profile','Core skills','Featured project','Side projects and community','facts-label','entry-highlight','<strong class="em">engineering manager for teams that build with AI</strong>'])
     assert.ok(html.includes(text),text);
   for(const text of ['Earlier career','Other contributions','Domains','**'])assert.equal(html.includes(text),false,text);
   // Critical Software closes Experience, and each role's Stack line sits between its scope and its items.
@@ -145,7 +145,7 @@ await test('public output and the fit page carry the two-page sections without p
   assert.equal(visible.layout,'detailed');assert.equal(visible.experience[0].stack[0],'TypeScript');
   assert.equal(visible.featured[0].highlights.length,6);assert.equal(visible.earlier[0].company,'Critical Software');
   const page=renderPublicApplication({publicId:'abc',report:{job_title:'Engineering Manager',company:'Example'},version:{content:visible}},'<!-- TITLE --><!-- REPORT --><!-- CV -->');
-  for(const text of ['<strong class="em">problems into products</strong>','Core skills','entry-scope','Stack','Featured project','Side projects and community','Critical Software','The common thread'])
+  for(const text of ['<strong class="em">engineering manager for teams that build with AI</strong>','Core skills','entry-scope','Stack','Featured project','Side projects and community','Critical Software','The common thread'])
     assert.ok(page.includes(text),text);
   for(const text of ['Earlier career','Domains','**'])assert.equal(page.includes(text),false,text);
   assert.ok(page.indexOf('Critical Software')<page.indexOf('Featured project'));
