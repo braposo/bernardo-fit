@@ -4,11 +4,14 @@ import { executeJobReview } from "../../lib/review-agent.js";
 import { hasKV } from "../../lib/kv.js";
 import { REVIEW_JOB_TASK_ID } from "../../lib/task-policy.js";
 
-// Shadow-mode review of a job admitted at New: records Jev's suggestion on the
-// job and never changes its stage. Triggered once per job and assessment (the
-// idempotency key is set by requestJobReview). The Jev request runs as a durable
-// model call whose provider child owns HTTP retries; this task retries only its
-// own reads and the final write, reusing the checkpointed Jev answer.
+// Review of a job admitted at New: records Jev's suggestion on the job. Shadow
+// mode unless autoAdvance/autoDrop are on and the agreement gate is open, when
+// it then moves the job through the shared PATCH path (lib/job-update.js).
+// Triggered once per job and assessment (the idempotency key is set by
+// requestJobReview). The Jev request runs as a durable model call whose
+// provider child owns HTTP retries; this task retries only its own reads and
+// the final writes, reusing the checkpointed Jev answer. A retry after the
+// review was saved still makes a pending automatic move, at most once.
 export const reviewJobTask = task({
   id: REVIEW_JOB_TASK_ID, maxDuration: 180,
   retry: { maxAttempts: 3, factor: 2, minTimeoutInMs: 2000, maxTimeoutInMs: 15000, randomize: true },
