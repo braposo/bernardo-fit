@@ -6,6 +6,8 @@ Applying a proposal moves the job through the same path as a manual stage change
 
 The routine itself is not part of the app. It is created by hand, after Bernardo approves it (see [Rollout](#rollout)).
 
+**Trigger replacement.** The same check now also runs inside the app as the Trigger task `gmail-status-check` (daily, 07:10 London), which reads Gmail itself with read-only OAuth credentials, prefilters by rule and makes one small model call only for messages that match a job. It uses the matcher and create function described here. Setup, settings (`emailStatusProposals.gmailCheck`), cost and how to switch over from this routine are in [gmail-status-check.md](gmail-status-check.md).
+
 ## What is stored
 
 ### `statusProposal` documents
@@ -44,6 +46,7 @@ Timeline changes appear in the job's activity as "Interview added from email", "
 | --- | --- | --- |
 | `enabled` | `false` | While false or unpublished, the routine's new proposals are refused with 403. Apply, Dismiss and the timeline work either way. |
 | `minimumConfidence` | `0.6` | Proposals below this (0.3 to 0.99) are not saved. |
+| `gmailCheck` | disabled | Optional. The Trigger Gmail check's switch, search, message cap and skipped senders; see [gmail-status-check.md](gmail-status-check.md#settings). |
 
 Changing it does not mark fit assessments outdated. Seed the default once, preserving any published value:
 
