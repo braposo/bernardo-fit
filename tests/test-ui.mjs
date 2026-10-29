@@ -26,7 +26,7 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "postingCheckHtml", "timelineHtml", "timelineDateText", "gapItemHtml", "answerItemHtml", "draftOf", "jevAssessmentHtml", "percentWords", "leanBadgeHtml", "agentReviewHtml", "jobHtml", "pipelineItemHtml"];
+  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "autoMoveBadgeHtml", "postingCheckHtml", "timelineHtml", "timelineDateText", "gapItemHtml", "answerItemHtml", "draftOf", "jevAssessmentHtml", "percentWords", "leanBadgeHtml", "agentReviewHtml", "jobHtml", "pipelineItemHtml"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
 
@@ -166,6 +166,13 @@ const interviewing = render("overview", { stage: "interviewing", interviewTimeli
 check("Overview shows the interview timeline with source badge and notes", /Interview timeline/.test(interviewing) && /Final round/.test(interviewing) && />Email</.test(interviewing) && /data-tl-notes/.test(interviewing) && /data-tl-act="add"/.test(interviewing) && /data-tl-act="remove"/.test(interviewing));
 check("the timeline is hidden for early roles with no entries", !/Interview timeline/.test(render("overview", { stage: "reviewing", interviewTimeline: [] })));
 check("timeline text is escaped", !/<script>/.test(render("overview", { stage: "interviewing", interviewTimeline: [{ ...timeline[0], round: "<script>x</script>" }] })));
+
+console.log("\n--- moved by agent badge ---");
+const moved = { agentReview: { lean: "advance", reason: "", autoMove: { stage: "reviewing", at: "2026-10-28T07:05:00Z", overriddenAt: "" } } };
+check("a job the agent moved shows the badge with stage and date in its label", />Moved by agent</.test(R.pipelineItemHtml({ ...base, stage: "reviewing", ...moved })) && /aria-label="Moved by agent to Reviewing on /.test(R.pipelineItemHtml({ ...base, stage: "reviewing", ...moved })));
+check("the workspace header shows it too", />Moved by agent</.test(render("overview", { stage: "reviewing", ...moved })));
+check("an overridden move shows no badge", !/Moved by agent/.test(R.pipelineItemHtml({ ...base, stage: "reviewing", agentReview: { ...moved.agentReview, autoMove: { ...moved.agentReview.autoMove, overriddenAt: "2026-10-28T09:00:00Z" } } })));
+check("jobs without an auto move show no badge", !/Moved by agent/.test(R.pipelineItemHtml(base)));
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);

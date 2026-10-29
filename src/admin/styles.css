@@ -1128,3 +1128,24 @@ body {
     grid-template-columns:1fr;
   }
 }
+.needs-sources {
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:grid;
+}
+.needs-sources [data-slot=button] {
+  justify-content:flex-start;
+  padding-top:6px;
+  padding-bottom:6px;
+  text-align:left;
+  white-space:normal;
+  font-size:13px;
+}
+.needs-rule-text {
+  font-size:14px;
+  color:var(--foreground);
+}
+h2.pipeline-company {
+  margin:0;
+}

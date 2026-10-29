@@ -47,9 +47,12 @@ async function needsFixture(browser) {
     base('ap1', { company: 'Contoso Cloud', role: 'Engineering Director', stage: 'applied', score: 83, interviewTimeline: [
       { id: 't1', date: '2026-10-22', round: 'Recruiter screen', kind: 'phone', source: 'email', notes: 'Friendly. Asked about team size.', proposalId: 'pr0', createdAt: '2026-10-21T10:00:00Z', updatedAt: '2026-10-21T10:00:00Z' },
       { id: 't2', date: '2026-10-29T14:00:00Z', round: 'Hiring manager', kind: 'video', source: 'manual', notes: '', proposalId: '', createdAt: '2026-10-25T10:00:00Z', updatedAt: '2026-10-25T10:00:00Z' }] }),
+    base('mv1', { company: 'Moved Co', role: 'Platform Lead', stage: 'reviewing', score: 79, agentReview: { lean: 'advance', advanceProbability: 0.9, dropProbability: 0.05, reason: 'Matches what you pick.', question: '', reviewedAt: '2026-10-28T07:00:00Z', autoMove: { stage: 'reviewing', at: '2026-10-28T07:05:00Z', overriddenAt: '' } } }),
+    base('mv2', { company: 'Undone Co', role: 'Platform Lead', stage: 'reviewing', score: 70, agentReview: { lean: 'advance', advanceProbability: 0.9, dropProbability: 0.05, reason: '', question: '', reviewedAt: '2026-10-28T07:00:00Z', autoMove: { stage: 'reviewing', at: '2026-10-28T07:05:00Z', overriddenAt: '2026-10-28T09:00:00Z' } } }),
     base('ap2', { company: 'Adventure Works', role: 'Head of Engineering', stage: 'new', score: 74, fitReportId: '' }),
   ];
   const applied = new Set();
+  const rules = [{ id: 'r1', text: 'Prefers hybrid roles in London.', state: 'accepted' }, { id: 'r2', text: 'Original wording.', editedText: 'Avoids agencies and consultancies.', state: 'accepted' }];
   const needsItems = () => [
     { id: 'ag1', company: 'Agentic Works', role: 'Head of Platform', score: 64, location: 'Manchester', lean: 'ask', reason: 'Strong platform scope but the location is unclear.', question: 'Is a hybrid role in Manchester workable?', reviewedAt: '2026-10-28T07:00:00Z' },
     ...['pc1'].map(id => { const j = jobs.find(x => x.id === id); return { kind: 'posting-gaps', id, company: j.company, role: j.role, score: j.score, location: j.location, checkedAt: j.postingCheck.checkedAt,
@@ -62,6 +65,8 @@ async function needsFixture(browser) {
     { kind: 'status-proposal', id: 'pr2', jobId: 'ap2', company: 'Adventure Works', role: 'Head of Engineering', stage: 'new', proposedStage: 'reviewing',
       summary: 'Adventure Works asked for your CV and a short call.', interview: null, confidence: 0.7, matchedBy: 'sender',
       email: { subject: 'Next steps', from: 'talent@adventure.example', date: '2026-10-27T12:00:00Z', link: 'https://mail.google.com/mail/u/0/#all/thread2' }, createdAt: '2026-10-27T12:30:00Z' },
+    { kind: 'preference-proposal', id: 'pf1', text: 'Drops roles that need weekly travel.', sourceDecisionIds: ['d1', 'd2'], createdAt: '2026-10-28T06:00:00Z',
+      sources: [{ id: 'd1', jobId: 'ap2', company: 'Adventure Works', role: 'Head of Engineering', direction: 'drop' }, { id: 'd2', jobId: 'pc2', company: 'Fabrikam Systems', role: 'VP Engineering', direction: 'drop' }] },
   ].filter(item => !applied.has(item.id));
   const calls = [];
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -71,6 +76,7 @@ async function needsFixture(browser) {
     if (url.pathname !== '/api/admin/jobs') return reply({ error: 'Unexpected fixture request' }, 404);
     if (request.method() === 'GET') {
       if (url.searchParams.get('needsYou') === '1') return reply({ items: needsItems(), agreement: { decided: 9, agreed: 7, rate: 0.78 } });
+      if (url.searchParams.get('preferences') === '1') return reply({ rules: clone(rules), lastLearnedAt: '2026-10-27T09:00:00Z' });
       if (url.searchParams.get('reviewReasons') === '1') return reply({ advance: [], drop: [] });
       if (url.searchParams.get('activity') === '1') return reply({ events: [], hasMore: false, snapshot: 1, stats: {}, usage: { days: [], breakdown: [] } });
       if (url.searchParams.has('id')) { const job = jobs.find(j => j.id === url.searchParams.get('id')); return job ? reply({ job: clone(job) }) : reply({ error: 'Job not found' }, 404); }
@@ -79,6 +85,12 @@ async function needsFixture(browser) {
     }
     if (request.method() !== 'POST') return reply({ error: 'Unexpected fixture request' }, 404);
     calls.push(body);
+    if (body.action === 'accept-preference' || body.action === 'reject-preference' || body.action === 'edit-preference') {
+      applied.add(body.id);
+      if (body.action !== 'reject-preference') rules.push({ id: body.id, text: 'Drops roles that need weekly travel.', editedText: body.text, state: 'accepted' });
+      return reply({ rule: { id: body.id } });
+    }
+    if (body.action === 'delete-preference') { rules.splice(rules.findIndex(r => r.id === body.id), 1); return reply({ deleted: body.id }); }
     const job = jobs.find(j => j.id === body.id), pc = job?.postingCheck;
     const out = () => reply({ job: clone(job) });
     switch (body.action) {
@@ -124,6 +136,9 @@ try {
     };
     await shot('needs-' + tag + '-desktop.png', '/admin.html?collection=needs', { width: 1440, height: 2150 }, false, '.pipeline-item, .needs-card');
     if (tag === 'after') {
+      await shot('rules-after-desktop.png', '/admin.html?collection=needs', { width: 1440, height: 3000 }, false, '.learned-rules');
+      await shot('rules-after-mobile.png', '/admin.html?collection=needs', { width: 390, height: 844 }, true, '.learned-rules');
+      await shot('moved-badge-after-desktop.png', '/admin.html?job=mv1', { width: 1440, height: 1100 }, false, '.role-stage');
       await shot('needs-after-mobile.png', '/admin.html?collection=needs', { width: 390, height: 844 }, true, '.needs-card');
       await shot('posting-check-after-desktop.png', '/admin.html?job=pc1&section=materials', { width: 1440, height: 1900 }, false, '.posting-check');
       await shot('timeline-after-desktop.png', '/admin.html?job=ap1&section=overview', { width: 1440, height: 1700 }, false, '.interview-timeline');
@@ -772,11 +787,11 @@ try {
       return { h: Math.round(r.height), w: Math.round(r.width), radius: c.borderTopLeftRadius, border: c.borderTopWidth + ' ' + c.borderTopColor, bg: c.backgroundColor, font: c.fontSize }; });
     await np.goto(origin + '/admin.html?collection=needs');
     await np.locator('[data-needs-kind]').first().waitFor();
-    check('Needs you counts every item kind', (await np.locator('[data-collection="needs"]').textContent()).includes('5'));
+    check('Needs you counts every item kind', (await np.locator('[data-collection="needs"]').textContent()).includes('6'));
     check('review items without a kind still render as before', await np.locator('button.pipeline-item[data-select-job="ag1"]').count() === 1 &&
       (await np.locator('button.pipeline-item[data-select-job="ag1"]').textContent()).includes('Agent: unsure') &&
       (await np.locator('button.pipeline-item[data-select-job="ag1"]').textContent()).includes('Is a hybrid role in Manchester workable?'));
-    check('each new kind renders its own card', (await np.locator('[data-needs-kind]').evaluateAll(els => els.map(el => el.getAttribute('data-needs-kind')))).join() === 'posting-gaps,application-answers,status-proposal,status-proposal');
+    check('each new kind renders its own card', (await np.locator('[data-needs-kind]').evaluateAll(els => els.map(el => el.getAttribute('data-needs-kind')))).join() === 'posting-gaps,application-answers,status-proposal,status-proposal,preference-proposal');
     check('posting gaps card lists label, why and suggested question', await np.locator('[data-needs-kind="posting-gaps"]').evaluate(el => ['Salary range', 'does not say what the role pays', 'What is the salary range for this role?'].every(t => el.textContent.includes(t))));
     await settle(np);
     // Measure new controls against the existing Agent recommendation card buttons (Overview) and Documents textarea.
@@ -810,7 +825,7 @@ try {
     await np.locator('[data-answer-item="q2"] [data-pc-act="skip-answer"]').click();
     await np.locator('[data-needs-kind="application-answers"]').waitFor({ state: 'detached' });
     check('Skip sends skip-answer and the finished card leaves', JSON.stringify(last()) === JSON.stringify({ action: 'skip-answer', id: 'pc1', questionId: 'q2' }) &&
-      (await np.locator('[data-collection="needs"]').textContent()).includes('3'));
+      (await np.locator('[data-collection="needs"]').textContent()).includes('4'));
     // Proposals.
     const pr1 = np.locator('[data-needs-id="pr1"]');
     check('proposal card shows summary, stage badges, email and interview', await pr1.evaluate(el => ['invited you to a final round', 'Applied', 'Interviewing', 'Final round invitation', 'recruiter@contoso.example', 'Final round'].every(t => el.textContent.includes(t))) &&
@@ -828,6 +843,44 @@ try {
     await np.getByRole('alertdialog').getByRole('button', { name: 'Move to Reviewing' }).click();
     await np.locator('[data-needs-kind="status-proposal"]').waitFor({ state: 'detached' });
     check('confirmed Apply sends apply-proposal', JSON.stringify(last()) === JSON.stringify({ action: 'apply-proposal', id: 'pr2' }));
+    // Learned rules: proposals, the accepted list and the Moved by agent badge.
+    await np.locator('[data-needs-kind="preference-proposal"]').waitFor();
+    const pf = np.locator('[data-needs-id="pf1"]');
+    check('rule proposal shows its text and the decisions it came from', (await pf.textContent()).includes('Drops roles that need weekly travel.') &&
+      (await pf.locator('ul.needs-sources li').allTextContents()).join('|') === 'Adventure Works · Head of Engineering · Dropped|Fabrikam Systems · VP Engineering · Dropped');
+    check('learned rules list shows edited wording and last learned time', await np.locator('[data-rule-id]').count() === 2 && (await np.locator('.learned-rules').textContent()).includes('Avoids agencies and consultancies.') && (await np.locator('.learned-rules').textContent()).includes('Last learned'));
+    const pfBtn = await box(np, '[data-pf-act="accept"]'), prBtn = await box(np, '[data-pr-act="delete"]');
+    check('rule buttons match the Needs you buttons', pfBtn.h === 44 && prBtn.h === 44 && pfBtn.radius === sizes.card.radius && prBtn.border === sizes.cardGhost.border && prBtn.bg === sizes.cardGhost.bg);
+    console.log('rule button sizes at 1440', JSON.stringify({ pfBtn, prBtn, source: await box(np, 'ul.needs-sources button') }));
+    await pf.locator('ul.needs-sources button').first().click();
+    await np.locator('.role-header').waitFor();
+    check('a source opens its job without a left-Needs-you notice', (await np.locator('.role-header').textContent()).includes('Adventure Works') && await np.locator('.workspace .notice').count() === 0);
+    await pf.locator('[data-pf-act="edit"]').click();
+    await pf.locator('textarea').fill('Drops roles needing weekly travel.');
+    await pf.locator('[data-pf-act="save-edit"]').click();
+    await pf.waitFor({ state: 'detached' });
+    check('Edit sends edit-preference with the new wording and the rule joins the list', JSON.stringify(last()) === JSON.stringify({ action: 'edit-preference', id: 'pf1', text: 'Drops roles needing weekly travel.' }) && await np.locator('[data-rule-id]').count() === 3);
+    await np.locator('[data-rule-id="r2"] [data-pr-act="edit"]').click();
+    await np.locator('[data-rule-id="r2"] textarea').fill('Avoids agencies.');
+    await np.locator('[data-rule-id="r2"] [data-pr-act="save-edit"]').click();
+    await np.getByText('Rule saved').first().waitFor();
+    check('editing a listed rule sends edit-preference', JSON.stringify(last()) === JSON.stringify({ action: 'edit-preference', id: 'r2', text: 'Avoids agencies.' }));
+    await np.locator('[data-rule-id="r1"] [data-pr-act="delete"]').click();
+    await np.getByRole('alertdialog').getByRole('button', { name: 'Delete rule' }).click();
+    await np.locator('[data-rule-id="r1"]').waitFor({ state: 'detached' });
+    check('Delete confirms and sends delete-preference', JSON.stringify(last()) === JSON.stringify({ action: 'delete-preference', id: 'r1' }));
+    check('Moved by agent badge names the stage and date, and is hidden once undone', await (async () => {
+      await np.goto(origin + '/admin.html?job=mv1');
+      await np.locator('.role-header').waitFor();
+      const label = await np.locator('.role-stage [aria-label^="Moved by agent"]').getAttribute('aria-label');
+      const card = await np.locator('[data-select-job="mv1"] [aria-label^="Moved by agent"]').count();
+      const none = await np.locator('[data-select-job="mv2"] [aria-label^="Moved by agent"]').count();
+      return /^Moved by agent to Reviewing on /.test(label) && card === 1 && none === 0;
+    })());
+    const badge = await box(np, '.role-stage [aria-label^="Moved by agent"]'), stageBadge = await box(np, '.role-stage .pipeline-stage');
+    check('the badge matches the stage badge style', badge.font === stageBadge.font && badge.radius === stageBadge.radius);
+    await np.goto(origin + '/admin.html?collection=needs');
+    await np.locator('[data-needs-kind]').first().waitFor();
     // Open the role from a card.
     await np.locator('[data-needs-kind="posting-gaps"] .needs-open').click();
     await np.locator('.role-header').waitFor();
