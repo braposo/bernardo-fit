@@ -51,7 +51,11 @@ const proposalBody = (jobId, extra = {}) => ({ jobId, proposedStage: "rejected",
 const interview = { date: "2026-11-03T14:00:00Z", round: "Round 2: hiring manager", kind: "video" };
 
 await test("settings validate, are seeded disabled and stay out of the scoring fingerprint", () => {
-  assert.deepEqual(DEFAULT_EMAIL_STATUS, { enabled: false, minimumConfidence: 0.6 });
+  assert.equal(DEFAULT_EMAIL_STATUS.enabled, false);
+  assert.equal(DEFAULT_EMAIL_STATUS.minimumConfidence, 0.6);
+  assert.equal(DEFAULT_EMAIL_STATUS.gmailCheck.enabled, false);
+  // Documents published before gmailCheck existed stay valid; the Gmail check is then off.
+  assert.deepEqual(validateEmailStatus({ enabled: true, minimumConfidence: 0.7 }), { enabled: true, minimumConfidence: 0.7, gmailCheck: null });
   assert.deepEqual(validateEmailStatus({ ...DEFAULT_EMAIL_STATUS, extra: 1 }), DEFAULT_EMAIL_STATUS);
   for (const patch of [{ enabled: "yes" }, { minimumConfidence: 0.2 }, { minimumConfidence: 1 }, { minimumConfidence: "0.7" }, { minimumConfidence: NaN }])
     assert.throws(() => validateEmailStatus({ ...DEFAULT_EMAIL_STATUS, ...patch }), /email status proposal settings/);
