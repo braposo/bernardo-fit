@@ -59,7 +59,8 @@ function answersFor(questions, { advance = 0.9, drop = 0.05, reason } = {}) {
 
 await test("review agent settings validate and stay out of the scoring fingerprint", () => {
   assert.deepEqual(validateReviewAgent(DEFAULT_REVIEW_AGENT), DEFAULT_REVIEW_AGENT);
-  assert.deepEqual(DEFAULT_REVIEW_AGENT, { enabled: false, advanceThreshold: 0.85, dropThreshold: 0.85, autoAdvance: false, autoDrop: false, exampleCount: 5 });
+  assert.deepEqual(DEFAULT_REVIEW_AGENT, { enabled: false, advanceThreshold: 0.85, dropThreshold: 0.85, autoAdvance: false, autoDrop: false, exampleCount: 5,
+    autoMinimumAgreement: 0.85, autoMinimumDecided: 20, learnPreferences: false });
   assert.deepEqual(validateReviewAgent({ ...DEFAULT_REVIEW_AGENT, extra: 1, advanceThreshold: 0.5, dropThreshold: 0.99, exampleCount: 0 }),
     { ...DEFAULT_REVIEW_AGENT, advanceThreshold: 0.5, dropThreshold: 0.99, exampleCount: 0 });
   for (const patch of [{ enabled: "yes" }, { autoAdvance: 1 }, { autoDrop: null }, { advanceThreshold: 0.49 }, { advanceThreshold: 1 },
