@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 
-const files = new Set(["/admin.html", "/admin-run.js", "/admin-usage.js", "/assets/admin-ui.js", "/assets/admin-ui.css"]);
+const files = new Set(["/admin.html", "/admin-run.js", "/admin-usage.js", "/pipeline-board.js", "/assets/admin-ui.js", "/assets/admin-ui.css"]);
 const server = createServer(async (req, res) => {
   const pathname = new URL(req.url, "http://localhost").pathname;
   if (!files.has(pathname)) return res.writeHead(404).end();

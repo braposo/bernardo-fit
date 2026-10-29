@@ -10,7 +10,7 @@ const { default: AxeBuilder } = await import('@axe-core/playwright');
 const baselineRevision = process.env.ADMIN_UX_BASE_REVISION || 'HEAD';
 const server = createServer(async (req, res) => {
   const name = new URL(req.url, 'http://localhost').pathname;
-  if (!['/admin.html', '/admin-run.js', '/admin-usage.js', '/assets/admin-ui.js', '/assets/admin-ui.css', '/assets/task-ui.js', '/task-ui.css'].includes(name)) { res.writeHead(404).end(); return; }
+  if (!['/admin.html', '/admin-run.js', '/admin-usage.js', '/pipeline-board.js', '/assets/admin-ui.js', '/assets/admin-ui.css', '/assets/task-ui.js', '/task-ui.css'].includes(name)) { res.writeHead(404).end(); return; }
   res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html');
   const source = process.env.ADMIN_UX_BASELINE && name === '/admin.html'
     ? execFileSync('git', ['show', baselineRevision + ':public/admin.html'], { encoding: 'utf8' })
@@ -564,6 +564,94 @@ try {
     check('outdated score layout fits at ' + width,
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     if (process.env.ADMIN_UX_SCREENSHOTS) await page.screenshot({ path: process.env.ADMIN_UX_SCREENSHOTS + '/outdated-score-' + width + '.png' });
+  }
+  {
+    // Desktop Pipeline board: columns replace the stage dropdown; mobile keeps the list.
+    const { BOARD_COLUMNS, groupByColumn } = await import('../public/pipeline-board.js');
+    jobs[2].stage = jobs[3].stage = jobs[4].stage = jobs[5].stage = 'reviewing'; // 2 and 3 have a fit page and live CV
+    jobs[6].cvRun = { runId: 'cv-run-6', status: 'running' };
+    const expected = groupByColumn(jobs.filter(job => !['expired'].includes(job.stage)));
+    const boardPage = await context.newPage();
+    boardPage.on('pageerror', e => { errors.push(e.message); console.error(e.message); });
+    await boardPage.setViewportSize({ width: 1280, height: 800 });
+    await boardPage.goto(origin + '/admin.html');
+    await boardPage.evaluate(() => localStorage.removeItem('fit.pipeline.view'));
+    await boardPage.reload();
+    await boardPage.locator('.pipeline-item').first().waitFor();
+    const box = selector => boardPage.locator(selector).first().evaluate(el => {
+      const c = getComputedStyle(el), r = el.getBoundingClientRect();
+      return { h: r.height, border: c.borderTopWidth + ' ' + c.borderTopColor, radius: c.borderTopLeftRadius, bg: c.backgroundColor, font: c.fontSize };
+    });
+    const [dropdown, sortBtn, listBtn, boardBtn] = [await box('#stagefilter'), await box('.sort-trigger'), await box('[data-view="list"]'), await box('[data-view="board"]')];
+    check('view switch sits in the control row with a name and pressed state', await boardPage.locator('.pipeline-filter-row [role="group"][aria-label="Pipeline view"] button').count() === 2 &&
+      await boardPage.getByRole('button', { name: 'List view' }).getAttribute('aria-pressed') === 'true' &&
+      await boardPage.getByRole('button', { name: 'Board view' }).getAttribute('aria-pressed') === 'false');
+    check('view switch matches the sort button and dropdown box', [sortBtn, listBtn, boardBtn].every(b => b.h === dropdown.h && b.h === 44 && b.radius === dropdown.radius) &&
+      boardBtn.border === dropdown.border && boardBtn.bg === dropdown.bg && boardBtn.font === dropdown.font); // the pressed List button differs only by its accent border and tint
+    console.log('control sizes at 1280', JSON.stringify({ dropdown, sortBtn, listBtn, boardBtn }));
+    await boardPage.getByRole('button', { name: 'Board view' }).click();
+    await boardPage.locator('[data-board]').waitFor();
+    check('board shows one labelled column per active stage', await boardPage.locator('[data-board-column]').count() === 6 &&
+      (await boardPage.locator('[data-board-column] h2').allTextContents()).join('|') === 'New|Reviewing|Ready to apply|Applied|Interviewing|Offer' &&
+      await boardPage.getByRole('region', { name: 'Ready to apply' }).count() === 1 && await boardPage.getByRole('list', { name: 'Ready to apply roles' }).count() === 1);
+    for (const column of BOARD_COLUMNS) {
+      const ids = expected[column.id].map(job => job.id).sort().join();
+      check('board column ' + column.label + ' holds ' + expected[column.id].length + ' roles', await boardPage.locator('[data-board-column="' + column.id + '"]').evaluate(el =>
+        el.querySelector('.board-count').textContent + '|' + [...el.querySelectorAll('[data-select-job]')].map(b => b.getAttribute('data-select-job')).sort().join()) === expected[column.id].length + '|' + ids);
+    }
+    check('ready to apply is derived from fit page and live CV', ['job2', 'job3'].every(id => expected.ready.some(job => job.id === id)) && ['job4', 'job5'].every(id => expected.reviewing.some(job => job.id === id)) &&
+      !expected.ready.some(job => ['job4', 'job5'].includes(job.id)));
+    check('column header names what is running', await boardPage.locator('[data-board-column="interviewing"] .board-activity').textContent() === '1 CV generating' &&
+      await boardPage.locator('[data-board-column="offer"] .board-activity').count() === 0);
+    check('board hides the stage dropdown and keeps search and sort', await boardPage.locator('#stagefilter').count() === 0 && await boardPage.locator('#search').isVisible() && await boardPage.locator('.sort-trigger').isVisible());
+    check('board reuses the existing card and score tile', await boardPage.locator('[data-board] .pipeline-item .score-tile').count() > 5 && await boardPage.locator('[data-board] .pipeline-item').first().evaluate(el => el.tagName === 'BUTTON' && el.getAttribute('data-slot') === 'button'));
+    check('empty columns show a quiet empty state', await boardPage.locator('[data-board-column="offer"] .board-empty').textContent() === 'Nothing here yet');
+    check('board scrolls inside its area, not the page', await boardPage.evaluate(() => { const b = document.querySelector('[data-board]'); return b.scrollWidth > b.clientWidth && getComputedStyle(b).overflowX === 'auto' && document.documentElement.scrollWidth <= innerWidth; }));
+    check('the choice is remembered on this browser', await boardPage.evaluate(() => localStorage.getItem('fit.pipeline.view')) === 'board');
+    await boardPage.locator('#search').fill('company 2');
+    await boardPage.locator('[data-board-column="ready"] [data-select-job="job3"]').waitFor({ state: 'detached' });
+    check('search filters board cards', await boardPage.locator('[data-board-column="ready"] [data-select-job="job2"]').count() === 1);
+    await boardPage.locator('#search').fill('');
+    await boardPage.locator('[data-board-column="ready"] [data-select-job="job3"]').waitFor();
+    await boardPage.locator('.sort-trigger').click();
+    await boardPage.getByRole('button', { name: 'Lowest score' }).click();
+    check('sort applies within columns', (await boardPage.locator('[data-board-column="interviewing"] .score-tile').allTextContents()).map(Number).every((n, i, all) => !i || all[i - 1] <= n));
+    await boardPage.locator('.sort-trigger').click();
+    await boardPage.getByRole('button', { name: 'Highest score' }).click();
+    await boardPage.reload();
+    await boardPage.locator('[data-board]').waitFor();
+    check('board survives reload', await boardPage.getByRole('button', { name: 'Board view' }).getAttribute('aria-pressed') === 'true');
+    await boardPage.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important}' });
+    const boardAudit = await new AxeBuilder({ page: boardPage }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    check('board has no automated WCAG A/AA violations', boardAudit.violations.length === 0 || (console.log(JSON.stringify(boardAudit.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.target) })))), false));
+    await boardPage.getByRole('button', { name: /Example company 3/ }).focus();
+    await boardPage.keyboard.press('Enter');
+    await boardPage.locator('.role-header').waitFor();
+    check('selecting a card opens the existing workspace with the list', await boardPage.locator('[data-board]').count() === 0 && await boardPage.locator('.workspace .role-header').isVisible() &&
+      await boardPage.locator('[data-select-job="job3"].selected').count() === 1 && new URL(boardPage.url()).searchParams.get('job') === 'job3');
+    check('opened role leaves the saved board choice alone', await boardPage.evaluate(() => localStorage.getItem('fit.pipeline.view')) === 'board' && await boardPage.getByRole('button', { name: 'List view' }).getAttribute('aria-pressed') === 'true');
+    await boardPage.getByRole('button', { name: 'Board view' }).click();
+    await boardPage.locator('[data-board]').waitFor();
+    check('the switch returns from a role to the board', !new URL(boardPage.url()).searchParams.has('job') && await boardPage.locator('.workspace').count() === 0);
+    await boardPage.goBack();
+    await boardPage.locator('.workspace .role-header').waitFor();
+    check('browser Back returns to the opened role', new URL(boardPage.url()).searchParams.get('job') === 'job3');
+    await boardPage.getByRole('button', { name: 'Board view' }).click();
+    await boardPage.setViewportSize({ width: 390, height: 844 });
+    await boardPage.locator('#stagefilter').waitFor();
+    check('mobile keeps the list with the stage dropdown and no switch', await boardPage.locator('[data-board]').count() === 0 && await boardPage.locator('[data-view]').count() === 0 && await boardPage.locator('#stagefilter').isVisible());
+    const mobile = [await box('#stagefilter'), await box('.sort-trigger')];
+    console.log('control sizes at 390', JSON.stringify(mobile));
+    check('mobile page has no horizontal scroll', await boardPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await boardPage.setViewportSize({ width: 1280, height: 800 });
+    await boardPage.locator('[data-board]').waitFor();
+    check('returning to desktop brings the board back', await boardPage.locator('[data-view]').count() === 2);
+    await boardPage.locator('[data-collection="archive"]').click();
+    await boardPage.locator('#stagefilter').waitFor();
+    check('Archive keeps the list and has no switch', await boardPage.locator('[data-board]').count() === 0 && await boardPage.locator('[data-view]').count() === 0);
+    await boardPage.setViewportSize({ width: 1440, height: 900 });
+    await boardPage.evaluate(() => localStorage.removeItem('fit.pipeline.view'));
+    await boardPage.close();
   }
   check('no browser errors', errors.length === 0);
   console.log(`passed ${passed}, failed 0`);

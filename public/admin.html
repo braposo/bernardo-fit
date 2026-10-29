@@ -300,13 +300,13 @@
   .pipeline-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .pipeline h1 { font: 600 24px/1.2 var(--display); margin: 0; }
   .pipeline-controls { display: grid; gap: 8px; }
-  .pipeline-controls .searchbox, .pipeline-controls select, .pipeline-controls .sort-trigger { width: 100%; min-height: 44px; border: 1px solid var(--hair-strong);
+  .pipeline-controls .searchbox, .pipeline-controls select, .pipeline-controls .sort-trigger, .pipeline-controls .view-switch-option { width: 100%; min-height: 44px; border: 1px solid var(--hair-strong);
     background-color: var(--surface); border-radius: 7px; font: 400 15px/1.3 var(--sans); letter-spacing: 0; text-transform: none; }
   .pipeline-controls .searchbox { padding: 10px 12px; }
   .pipeline-filter-row { display: flex; gap: 8px; align-items: stretch; }
   .pipeline-filter-row [data-slot=native-select-wrapper], .pipeline-filter-row > select { flex: 1; min-width: 0; }
-  /* The sort trigger shares the dropdown's box (rule above); only its square width differs. */
-  .pipeline-controls .sort-trigger { flex: none; width: 44px; height: 44px; padding: 0; color: var(--ink);
+  /* The sort trigger and view switch share the dropdown's box (rule above); only their square width differs. */
+  .pipeline-controls .sort-trigger, .pipeline-controls .view-switch-option { flex: none; width: 44px; height: 44px; padding: 0; color: var(--ink);
     display: inline-flex; align-items: center; justify-content: center; }
   .pipeline-list { padding: 0 14px 28px 0; display: grid; grid-auto-rows: max-content; gap: 4px; overflow-y: auto; min-height: 0; align-content: start; }
   .pipeline-head, .bulkbar { flex-shrink: 0; }
@@ -479,6 +479,7 @@
 import { subscribeRun, taskToast } from "./assets/task-ui.js";
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 import { summariseUsage } from "./admin-usage.js";
+import { BOARD_COLUMNS, groupByColumn, columnActivity, boardColumnId } from "./pipeline-board.js";
 import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError, mountAdminChat } from "./assets/admin-ui.js";
 (function () {
   "use strict";
@@ -576,6 +577,17 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   // List order per collection, remembered on this browser only.
   var SORTS = [["score-desc", "Highest score"], ["score-asc", "Lowest score"], ["newest", "Newest first"], ["oldest", "Oldest first"]];
   var sortOrders = {};
+  // Desktop Pipeline view: "list" (list + workspace) or "board" (one column per active stage).
+  var DESKTOP_QUERY = '(min-width: 901px)';
+  var pipelineView = (function () {
+    try { return localStorage.getItem('fit.pipeline.view') === 'board' ? 'board' : 'list'; } catch (_) { return 'list'; }
+  })();
+  var boardScroll = { left: 0, columns: {} };
+  function isDesktop() { return window.matchMedia(DESKTOP_QUERY).matches; }
+  function boardAllowed() { return isDesktop() && !showArchived && !showFiltered && !showNeeds; }
+  // The board is shown while no role is open; opening a card switches to the existing
+  // list + workspace, and the View switch brings the board back.
+  function boardActive() { return boardAllowed() && pipelineView === 'board' && !selectedId; }
   var attachedCoverWatches = {};
   var activeRuns = {};
   var coverDispatchEnabled = true;
@@ -678,6 +690,53 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         return '<button class="sort-option" data-sort="' + s[0] + '" aria-pressed="' + (s[0] === order) + '">' +
           (s[0] === order ? '<span data-icon="check"></span>' : '<span class="sort-check"></span>') + esc(s[1]) + '</button>';
       }).join('') + '</div></div>';
+  }
+  var VIEW_OPTIONS = [['list', 'List view', 'list'], ['board', 'Board view', 'board']];
+  function viewSwitchHtml(active) {
+    return '<div class="view-switch" role="group" aria-label="Pipeline view">' + VIEW_OPTIONS.map(function (o) {
+      return '<button type="button" class="ghost view-switch-option" data-view="' + o[0] + '" aria-label="' + o[1] + '" title="' + o[1] + '" aria-pressed="' + (active === o[0]) + '"><span data-icon="' + o[2] + '"></span></button>';
+    }).join('') + '</div>';
+  }
+  function setPipelineView(view) {
+    if (view !== 'list' && view !== 'board') return;
+    rememberPipelineScroll(); captureBoardScroll();
+    pipelineView = view;
+    try { localStorage.setItem('fit.pipeline.view', view); } catch (_) {}
+    if (view === 'board') { selectedId = ''; selectedMissing = false; suppressAutoSelect = true; } else suppressAutoSelect = false;
+    writeNavigation('push'); renderJobs();
+    requestAnimationFrame(function () { var button = document.querySelector('[data-view="' + view + '"]'); if (button) button.focus(); });
+  }
+  function captureBoardScroll() {
+    var board = document.querySelector('[data-board]');
+    if (!board) return;
+    boardScroll.left = board.scrollLeft;
+    board.querySelectorAll('[data-board-column]').forEach(function (column) {
+      var cards = column.querySelector('.board-cards');
+      boardScroll.columns[column.getAttribute('data-board-column')] = cards ? cards.scrollTop : 0;
+    });
+  }
+  function restoreBoardScroll() {
+    var board = document.querySelector('[data-board]');
+    if (!board) return;
+    board.scrollLeft = boardScroll.left;
+    board.querySelectorAll('[data-board-column]').forEach(function (column) {
+      var cards = column.querySelector('.board-cards');
+      if (cards) cards.scrollTop = boardScroll.columns[column.getAttribute('data-board-column')] || 0;
+    });
+  }
+  function boardHtml(searched, query) {
+    var groups = groupByColumn(searched);
+    var emptyText = searchLoading ? 'Searching…' : query ? 'No matches' : 'Nothing here yet';
+    return '<div class="board" data-board role="group" aria-label="Pipeline board">' + BOARD_COLUMNS.map(function (column) {
+      var items = groups[column.id];
+      var activity = columnActivity(items);
+      return '<section class="board-column" data-board-column="' + column.id + '" aria-labelledby="board-' + column.id + '">' +
+        '<header class="board-column-head"><h2 id="board-' + column.id + '">' + esc(column.label) + '</h2><span class="board-count" aria-label="' + items.length + (items.length === 1 ? ' role' : ' roles') + '">' + (searchLoading ? '…' : items.length) + '</span></header>' +
+        (activity ? '<p class="board-activity" role="status">' + esc(activity) + '</p>' : '') +
+        '<ul class="board-cards" role="list" aria-label="' + esc(column.label) + ' roles">' +
+        (items.length ? items.map(function (j) { return '<li>' + pipelineItemHtml(j, column.id === 'ready' ? { stageText: 'Ready to apply' } : null) + '</li>'; }).join('') :
+          '<li class="board-empty">' + emptyText + '</li>') + '</ul></section>';
+    }).join('') + '</div>';
   }
   function rememberPipelineScroll() {
     var list = document.querySelector(".pipeline-list");
@@ -1619,8 +1678,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="agent-actions"><button type="button" data-agent-decide="advance">Move forward</button><button class="ghost" type="button" data-agent-decide="drop">Drop</button></div></section>';
   }
 
-  function pipelineItemHtml(j) {
-    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score'+(j.jevStale?', from an outdated assessment':''):'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span>'+assessmentStatusHtml(j)+'<span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(stageLabel(j.stage))+'</span>'+(j.stage==='new'&&j.agentReview?leanBadgeHtml(j.agentReview.lean):'')+'<span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
+  function pipelineItemHtml(j, opts) {
+    return '<button class="pipeline-item'+(selectedId===j.id?' selected':'')+'" data-select-job="'+esc(j.id)+'" aria-pressed="'+(selectedId===j.id)+'"><span class="pipeline-card-top"><span class="pipeline-copy"><span class="pipeline-company">'+esc(j.company||'No company')+'</span><span class="pipeline-role">'+esc(j.role||'Untitled role')+'</span></span><span class="score-tile" aria-label="'+(j.score!=null?esc(j.score)+' out of 100 fit score'+(j.jevStale?', from an outdated assessment':''):'Not scored')+'">'+(j.score!=null?esc(j.score):'—')+'</span></span>'+assessmentStatusHtml(j)+'<span class="pipeline-location">'+esc([j.location,j.locationMode].filter(Boolean).join(' · '))+'</span><span class="pipeline-meta"><span class="pipeline-stage stage-'+esc(j.stage)+'">'+esc(opts && opts.stageText || stageLabel(j.stage))+'</span>'+(j.stage==='new'&&j.agentReview?leanBadgeHtml(j.agentReview.lean):'')+'<span class="pipeline-added">'+timeHtml(j.createdAt,'Added ')+'</span></span><span class="pipeline-docs">'+[['Analysis',j.fitReportId],['Letter',j.hasCoverLetter],['Brief',j.hasBrief]].map(function(d){return '<span class="'+(d[1]?'available':'missing')+'">'+(d[1]?'✓ ':'— ')+d[0]+'</span>';}).join('')+(j.replyOwed?'<span>Reply owed</span>':'')+'</span></button>';
   }
 
   function loadSelectedDetail(id) {
@@ -1641,7 +1700,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
   function renderJobs(workspaceOnly) {
     if (showFiltered) return;
-    workspaceOnly = workspaceOnly === true && !!document.querySelector('.admin-shell .workspace');
+    var board = boardActive();
+    // A board/list layout change needs a full render, not just the workspace.
+    workspaceOnly = workspaceOnly === true && !board && !!document.querySelector('.admin-shell:not(.board-view) .workspace');
     // Keep live editors in place during background refreshes and search updates.
     var focused = document.activeElement;
     var preserveWorkspace = renderedRole === selectedId && renderedSection === workspaceSection &&
@@ -1650,7 +1711,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var searchFocused = focused && focused.id === 'search';
     var searchStart = searchFocused ? focused.selectionStart : null;
     var searchEnd = searchFocused ? focused.selectionEnd : null;
-    rememberPipelineScroll();
+    rememberPipelineScroll(); captureBoardScroll();
     if (!showArchived && ARCHIVE_ON_STAGE.indexOf(stageFilter) !== -1) stageFilter = null;
     var q = searchQuery.trim().toLowerCase();
     var collectionJobs = jobs.filter(function (j) { return !j._outOfCollection; });
@@ -1661,9 +1722,10 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var shown = searched.filter(function (j) { return !stageFilter || j.stage === stageFilter; });
     if (showNeeds) shown = needsItems.slice(); else
     sortRoles(shown, function (j) { return j.score; }, function (j) { return j.createdAt; });
+    if (board) shown = sortRoles(searched.filter(function (j) { return boardColumnId(j) !== null; }), function (j) { return j.score; }, function (j) { return j.createdAt; });
     var assessmentIds = shown.map(function (j) { return j.id; });
 
-    if (!selectedId && !suppressAutoSelect && window.innerWidth > 900 && shown.length) {
+    if (!selectedId && !suppressAutoSelect && !board && window.innerWidth > 900 && shown.length) {
       selectedId = shown[0].id;
       writeNavigation("replace");
     }
@@ -1693,20 +1755,20 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         button.setAttribute('aria-pressed', String(isSelected));
       });
       renderAdmin(shell.querySelector('.workspace'), workspaceHtml);
-    } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="' + (showNeeds ? 'Roles that need you' : showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
+    } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (board ? ' board-view' : pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="' + (showNeeds ? 'Roles that need you' : showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
       '<button class="pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '"><span data-icon="sidebar-toggle"></span></button>' +
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showNeeds ? 'Needs you' : showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
       '<span class="pipeline-total">'+shown.length+(showNeeds ? ' roles' : ' opportunities')+'</span>' + '</div>' +
       (showNeeds ? (needsLoaded ? '<p class="field-help filtered-intro">' + esc(agreementText(needsAgreement)) + '</p>' : '') : '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
-      '<div class="pipeline-filter-row"><label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>' + sortControlHtml() + '</div></div>') + '</div>' +
+      '<div class="pipeline-filter-row">' + (board ? '' : '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>') + sortControlHtml() + (boardAllowed() ? viewSwitchHtml(board ? 'board' : 'list') : '') + '</div></div>') + '</div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
       ((!showArchived && !showNeeds && jevEnabled && assessmentIds.length && !searchLoading || activeRuns['jev-score-all']) ? '<div class="bulkbar"><button class="generation" id="assesslisted"' + (activeRuns['jev-score-all'] ? ' disabled' : '') + '>' +
         (activeRuns['jev-score-all'] ? 'Assessing…' : 'Assess listed roles (' + assessmentIds.length + ')') + '</button></div>' : '') +
-      '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div></aside><main class="workspace">' + workspaceHtml + '</main></div>');
+      (board && collectionJobs.length ? boardHtml(shown, q) : '<div class="pipeline-list" aria-live="polite">' + listHtml + '</div>') + '</aside>' + (board ? '' : '<main class="workspace">' + workspaceHtml + '</main>') + '</div>');
 
     renderedRole = selectedId; renderedSection = workspaceSection;
     renderedScrollKey = scrollKey();
-    restorePipelineScroll();
+    restorePipelineScroll(); restoreBoardScroll();
     if (searchFocused) {
       var restoredSearch = document.getElementById('search');
       restoredSearch.focus(); restoredSearch.setSelectionRange(searchStart, searchEnd);
@@ -1799,12 +1861,16 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     if (stageFilterEl) stageFilterEl.addEventListener("change", function () {
       rememberPipelineScroll(); stageFilter = stageFilterEl.value || null; writeNavigation("push"); renderJobs(); restorePipelineScroll();
     });
+    Array.prototype.forEach.call(workspaceOnly ? [] : document.querySelectorAll('[data-view]'), function (button) {
+      button.addEventListener('click', function () { setPipelineView(button.getAttribute('data-view')); });
+    });
     Array.prototype.forEach.call(workspaceOnly ? [] : document.querySelectorAll('[data-select-job]'), function (button) {
       button.addEventListener('click', function () {
         var nextId = button.getAttribute('data-select-job');
         if (nextId === selectedId) return;
-        rememberPipelineScroll(); selectedId = nextId; selectedMissing = false;
-        writeNavigation('push', { admin: true, selectedFromList: true }); renderJobs(true); loadSelectedDetail(selectedId);
+        var fromBoard = !!button.closest('[data-board]');
+        rememberPipelineScroll(); captureBoardScroll(); selectedId = nextId; selectedMissing = false;
+        writeNavigation('push', { admin: true, selectedFromList: true }); renderJobs(!fromBoard); loadSelectedDetail(selectedId);
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-section-link]'), function (button) {
@@ -2657,6 +2723,11 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       } else renderJobs(true);
       loadSelectedDetail(selectedId); restorePipelineScroll();
     }
+  });
+
+  // Crossing the desktop breakpoint swaps the board for the list (and back).
+  window.matchMedia(DESKTOP_QUERY).addEventListener('change', function () {
+    if (pipelineView === 'board' && !showArchived && !showFiltered && !showNeeds && jobs.length && document.querySelector('.admin-shell')) renderJobs();
   });
 
   readNavigationState();

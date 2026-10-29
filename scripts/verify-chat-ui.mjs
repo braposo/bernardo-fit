@@ -54,7 +54,7 @@ const server=createServer(async(req,res)=>{
     if(!res.writableEnded)run.listeners.add(send);
     res.on('close',()=>run.listeners.delete(send));return;
   }
-  const allowed=['/admin.html','/admin-run.js','/admin-usage.js','/assets/admin-ui.js','/assets/admin-ui.css','/assets/task-ui.js','/task-ui.css'];
+  const allowed=['/admin.html','/admin-run.js','/admin-usage.js','/pipeline-board.js','/assets/admin-ui.js','/assets/admin-ui.css','/assets/task-ui.js','/task-ui.css'];
   if(!allowed.includes(url.pathname)){res.writeHead(404).end();return;}
   res.setHeader('Content-Type',url.pathname.endsWith('.js')?'text/javascript':url.pathname.endsWith('.css')?'text/css':'text/html');
   res.end(await readFile(new URL('../public'+url.pathname,import.meta.url)));

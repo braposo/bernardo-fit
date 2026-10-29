@@ -233,6 +233,99 @@ body {
   flex-direction:column;
   gap:12px;
 }
+/* Desktop board: one column per active stage. The list and workspace layout is unchanged. */
+.view-switch {
+  display:flex;
+  flex:none;
+  gap:8px;
+}
+.view-switch-option[aria-pressed=true] {
+  background:#f8f7ff;
+  border-color:#9487ce;
+  color:var(--primary);
+}
+@media(max-width:900px) {
+  .view-switch {
+    display:none;
+  }
+}
+.admin-shell.board-view {
+  grid-template-columns:minmax(0,1fr);
+}
+.board-view .pipeline {
+  display:flex;
+  flex-direction:column;
+  border-right:0;
+}
+.board-view .pipeline-toggle[data-slot=button] {
+  display:none;
+}
+.board-view .pipeline-titlebar {
+  padding-right:0;
+}
+.board-view .pipeline-controls {
+  display:flex;
+  align-items:stretch;
+  gap:8px;
+  max-width:560px;
+}
+.board-view .pipeline-controls .searchbox {
+  flex:1;
+  min-width:0;
+}
+.board {
+  flex:1;
+  min-height:0;
+  display:flex;
+  gap:12px;
+  overflow-x:auto;
+  padding-bottom:16px;
+}
+.board-column {
+  flex:none;
+  width:300px;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+}
+.board-column-head {
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:8px;
+  padding:0 2px 8px;
+}
+.board-column-head h2 {
+  margin:0;
+  font-size:15px;
+  line-height:1.4;
+  font-weight:600;
+}
+.board-count {
+  font-size:12px;
+  color:var(--sub);
+}
+.board-activity {
+  margin:0 2px 8px;
+  font-size:12px;
+  color:var(--sub);
+}
+.board-cards {
+  flex:1;
+  min-height:0;
+  margin:0;
+  padding:0 2px 24px 0;
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  overflow-y:auto;
+}
+.board-empty {
+  padding:8px 2px;
+  font-size:13px;
+  color:var(--sub);
+}
 .bulkbar {
   padding-right:0;
 }
