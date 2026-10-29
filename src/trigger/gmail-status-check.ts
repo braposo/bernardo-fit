@@ -18,8 +18,11 @@ const seenKey = (id: string) => `gmail-status-check:seen:${id}`;
 // recruiting email and saves status proposals for Bernardo to apply or dismiss
 // (docs/gmail-status-check.md). Paused, with no Gmail or model request, unless
 // emailStatusProposals.enabled and emailStatusProposals.gmailCheck.enabled are
-// both published true. Gmail requests and the model call run in child tasks
-// that own their retries and are reused if this run retries.
+// both published true. Jev decides which job an email is about and what it
+// means; a small writing model writes the summary for relevant emails only
+// (without TYPESAFE_API_KEY, one small model call classifies instead). Gmail
+// requests and model calls run in child tasks that own their retries and are
+// reused if this run retries.
 export const gmailStatusCheck = schedules.task({
   id: GMAIL_STATUS_CHECK_TASK_ID,
   cron: { pattern: '10 7 * * *', timezone: 'Europe/London', environments: ['PRODUCTION'] },
@@ -56,6 +59,7 @@ export const gmailStatusCheck = schedules.task({
           },
           add: async (id: string, outcome: string) => { await client.set(seenKey(id), outcome, { ex: SEEN_TTL_SECONDS }); },
         },
+        // A Date from the schedule; a manual test run may pass an ISO string.
         now: payload.timestamp,
         warn: (message: string, detail: string) => logger.warn(message, { detail }),
       });
