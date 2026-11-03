@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import {registerHooks} from 'node:module';
 const realSdk=import.meta.resolve('@trigger.dev/sdk');
-const {retry:installedRetry}=await import(realSdk);
+const {retry:installedRetry,logger:installedLogger}=await import(realSdk);
 const definitions=new Map(),results=new Map();let calls=0,nextRun=0,outputText='Answer',status=200;
 process.env.OPENAI_API_KEY='synthetic';process.env.TYPESAFE_API_KEY='synthetic';process.env.ANTHROPIC_API_KEY='synthetic';
 let getContext=()=>({}),ownerCompleted=false;
+const diagnosticLogs=[];
 globalThis.__lifecycle={
+  logger:{trace:installedLogger.trace.bind(installedLogger),warn:(message,details)=>diagnosticLogs.push({message,details})},
   runs:{retrieve:async()=>({isCompleted:ownerCompleted})},
   task:definition=>{definitions.set(definition.id,definition);return definition;},
   idempotencyKeys:{create:async key=>JSON.stringify([getContext().runId,key])},
@@ -31,7 +33,7 @@ globalThis.__lifecycle={
   }},
 };
 const hook=registerHooks({resolve(specifier,context,next){return specifier==='@trigger.dev/sdk'?{url:'test:lifecycle-sdk',shortCircuit:true}:next(specifier,context);},
-  load(url,context,next){return url==='test:lifecycle-sdk'?{format:'module',shortCircuit:true,source:`export * from ${JSON.stringify(realSdk)}; export const {task,tasks,idempotencyKeys,retry,runs}=globalThis.__lifecycle;`}:next(url,context);}});
+  load(url,context,next){return url==='test:lifecycle-sdk'?{format:'module',shortCircuit:true,source:`export * from ${JSON.stringify(realSdk)}; export const {task,tasks,idempotencyKeys,retry,runs,logger}=globalThis.__lifecycle;`}:next(url,context);}});
 const {withChildGenerationContext,generationContext}=await import('../lib/generation-context.js');getContext=generationContext;
 await import('../src/trigger/provider-http-request.ts');await import('../src/trigger/durable-model-call.ts');
 const {runAnalysis}=await import('../lib/analyze.js');
@@ -43,7 +45,7 @@ const {DEFAULT_REQUEST_LIFECYCLE,validateRequestLifecycle}=await import('../lib/
 const {settingsFromDocument,withSettingsSnapshot}=await import('../lib/sanity/analysis-settings.js');
 const {initialSettingsDocument}=await import('../lib/sanity/settings-document.js');
 let passed=0,failed=0;
-async function test(name,run){try{calls=0;status=200;results.clear();await withChildGenerationContext({runId:name},run);passed++;console.log('ok '+name);}catch(error){failed++;console.error('FAIL',name,error);}}
+async function test(name,run){try{calls=0;status=200;results.clear();diagnosticLogs.length=0;await withChildGenerationContext({runId:name},run);passed++;console.log('ok '+name);}catch(error){failed++;console.error('FAIL',name,error);}}
 const report={job_title:'Engineer',company:'Example',pitch:'Fit',categories:[],differentiators:[],closing:'End'};
 const args={report,model:'gpt-5.6-sol',ref:'request-1',fitUrl:'https://example.com/fit',question:'Describe your leadership approach',jobDescription:'Lead an engineering team building useful software',limit:120};
 for(const kind of ['analysis','cover','answer'])await test(`${kind} failed first save reuses completed generation`,async()=>{
@@ -102,13 +104,65 @@ await test('provider permanent failures abort and retry dates survive',async()=>
     });
   }
 });
+await test('429 logs distinguish quota and rate limits with request correlation and no raw bodies',async()=>{
+  for(const code of ['insufficient_quota','rate_limit_exceeded']) {
+    const response=Response.json({error:{code,type:'requests',message:`Provider detail for ${code}`,param:'model'},
+      privateRequest:'private prompt content'}, {status:429,headers:{
+      'x-request-id':'req-diagnostic', 'retry-after':'120', 'openai-project':'proj-example',
+      'x-ratelimit-remaining-tokens':'0', 'x-ratelimit-reset-tokens':'1m',
+      'authorization':'Bearer private-credential', 'set-cookie':'private-cookie'}});
+    await assert.rejects(executeProviderRequest({provider:'openai',body:'{"input":"private prompt"}',policy:DEFAULT_REQUEST_LIFECYCLE.openai},
+      {fetchRequest:async()=>response}),error=>{
+      assert.match(error.message,new RegExp(code));
+      assert.match(error.message,/req-diagnostic/);
+      assert.equal(error.providerStatus,429);
+      assert.equal(error.abort,undefined,'diagnostics do not alter retry policy');
+      assert.ok(error.retryAt.getTime()>Date.now()+119000);
+      assert.equal(error.diagnostics.code,code);
+      return true;
+    });
+    const log=diagnosticLogs.at(-1);
+    assert.equal(log.message,'Provider HTTP request failed');
+    assert.equal(log.details.headers['openai-project'],'proj-example');
+    assert.equal(log.details.headers['x-ratelimit-remaining-tokens'],'0');
+    assert.equal(log.details.headers['x-ratelimit-reset-tokens'],'1m');
+    assert.doesNotMatch(JSON.stringify(log),/private|authorization|set-cookie/);
+  }
+});
+await test('provider diagnostics redact credentials and bound selected fields',async()=>{
+  const secret='credential-for-test';
+  await assert.rejects(executeProviderRequest({provider:'openai',body:'{}',policy:DEFAULT_REQUEST_LIFECYCLE.openai},
+    {env:{OPENAI_API_KEY:secret},fetchRequest:async()=>Response.json({error:{code:'invalid_api_key',
+      message:`Bad ${secret}, sk-secret-key, Bearer another-secret.\n${'x'.repeat(1000)}`}},
+      {status:401,headers:{'x-request-id':secret}})}),error=>{
+    assert.equal(error.abort,true);
+    assert.equal(error.diagnostics.message.length,500);
+    assert.doesNotMatch(JSON.stringify(error.diagnostics),/credential-for-test|sk-secret-key|another-secret|\\n/);
+    assert.doesNotMatch(error.message,/credential-for-test|sk-secret-key|another-secret/);
+    assert.match(error.message,/redacted/);
+    return true;
+  });
+});
+await test('bad error bodies retain status, retry headers and request IDs without logging raw text',async()=>{
+  for(const [body,bodyRead] of [['private HTML error','non_json'],['','empty'],['x'.repeat(16385),'too_large'],
+    [new ReadableStream({start(controller){controller.error(Error('private stream error'));}}),'unreadable']]) {
+    await assert.rejects(executeProviderRequest({provider:'openai',body:'{}',policy:DEFAULT_REQUEST_LIFECYCLE.openai},
+      {fetchRequest:async()=>new Response(body,{status:429,headers:{'x-request-id':'req-bad-body','retry-after':'120'}})}),error=>{
+      assert.equal(error.diagnostics.bodyRead,bodyRead);
+      assert.equal(error.providerStatus,429);
+      assert.match(error.message,/req-bad-body/);
+      assert.doesNotMatch(JSON.stringify(error.diagnostics),/private/);
+      return true;
+    });
+  }
+});
 await test('real retry.fetch provider error bodies are discarded without blocking',async()=>{
   let calls=0,route='/429-empty';
   const server=createServer((request,response)=>{
     calls++;response.statusCode=request.url==='/forbidden'?403:429;
     response.setHeader('retry-after','120');
     if(request.url==='/429-empty')response.setHeader('content-length','0');
-    response.end(request.url==='/429-empty'?undefined:'busy');
+    response.end(request.url==='/429-empty'?undefined:request.url==='/429-json'?JSON.stringify({error:{code:'rate_limit_exceeded',message:'Too many tokens'}}):'busy');
   });
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   try {
@@ -118,7 +172,7 @@ await test('real retry.fetch provider error bodies are discarded without blockin
       assert.deepEqual(options.retry,{byStatus:{},timeout:{maxAttempts:1},connectionError:{maxAttempts:1}});
       return installedRetry.fetch(`${origin}${route}`,options);
     };
-    for(route of ['/429-empty','/429-body','/forbidden']) {
+    for(route of ['/429-empty','/429-body','/429-json','/forbidden']) {
       calls=0;
       let timeout;
       const result=await Promise.race([
@@ -130,6 +184,7 @@ await test('real retry.fetch provider error bodies are discarded without blockin
       clearTimeout(timeout);
       assert.equal(result.timeout,undefined,`${route} error cleanup must not block`);
       assert.equal(calls,1);
+      if(route==='/429-json')assert.equal(result.error?.diagnostics?.code,'rate_limit_exceeded');
       if(route==='/forbidden')assert.equal(result.error?.abort,true);
       else {
         assert.equal(result.error?.providerStatus,429);
