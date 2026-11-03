@@ -16,12 +16,12 @@ async function call({method='GET',query={},body={},authorised=true}={}){
 }
 const cvStore=createMemoryApplicationCvStore();
 await withApplicationCvStore(cvStore,async()=>{
-  const job=await saveJob({company:'Synthetic',role:'Engineering Manager',jobDescription:'Build dependable software and coach product engineers.'});
+  const job=await saveJob({company:'Synthetic Recruitment',role:'Engineering Manager',jobDescription:'Build dependable software and coach product engineers.'});
   const app=await cvStore.claimApplicationCvRun(job,{requestId:'version-one',fingerprint:'fp-one',status:'running',runId:'run-one'});
   const pdfBuffer=Buffer.from('%PDF-1.7\nsynthetic validated PDF\n%%EOF');
   const version={id:'version-one',fingerprint:'fp-one',jobFingerprint:applicationCvJobFingerprint(job),
     createdAt:'2026-10-06T00:00:00Z',sourceSnapshot:{settings:{minBodyPx:13}},
-    reportSnapshot:{report:{company:'Synthetic',job_title:'Engineering Manager'}},
+    reportSnapshot:{report:{company:'',job_title:'Engineering Manager'}},
     content:{identity:{name:'Synthetic Candidate',headline:'Engineering leader',contacts:[]},summary:'Evidence based experience.',
       experience:[{title:'Engineer',company:'Previous company',dates:'2020–2024',bullets:[{text:'Built accessible interfaces.',evidenceIds:['private-source']}]}],
       fitUrl:`https://fit.example/fit/${app.publicId}`},
@@ -51,6 +51,7 @@ await withApplicationCvStore(cvStore,async()=>{
     assert.equal(preview.headers['Cache-Control'],'private, no-store');assert.match(preview.headers['Content-Security-Policy'],/frame-ancestors 'self'/);
     const download=await call({query:Object.fromEntries(new URL(urls.downloadUrl,'https://local').searchParams),authorised:false});
     assert.equal(download.code,302);assert.match(download.headers.Location,/synthetic\.pdf\?dl=/);
+    assert.equal(new URL(download.headers.Location).searchParams.get('dl'),'Synthetic-Candidate-Synthetic-Recruitment-CV.pdf');
   });
   await test('signed preview is scoped to a single job, version, and read action',async()=>{
     const query=Object.fromEntries(new URL(urls.previewUrl,'https://local').searchParams);
