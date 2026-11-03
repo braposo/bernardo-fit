@@ -38,7 +38,7 @@ const {runAnalysis}=await import('../lib/analyze.js');
 const {runCoverLetter}=await import('../lib/cover.js');
 const {runAnswer}=await import('../lib/answer.js');
 const {evaluateJev}=await import('../lib/jev.js');
-const {executeProviderRequest,requestRetryPolicy}=await import('../lib/provider-lifecycle.js');
+const {executeProviderRequest,requestRetryPolicy,durableTask}=await import('../lib/provider-lifecycle.js');
 const {DEFAULT_REQUEST_LIFECYCLE,validateRequestLifecycle}=await import('../lib/sanity/request-lifecycle.js');
 const {settingsFromDocument,withSettingsSnapshot}=await import('../lib/sanity/analysis-settings.js');
 const {initialSettingsDocument}=await import('../lib/sanity/settings-document.js');
@@ -58,6 +58,33 @@ await test('Jev native attempts do not multiply on parent retries',async()=>{
   status=429;const args={state:{},questions:{q:{type:'boolean',instructions:'Is it relevant?'}},kind:'test',ref:'rate-limit'};
   await assert.rejects(evaluateJev(args));assert.equal(calls,3);
   await assert.rejects(evaluateJev(args));assert.equal(calls,3);
+});
+await test('nested task failures preserve the provider reason and child run IDs without retrying generation',async()=>{
+  status=401;
+  await assert.rejects(evaluateJev({state:{},questions:{q:{type:'boolean',instructions:'Relevant?'}},kind:'test',ref:'unauthorized'}),error=>{
+    assert.match(error.message,/durable-model-call failed \(run child_\d+\): provider-http-request failed \(run child_\d+\): Provider request failed \(HTTP 401\)/);
+    assert.equal(error.abort,true);
+    assert.equal(error.retryable,false);
+    assert.match(error.childRunId,/^child_/);
+    return true;
+  });
+  assert.equal(calls,1);
+});
+await test('serialized platform failures preserve codes and still identify the child when details are absent',async()=>{
+  const original=globalThis.__lifecycle.tasks.triggerAndWait;
+  try {
+    for(const [error,detail] of [[{type:'INTERNAL_ERROR',code:'MAX_DURATION_EXCEEDED'},'MAX_DURATION_EXCEEDED'],
+      [{type:'BUILT_IN_ERROR',message:'Request timed out'},'Request timed out'],
+      ['Request failed','Request failed'],[{},'No error detail returned; inspect the child Trigger run.']]) {
+      globalThis.__lifecycle.tasks.triggerAndWait=async()=>({ok:false,id:'run-failed',error});
+      await assert.rejects(durableTask('provider-http-request',{},'failure'),failure=>{
+        assert.equal(failure.message,`provider-http-request failed (run run-failed): ${detail}`);
+        assert.equal(failure.childRunId,'run-failed');
+        assert.equal(failure.abort,true);
+        return true;
+      });
+    }
+  } finally {globalThis.__lifecycle.tasks.triggerAndWait=original;}
 });
 await test('provider permanent failures abort and retry dates survive',async()=>{
   for(const code of [401,429,529]) {
