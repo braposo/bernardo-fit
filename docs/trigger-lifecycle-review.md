@@ -12,6 +12,12 @@ Admin chat still has one streamed generation attempt. Its immutable conversation
 
 Conversation classification retains separate read/evaluate/write stages. Its provider HTTP call now uses the native request task and cannot be retried again by the stage wrapper after exhaustion. Storage-stage retries remain native `retry.onThrow`. Batch ingestion awaits candidates sequentially because Trigger durable waits must not be wrapped in Promise.all; child queues control concurrency across runs.
 
+## Provider failure diagnostics
+
+Failed provider HTTP attempts emit a structured `Provider HTTP request failed` warning with provider, HTTP status, bounded JSON error code/type/message/param, request ID, retry timing and allowlisted rate-limit headers. OpenAI organisation/project response headers are included when supplied so failures can be correlated with the correct dashboard scope. The thrown error includes the provider reason and request ID, and parent failures preserve the child run ID and message. This distinguishes `insufficient_quota` from `rate_limit_exceeded` when the provider supplies those codes; it does not infer a cause from HTTP 429 alone or change retry policy.
+
+Only the first 16 KiB of an error body can be parsed. Empty, non-JSON, oversized or unreadable bodies retain status/header diagnostics without logging raw text. Selected fields are bounded and credentials are redacted; request payloads and arbitrary headers are excluded. Error-body reads, like successful response-body reads, remain bounded by the native task compute limit. Cleanup does not await cancellation of retry.fetch's unread clone.
+
 ## Published configuration
 
 In [Fit Studio](https://job-fit-app.sanity.studio/), open **Analysis settings → Request lifecycle**. Jev, OpenAI, Anthropic and conversation persistence each have timeout and native retry settings. Initial total attempts are three; initial HTTP timeouts are 30 seconds for Jev and 120 seconds for OpenAI/Anthropic. Conversation persistence has a 10-second compute limit. Trigger task limits additionally bound body consumption and model processing; durable waits do not consume compute time.
