@@ -851,9 +851,11 @@ try {
     await np.locator('[data-answer-item="q1"] [data-pc-act="approve-answer"]').click();
     await np.locator('[data-answer-item="q1"]').waitFor({ state: 'detached' });
     check('Approve sends the edited answer', JSON.stringify(last()) === JSON.stringify({ action: 'approve-answer', id: 'pc1', questionId: 'q1', answer: 'I want to build calm, fast engineering teams.' }));
-    await np.locator('[data-answer-item="q2"] [data-pc-act="skip-answer"]').click();
+    check('required answers cannot be skipped', await np.locator('[data-answer-item="q2"] [data-pc-act="skip-answer"]').count() === 0);
+    await np.locator('[data-answer-item="q2"] textarea').fill('120000 GBP');
+    await np.locator('[data-answer-item="q2"] [data-pc-act="approve-answer"]').click();
     await np.locator('[data-needs-kind="application-answers"]').waitFor({ state: 'detached' });
-    check('Skip sends skip-answer and the finished card leaves', JSON.stringify(last()) === JSON.stringify({ action: 'skip-answer', id: 'pc1', questionId: 'q2' }) &&
+    check('Confirm saves the personal answer and the finished card leaves', JSON.stringify(last()) === JSON.stringify({ action: 'approve-answer', id: 'pc1', questionId: 'q2', answer: '120000 GBP' }) &&
       (await np.locator('[data-collection="needs"]').textContent()).includes('4'));
     // Proposals.
     const pr1 = np.locator('[data-needs-id="pr1"]');
@@ -917,8 +919,8 @@ try {
     // Workspace posting check.
     await np.locator('[data-section="materials"]').click();
     await np.locator('.posting-check').waitFor();
-    check('Documents shows the posting check with gaps and form questions', await np.locator('.posting-check').evaluate(el => ['Salary range', 'Office days', 'Why do you want to lead engineering', 'Greenhouse'].every(t => el.textContent.includes(t))));
-    check('asked and dismissed gaps keep their state in the workspace', (await np.locator('.posting-check [data-gap-item="g1"]').textContent()).includes('Could you share the salary band') && (await np.locator('.posting-check [data-gap-item="g2"]').textContent()).includes('Dismissed'));
+    check('Documents shows the application checklist', await np.locator('.posting-check').evaluate(el => ['Application checklist', 'Why do you want to lead engineering', 'Open employer application form'].every(t => el.textContent.includes(t))));
+    check('legacy recruiter gaps do not appear in the checklist', await np.locator('.posting-check [data-gap-item]').count() === 0);
     check('a fetched form has no paste box', await np.locator('[data-pc-paste]').count() === 0);
     await np.locator('[data-pc-act="rerun"]').click();
     await np.getByText('Posting check requested').first().waitFor();
