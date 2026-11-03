@@ -1729,6 +1729,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var attrs = ' data-pc-job="' + esc(jobId) + '" data-pc-question="' + esc(q.id) + '"';
     var title = '<strong class="needs-item-label">' + esc(q.text) + (q.required ? ' <span class="needs-required">Required</span>' : '') + '</strong>';
     var options = q.options && q.options.length ? '<p class="needs-item-why">Options: ' + esc(q.options.join(' · ')) + '</p>' : '';
+    if (q.maxLength) options += '<p class="needs-item-why">Maximum ' + esc(q.maxLength) + ' characters.</p>';
+    if (q.accept) options += '<p class="needs-item-why">Accepted files: ' + esc(q.accept) + '</p>';
     if (state === 'approved') return '<div class="needs-item" data-answer-item="' + esc(q.id) + '">' + title + options +
       '<span class="document-live" aria-label="Item prepared">Prepared</span>' + (q.answerDraft ? '<div class="qa-answer" data-prepared-answer>' + esc(q.answerDraft) + '</div><div class="needs-actions"><button type="button" data-pc-act="copy-answer"' + attrs + '>Copy</button></div>' : '') + '</div>';
     if (state === 'skipped') return '<div class="needs-item" data-answer-item="' + esc(q.id) + '">' + title + options + '<p class="needs-item-why">Skipped</p></div>';
