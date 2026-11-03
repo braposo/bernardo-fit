@@ -57,7 +57,7 @@ const stubAnswer = calls => async args => {
 };
 
 await test("posting check settings validate and stay out of the scoring fingerprint", () => {
-  assert.deepEqual(DEFAULT_POSTING_CHECK, { enabled: false, gapThreshold: 0.5, fetchApplicationForms: true, draftAnswers: true, maxDraftAnswers: 8, requestTimeoutSeconds: 20 });
+  assert.equal(DEFAULT_POSTING_CHECK.enabled, false); assert.ok(DEFAULT_POSTING_CHECK.discoveryPrompt); assert.equal(DEFAULT_POSTING_CHECK.maxDiscoverySearches, 5);
   assert.deepEqual(validatePostingCheck({ ...DEFAULT_POSTING_CHECK, extra: 1 }), DEFAULT_POSTING_CHECK);
   for (const patch of [{ enabled: "yes" }, { draftAnswers: 1 }, { fetchApplicationForms: null }, { gapThreshold: 0.05 }, { gapThreshold: 0.95 },
     { gapThreshold: "0.5" }, { maxDraftAnswers: 21 }, { maxDraftAnswers: -1 }, { maxDraftAnswers: 1.5 }, { requestTimeoutSeconds: 4 }, { requestTimeoutSeconds: 61 }])
@@ -103,7 +103,9 @@ await test("Greenhouse, Lever and Ashby posting and apply URLs are recognised", 
 });
 
 await test("ATS responses become posting facts and custom questions only", () => {
-  const gh = parseAtsResponse(detectAts(GH_URL), greenhouseBody);
+  const all = parseAtsResponse(detectAts(GH_URL), greenhouseBody);
+  assert.equal(all.questions.length, 8); assert.equal(all.questions[0].kind, 'contact'); assert.equal(all.questions[1].kind, 'file');
+  const gh = {...all, questions: all.questions.slice(3,7)};
   assert.deepEqual(gh.facts, { title: "Engineering Manager", location: "London, UK", salary: "100,000 to 120,000 GBP UK" });
   assert.deepEqual(gh.questions.map(q => q.text), ["Why do you want to work at Synthetic Co?", "Do you have the right to work in the UK?",
     "What is your salary expectation?", "Describe a system you scaled. (Max 200 words)"]);
@@ -130,7 +132,7 @@ await test("the form request makes one attempt and classifies provider errors", 
   assert.equal(seen.length, 1);
   assert.equal(seen[0][0], atsApiUrl(target)); assert.equal(seen[0][1].method, "GET"); assert.equal(seen[0][1].redirect, "error");
   assert.equal(seen[0][1].timeoutInMs, 20000); assert.deepEqual(seen[0][1].retry.byStatus, {});
-  assert.equal(ok.form.questions.length, 4);
+  assert.equal(ok.form.questions.length, 8);
   const limited = await fetchAtsPosting({ target, policy }, { fetchRequest: async () => new Response("", { status: 429, headers: { "retry-after": "120" } }) }).catch(e => e);
   assert.match(limited.message, /HTTP 429/); assert.ok(limited.retryAt instanceof Date); assert.equal(limited.abort, undefined);
   assert.deepEqual(atsRetryPolicy({ error: limited }), { retryAt: limited.retryAt });
@@ -144,9 +146,9 @@ await test("the form request makes one attempt and classifies provider errors", 
   assert.equal(atsRetryPolicy({ error: new Error("network") }), undefined);
 });
 
-await test("pasted questions: one per line, markers stripped, contact fields dropped", () => {
+await test("pasted questions: one per line, markers stripped, contact fields retained", () => {
   const pasted = parsePastedQuestions("1. Why this role?\n- What is your notice period? *\n\n• Email\nQ3: Tell us about a hard call (required)\nWhy this role?\nok");
-  assert.deepEqual(pasted.map(q => [q.text, q.required]), [["Why this role?", false], ["What is your notice period?", true], ["Tell us about a hard call", true]]);
+  assert.deepEqual(pasted.map(q => [q.text, q.required]), [["Why this role?", false], ["What is your notice period?", true], ["Email", false], ["Tell us about a hard call", true]]);
   assert.deepEqual(parsePastedQuestions(""), []);
   assert.equal(parsePastedQuestions(Array.from({ length: 40 }, (_, i) => `Question number ${i}?`).join("\n")).length, 30);
 });
@@ -187,7 +189,7 @@ await test("the check no-ops when off, unpublished, gone or not at Reviewing", a
   assert.equal(jobSummary(await getJob(job.id)).postingCheck, null);
 });
 
-await test("a check saves gaps and form questions, then drafts answers once the fit page exists", async () => {
+await test("a checklist keeps all form fields and drafts prose after the fit page exists", async () => {
   const job = await create();
   let jevRequest, noteRequest;
   const calls = [];
@@ -196,29 +198,15 @@ await test("a check saves gaps and form questions, then drafts answers once the 
     evaluate: async args => { jevRequest = args; return jevAnswers({ salary: 0.95, location: 0.2, seniority: 0.9, contract: 0.1 }); },
     write: async args => { noteRequest = args; return { notes: { location: { why: "It names London but no office days.", question: "How many office days a week in London?" } }, model: GAP_NOTE_MODEL }; },
   };
-  // No fit page yet: gaps and questions are saved, drafting waits.
   let result = await withSettingsSnapshot(enabled, () => executePostingCheck({ jobId: job.id }, deps));
-  assert.equal(result.outcome, "checked"); assert.equal(result.gaps, 2); assert.equal(result.drafted, 0);
-  assert.equal(jevRequest.kind, "jev-posting-gaps"); assert.equal(jevRequest.questions, GAP_QUESTIONS);
-  assert.equal(jevRequest.state.opportunity.company, "Synthetic Co");
-  assert.equal(jevRequest.state.applicationSystem.salary, "100,000 to 120,000 GBP UK");
-  assert.match(jevRequest.ref, new RegExp(`${POSTING_CHECK_POLICY}$`));
-  assert.deepEqual(noteRequest.kinds, ["location", "contract"]);
+  assert.equal(result.outcome, 'checked'); assert.equal(result.gaps, 0); assert.equal(result.drafted, 0);
+  assert.equal(jevRequest, undefined); assert.equal(noteRequest, undefined);
   let saved = await getJob(job.id);
-  assert.equal(saved.stage, "reviewing");
-  assert.equal(saved.postingCheck.draftStatus, "waiting-for-fit");
-  assert.equal(saved.postingCheck.form.source, "greenhouse");
-  assert.ok(saved.postingCheck.form.questions.every(q => q.state === "pending" && !q.answerDraft));
-  assert.equal(calls.length, 0);
-  // Waiting questions are not Needs you items yet; the gaps are.
-  assert.deepEqual(postingNeedsYouItems([saved]).map(i => i.kind), ["posting-gaps"]);
-  const view = jobDetail(saved).postingCheck;
-  assert.deepEqual(Object.keys(view), ["status", "policy", "checkedAt", "draftStatus", "gaps", "form"]);
-  assert.equal(view.status, "checked"); assert.equal(view.checkedAt, "2026-10-29T09:00:00.000Z");
-  assert.deepEqual(view.gaps[0], { id: "location", kind: "location", label: "Location and office days", why: "It names London but no office days.",
-    question: "How many office days a week in London?", state: "open" });
-  assert.equal(view.gaps[1].question, GAP_TEMPLATES.contract.question);
-  assert.equal(view.form.facts, undefined); assert.equal(view.fingerprint, undefined);
+  assert.equal(saved.postingCheck.form.questions.length, 8);
+  assert.equal(saved.postingCheck.draftStatus, 'waiting-for-fit');
+  assert.deepEqual(saved.postingCheck.gaps, []);
+  assert.equal(saved.postingCheck.status, 'partial');
+  assert.deepEqual(postingNeedsYouItems([saved]).map(i => i.kind), ['application-answers']);
   // The fit page lands: a new key, gaps and form are reused, answers are drafted.
   const keyBefore = postingIdempotencyKey(saved);
   const reportId = await saveReport({ job_title: "Engineering Manager", company: "Synthetic Co", job_description: saved.jobDescription, pitch: "Strong fit." });
@@ -232,10 +220,10 @@ await test("a check saves gaps and form questions, then drafts answers once the 
   assert.equal(calls[0].economy, true); assert.equal(calls[0].limit, 150); assert.ok(calls[0].report?.pitch);
   assert.deepEqual(calls[1].previous, [{ q: "Why do you want to work at Synthetic Co?", a: "Draft for: Why do you want to work at Synthetic Co?" }]);
   saved = await getJob(job.id);
-  const [why, rtw, salary, describe] = saved.postingCheck.form.questions;
+  const [why, rtw, salary, describe] = saved.postingCheck.form.questions.slice(3,7);
   assert.deepEqual([why.state, why.needsYou, why.answerDraft], ["drafted", false, "Draft for: Why do you want to work at Synthetic Co?"]);
-  assert.deepEqual([rtw.state, rtw.needsYou], ["drafted", true]);
-  assert.match(rtw.answerDraft, /Settled Status/); assert.match(rtw.reason, /Right to work/);
+  assert.deepEqual([rtw.state, rtw.needsYou], ["pending", true]);
+  assert.equal(rtw.answerDraft, ""); assert.match(rtw.reason, /Right to work/);
   assert.deepEqual([salary.state, salary.needsYou, salary.answerDraft], ["pending", true, ""]);
   assert.deepEqual([describe.state, describe.needsYou, describe.reason], ["pending", true, "It needs a specific scaling example."]);
   assert.equal(saved.postingCheck.draftStatus, "drafted");
@@ -251,41 +239,28 @@ await test("a check saves gaps and form questions, then drafts answers once the 
   result = await withSettingsSnapshot(enabled, () => executePostingCheck({ jobId: job.id, force: true }, deps));
   assert.equal(result.outcome, "checked");
   assert.deepEqual(calls.map(c => c.question), ["Describe a system you scaled. (Max 200 words)"]);
-  assert.equal((await getJob(job.id)).postingCheck.form.questions[0].state, "approved");
+  assert.equal((await getJob(job.id)).postingCheck.form.questions.find(q => q.id === why.id).state, "approved");
 });
 
-await test("a failed Jev check or form read still saves the rest as partial", async () => {
-  const job = await create({ fitReportId: await saveReport({ job_title: "EM", company: "Synthetic Co", job_description: "x", pitch: "p" }) });
-  const result = await withSettingsSnapshot(enabled, () => executePostingCheck({ jobId: job.id }, {
-    fetchForm: async () => { throw new Error("Greenhouse down"); }, answer: stubAnswer([]),
-    evaluate: async () => { throw new Error("Jev down"); }, write: async () => { throw new Error("must not write"); } }));
-  assert.equal(result.outcome, "checked");
-  const saved = await getJob(job.id);
-  assert.equal(saved.postingCheck.status, "partial"); assert.equal(saved.postingCheck.gapStatus, "unavailable");
-  assert.deepEqual(saved.postingCheck.gaps, []); assert.equal(saved.postingCheck.form.status, "unavailable");
-  // A failed note keeps the templated text; an incomplete Jev answer counts as unavailable.
-  const other = await create();
-  await withSettingsSnapshot(enabled, () => executePostingCheck({ jobId: other.id }, { fetchForm: stubFetch, answer: stubAnswer([]),
-    evaluate: async () => jevAnswers({ salary: 0.1, location: 0.9, seniority: 0.9, contract: 0.9 }), write: async () => { throw new Error("OpenAI down"); } }));
-  assert.deepEqual((await getJob(other.id)).postingCheck.gaps.map(g => [g.kind, g.why]), [["salary", GAP_TEMPLATES.salary.why]]);
-  const third = await create({ sourceUrl: "https://example.com/careers/1" });
-  await withSettingsSnapshot(enabled, () => executePostingCheck({ jobId: third.id }, { fetchForm: stubFetch, answer: stubAnswer([]),
-    evaluate: async () => jevAnswers({ salary: 0.9 }), write: async () => ({ notes: {} }) }));
-  const thirdCheck = (await getJob(third.id)).postingCheck;
-  assert.equal(thirdCheck.gapStatus, "unavailable"); assert.equal(thirdCheck.form.status, "not-detected");
+await test('failed reads stay partial and never invent requirements', async () => {
+  const job = await create();
+  await withSettingsSnapshot(enabled, () => executePostingCheck({jobId: job.id}, {fetchForm: async () => {throw Error('unavailable');}}));
+  const check = (await getJob(job.id)).postingCheck;
+  assert.equal(check.status, 'partial'); assert.deepEqual(check.gaps, []);
+  assert.equal(postingCheckProgress({postingCheck:check}).answersReady, false);
 });
 
 await test("a check is dropped when the job leaves Reviewing, and keeps what Bernardo did meanwhile", async () => {
   const job = await create();
-  const result = await withSettingsSnapshot(enabled, () => executePostingCheck({ jobId: job.id }, { fetchForm: stubFetch, answer: stubAnswer([]),
-    write: async () => ({ notes: {} }),
-    evaluate: async () => { await mutateJob(job.id, () => ({ stage: "applied" })); return jevAnswers({ salary: 0.1, location: 0.1, seniority: 0.1, contract: 0.1 }); } }));
+  const result = await withSettingsSnapshot(enabled, () => executePostingCheck({jobId: job.id}, {
+    fetchForm: async target => { await mutateJob(job.id, () => ({stage:'applied'})); return stubFetch(target); }
+  }));
   assert.equal(result.outcome, "superseded");
   assert.equal((await getJob(job.id)).postingCheck, null);
   const next = { gaps: gapsFromKinds(["salary", "location"]), form: { source: "greenhouse", questions: [{ id: "q1", state: "drafted", answerDraft: "new" }, { id: "q2", state: "drafted", answerDraft: "x" }] } };
   const merged = carryUserStates(next, { gaps: [{ id: "salary", state: "dismissed" }, { id: "location", state: "asked", question: "Mine?" }],
     form: { source: "greenhouse", questions: [{ id: "q1", state: "approved", answerDraft: "edited" }] } });
-  assert.deepEqual(merged.gaps.map(g => [g.id, g.state, g.question]), [["salary", "dismissed", GAP_TEMPLATES.salary.question], ["location", "asked", "Mine?"]]);
+  assert.deepEqual(merged.gaps, []);
   assert.deepEqual(merged.form.questions.map(q => [q.id, q.state, q.answerDraft]), [["q1", "approved", "edited"], ["q2", "drafted", "x"]]);
 });
 
@@ -293,7 +268,7 @@ await test("idempotency key: per job, posting, fit page, pasted questions and po
   const job = { id: "j1", stage: "reviewing", jobDescription: "JD", salary: "", location: "Leeds", locationMode: "", sourceUrl: GH_URL };
   const key = postingIdempotencyKey(job);
   assert.equal(key, `check-posting:j1:${postingFingerprint(job)}:nofit:ats:${POSTING_CHECK_POLICY}`);
-  assert.equal(postingIdempotencyKey({ ...job, notes: "changed notes" }), key);
+  assert.notEqual(postingIdempotencyKey({ ...job, notes: "changed notes" }), key);
   assert.notEqual(postingIdempotencyKey({ ...job, jobDescription: "JD v2" }), key);
   assert.notEqual(postingIdempotencyKey({ ...job, salary: "£100k" }), key);
   assert.match(postingIdempotencyKey({ ...job, fitReportId: "r1" }), /:fit:ats:/);
@@ -321,7 +296,7 @@ const checked = (extra = {}) => ({
     { id: "q3", text: "Later question?", required: false, options: [], limit: 120, answerDraft: "", needsYou: false, reason: "", state: "pending" },
   ] }, ...extra });
 
-await test("needs-you lists open gaps and answers to approve beside unchanged review items", () => {
+await test("needs-you lists application answers without legacy gaps", () => {
   const review = { lean: "ask", advanceProbability: 0.5, dropProbability: 0.3, reason: "R.", question: "Q?", reviewedAt: "t", model: "jev", examples: 1 };
   const items = needsYouItems([
     { id: "n1", stage: "new", company: "New Co", role: "EM", jevAssessment: { score: 70 }, agentReview: review },
@@ -335,16 +310,12 @@ await test("needs-you lists open gaps and answers to approve beside unchanged re
   // Agent review items keep their exact shape (no kind) and come first.
   assert.deepEqual(items[0], { id: "n1", company: "New Co", role: "EM", score: 70, location: "", lean: "ask", advanceProbability: 0.5,
     dropProbability: 0.3, reason: "R.", question: "Q?", reviewedAt: "t" });
-  assert.deepEqual(items.slice(1).map(i => [i.kind, i.id]), [["posting-gaps", "r1"], ["application-answers", "r1"]]);
-  assert.deepEqual(items[1], { kind: "posting-gaps", id: "r1", company: "Rev Co", role: "EM", score: 80, location: "Leeds", checkedAt: "2026-10-29T09:00:00.000Z",
-    gaps: [{ id: "salary", kind: "salary", ...GAP_TEMPLATES.salary }, { id: "contract", kind: "contract", ...GAP_TEMPLATES.contract }] });
-  assert.deepEqual(items[2].questions.map(q => [q.id, q.needsYou]), [["q1", false], ["q2", true]]);
-  assert.equal(items[2].source, "greenhouse");
-  assert.deepEqual(Object.keys(items[2].questions[0]), ["id", "text", "required", "options", "answerDraft", "needsYou", "reason"]);
-  assert.deepEqual(postingCheckProgress({ postingCheck: checked() }), { checked: true, status: "checked", openGaps: 2, formQuestions: 3,
-    answersToApprove: 1, answersNeedingYou: 1, answersWaiting: 3, answersReady: false });
-  assert.equal(postingCheckProgress({}).answersReady, true);
-  assert.equal(postingCheckProgress({ postingCheck: checked({ form: { questions: [{ id: "a", text: "A?", state: "approved" }, { id: "b", text: "B?", state: "skipped" }] } }) }).answersReady, true);
+  assert.deepEqual(items.slice(1).map(i => [i.kind, i.id]), [['application-answers','r1']]);
+  assert.deepEqual(items[1].questions.map(q => [q.id,q.needsYou]), [['q1',false],['q2',true]]);
+  assert.equal(postingCheckProgress({}).answersReady, false);
+  assert.equal(postingCheckProgress({postingCheck:checked({form:{complete:true,questions:[{id:'a',text:'A',required:true,state:'skipped'}]}})}).answersReady,false);
+  assert.equal(postingCheckProgress({postingCheck:checked({form:{complete:true,questions:[{id:'a',text:'A',required:true,state:'approved'}]}})}).answersReady,true);
+
 });
 
 await test("approve, edit, skip, dismiss and draft-question actions through the jobs API", async () => {
@@ -380,7 +351,7 @@ await test("approve, edit, skip, dismiss and draft-question actions through the 
   assert.equal((await call("POST", { body: { action: "dismiss-gap", gapId: "salary" } })).status, 400);
   // Everything handled: nothing left in Needs you, and the answers are ready.
   assert.deepEqual(postingNeedsYouItems([saved]), []);
-  assert.equal(postingCheckProgress(saved).answersReady, true);
+  assert.equal(postingCheckProgress(saved).answersReady, false);
   const needs = await call("GET", { query: { needsYou: "1" } });
   assert.ok(!needs.body.items.some(item => item.id === job.id));
   assert.equal((await call("POST", { body: { action: "dismiss-gap", id: (await create()).id, gapId: "salary" } })).status, 409);

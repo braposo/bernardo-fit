@@ -1730,13 +1730,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var title = '<strong class="needs-item-label">' + esc(q.text) + (q.required ? ' <span class="needs-required">Required</span>' : '') + '</strong>';
     var options = q.options && q.options.length ? '<p class="needs-item-why">Options: ' + esc(q.options.join(' · ')) + '</p>' : '';
     if (state === 'approved') return '<div class="needs-item" data-answer-item="' + esc(q.id) + '">' + title + options +
-      '<span class="document-live" aria-label="Answer approved">Approved</span>' + (q.answerDraft ? '<div class="qa-answer">' + esc(q.answerDraft) + '</div>' : '') + '</div>';
+      '<span class="document-live" aria-label="Item prepared">Prepared</span>' + (q.answerDraft ? '<div class="qa-answer" data-prepared-answer>' + esc(q.answerDraft) + '</div><div class="needs-actions"><button type="button" data-pc-act="copy-answer"' + attrs + '>Copy</button></div>' : '') + '</div>';
     if (state === 'skipped') return '<div class="needs-item" data-answer-item="' + esc(q.id) + '">' + title + options + '<p class="needs-item-why">Skipped</p></div>';
     return '<div class="needs-item" data-answer-item="' + esc(q.id) + '">' + title + options +
       (q.needsYou ? '<div class="qa-answer refused">Needs you: ' + esc(q.reason || 'this one is personal.') + '</div>' : '') +
       '<label class="sr-only" for="answer-' + esc(jobId + '-' + q.id) + '">Answer</label>' +
       '<textarea id="answer-' + esc(jobId + '-' + q.id) + '" class="needs-textarea" data-needs-edit data-draft-key="' + esc(key) + '" maxlength="8000" placeholder="' + (q.needsYou ? 'Write your answer…' : 'No draft yet. Write your answer…') + '">' + esc(draftOf(key, q.answerDraft || '')) + '</textarea>' +
-      '<div class="needs-actions"><button type="button" data-pc-act="approve-answer"' + attrs + '>Approve</button><button class="ghost" type="button" data-pc-act="skip-answer"' + attrs + '>Skip</button></div></div>';
+      '<div class="needs-actions"><button type="button" data-pc-act="approve-answer"' + attrs + '>Confirm prepared</button>' + (q.required ? '' : '<button class="ghost" type="button" data-pc-act="skip-answer"' + attrs + '>Skip optional item</button>') + '</div></div>';
   }
 
   function needsOpenHtml(item, meta) {
@@ -1827,22 +1827,22 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var fetched = form.source && form.source !== 'pasted' && form.status === 'ready';
     var body = '';
     if (pc) {
-      body += '<h3>What the posting leaves out</h3>' + (gaps.length ? gaps.map(function (g) { return gapItemHtml(j.id, g); }).join('') :
-        '<p class="field-help">' + (pc.status === 'partial' && !questions.length ? 'The gap check did not finish.' : 'No gaps found.') + '</p>');
-      body += '<h3>Application form' + (form.source ? ' <span class="needs-source">' + esc(form.source === 'pasted' ? 'Pasted' : stageLabel(form.source)) + '</span>' : '') + '</h3>';
+      var prepared = questions.filter(function (q) { return q.state === 'approved' || !q.required && q.state === 'skipped'; }).length;
+      body += '<h3>' + prepared + ' of ' + questions.length + ' items prepared</h3>';
+      if (safeSourceUrl(form.url)) body += '<p><a href="' + esc(form.url) + '" target="_blank" rel="noopener noreferrer">Open employer application form</a></p>';
+      if (!form.complete) body += '<p class="field-help">' + esc(form.reason || 'The complete form has not been verified. Open the application page to check any missing or later steps.') + '</p>';
       if (questions.length) {
-        if (pc.draftStatus === 'waiting-for-fit') body += '<p class="field-help">Answers are drafted once the fit page exists.</p>';
+        if (pc.draftStatus === 'waiting-for-fit') body += '<p class="field-help">Written answers are drafted once the fit page exists. You can prepare the other items now.</p>';
         body += questions.map(function (q) { return answerItemHtml(j.id, q); }).join('');
-      } else body += '<p class="field-help">' + ({ unavailable: 'The application form could not be read.', 'not-detected': 'No supported application form was found for this posting.',
-        'no-questions': 'This form publishes no custom questions.', off: 'Reading application forms is turned off.' }[form.status] || 'No application questions yet.') + '</p>';
+      } else body += '<p class="field-help">No requirements have been read yet. Re-run the check or paste the fields from the employer form.</p>';
     }
     var pasteText = Object.prototype.hasOwnProperty.call(pcPaste, j.id) ? pcPaste[j.id] : '';
     var paste = fetched ? '' : '<div class="field posting-paste"><label for="paste-' + esc(j.id) + '">Paste application questions</label>' +
       '<p class="field-help">One question per line. End a line with * or (required) to mark it required.</p>' +
       '<textarea id="paste-' + esc(j.id) + '" data-pc-paste="' + esc(j.id) + '">' + esc(pasteText) + '</textarea>' +
       '<div class="needs-actions"><button type="button" data-pc-act="paste" data-pc-job="' + esc(j.id) + '">Save questions</button></div></div>';
-    return '<section class="question-list qabox posting-check" aria-labelledby="posting-check-heading"><h2 id="posting-check-heading">Posting check</h2>' +
-      '<p class="field-help">' + esc(status) + '</p>' + body + paste +
+    return '<section class="question-list qabox posting-check" aria-labelledby="posting-check-heading"><h2 id="posting-check-heading">Application checklist</h2>' +
+      '<p class="field-help">Prepare the information and files you need to apply. Confirming an item here does not fill or submit the external form.</p><p class="field-help">' + esc(status) + '</p>' + body + paste +
       '<div class="needs-actions"><button class="ghost" type="button" data-pc-act="rerun" data-pc-job="' + esc(j.id) + '">' + (pc ? 'Re-run check' : 'Run check') + '</button></div></section>';
   }
 
@@ -2982,6 +2982,11 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var focusEditor = function () { var ta = document.querySelector('[data-draft-key="' + gapKey + '"]'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } };
     if (act === 'ask') { needsUi.editing[gapKey] = true; renderJobs(); focusEditor(); return; }
     if (act === 'cancel-question') { delete needsUi.editing[gapKey]; delete needsUi.drafts[gapKey]; renderJobs(); return; }
+    if (act === 'copy-answer') {
+      var answerText = (el.closest('.needs-item').querySelector('[data-prepared-answer]') || {}).textContent || '';
+      navigator.clipboard.writeText(answerText).then(function () { actionToast('Copied', 'Ready to paste into the application form.'); });
+      return;
+    }
     if (act === 'copy-question') {
       var text = (el.closest('.needs-item').querySelector('[data-question-text]') || {}).textContent || '';
       navigator.clipboard.writeText(text).then(function () { actionToast('Question copied', 'Paste it into your email to the recruiter.'); }, function () { actionToast('Could not copy', 'Select the question and copy it by hand.', 'err'); });

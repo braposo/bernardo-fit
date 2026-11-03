@@ -119,6 +119,35 @@ async function needsFixture(browser) {
 }
 const settle = page => page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}' });
 try {
+  if (process.env.APPLICATION_CHECKLIST_CAPTURE) {
+    const dir = process.env.APPLICATION_CHECKLIST_CAPTURE, tag = process.env.ADMIN_UX_BASELINE ? 'before' : 'after';
+    const fx = await needsFixture(browser);
+    const check = fx.jobs.find(j => j.id === 'pc1').postingCheck;
+    check.form.complete = false;
+    check.form.reason = 'Later steps need checking on the employer application form.';
+    check.form.questions.unshift(
+      {id:'contact',text:'Email address',kind:'contact',required:true,options:[],state:'approved',answerDraft:'candidate@example.com'},
+      {id:'upload',text:'Resume / CV',kind:'file',required:true,options:[],state:'pending',needsYou:true,reason:'Prepare this file for upload. Confirm its filename here once ready.'});
+    for (const width of [1280,390]) {
+      await fx.page.setViewportSize({width,height:1000});
+      await fx.page.goto(origin + '/admin.html?job=pc1&section=materials');
+      await fx.page.locator('.posting-check').waitFor();
+      await settle(fx.page);
+      await fx.page.evaluate(() => document.fonts.ready);
+      await fx.page.locator('.posting-check').evaluate(el => el.scrollIntoView({block:'start'}));
+      await fx.page.screenshot({path:dir + '/' + tag + '-' + width + '.png',fullPage:false});
+      if (tag === 'after') {
+        assert.equal(await fx.page.locator('.posting-check h2').textContent(),'Application checklist');
+        assert.equal(await fx.page.locator('[data-answer-item="upload"] [data-pc-act="skip-answer"]').count(),0);
+        assert.ok(await fx.page.locator('.posting-check').getByRole('link',{name:'Open employer application form'}).count());
+        const dimensions=await fx.page.locator('[data-answer-item="upload"] button').evaluate(el=>({height:el.getBoundingClientRect().height,radius:getComputedStyle(el).borderRadius}));
+        assert.ok(dimensions.height >= 44, JSON.stringify(dimensions));
+        console.log(width,dimensions);
+      }
+    }
+    assert.deepEqual(fx.pageErrors,[]);
+    await browser.close(); await new Promise(resolve => server.close(resolve)); process.exit(0);
+  }
   if (process.env.ADMIN_UX_NEEDS_CAPTURE) {
     // Screenshots of the synthetic Needs you fixture. ADMIN_UX_BASELINE serves public/admin.html from git instead.
     const dir = process.env.ADMIN_UX_NEEDS_CAPTURE, tag = process.env.ADMIN_UX_BASELINE ? 'before' : 'after';
