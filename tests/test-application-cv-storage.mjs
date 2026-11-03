@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {applicationCvSourceFromDocument} from '../lib/application-cv-source.js';
 import {safeApplicationCvContactHref} from '../lib/application-cv-contacts.js';
-import {createApplicationCvStore,createMemoryApplicationCvStore,publicCvVersion,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries,getPublicApplicationCv} from '../lib/application-cv-store.js';
+import {createApplicationCvStore,createMemoryApplicationCvStore,publicCvVersion,applicationCvFilename,applicationCvPdfUrl,withApplicationCvStore,getApplicationCv,getApplicationCvSummaries,getPublicApplicationCv} from '../lib/application-cv-store.js';
 import {createApplicationHandler} from '../lib/handlers/application.js';
 import {createSiteHandler} from '../api/site.js';
 import {buildApplicationCvSeed,seedApplicationCv,DEFAULT_CV_VERIFIER_PROMPT,ROLE_OVERVIEW_EVIDENCE_KEYS} from '../scripts/seed-application-cv.mjs';
@@ -105,6 +105,15 @@ assert.equal(publicCvVersion({...saved,validation:{status:'needs_review'}}),null
 assert.equal(applicationCvPdfUrl({...saved,pdfUrl:'https://evil.example/file.pdf'}),null);
 assert.match(applicationCvPdfUrl({...saved,pdfUrl:'https://cdn.sanity.io/files/quli96gc/production/a.pdf'}),/Bernardo-Raposo-Acme-CV.pdf/);
 
+// Existing agency CVs can have no employer name in the report.
+for (const company of ['', '   ', '---']) {
+  const agencyVersion={...saved,reportSnapshot:{report:{company}}};
+  assert.equal(applicationCvFilename(agencyVersion,{company:'Acme Recruitment'}),'Bernardo-Raposo-Acme-Recruitment-CV.pdf');
+}
+assert.equal(applicationCvFilename(saved,{company:'Agency'}),'Bernardo-Raposo-Acme-CV.pdf');
+assert.equal(applicationCvFilename({content:saved.content},{company:'Réc/Ruit "Ltd"\r\n'}),'Bernardo-Raposo-Rec-Ruit-Ltd-CV.pdf');
+assert.equal(applicationCvFilename({}), 'application-cv.pdf');
+
 const response=()=>({code:0,headers:{},body:null,setHeader(key,value){this.headers[key]=value;},status(code){this.code=code;return this;},send(body){this.body=body;return this;},json(body){this.body=body;return this;},end(){return this;}});
 const pdfUrl='https://cdn.sanity.io/files/quli96gc/production/a.pdf';
 const publicData={...before,pdfUrl,report:{...before.report,categories:[{name:'Leadership',note:'Led a team.'}],
@@ -129,6 +138,22 @@ assert.ok(htmlRes.body.indexOf('Download CV · PDF')>htmlRes.body.indexOf('Appli
 assert.doesNotMatch(htmlRes.body,/I would welcome a conversation|class="closing"/);
 const pdfRes=response();await handler({method:'GET',query:{publicId:first.publicId,kind:'pdf'}},pdfRes);
 assert.equal(pdfRes.code,200);assert.deepEqual(pdfRes.body,pdf);
+const agencyDoc={publicId:'public-agency',job:{_id:'job-agency',company:'Acme Recruitment'},currentVersion:{
+  requestId:'agency-version',content:{payload:JSON.stringify(saved.content)},
+  reportSnapshot:{payload:JSON.stringify({report:{company:''}})},
+  validation:{payload:JSON.stringify({status:'valid'})},pdfSha256:saved.pdfSha256,pdfUrl}};
+const agencyStore=createApplicationCvStore({async fetch(query){
+  assert.match(query, /"job":job->\{[^}]*company/);
+  return agencyDoc;
+}});
+const agencyData=await agencyStore.getPublicApplicationCv('public-agency');
+assert.equal(agencyData.filename,'Bernardo-Raposo-Acme-Recruitment-CV.pdf');
+const agencyRes=response();
+await createApplicationHandler(async()=>agencyData,async()=>'',async()=>({ok:true,arrayBuffer:async()=>pdf}))(
+  {method:'GET',query:{publicId:'public-agency',kind:'pdf'}},agencyRes);
+assert.equal(agencyRes.code,200);
+assert.equal(agencyRes.headers['Content-Disposition'],'attachment; filename="Bernardo-Raposo-Acme-Recruitment-CV.pdf"');
+assert.deepEqual(agencyRes.body,pdf);
 const rejectRes=response();await createApplicationHandler(async()=>publicData,async()=>'',async()=>({ok:true,arrayBuffer:async()=>Buffer.from('%PDF-corrupt%%EOF')}))({method:'GET',query:{publicId:first.publicId,kind:'pdf'}},rejectRes);
 assert.equal(rejectRes.code,503);
 assert.equal(await store.getPublicApplicationIdForReport('shared-report'),first.publicId);
