@@ -4,6 +4,7 @@ import { executePostingCheck } from "../../lib/posting-check.js";
 import { hasKV } from "../../lib/kv.js";
 import { ATS_FORM_REQUEST_TASK_ID, CHECK_POSTING_TASK_ID } from "../../lib/task-policy.js";
 import type { atsFormRequest } from "./ats-form-request";
+import type { applicationFormRequest } from './application-form-request';
 
 // Posting gaps and application form drafts for a job at Reviewing. Nothing is
 // submitted: results wait on the job as `postingCheck`. Triggered once per job,
@@ -29,7 +30,13 @@ export const checkPostingTask = task({
         return result.output;
       };
       try {
-        const result = await executePostingCheck({ jobId: payload.jobId, force: payload.force === true }, { fetchForm });
+        const readForm = async (url: string, policy: any) => {
+          const result = await tasks.triggerAndWait<typeof applicationFormRequest>('application-form-request', { url, policy },
+            { idempotencyKey: await idempotencyKeys.create(['application-form-request', url]), maxDuration: 180 });
+          if (!result.ok) throw new Error('The application form could not be inspected.');
+          return result.output;
+        };
+        const result = await executePostingCheck({ jobId: payload.jobId, force: payload.force === true }, { fetchForm, readForm });
         metadata.set("phase", result.outcome);
         return result;
       } catch (error) {
