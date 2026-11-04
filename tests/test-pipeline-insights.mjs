@@ -62,5 +62,5 @@ check("groups by day", groups.length === 3 && groups[0].label === "Today" && gro
 check("new since last visit", isNewSince({ at: "2026-11-04T10:00:00Z" }, "2026-11-03T10:00:00Z") && !isNewSince({ at: "2026-11-02T10:00:00Z" }, "2026-11-03T10:00:00Z"));
 check("nothing is new on a first visit", !isNewSince({ at: "2026-11-04T10:00:00Z" }, null));
 
-console.log(`\n${pass} passed, ${fail} failed`);
+console.log("\npassed " + pass + ", failed " + fail);
 process.exit(fail ? 1 : 0);

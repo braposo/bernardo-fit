@@ -95,5 +95,5 @@ check("endpoint counts screened out roles", response.kpis.screenedOut === 1);
 check("endpoint lists the stage changes", response.activity.filter(a => a.kind === "stage").length === 2);
 check("unknown range falls back to 90 days", (await pipelineOverviewResponse({ range: "7" })).range === "90");
 
-console.log(`\n${pass} passed, ${fail} failed`);
+console.log("\npassed " + pass + ", failed " + fail);
 process.exit(fail ? 1 : 0);
