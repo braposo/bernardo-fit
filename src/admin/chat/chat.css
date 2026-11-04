@@ -6,10 +6,11 @@
 .admin-chat-panel[data-slot=sheet-content] { width:min(420px,calc(100vw - 64px)); padding:0; gap:0; background:#fff; color:#252631; overflow:hidden; }
 @media(min-width:1200px) {
   body.admin-chat-open .frame, body.admin-chat-open #app { margin-right:420px; }
-  /* Keep the five views and the launcher on one masthead row beside the docked panel.
+  /* Keep the six views and the launcher on one masthead row beside the docked panel, down to 1200px.
      While the panel is open the launcher shows only its icon; its label stays its accessible name. */
-  body.admin-chat-open .masthead { gap:32px; }
-  body.admin-chat-open .topnav { gap:16px; }
+  body.admin-chat-open .masthead { gap:24px; }
+  body.admin-chat-open .topnav { gap:4px; }
+  body.admin-chat-open .topnav [data-slot=button] { padding-inline:8px; }
   body.admin-chat-open .admin-chat-launcher[data-slot] { width:44px; padding:0; gap:0; font-size:0; }
 }
 .chat-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:24px 76px 16px 24px; flex-shrink:0; }
