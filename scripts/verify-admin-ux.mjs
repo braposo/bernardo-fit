@@ -10,7 +10,7 @@ const { default: AxeBuilder } = await import('@axe-core/playwright');
 const baselineRevision = process.env.ADMIN_UX_BASE_REVISION || 'HEAD';
 const server = createServer(async (req, res) => {
   const name = new URL(req.url, 'http://localhost').pathname;
-  if (!['/admin.html', '/admin-run.js', '/admin-usage.js', '/pipeline-board.js', '/assets/admin-ui.js', '/assets/admin-ui.css', '/assets/task-ui.js', '/task-ui.css'].includes(name)) { res.writeHead(404).end(); return; }
+  if (!['/admin.html', '/admin-run.js', '/admin-usage.js', '/pipeline-board.js', '/pipeline-insights.js', '/assets/admin-ui.js', '/assets/admin-ui.css', '/assets/task-ui.js', '/task-ui.css'].includes(name)) { res.writeHead(404).end(); return; }
   res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html');
   const source = process.env.ADMIN_UX_BASELINE && name === '/admin.html'
     ? execFileSync('git', ['show', baselineRevision + ':public/admin.html'], { encoding: 'utf8' })

@@ -42,6 +42,7 @@ import { postingCheckSettings } from "../../lib/sanity/analysis-settings.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // GET    /api/admin/jobs?filtered=1   -> { filtered, listedAt } (screened out, not moved or cleared)
+// GET    /api/admin/jobs?overview=1&range=30|90|365|all -> pipeline insights (lib/pipeline-overview.js)
 // GET    /api/admin/jobs?reviewReasons=1 -> { advance, drop } (published quick picks, then learned ones)
 // GET    /api/admin/jobs?needsYou=1   -> { items, agreement } (New jobs with a review agent suggestion,
 //                                        then Reviewing jobs with posting gaps or form answers to approve,
@@ -65,6 +66,7 @@ async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
+      if (req.query?.overview === "1") return res.status(200).json(await pipelineOverviewResponse(req.query));
       if (req.query?.reviewReasons === "1") return res.status(200).json(await reviewReasonOptions());
       // Archived jobs too: review items skip them, but an email can concern a closed role.
       if (req.query?.needsYou === "1") return res.status(200).json(await needsYouResponse(await listJobs({ includeArchived: true })));
