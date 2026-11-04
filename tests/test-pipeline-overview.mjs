@@ -80,6 +80,14 @@ check("agent moves are marked", o.activity.find(a => a.jobId === "r1").byAgent =
 check("activity is limited to the last 30 days", !o.activity.some(a => a.jobId === "i1" && a.to === "reviewing"));
 check("weekly intake covers 13 weeks for 90 days", o.weekly.length === 13, o.weekly.length);
 check("weekly counts applications", o.weekly.reduce((s, w) => s + w.applied, 0) === 3);
+check("ninety days is bucketed by week", o.intakeDays === 7, o.intakeDays);
+const week = buildPipelineOverview({ jobs, events, filtered, now, days: 7 });
+check("one week is bucketed by day", week.intakeDays === 1 && week.weekly.length === 7, [week.intakeDays, week.weekly.length]);
+check("the last day bucket is today", week.weekly[6].weekStart === "2026-11-04", week.weekly[6]);
+check("daily intake counts the role added three days ago", week.weekly[3].added === 1, week.weekly.map(w => w.added));
+const fortnight = buildPipelineOverview({ jobs, events, filtered, now, days: 14 });
+check("two weeks is fourteen daily bars", fortnight.intakeDays === 1 && fortnight.weekly.length === 14);
+check("two weeks compares with the fortnight before", fortnight.kpis.added === 3 && fortnight.kpis.addedPrevious === 1, [fortnight.kpis.added, fortnight.kpis.addedPrevious]);
 const all = buildPipelineOverview({ jobs, events, filtered, now, days: null });
 check("all time includes older roles", all.kpis.added === 7 && all.kpis.addedPrevious === null);
 
@@ -89,11 +97,13 @@ await updateJob(saved.id, { stage: "reviewing" });
 await updateJob(saved.id, { stage: "applied" });
 await recordFilteredJob({ opportunity: { company: "Other", role: "Engineer", sourceUrl: "https://example.com/1" }, decision: "below-threshold", assessment: { score: 40 }, minimumScore: 60 });
 const response = await pipelineOverviewResponse({ range: "30" });
-check("endpoint reports the range", response.range === "30" && response.ranges.includes("all"));
+check("endpoint reports the range", response.range === "30" && response.ranges.join() === "7,14,30,90", response.ranges);
+check("endpoint counts the jobs tabs", response.counts.active === 1 && response.counts.archived === 0 && response.counts.filtered === 1, response.counts);
 check("endpoint reads recorded stage history", response.stages.find(s => s.id === "applied").reached === 1, response.stages.map(s => s.reached));
 check("endpoint counts screened out roles", response.kpis.screenedOut === 1);
 check("endpoint lists the stage changes", response.activity.filter(a => a.kind === "stage").length === 2);
-check("unknown range falls back to 90 days", (await pipelineOverviewResponse({ range: "7" })).range === "90");
+check("unknown range falls back to 30 days", (await pipelineOverviewResponse({ range: "365" })).range === "30");
+check("one week is a supported range", (await pipelineOverviewResponse({ range: "7" })).range === "7");
 
 console.log("\npassed " + pass + ", failed " + fail);
 process.exit(fail ? 1 : 0);

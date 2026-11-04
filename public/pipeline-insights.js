@@ -7,7 +7,10 @@
 // The palette was checked with the dataviz validator (accent/drop/applied pass).
 export const FLOW_COLORS = { continue: "#6055a6", drop: "#ae4554", screened: "#8a90a0" };
 export const WEEK_COLORS = { added: "#6055a6", applied: "#c46a1e" };
-export const RANGE_LABELS = { "30": "30 days", "90": "90 days", "365": "12 months", all: "All time" };
+export const RANGES = ["7", "14", "30", "90"];
+export const RANGE_LABELS = { "7": "1 week", "14": "2 weeks", "30": "30 days", "90": "3 months" };
+// "in the last …" wording for the dashboard's subtitles.
+export const RANGE_SPANS = { "7": "week", "14": "2 weeks", "30": "30 days", "90": "3 months" };
 const STAGE_NAMES = { new: "New", reviewing: "Reviewing", applied: "Applied", interviewing: "Interviewing", offer: "Offer",
   rejected: "Rejected", not_interested: "Not interested", expired: "Expired", archived: "Archived" };
 
@@ -123,7 +126,9 @@ export function flowColumnsHtml(flow, options = {}) {
 
 // ---------- Weekly intake ----------
 
-export function weeklySvg(weekly, { width = 520, height = 150 } = {}) {
+// One bar pair per bucket: a day when `days` is 1, otherwise a week.
+export function weeklySvg(weekly, { width = 520, height = 150, days = 7 } = {}) {
+  const daily = days === 1;
   const max = Math.max(1, ...weekly.map(w => Math.max(w.added, w.applied)));
   const axis = 18, plotH = height - axis - 6, slot = width / Math.max(1, weekly.length);
   const bar = Math.max(3, Math.min(14, (slot - 6) / 2 - 1));
@@ -131,7 +136,7 @@ export function weeklySvg(weekly, { width = 520, height = 150 } = {}) {
   const bars = weekly.map((w, i) => {
     const x0 = i * slot + (slot - bar * 2 - 2) / 2;
     const label = new Date(w.weekStart + "T00:00:00Z").toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
-    const tip = "Week of " + label + ": " + plural(w.added, "role") + " added, " + w.applied + " applied" + (w.screened ? ", " + w.screened + " screened out" : "");
+    const tip = (daily ? label : "Week of " + label) + ": " + plural(w.added, "role") + " added, " + w.applied + " applied" + (w.screened ? ", " + w.screened + " screened out" : "");
     const col = (x, v, color) => v ? '<path d="' + roundedTop(x, y(v), bar, 6 + plotH) + '" fill="' + color + '"></path>' : "";
     const tick = i % Math.ceil(weekly.length / 7) === 0 || i === weekly.length - 1
       ? '<text class="week-tick" x="' + r(i * slot + slot / 2) + '" y="' + (height - 4) + '" text-anchor="middle">' + escape(label) + '</text>' : "";
@@ -140,7 +145,7 @@ export function weeklySvg(weekly, { width = 520, height = 150 } = {}) {
   }).join("");
   const total = weekly.reduce((s, w) => s + w.added, 0), applied = weekly.reduce((s, w) => s + w.applied, 0);
   return '<svg class="week-chart" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' +
-    escape("Weekly intake over " + plural(weekly.length, "week") + ": " + total + " added, " + applied + " applied") + '">' +
+    escape((daily ? "Daily intake over " + plural(weekly.length, "day") : "Weekly intake over " + plural(weekly.length, "week")) + ": " + total + " added, " + applied + " applied") + '">' +
     '<line class="week-base" x1="0" x2="' + width + '" y1="' + (6 + plotH) + '" y2="' + (6 + plotH) + '"></line>' +
     '<text class="week-max" x="0" y="10">' + max + '</text>' + bars + '</svg>';
 }

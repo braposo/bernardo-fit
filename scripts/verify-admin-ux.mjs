@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const { default: AxeBuilder } = await import('@axe-core/playwright');
+const { buildPipelineOverview } = await import('../lib/pipeline-overview.js');
 const baselineRevision = process.env.ADMIN_UX_BASE_REVISION || 'HEAD';
 const server = createServer(async (req, res) => {
   const name = new URL(req.url, 'http://localhost').pathname;
@@ -76,6 +77,11 @@ async function needsFixture(browser) {
     if (url.pathname !== '/api/admin/jobs') return reply({ error: 'Unexpected fixture request' }, 404);
     if (request.method() === 'GET') {
       if (url.searchParams.get('needsYou') === '1') return reply({ items: needsItems(), agreement: { decided: 9, agreed: 7, rate: 0.78 } });
+      if (url.searchParams.get('overview') === '1') {
+        const range = ['7', '14', '30', '90'].includes(url.searchParams.get('range')) ? url.searchParams.get('range') : '30';
+        const overview = buildPipelineOverview({ jobs: clone(jobs), events: {}, filtered: [{ at: '2026-10-28T09:00:00Z' }], now: new Date('2026-10-30T12:00:00Z'), days: Number(range) });
+        return reply({ range, ranges: ['7', '14', '30', '90'], retentionDays: 90, counts: { active: jobs.length, archived: 3, filtered: 12 }, ...overview });
+      }
       if (url.searchParams.get('preferences') === '1') return reply({ rules: clone(rules), lastLearnedAt: '2026-10-27T09:00:00Z' });
       if (url.searchParams.get('reviewReasons') === '1') return reply({ advance: [], drop: [] });
       if (url.searchParams.get('activity') === '1') return reply({ events: [], hasMore: false, snapshot: 1, stats: {}, usage: { days: [], breakdown: [] } });
@@ -728,7 +734,7 @@ try {
     const boardPage = await context.newPage();
     boardPage.on('pageerror', e => { errors.push(e.message); console.error(e.message); });
     await boardPage.setViewportSize({ width: 1280, height: 800 });
-    await boardPage.goto(origin + '/admin.html');
+    await boardPage.goto(origin + '/admin.html?collection=jobs');
     await boardPage.evaluate(() => localStorage.removeItem('fit.pipeline.view'));
     await boardPage.reload();
     await boardPage.locator('.pipeline-item').first().waitFor();
@@ -983,6 +989,58 @@ try {
     check('Needs you has no automated WCAG A/AA violations', needsAudit.violations.length === 0 || (console.log(JSON.stringify(needsAudit.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.target) })))), false));
     check('no browser errors in the Needs you fixture', fx.pageErrors.length === 0 && fresh.pageErrors.length === 0);
     await fx.context.close(); await fresh.context.close();
+  }
+  {
+    // Dashboard home: what needs you and the pipeline now open Jobs at the right tab and stage.
+    const fx = await needsFixture(browser);
+    const dp = fx.page;
+    const box = (page, selector) => page.locator(selector).first().evaluate(el => { const c = getComputedStyle(el), r = el.getBoundingClientRect();
+      return { h: Math.round(r.height), w: Math.round(r.width), radius: c.borderTopLeftRadius, border: c.borderTopWidth + ' ' + c.borderTopColor, bg: c.backgroundColor, font: c.fontSize }; });
+    await dp.goto(origin + '/admin.html');
+    await dp.locator('.attention-item').first().waitFor();
+    check('a bare /admin opens the dashboard', await dp.locator('.insights-head h1').textContent() === 'Dashboard' && await dp.locator('.topnav [data-collection="insights"]').getAttribute('aria-current') === 'page');
+    check('the top menu is Dashboard, Jobs and AI activity', (await dp.locator('.topnav button').allTextContents()).join('|') === 'Dashboard|Jobs|AI activity & usage');
+    check('time ranges are 1 week, 2 weeks, 30 days and 3 months', (await dp.locator('[data-range]').allTextContents()).join('|') === '1 week|2 weeks|30 days|3 months' &&
+      await dp.locator('[data-range="30"]').getAttribute('aria-pressed') === 'true');
+    check('Needs your attention lists what needs you first', await dp.locator('.attention-item').count() === 6 && (await dp.locator('.attention-item').first().textContent()).includes('Agentic Works'));
+    check('Pipeline now lists every stage with a link', await dp.locator('.now-item').count() === 7 &&
+      await dp.locator('.now-item[href="/admin?collection=jobs&stage=applied"] .now-count').textContent() === '1 Applied');
+    const [attention, nowRow] = [await box(dp, '.attention-item'), await box(dp, '.now-item')];
+    check('dashboard rows reuse the activity and waiting row box', attention.radius === '13px' && attention.radius === nowRow.radius && attention.border === nowRow.border && attention.bg === nowRow.bg && nowRow.h >= 44);
+    console.log('dashboard row sizes at 1440', JSON.stringify({ attention, nowRow }));
+    await dp.locator('[data-range="7"]').click();
+    await dp.locator('#weekly-title', { hasText: 'Daily intake' }).waitFor();
+    check('one week shows daily intake bars', await dp.locator('.week-chart .week').count() === 7);
+    await settle(dp);
+    const dashAudit = await new AxeBuilder({ page: dp }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    check('Dashboard has no automated WCAG A/AA violations', dashAudit.violations.length === 0 || (console.log(JSON.stringify(dashAudit.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.target) })))), false));
+    await dp.locator('.attention-item').first().click();
+    await dp.locator('.workspace .role-header').waitFor();
+    check('an attention item opens Jobs > Needs you on that role', new URL(dp.url()).searchParams.get('collection') === 'needs' && new URL(dp.url()).searchParams.get('job') === 'ag1' &&
+      await dp.locator('.jobs-tabs [data-collection="needs"]').getAttribute('aria-current') === 'page' && await dp.locator('.topnav [data-collection="jobs"]').getAttribute('aria-current') === 'page');
+    const tabs = await dp.locator('.jobs-tabs button').allTextContents();
+    check('Jobs tabs are Needs you, Active, Filtered and Archive with counts', tabs.join('|') === 'Needs you6|Active7|Filtered12|Archive3', tabs);
+    const [tab, workspaceTab] = [await box(dp, '.jobs-tabs [aria-current="page"]'), await box(dp, '.workspace-tabs [role="tab"]')];
+    check('Jobs tabs match the workspace tabs (44px, same type size)', tab.h === 44 && tab.h === workspaceTab.h && tab.font === workspaceTab.font && await dp.evaluate(() => { const n = document.querySelector('.jobs-tabs'); return n.scrollWidth <= n.clientWidth; }));
+    console.log('jobs tab sizes at 1440', JSON.stringify({ tab, workspaceTab }));
+    await dp.goBack();
+    await dp.locator('.now-item').first().waitFor();
+    await dp.locator('.now-item[href="/admin?collection=jobs&stage=applied"]').click();
+    await dp.locator('#stagefilter').waitFor();
+    check('a Pipeline now stage opens Active filtered to it', await dp.locator('#stagefilter').inputValue() === 'applied' && new URL(dp.url()).searchParams.get('stage') === 'applied' &&
+      await dp.locator('.jobs-tabs [data-collection="active"]').getAttribute('aria-current') === 'page');
+    await dp.locator('.jobs-tabs [data-collection="archive"]').click();
+    await dp.waitForURL(url => new URL(url).searchParams.get('collection') === 'archive');
+    await dp.locator('.topnav [data-collection="insights"]').click();
+    await dp.locator('.attention-item').first().waitFor();
+    check('Dashboard in the top menu returns home', new URL(dp.url()).search === '');
+    await dp.setViewportSize({ width: 390, height: 844 });
+    check('dashboard fits a phone without sideways scroll', await dp.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await dp.goto(origin + '/admin.html?collection=jobs');
+    await dp.locator('.jobs-tabs').waitFor();
+    check('Jobs tabs fit a phone', await dp.evaluate(() => { const n = document.querySelector('.jobs-tabs'); return n.scrollWidth <= n.clientWidth && document.documentElement.scrollWidth <= innerWidth; }));
+    check('no browser errors in the dashboard fixture', fx.pageErrors.length === 0);
+    await fx.context.close();
   }
   check('no browser errors', errors.length === 0);
   console.log(`passed ${passed}, failed 0`);

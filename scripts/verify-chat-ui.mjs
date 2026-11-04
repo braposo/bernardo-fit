@@ -73,9 +73,10 @@ try {
   await page.getByRole('heading',{name:'Your assistant'}).waitFor();
   await page.evaluate(()=>{const viewport=document.createElement('ol');viewport.className='task-toast-viewport';viewport.id='chat-toast-fixture';viewport.setAttribute('data-sonner-toaster','');viewport.style.cssText='position:fixed;right:16px;bottom:var(--mobile-offset-bottom,16px)';viewport.innerHTML='<li>Background task fixture</li>';document.body.append(viewport);});
   assert.equal(await page.locator('#chat-toast-fixture').isVisible(),true,'notifications remain visible beside chat');
-  await page.locator('.topnav [data-collection="archive"]').click();
+  await page.locator('.topnav [data-collection="jobs"]').click();
+  await page.locator('.jobs-tabs [data-collection="archive"]').click();
   assert.equal(await page.getByRole('dialog').isVisible(),true,'chat remains open while browsing');
-  await page.locator('.topnav [data-collection="active"]').click();
+  await page.locator('.jobs-tabs [data-collection="active"]').click();
   await page.getByLabel('Message',{exact:true}).fill('Compare my roles');
   assert.equal(await page.getByRole('dialog').getByRole('combobox').count(),0);
   await page.getByRole('button',{name:'Send',exact:true}).click();
