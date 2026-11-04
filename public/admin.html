@@ -1830,7 +1830,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var body = '';
     if (pc) {
       var prepared = questions.filter(function (q) { return q.state === 'approved' || !q.required && q.state === 'skipped'; }).length;
-      body += '<h3>' + prepared + ' of ' + questions.length + ' items prepared</h3>';
+      if (questions.length) body += '<h3>' + prepared + ' of ' + questions.length + ' items prepared</h3>';
       if (safeSourceUrl(form.url)) body += '<p><a href="' + esc(form.url) + '" target="_blank" rel="noopener noreferrer">Open employer application form</a></p>';
       if (!form.complete) body += '<p class="field-help">' + esc(form.reason || 'The complete form has not been verified. Open the application page to check any missing or later steps.') + '</p>';
       if (questions.length) {
@@ -2986,7 +2986,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     if (act === 'cancel-question') { delete needsUi.editing[gapKey]; delete needsUi.drafts[gapKey]; renderJobs(); return; }
     if (act === 'copy-answer') {
       var answerText = (el.closest('.needs-item').querySelector('[data-prepared-answer]') || {}).textContent || '';
-      navigator.clipboard.writeText(answerText).then(function () { actionToast('Copied', 'Ready to paste into the application form.'); });
+      navigator.clipboard.writeText(answerText).then(function () { actionToast('Copied', 'Ready to paste into the application form.'); }, function () { actionToast('Could not copy', 'Select the answer and copy it by hand.', 'err'); });
       return;
     }
     if (act === 'copy-question') {
