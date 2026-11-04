@@ -119,6 +119,35 @@ async function needsFixture(browser) {
 }
 const settle = page => page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}' });
 try {
+  if (process.env.APPLICATION_CHECKLIST_CAPTURE) {
+    const dir = process.env.APPLICATION_CHECKLIST_CAPTURE, tag = process.env.ADMIN_UX_BASELINE ? 'before' : 'after';
+    const fx = await needsFixture(browser);
+    const check = fx.jobs.find(j => j.id === 'pc1').postingCheck;
+    check.form.complete = false;
+    check.form.reason = 'Later steps need checking on the employer application form.';
+    check.form.questions.unshift(
+      {id:'contact',text:'Email address',kind:'contact',required:true,options:[],state:'approved',answerDraft:'candidate@example.com'},
+      {id:'upload',text:'Resume / CV',kind:'file',required:true,options:[],state:'pending',needsYou:true,reason:'Prepare this file for upload. Confirm its filename here once ready.'});
+    for (const width of [1280,390]) {
+      await fx.page.setViewportSize({width,height:1000});
+      await fx.page.goto(origin + '/admin.html?job=pc1&section=materials');
+      await fx.page.locator('.posting-check').waitFor();
+      await settle(fx.page);
+      await fx.page.evaluate(() => document.fonts.ready);
+      await fx.page.locator('.posting-check').evaluate(el => el.scrollIntoView({block:'start'}));
+      await fx.page.screenshot({path:dir + '/' + tag + '-' + width + '.png',fullPage:false});
+      if (tag === 'after') {
+        assert.equal(await fx.page.locator('.posting-check h2').textContent(),'Application checklist');
+        assert.equal(await fx.page.locator('[data-answer-item="upload"] [data-pc-act="skip-answer"]').count(),0);
+        assert.ok(await fx.page.locator('.posting-check').getByRole('link',{name:'Open employer application form'}).count());
+        const dimensions=await fx.page.locator('[data-answer-item="upload"] button').evaluate(el=>({height:el.getBoundingClientRect().height,radius:getComputedStyle(el).borderRadius}));
+        assert.ok(dimensions.height >= 44, JSON.stringify(dimensions));
+        console.log(width,dimensions);
+      }
+    }
+    assert.deepEqual(fx.pageErrors,[]);
+    await browser.close(); await new Promise(resolve => server.close(resolve)); process.exit(0);
+  }
   if (process.env.ADMIN_UX_NEEDS_CAPTURE) {
     // Screenshots of the synthetic Needs you fixture. ADMIN_UX_BASELINE serves public/admin.html from git instead.
     const dir = process.env.ADMIN_UX_NEEDS_CAPTURE, tag = process.env.ADMIN_UX_BASELINE ? 'before' : 'after';
@@ -822,9 +851,11 @@ try {
     await np.locator('[data-answer-item="q1"] [data-pc-act="approve-answer"]').click();
     await np.locator('[data-answer-item="q1"]').waitFor({ state: 'detached' });
     check('Approve sends the edited answer', JSON.stringify(last()) === JSON.stringify({ action: 'approve-answer', id: 'pc1', questionId: 'q1', answer: 'I want to build calm, fast engineering teams.' }));
-    await np.locator('[data-answer-item="q2"] [data-pc-act="skip-answer"]').click();
+    check('required answers cannot be skipped', await np.locator('[data-answer-item="q2"] [data-pc-act="skip-answer"]').count() === 0);
+    await np.locator('[data-answer-item="q2"] textarea').fill('120000 GBP');
+    await np.locator('[data-answer-item="q2"] [data-pc-act="approve-answer"]').click();
     await np.locator('[data-needs-kind="application-answers"]').waitFor({ state: 'detached' });
-    check('Skip sends skip-answer and the finished card leaves', JSON.stringify(last()) === JSON.stringify({ action: 'skip-answer', id: 'pc1', questionId: 'q2' }) &&
+    check('Confirm saves the personal answer and the finished card leaves', JSON.stringify(last()) === JSON.stringify({ action: 'approve-answer', id: 'pc1', questionId: 'q2', answer: '120000 GBP' }) &&
       (await np.locator('[data-collection="needs"]').textContent()).includes('4'));
     // Proposals.
     const pr1 = np.locator('[data-needs-id="pr1"]');
@@ -888,8 +919,8 @@ try {
     // Workspace posting check.
     await np.locator('[data-section="materials"]').click();
     await np.locator('.posting-check').waitFor();
-    check('Documents shows the posting check with gaps and form questions', await np.locator('.posting-check').evaluate(el => ['Salary range', 'Office days', 'Why do you want to lead engineering', 'Greenhouse'].every(t => el.textContent.includes(t))));
-    check('asked and dismissed gaps keep their state in the workspace', (await np.locator('.posting-check [data-gap-item="g1"]').textContent()).includes('Could you share the salary band') && (await np.locator('.posting-check [data-gap-item="g2"]').textContent()).includes('Dismissed'));
+    check('Documents shows the application checklist', await np.locator('.posting-check').evaluate(el => ['Application checklist', 'Why do you want to lead engineering', 'Open employer application form'].every(t => el.textContent.includes(t))));
+    check('legacy recruiter gaps do not appear in the checklist', await np.locator('.posting-check [data-gap-item]').count() === 0);
     check('a fetched form has no paste box', await np.locator('[data-pc-paste]').count() === 0);
     await np.locator('[data-pc-act="rerun"]').click();
     await np.getByText('Posting check requested').first().waitFor();

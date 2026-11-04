@@ -155,10 +155,10 @@ const gaps = [{ id: "g1", kind: "salary", label: "Salary range", why: "Not state
 const checked = { status: "checked", checkedAt: "2026-10-28T09:00:00Z", draftStatus: "drafted", gaps,
   form: { source: "greenhouse", status: "ready", questions: [{ id: "q1", text: "Why us?", required: true, options: [], answerDraft: "Because.", needsYou: false, reason: "", state: "drafted" }] } };
 const reviewing = render("materials", { stage: "reviewing", postingCheck: checked });
-check("Documents shows the posting check for Reviewing roles", /Posting check/.test(reviewing) && /data-pc-act="ask"/.test(reviewing) && /data-pc-act="approve-answer"/.test(reviewing) && /data-pc-act="rerun"/.test(reviewing));
+check("Documents shows the posting check for Reviewing roles", /Application checklist/.test(reviewing) && !/data-pc-act="ask"/.test(reviewing) && /data-pc-act="approve-answer"/.test(reviewing) && /data-pc-act="rerun"/.test(reviewing));
 check("a fetched form has no paste box", !/data-pc-paste/.test(reviewing));
 check("a form that was not detected offers the paste box", /data-pc-paste/.test(render("materials", { stage: "reviewing", postingCheck: { ...checked, form: { source: "", status: "not-detected", questions: [] } } })));
-check("other stages and the Overview have no posting check", !/Posting check/.test(render("materials", { stage: "interviewing", postingCheck: checked })) && !/Posting check/.test(render("overview", { stage: "reviewing", postingCheck: checked })));
+check("other stages and the Overview have no posting check", !/Application checklist/.test(render("materials", { stage: "interviewing", postingCheck: checked })) && !/Application checklist/.test(render("overview", { stage: "reviewing", postingCheck: checked })));
 check("a Reviewing role without a check can run one", /Run check/.test(render("materials", { stage: "reviewing", postingCheck: null })));
 check("approved answers are shown, not editable", !/data-pc-act="approve-answer"/.test(render("materials", { stage: "reviewing", postingCheck: { ...checked, form: { ...checked.form, questions: [{ ...checked.form.questions[0], state: "approved" }] } } })));
 const timeline = [{ id: "t1", date: "2026-11-03", round: "Final round", kind: "video", source: "email", notes: "Prep", proposalId: "p1" }];
