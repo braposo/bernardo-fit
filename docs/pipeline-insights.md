@@ -1,10 +1,10 @@
 # Pipeline insights
 
-The admin **Insights** view (`/admin?collection=insights`) shows how roles move through the pipeline: where they drop out, how long each stage takes, what is waiting and what changed recently. It is read-only and derived; nothing new is stored.
+The admin **Dashboard** (`/admin`, the admin home; formerly the Insights view) opens on what needs Bernardo (the Needs you items) and where every role is right now, each linking into the matching Jobs tab or stage. Below that it shows how roles move through the pipeline: where they drop out, how long each stage takes, what is waiting and what changed recently. It is read-only and derived; nothing new is stored.
 
 ## Data
 
-`GET /api/admin/jobs?overview=1&range=30|90|365|all` (default `90`) returns the overview built by [`lib/pipeline-overview.js`](../lib/pipeline-overview.js). Its inputs:
+`GET /api/admin/jobs?overview=1&range=7|14|30|90` (default `30`; 1 week, 2 weeks, 30 days, 3 months) returns the overview built by [`lib/pipeline-overview.js`](../lib/pipeline-overview.js). Its inputs:
 
 - **Job records** (all of them, archived included): stage, `createdAt`, `archived`, `score`, `source`/`sourceType`, `interviewTimeline`.
 - **Recorded audit events** (`audit:job:<id>`, read with `readJobEvents` in [`lib/job-audit.js`](../lib/job-audit.js)): `job.created`, `status.changed`, `agent.moved`, `interview.added`. Only roles the view can show are read: the range's roles, open roles and anything touched during the range, the weekly chart or the activity window.
@@ -19,6 +19,8 @@ The admin **Insights** view (`/admin?collection=insights`) shows how roles move 
 - **Median time in stage.** From recorded entry to recorded exit, over roles that left the stage. Time to apply is from `createdAt` to the recorded move to Applied.
 - **Waiting longest.** Open roles past New, by time since their recorded entry into the current stage (top six). Roles without a recorded entry date are left out rather than guessed.
 - **Recent activity.** The last 30 days of additions, stage changes (marked when the review agent made them) and interviews, newest first (at most 40). Items after the previous visit are marked **New**; the visit time is kept in this browser's `localStorage` (`fit.insights.seenAt`), not on the server.
+- **Intake chart.** One bar pair per day for ranges of two weeks or less (`intakeDays: 1`), otherwise per week (`intakeDays: 7`, 4 to 26 weeks).
+- **Pipeline now and tab counts.** `counts` gives the current active, archived and Filtered totals; `kpis.activeByStage` the active roles per stage. They ignore the range. Needs your attention reads `GET /api/admin/jobs?needsYou=1`, like the Needs you tab.
 - **Sources.** LinkedIn, Job boards, Email, Fit website or Other, from `source`/`sourceType`.
 
 ## UI

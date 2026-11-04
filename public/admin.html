@@ -465,11 +465,8 @@
     <div class="masthead">
       <div class="mark">bernardo-fit<span class="dot">.</span></div>
       <nav class="topnav" aria-label="Admin views">
-        <button type="button" data-collection="needs">Needs you<span data-needs-count></span></button>
-        <button type="button" data-collection="active" aria-current="page">Pipeline</button>
-        <button type="button" data-collection="archive">Archive</button>
-        <button type="button" data-collection="filtered">Filtered</button>
-        <button type="button" data-collection="insights">Insights</button>
+        <button type="button" data-collection="insights" aria-current="page">Dashboard</button>
+        <button type="button" data-collection="jobs">Jobs</button>
         <button type="button" id="usagebtn">AI activity &amp; usage</button>
       </nav>
     </div>
@@ -481,7 +478,7 @@ import { subscribeRun, taskToast } from "./assets/task-ui.js";
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 import { summariseUsage } from "./admin-usage.js";
 import { BOARD_COLUMNS, groupByColumn, columnActivity, boardColumnId } from "./pipeline-board.js";
-import { flowSvg, flowColumnsHtml, withoutScreening, weeklySvg, activityText, activityGroups, isNewSince, percent, daysText, stageName, RANGE_LABELS, WEEK_COLORS } from "./pipeline-insights.js";
+import { flowSvg, flowColumnsHtml, withoutScreening, weeklySvg, activityText, activityGroups, isNewSince, percent, daysText, stageName, RANGES, RANGE_LABELS, RANGE_SPANS, WEEK_COLORS } from "./pipeline-insights.js";
 import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError, mountAdminChat } from "./assets/admin-ui.js";
 (function () {
   "use strict";
@@ -566,7 +563,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var searchTimer = null;
   var searchSequence = 0;
   var unlinked = 0;
-  var archivedCount = 0;
+  var archivedCount = null, activeCount = null, filteredCount = null;
   var showArchived = false;
   var showFiltered = false;
   var showNeeds = false;
@@ -590,7 +587,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function boardAllowed() { return isDesktop() && !showArchived && !showFiltered && !showNeeds && !showInsights; }
   // The board is shown while no role is open; opening a card switches to the existing
   // list + workspace, and the View switch brings the board back.
-  function boardActive() { return boardAllowed() && pipelineView === 'board' && !selectedId; }
+  // A stage picked from the dashboard or the stage filter shows that stage as a list.
+  function boardActive() { return boardAllowed() && pipelineView === 'board' && !selectedId && !stageFilter; }
   var attachedCoverWatches = {};
   var activeRuns = {};
   var coverDispatchEnabled = true;
@@ -631,10 +629,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   var VALID_SECTIONS = ["overview", "materials", "context", "activity"];
   function readNavigationState() {
     var p = new URLSearchParams(location.search);
-    showArchived = p.get("collection") === "archive";
-    showFiltered = p.get("collection") === "filtered";
-    showNeeds = p.get("collection") === "needs";
-    showInsights = p.get("collection") === "insights";
+    var collection = p.get("collection");
+    showArchived = collection === "archive";
+    showFiltered = collection === "filtered";
+    showNeeds = collection === "needs";
+    // The dashboard is the admin home: a bare /admin opens it. Older links to a
+    // role, stage or search without a collection still open Jobs.
+    showInsights = collection === "insights" || collection === "dashboard" ||
+      (!collection && !p.get("job") && !p.get("stage") && !p.get("q"));
     stageFilter = p.get("stage") || null;
     searchQuery = p.get("q") || "";
     selectedId = p.get("job") || "";
@@ -645,7 +647,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     if (showArchived) p.set("collection", "archive");
     if (showFiltered) p.set("collection", "filtered");
     if (showNeeds) p.set("collection", "needs");
-    if (showInsights) p.set("collection", "insights");
+    if (showInsights) return location.pathname;
+    if (currentCollection() === "active") p.set("collection", "jobs");
     if (stageFilter) p.set("stage", stageFilter);
     if (searchQuery.trim()) p.set("q", searchQuery.trim());
     if (selectedId) p.set("job", selectedId);
@@ -707,7 +710,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     rememberPipelineScroll(); captureBoardScroll();
     pipelineView = view;
     try { localStorage.setItem('fit.pipeline.view', view); } catch (_) {}
-    if (view === 'board') { selectedId = ''; selectedMissing = false; suppressAutoSelect = true; } else suppressAutoSelect = false;
+    if (view === 'board') { selectedId = ''; stageFilter = null; selectedMissing = false; suppressAutoSelect = true; } else suppressAutoSelect = false;
     writeNavigation('push'); renderJobs();
     requestAnimationFrame(function () { var button = document.querySelector('[data-view="' + view + '"]'); if (button) button.focus(); });
   }
@@ -854,7 +857,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var toastId = 'run:' + runId;
     pendingActions.set(key, { id: id, kind: kind, questionId: questionId, runId: runId });
     persistActions(); applyActionLocks();
-    var href = id && id !== 'batch' ? '/admin?job=' + encodeURIComponent(id) + '&section=' + (kind === 'jev-score' ? 'overview' : 'materials') : '/admin';
+    var href = id && id !== 'batch' ? '/admin?job=' + encodeURIComponent(id) + '&section=' + (kind === 'jev-score' ? 'overview' : 'materials') : '/admin?collection=jobs';
     taskToast(toastId, { title: actionTitle(id, kind), message: 'Queued…', terminal: false, tone: 'pending', href: href, linkLabel: id === 'batch' ? 'Open pipeline' : 'Open role' }, key);
     var watching = watchRun(runId, function (run) {
       var message = coverPhaseText(run);
@@ -1964,8 +1967,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       renderAdmin(shell.querySelector('.workspace'), workspaceHtml);
     } else renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (board ? ' board-view' : pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="' + (showNeeds ? 'Roles that need you' : showArchived ? 'Archived roles' : 'Pipeline roles') + '">' +
       '<button class="pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '"><span data-icon="sidebar-toggle"></span></button>' +
-      '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>' + (showNeeds ? 'Needs you' : showArchived ? 'Archive' : 'Pipeline') + '</h1>' +
-      '<span class="pipeline-total">'+shown.length+(showNeeds ? (shown.length === 1 ? ' item' : ' items') : ' opportunities')+'</span>' + '</div>' +
+      '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>Jobs</h1>' +
+      '<span class="pipeline-total">'+shown.length+(showNeeds ? (shown.length === 1 ? ' item needs you' : ' items need you') : showArchived ? ' archived' : ' opportunities')+'</span>' + '</div>' + jobsTabsHtml() +
       (showNeeds ? (needsLoaded ? '<p class="field-help filtered-intro">' + esc(agreementText(needsAgreement)) + '</p>' : '') : '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
       '<div class="pipeline-filter-row">' + (board ? '' : '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>') + sortControlHtml() + (boardAllowed() ? viewSwitchHtml(board ? 'board' : 'list') : '') + '</div></div>') + '</div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
@@ -2636,15 +2639,32 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   function currentCollection() { return showInsights ? 'insights' : showNeeds ? 'needs' : showFiltered ? 'filtered' : showArchived ? 'archive' : 'active'; }
   function setNeedsCount(n) { needsCount = n; syncNeedsNav(); }
   function syncNeedsNav() {
-    var el = document.querySelector('[data-needs-count]');
-    if (el) el.textContent = needsCount == null ? '' : ' ' + needsCount;
+    document.querySelectorAll('[data-needs-count]').forEach(function (el) {
+      el.textContent = needsCount == null ? '' : String(needsCount);
+      el.hidden = needsCount == null;
+    });
+  }
+  // Jobs groups every role: what needs you, the active pipeline, what the screens
+  // kept out and what is closed. Counts appear once known.
+  var JOB_TABS = [['needs', 'Needs you'], ['active', 'Active'], ['filtered', 'Filtered'], ['archive', 'Archive']];
+  function jobsTabsHtml() {
+    var counts = { needs: needsCount, active: activeCount, filtered: filteredCount, archive: archivedCount };
+    if (showFiltered && filteredLoaded) counts.filtered = filteredJobs.filter(function (f) { return !movedFiltered[f.id]; }).length;
+    return '<nav class="jobs-tabs" aria-label="Job groups">' + JOB_TABS.map(function (tab) {
+      var n = counts[tab[0]];
+      return '<button type="button" class="jobs-tab" data-collection="' + tab[0] + '">' + esc(tab[1]) +
+        '<span class="jobs-tab-count"' + (tab[0] === 'needs' ? ' data-needs-count' : '') + (n == null ? ' hidden' : '') + '>' + (n == null ? '' : esc(n)) + '</span></button>';
+    }).join('') + '</nav>';
   }
   function bindCollections() {
     syncNeedsNav();
     document.querySelectorAll('[data-collection]').forEach(function (button) {
-      button.setAttribute('aria-current', button.getAttribute('data-collection') === currentCollection() ? 'page' : 'false');
+      var target = button.getAttribute('data-collection');
+      var current = target === 'jobs' ? !showInsights : target === currentCollection();
+      button.setAttribute('aria-current', current ? 'page' : 'false');
       button.onclick = function () {
         var next = button.getAttribute('data-collection');
+        if (next === 'jobs') { if (!showInsights) return; next = 'active'; }
         if (next === currentCollection()) return;
         rememberPipelineScroll(); showArchived = next === 'archive'; showFiltered = next === 'filtered'; showNeeds = next === 'needs'; showInsights = next === 'insights';
         stageFilter = null; selectedId = ""; searchQuery = ""; searchMatches = null; searchRequested = ""; filteredKind = "";
@@ -2726,7 +2746,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       : '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a filtered role to see why it was kept out and move it to the pipeline.</p></div>';
     renderAdmin(app, '<div class="admin-shell' + (selectedId ? ' has-selection' : '') + (pipelineCollapsed ? ' pipeline-collapsed' : '') + '"><aside class="pipeline" aria-label="Filtered roles">' +
       '<button class="pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '"><span data-icon="sidebar-toggle"></span></button>' +
-      '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>Filtered</h1><span class="pipeline-total">' + shown.length + ' roles</span></div>' +
+      '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>Jobs</h1><span class="pipeline-total">' + shown.length + ' filtered</span></div>' + jobsTabsHtml() +
       '<p class="field-help filtered-intro">Roles the daily screens scored and kept out of the pipeline' + (filteredRetentionDays ? ', kept for ' + esc(filteredRetentionDays) + ' days' : '') + '.</p>' +
       '<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search filtered roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search filtered roles">' +
       '<div class="pipeline-filter-row"><label class="sr-only" for="filteredkind">Filter by reason</label><select id="filteredkind" aria-label="Filter by reason">' + options + '</select>' + sortControlHtml() + '</div></div></div>' +
@@ -2804,11 +2824,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   // ---------- Insights: pipeline flow, analytics and recent activity ----------
   // Read-only and derived on the server (lib/pipeline-overview.js). The previous
   // visit time lives on this browser only, to mark what changed since then.
-  var INSIGHTS_RANGES = ['30', '90', '365', 'all'];
+  var INSIGHTS_RANGES = RANGES;
   var INSIGHTS_SEEN_KEY = 'fit.insights.seenAt';
   var insightsRange = (function () {
-    try { var saved = localStorage.getItem('fit.insights.range'); return INSIGHTS_RANGES.indexOf(saved) !== -1 ? saved : '90'; } catch (_) { return '90'; }
+    try { var saved = localStorage.getItem('fit.insights.range'); return INSIGHTS_RANGES.indexOf(saved) !== -1 ? saved : '30'; } catch (_) { return '30'; }
   })();
+  var attentionItems = null, attentionError = false;
+  var ATTENTION_PREVIEW = 6;
   var insightsData = null, insightsError = '', insightsLoading = false;
   var insightsSeenAt; // undefined until this visit reads the previous one
   var insightsActivityAll = false;
@@ -2821,16 +2843,22 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     }
     insightsLoading = true; insightsError = '';
     renderInsights();
+    // What needs you loads alongside, so the dashboard opens on it.
+    api('/api/admin/jobs?needsYou=1', { method: 'GET' }).then(function (n) {
+      if (sequence !== listSequence || !showInsights) return;
+      attentionError = !(n.ok && n.d && Array.isArray(n.d.items));
+      if (!attentionError) { attentionItems = n.d.items; setNeedsCount(attentionItems.length); }
+      if (!unauthorised(n, firstTry)) renderInsights();
+    });
     api('/api/admin/jobs?overview=1&range=' + encodeURIComponent(range), { method: 'GET' }).then(function (out) {
       if (sequence !== listSequence || !showInsights) return;
       if (unauthorised(out, firstTry)) return;
       insightsLoading = false;
-      if (!out.ok) { insightsError = (out.d && out.d.error) || "Couldn't load insights."; renderInsights(); return; }
-      sessionStorage.setItem(SECRET_KEY, secret);
-      chat.setAuthenticated(true);
+      if (out.ok) { sessionStorage.setItem(SECRET_KEY, secret); chat.setAuthenticated(true); }
+      if (!out.ok || !out.d || !out.d.kpis) { insightsError = (out.d && out.d.error) || "Couldn't load the dashboard."; renderInsights(); return; }
       insightsData = out.d;
+      if (out.d.counts) { activeCount = out.d.counts.active; archivedCount = out.d.counts.archived; filteredCount = out.d.counts.filtered; }
       try { localStorage.setItem(INSIGHTS_SEEN_KEY, out.d.generatedAt); } catch (_) {}
-      if (needsCount == null) api('/api/admin/jobs?needsYou=1', { method: 'GET' }).then(function (n) { if (n.ok && n.d && Array.isArray(n.d.items)) setNeedsCount(n.d.items.length); });
       renderInsights();
     });
   }
@@ -2859,6 +2887,55 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         }).join('') + '</ul></li>';
       }).join('') + '</ol>' + (all.length > ACTIVITY_PREVIEW ? '<button type="button" class="ghost activity-more" data-activity-more aria-expanded="' + insightsActivityAll + '">' + (insightsActivityAll ? 'Show less' : 'Show all activity (' + all.length + ')') + '</button>' : '');
     return '<section class="insights-card insights-activity" aria-labelledby="activity-title"><div class="insights-card-head"><h2 id="activity-title">Recent activity</h2><p>' + esc(sub) + '</p></div>' + body + '</section>';
+  }
+  // Dashboard: what needs you, as a short list that opens each item in Jobs > Needs you.
+  function attentionText(item) {
+    if (item.kind === 'posting-gaps') {
+      var gaps = (item.gaps || []).filter(function (g) { return g.state === 'open'; }).length || (item.gaps || []).length;
+      return gaps + ' gap' + (gaps === 1 ? '' : 's') + ' in the posting to ask the recruiter about';
+    }
+    if (item.kind === 'application-answers') {
+      var n = (item.questions || []).length;
+      return n + ' application answer' + (n === 1 ? '' : 's') + ' to check';
+    }
+    if (item.kind === 'status-proposal') return 'Email suggests moving it from ' + stageLabel(item.stage) + ' to ' + stageLabel(item.proposedStage) + (item.summary ? '. ' + item.summary : '');
+    if (item.kind === 'preference-proposal') return item.text || '';
+    return item.lean === 'ask' && item.question ? item.question : item.reason || 'The review agent looked at this role.';
+  }
+  function attentionLabel(item) {
+    if (!item.kind) return LEAN_LABELS[item.lean] || 'Agent review';
+    return NEEDS_KIND_LABELS[item.kind] || 'Needs you';
+  }
+  function insightsAttentionHtml() {
+    var items = attentionItems || [];
+    var head = '<div class="insights-card-head"><h2 id="attention-title">Needs your attention</h2><p>' +
+      (attentionItems == null ? (attentionError ? "Couldn't load what needs you." : 'Loading…') : items.length ? items.length + ' item' + (items.length === 1 ? '' : 's') + ' waiting on you' : 'Nothing is waiting on you') + '</p></div>';
+    var body = attentionItems == null ? '' : !items.length ? '<p class="insights-empty">New roles the review agent looks at, posting gaps, application answers and email status changes appear here.</p>' :
+      '<ul class="activity-list attention-list">' + items.slice(0, ATTENTION_PREVIEW).map(function (item) {
+        var jobId = item.kind === 'preference-proposal' ? '' : needsJobId(item);
+        var title = item.kind === 'preference-proposal' ? 'Proposed rule' : item.company || 'No company';
+        var sub = item.kind === 'preference-proposal' ? 'Learned from your decisions' : item.role || 'Untitled role';
+        return '<li><a class="activity-item attention-item" href="/admin?collection=needs' + (jobId ? '&job=' + encodeURIComponent(jobId) : '') + '" data-open-needs="' + esc(jobId) + '">' +
+          '<span class="activity-top"><span class="activity-copy"><span class="activity-company">' + esc(title) + '</span><span class="activity-role">' + esc(sub) + '</span></span>' +
+          '<span class="activity-when"><span class="pipeline-stage stage-filtered">' + esc(attentionLabel(item)) + '</span></span></span>' +
+          '<span class="attention-text">' + esc(attentionText(item)) + '</span></a></li>';
+      }).join('') + '</ul>' +
+      '<button type="button" class="ghost activity-more attention-more" data-href="/admin?collection=needs" data-open-needs>' + (items.length > ATTENTION_PREVIEW ? 'Open all in Jobs (' + items.length + ')' : 'Open in Jobs') + '</button>';
+    return '<section class="insights-card insights-attention" aria-labelledby="attention-title">' + head + body + '</section>';
+  }
+  // Dashboard: where every role is right now. Each row opens that group in Jobs.
+  function insightsNowHtml(d) {
+    var byStage = d.kpis.activeByStage || {}, counts = d.counts || {};
+    var row = function (href, label, value, badge) {
+      return '<li><a class="waiting-item now-item" href="' + href + '" data-open-jobs>' + badge +
+        '<span class="now-count">' + (value == null ? '—' : esc(value)) + '<span class="sr-only"> ' + esc(label) + '</span></span></a></li>';
+    };
+    return '<section class="insights-card" aria-labelledby="now-title"><div class="insights-card-head"><h2 id="now-title">Pipeline now</h2><p>Every role by where it is today</p></div>' +
+      '<ul class="waiting-list now-list">' + ['new', 'reviewing', 'applied', 'interviewing', 'offer'].map(function (stage) {
+        return row('/admin?collection=jobs&stage=' + stage, stageName(stage), byStage[stage] || 0, stageBadge(stage));
+      }).join('') +
+      row('/admin?collection=filtered', 'Filtered', counts.filtered, '<span class="pipeline-stage stage-filtered">Filtered</span>') +
+      row('/admin?collection=archive', 'Archive', counts.archived, '<span class="pipeline-stage stage-filtered">Archive</span>') + '</ul></section>';
   }
   function insightsWaitingHtml(d) {
     var rows = d.waiting || [];
@@ -2891,17 +2968,16 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
   function renderInsights() {
     var d = insightsData;
-    var rangeLabel = RANGE_LABELS[insightsRange];
     var rangeSwitch = '<div class="insights-range" role="group" aria-label="Time range">' + INSIGHTS_RANGES.map(function (k) {
       return '<button type="button" class="ghost range-option" data-range="' + k + '" aria-pressed="' + (insightsRange === k) + '">' + esc(RANGE_LABELS[k]) + '</button>';
     }).join('') + '</div>';
-    var shownLabel = d ? RANGE_LABELS[d.range] : rangeLabel;
-    var sub = !d ? (insightsLoading ? 'Loading…' : '') : (d.since ? 'Roles discovered in the last ' + shownLabel : 'Every role discovered') +
+    var shownLabel = d ? RANGE_SPANS[d.range] : RANGE_SPANS[insightsRange];
+    var sub = !d ? (insightsLoading ? 'Loading…' : '') : 'What needs you, and how the roles discovered in the last ' + RANGE_SPANS[d.range] + ' went' +
       (insightsLoading ? ' · Updating…' : ' · Updated ' + relativeTime(d.generatedAt));
-    var head = '<header class="insights-head"><div><h1>Insights</h1><p class="insights-sub" role="status" aria-live="polite">' + esc(sub) + '</p></div>' + rangeSwitch + '</header>';
+    var head = '<header class="insights-head"><div><h1>Dashboard</h1><p class="insights-sub" role="status" aria-live="polite">' + esc(sub) + '</p></div>' + rangeSwitch + '</header>';
     var body = '';
     if (insightsError) body = '<div class="notice error">' + esc(insightsError) + ' <button class="ghost" data-insights-retry>Try again</button></div>';
-    else if (!d) body = '<div class="insights-card"><p class="insights-empty">Loading insights…</p></div>';
+    else if (!d) body = '<div class="insights-columns"><div class="insights-main">' + insightsAttentionHtml() + '</div><div class="insights-side"><div class="insights-card"><p class="insights-empty">Loading the pipeline…</p></div></div></div>';
     else {
       var k = d.kpis;
       var delta = k.addedPrevious == null ? 'All time' : k.added === k.addedPrevious ? 'Same as the previous ' + shownLabel :
@@ -2924,10 +3000,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
           (k.screenedOut ? '<div class="screening-toggle" role="group" aria-label="Screened out roles in the flow"><span class="screening-toggle-label" aria-hidden="true">Screened out</span>' + [['show', 'Show'], ['hide', 'Hide']].map(function (o) { return '<button type="button" class="ghost range-option" data-screening="' + o[0] + '" aria-pressed="' + ((o[0] === 'show') === insightsShowScreening) + '" aria-label="' + o[1] + ' screened out roles">' + o[1] + '</button>'; }).join('') + '</div>' : '') + '</div>' +
           '<div class="flow-scroll" tabindex="0" role="region" aria-label="Pipeline flow chart. The Stage by stage table lists the same numbers."><div class="flow-canvas" data-flow-canvas></div></div>') +
         (notes.length ? '<p class="insights-note">' + esc(notes.join(' ')) + '</p>' : '') + '</section>';
-      var weekly = '<section class="insights-card" aria-labelledby="weekly-title"><div class="insights-card-head"><h2 id="weekly-title">Weekly intake</h2><p>Roles added to the pipeline and applications sent each week</p></div>' +
+      var daily = d.intakeDays === 1;
+      var weekly = '<section class="insights-card" aria-labelledby="weekly-title"><div class="insights-card-head"><h2 id="weekly-title">' + (daily ? 'Daily intake' : 'Weekly intake') + '</h2><p>Roles added to the pipeline and applications sent each ' + (daily ? 'day' : 'week') + '</p></div>' +
         '<div class="flow-legend" aria-hidden="true"><span><i class="swatch swatch-continue"></i>Added</span><span><i class="swatch swatch-applied"></i>Applied</span></div>' +
         '<div class="week-canvas" data-week-canvas></div></section>';
-      body = kpis + flow + '<div class="insights-columns"><div class="insights-main">' + insightsStagesHtml(d) + insightsActivityHtml(d) + '</div>' +
+      body = '<div class="insights-columns"><div class="insights-main">' + insightsAttentionHtml() + '</div><div class="insights-side">' + insightsNowHtml(d) + '</div></div>' +
+        '<h2 class="insights-period">Last ' + esc(shownLabel) + '</h2>' +
+        kpis + flow + '<div class="insights-columns"><div class="insights-main">' + insightsStagesHtml(d) + insightsActivityHtml(d) + '</div>' +
         '<div class="insights-side">' + insightsWaitingHtml(d) + weekly + insightsSourcesHtml(d) + '</div></div>';
     }
     renderAdmin(app, '<div class="insights' + (insightsLoading ? ' is-loading' : '') + '">' + head + body + '</div><div class="insights-tip" role="tooltip" hidden></div>');
@@ -2964,6 +3043,13 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var retry = app.querySelector('[data-insights-retry]');
     if (retry) retry.addEventListener('click', function () { loadInsights(false); });
     insightsWidth = app.clientWidth;
+    app.querySelectorAll('[data-open-needs], [data-open-jobs]').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        e.preventDefault();
+        openAdminLink(link.getAttribute('href') || link.getAttribute('data-href'));
+      });
+    });
     app.querySelectorAll('[data-open-role]').forEach(function (link) {
       link.addEventListener('click', function (e) {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -2977,6 +3063,16 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       });
     });
   }
+  // Opens a Jobs link from the dashboard in place, the way the top menu does.
+  function openAdminLink(href) {
+    rememberPipelineScroll();
+    history.pushState({ admin: true }, '', href);
+    readNavigationState();
+    searchMatches = null; searchRequested = ''; filteredKind = '';
+    workspaceSection = 'overview'; selectedMissing = false; suppressAutoSelect = false;
+    loadJobs(false);
+    window.scrollTo(0, 0);
+  }
   // Charts are drawn at the canvas's own width so their text stays at 12px.
   function drawInsightsCharts() {
     var d = insightsData;
@@ -2988,7 +3084,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       canvas.innerHTML = flowColumnsHtml(shownFlow, size) + flowSvg(shownFlow, size);
     }
     var weekCanvas = app.querySelector('[data-week-canvas]');
-    if (weekCanvas) weekCanvas.innerHTML = weeklySvg(d.weekly, { width: Math.round(weekCanvas.clientWidth) || 520, height: 150 });
+    if (weekCanvas) weekCanvas.innerHTML = weeklySvg(d.weekly, { width: Math.round(weekCanvas.clientWidth) || 520, height: 150, days: d.intakeDays || 7 });
     bindInsightsTips();
   }
   // Redraw when the content width changes: window resizes and the docked chat panel.
@@ -3038,6 +3134,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       filteredRetentionDays = out.d.retentionDays || null;
       filteredListedAt = out.d.listedAt || "";
       filteredLoaded = true;
+      filteredCount = filteredJobs.length;
       if (needsCount == null) api('/api/admin/jobs?needsYou=1', { method: 'GET' }).then(function (n) { if (n.ok && n.d && Array.isArray(n.d.items)) setNeedsCount(n.d.items.length); });
       if (filteredKind && !FILTERED_KINDS.some(function (k) { return k[0] === filteredKind; })) filteredKind = '';
       renderFiltered();
@@ -3096,6 +3193,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (!MODELS.some(function (m) { return m.id === model; })) model = MODELS[0].id;
       unlinked = out.d.unlinked || 0;
       archivedCount = out.d.archivedCount || 0;
+      if (typeof out.d.activeCount === 'number') activeCount = out.d.activeCount;
+      if (typeof out.d.filteredCount === 'number') filteredCount = out.d.filteredCount;
       if (typeof out.d.needsYouCount === 'number') setNeedsCount(out.d.needsYouCount);
       activeRuns = out.d.activeRuns || {};
       if (stageFilter && stages.indexOf(stageFilter) === -1) stageFilter = null;
@@ -3131,7 +3230,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       if (!url.searchParams.has(key) && current.searchParams.has(key)) url.searchParams.set(key, current.searchParams.get(key));
     });
     // Insights has no role workspace: a role link opens it in the pipeline.
-    if (url.searchParams.get('collection') === 'insights' && url.searchParams.has('job')) url.searchParams.delete('collection');
+    if (['insights', 'dashboard'].indexOf(url.searchParams.get('collection')) !== -1 && url.searchParams.has('job')) url.searchParams.delete('collection');
     history.pushState({ admin: true }, '', url.pathname + url.search);
     readNavigationState();
     selectedMissing = false;

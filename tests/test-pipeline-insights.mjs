@@ -51,6 +51,9 @@ check("days", daysText(0.4) === "<1 day" && daysText(1) === "1 day" && daysText(
 check("weekly chart labels its totals", /aria-label="Weekly intake over 4 weeks: 5 added, 2 applied"/.test(weeklySvg([
   { weekStart: "2026-10-12", added: 2, applied: 1, screened: 0 }, { weekStart: "2026-10-19", added: 3, applied: 1, screened: 4 },
   { weekStart: "2026-10-26", added: 0, applied: 0, screened: 0 }, { weekStart: "2026-11-02", added: 0, applied: 0, screened: 0 }])));
+const dailySvg = weeklySvg([{ weekStart: "2026-11-03", added: 1, applied: 0, screened: 0 }, { weekStart: "2026-11-04", added: 2, applied: 1, screened: 0 }], { days: 1 });
+check("daily chart labels its totals", /aria-label="Daily intake over 2 days: 3 added, 1 applied"/.test(dailySvg));
+check("daily bars are not called weeks", !/Week of/.test(dailySvg));
 
 console.log("\n--- activity ---");
 check("stage change text", activityText({ kind: "stage", from: "reviewing", to: "not_interested" }) === "Moved from Reviewing to Not interested");

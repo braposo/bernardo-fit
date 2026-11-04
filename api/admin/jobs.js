@@ -28,7 +28,7 @@ import { jevEnabled } from "../../lib/jev.js";
 import { reviewingGenerationResult } from "../../lib/reviewing-generation.js";
 import { getApplicationCvSummaries } from "../../lib/application-cv-store.js";
 import { applicationCvFields, generalCvFields } from "../../lib/application-cv-view.js";
-import { listFilteredJobs, moveFilteredJob, clearFilteredJobs, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
+import { listFilteredJobs, countFilteredJobs, moveFilteredJob, clearFilteredJobs, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
 import { startMovedJobCompletion } from "../../lib/filtered-job-enrich.js";
 import { reviewReasonOptions } from "../../lib/review-decisions.js";
 import { needsYouItems, needsYouResponse } from "../../lib/review-agent.js";
@@ -42,7 +42,7 @@ import { postingCheckSettings } from "../../lib/sanity/analysis-settings.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // GET    /api/admin/jobs?filtered=1   -> { filtered, listedAt } (screened out, not moved or cleared)
-// GET    /api/admin/jobs?overview=1&range=30|90|365|all -> pipeline insights (lib/pipeline-overview.js)
+// GET    /api/admin/jobs?overview=1&range=7|14|30|90 -> pipeline insights (lib/pipeline-overview.js)
 // GET    /api/admin/jobs?reviewReasons=1 -> { advance, drop } (published quick picks, then learned ones)
 // GET    /api/admin/jobs?needsYou=1   -> { items, agreement } (New jobs with a review agent suggestion,
 //                                        then Reviewing jobs with posting gaps or form answers to approve,
@@ -102,13 +102,14 @@ async function handler(req, res) {
       }
       // Attach view/interaction counts for any job with a linked fit report.
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
-      const [stats, analysed, unlinked, activeRuns, applications, generalCv, proposals, preferences] = await Promise.all([
+      const [stats, analysed, unlinked, activeRuns, applications, generalCv, proposals, preferences, filteredCount] = await Promise.all([
         getStats(ids), getReportSources(ids), findUnlinkedReportIds(all),
         getActiveRuns(["jev-score-all", "adopt"]),
         getApplicationCvSummaries(jobs.map(job => job.id)),
         generalCvFields(),
         openProposalsForNeedsYou(),
         proposedRulesForNeedsYou(),
+        countFilteredJobs().catch(() => null),
       ]);
       // Whether the row's description has moved on since it was analysed.
       // Read from the report rather than stamped on the row when the analysis
@@ -127,6 +128,8 @@ async function handler(req, res) {
         stages: JOB_STAGES,
         unlinked: unlinked.length,
         archivedCount: all.filter(j => j.archived).length,
+        activeCount: all.filter(j => !j.archived).length,
+        filteredCount,
         needsYouCount: needsYouItems(all, { proposals, preferences }).length,
         models: MODELS.map(({ id, label }) => ({ id, label })),
         modelLabels: MODEL_LABELS,
