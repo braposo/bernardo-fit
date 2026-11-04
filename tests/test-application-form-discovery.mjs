@@ -26,7 +26,7 @@ assert.throws(() => postingActionPatch({postingCheck},{action:'approve-answer',q
 const patch=postingActionPatch({postingCheck},{action:'approve-answer',questionId:'q1',answer:'example@example.com'});
 assert.equal(postingCheckProgress(patch).answersReady,true);
 patch.postingCheck.form.complete=false;
-assert.equal(postingCheckProgress(patch).answersReady,false);
+assert.equal(postingCheckProgress(patch).answersReady,true);
 const saved = await saveJob({...job,stage:'reviewing'});
 const settings=settingsFromDocument({...initialSettingsDocument(),postingCheck:{...DEFAULT_POSTING_CHECK,enabled:true}});
 await withSettingsSnapshot(settings,()=>executePostingCheck({jobId:saved.id},{

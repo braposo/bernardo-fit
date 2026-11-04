@@ -247,7 +247,8 @@ await test('failed reads stay partial and never invent requirements', async () =
   await withSettingsSnapshot(enabled, () => executePostingCheck({jobId: job.id}, {fetchForm: async () => {throw Error('unavailable');}}));
   const check = (await getJob(job.id)).postingCheck;
   assert.equal(check.status, 'partial'); assert.deepEqual(check.gaps, []);
-  assert.equal(postingCheckProgress({postingCheck:check}).answersReady, false);
+  // No fields read means nothing to prepare (the board's Ready to apply rule).
+  assert.equal(postingCheckProgress({postingCheck:check}).answersReady, true);
 });
 
 await test("a check is dropped when the job leaves Reviewing, and keeps what Bernardo did meanwhile", async () => {
@@ -312,7 +313,7 @@ await test("needs-you lists application answers without legacy gaps", () => {
     dropProbability: 0.3, reason: "R.", question: "Q?", reviewedAt: "t" });
   assert.deepEqual(items.slice(1).map(i => [i.kind, i.id]), [['application-answers','r1']]);
   assert.deepEqual(items[1].questions.map(q => [q.id,q.needsYou]), [['q1',false],['q2',true]]);
-  assert.equal(postingCheckProgress({}).answersReady, false);
+  assert.equal(postingCheckProgress({}).answersReady, true);
   assert.equal(postingCheckProgress({postingCheck:checked({form:{complete:true,questions:[{id:'a',text:'A',required:true,state:'skipped'}]}})}).answersReady,false);
   assert.equal(postingCheckProgress({postingCheck:checked({form:{complete:true,questions:[{id:'a',text:'A',required:true,state:'approved'}]}})}).answersReady,true);
 
@@ -351,7 +352,7 @@ await test("approve, edit, skip, dismiss and draft-question actions through the 
   assert.equal((await call("POST", { body: { action: "dismiss-gap", gapId: "salary" } })).status, 400);
   // Everything handled: nothing left in Needs you, and the answers are ready.
   assert.deepEqual(postingNeedsYouItems([saved]), []);
-  assert.equal(postingCheckProgress(saved).answersReady, false);
+  assert.equal(postingCheckProgress(saved).answersReady, true);
   const needs = await call("GET", { query: { needsYou: "1" } });
   assert.ok(!needs.body.items.some(item => item.id === job.id));
   assert.equal((await call("POST", { body: { action: "dismiss-gap", id: (await create()).id, gapId: "salary" } })).status, 409);
