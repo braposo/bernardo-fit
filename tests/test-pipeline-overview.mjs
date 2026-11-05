@@ -1,6 +1,7 @@
 import { buildPipelineOverview, stageHistory, parseStageChange, sourceGroup, pipelineOverviewResponse } from "../lib/pipeline-overview.js";
 import { saveJob, updateJob } from "../lib/store.js";
 import { recordFilteredJob } from "../lib/filtered-jobs.js";
+import jobsHandler from "../api/admin/jobs.js";
 
 let pass = 0, fail = 0;
 const check = (n, c, e) => { if (c) { pass++; console.log("  ok   " + n); } else { fail++; console.log("  FAIL " + n + (e !== undefined ? " -> " + JSON.stringify(e) : "")); } };
@@ -104,6 +105,16 @@ check("endpoint counts screened out roles", response.kpis.screenedOut === 1);
 check("endpoint lists the stage changes", response.activity.filter(a => a.kind === "stage").length === 2);
 check("unknown range falls back to 30 days", (await pipelineOverviewResponse({ range: "365" })).range === "30");
 check("one week is a supported range", (await pipelineOverviewResponse({ range: "7" })).range === "7");
+
+// The admin dashboard reads the overview through the jobs endpoint; a missing
+// import there once made every dashboard load fail with "Unexpected error".
+process.env.ADMIN_SECRET = "synthetic-admin";
+const viaHandler = await new Promise(resolve => {
+  const res = { statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; },
+    json(data) { resolve({ status: this.statusCode, body: data }); return this; } };
+  jobsHandler({ method: "GET", query: { overview: "1", range: "30" }, headers: { "x-admin-secret": "synthetic-admin" } }, res);
+});
+check("admin jobs endpoint serves the overview", viaHandler.status === 200 && !!viaHandler.body.kpis, viaHandler.body);
 
 console.log("\npassed " + pass + ", failed " + fail);
 process.exit(fail ? 1 : 0);
