@@ -1226,6 +1226,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
         '<section class="overview-summary"><h2>Summary</h2>' +
           (j.overviewSummary && !j.jevStale && j.jevAssessment && j.overviewSummary.fingerprint === j.jevAssessment.fingerprint && j.overviewSummary.assessedAt === j.jevAssessment.assessedAt ? '<h3>The position</h3><p>' + esc(j.overviewSummary.position) + '</p><h3>Your fit</h3><p>' + esc(j.overviewSummary.fit) + '</p>' :
             '<p class="field-help">' + (j.jevStale ? 'Reassess fit to update the summary.' : 'Assess fit to add a summary.') + '</p>') + '</section>' +
+        journeyHtml(j) +
         timelineHtml(j) +
         owed +
         '</section>';
@@ -1856,6 +1857,78 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<div class="needs-actions"><button class="ghost" type="button" data-pc-act="rerun" data-pc-job="' + esc(j.id) + '">' + (pc ? 'Re-run check' : 'Run check') + '</button></div></section>';
   }
 
+  // Stage timeline (Overview): when the role was added, how long it spent at each
+  // stage and when it was last moved to Applied. Loaded per role from its recorded
+  // stage changes (GET ?id=&journey=1) and kept until its stage or archive state changes.
+  var journeyCache = {}, journeyPending = {};
+  var JOURNEY_COLORS = { new: '#626a7b', reviewing: '#267773', applied: '#3265b6', interviewing: '#6b45ac', offer: '#367b4c' };
+  function journeyKey(j) { return j.id + ':' + j.stage + ':' + !!j.archived; }
+  function journeyDay(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso), opts = { month: 'short', day: 'numeric' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    return d.toLocaleDateString(undefined, opts);
+  }
+  function journeyBadge(stage) {
+    return stage === 'archived' ? '<span class="pipeline-stage stage-filtered">Archived</span>' : stageBadge(stage);
+  }
+  function journeyBodyHtml(d) {
+    var stages = d.stages || [];
+    var current = stages.filter(function (s) { return s.current; })[0];
+    var final = stages[stages.length - 1];
+    var added = d.addedAt ? (d.source && d.source !== 'Other' ? d.source + ' · ' : '') + relativeTime(d.addedAt) : 'Date not recorded';
+    var nowTile = current ? insightsKpi('In ' + stageName(current.stage), daysText(current.days), current.from ? 'Since ' + journeyDay(current.from) : 'Since before history was recorded')
+      : final && final.closed ? insightsKpi(stageName(final.stage), journeyDay(final.from), final.stage === 'archived' ? 'Archived by hand' : 'Closed')
+      : insightsKpi('Archived', '—', 'Date not recorded');
+    var appliedNote = !d.appliedAt ? 'Not applied yet' : d.appliedTimes > 1 ? 'Latest of ' + d.appliedTimes + ' moves to Applied'
+      : d.daysToApply != null ? daysText(d.daysToApply) + ' after it was added' : 'Moved to Applied';
+    var tiles = '<div class="insights-kpis journey-kpis">' +
+      insightsKpi('Added', journeyDay(d.addedAt), added) + nowTile +
+      insightsKpi('Applied', d.appliedAt ? journeyDay(d.appliedAt) : '—', appliedNote) +
+      insightsKpi(d.open ? 'In pipeline' : 'Time in pipeline', daysText(d.totalDays), d.open ? 'Since it was added' : 'Until it closed') + '</div>';
+    var timed = stages.filter(function (s) { return !s.closed && s.days != null && JOURNEY_COLORS[s.stage]; });
+    var total = timed.reduce(function (sum, s) { return sum + s.days; }, 0);
+    var bar = d.complete && timed.length && total > 0 ? '<div class="journey-bar" aria-hidden="true">' + timed.map(function (s) {
+      return '<span style="flex-grow:' + Math.max(s.days, total / 50) + ';background:' + JOURNEY_COLORS[s.stage] + '" title="' + esc(stageName(s.stage) + ' · ' + daysText(s.days)) + '"></span>';
+    }).join('') + '</div>' : '';
+    var rows = '<ol class="waiting-list journey-list">' + stages.map(function (s) {
+      var span = s.closed ? (s.from ? journeyDay(s.from) : 'Date not recorded')
+        : !s.from ? (s.current ? 'Since before ' + (d.historyFrom ? journeyDay(d.historyFrom) : 'history began') : s.to ? 'Until ' + journeyDay(s.to) : 'Dates not recorded')
+        : journeyDay(s.from) + ' – ' + (s.current ? 'now' : s.to ? journeyDay(s.to) : '—');
+      var length = s.closed ? (s.stage === 'archived' ? 'Archived' : 'Closed') : s.days == null ? '—' : daysText(s.days) + (s.current ? ' so far' : '');
+      return '<li class="waiting-item journey-item' + (s.current ? ' is-current' : '') + '"><span class="journey-stage">' + journeyBadge(s.stage) +
+        (s.byAgent ? '<span class="pipeline-stage stage-filtered">Moved by agent</span>' : '') + '<span class="activity-role">' + esc(span) + '</span></span>' +
+        '<span class="waiting-days">' + esc(length) + '</span></li>';
+    }).join('') + '</ol>';
+    var note = d.complete ? '' : '<p class="insights-note">Stage changes are recorded from ' + esc(d.historyFrom ? fmtDate(d.historyFrom) : 'when history began') + '. Earlier time is not split by stage.</p>';
+    return tiles + bar + rows + note;
+  }
+  function journeyHtml(j) {
+    var cached = journeyCache[j.id];
+    var body = cached && cached.key === journeyKey(j) ? journeyBodyHtml(cached.data) : '<p class="field-help">Loading timeline…</p>';
+    return '<section class="job-journey" aria-labelledby="journey-heading-' + esc(j.id) + '"><h2 id="journey-heading-' + esc(j.id) + '">Timeline</h2>' +
+      '<p class="field-help">When this role was added and how long it has spent at each stage.</p>' +
+      '<div data-job-journey="' + esc(j.id) + '" aria-live="polite">' + body + '</div></section>';
+  }
+  function loadJobJourney(j) {
+    var key = journeyKey(j), cached = journeyCache[j.id];
+    if ((cached && cached.key === key) || journeyPending[key]) return;
+    journeyPending[key] = true;
+    // The workspace may re-render while this loads, so fill whichever target is current.
+    var fill = function (html) {
+      var target = document.querySelector('[data-job-journey="' + CSS.escape(j.id) + '"]');
+      if (target && selectedId === j.id) renderAdmin(target, html);
+    };
+    api('/api/admin/jobs?id=' + encodeURIComponent(j.id) + '&journey=1').then(function (out) {
+      if (unauthorised(out)) return;
+      if (!out.ok) { fill('<p class="field-help">Could not load the timeline.</p>'); return; }
+      journeyCache[j.id] = { key: key, data: out.d };
+      fill(journeyBodyHtml(out.d));
+    }).catch(function () {
+      fill('<p class="field-help">Could not load the timeline.</p>');
+    }).then(function () { delete journeyPending[key]; });
+  }
+
   // Interview timeline (Overview): dated rounds with editable private notes, added by email proposals or by hand.
   function timelineDateText(value) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
@@ -2104,6 +2177,9 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     if (listing) listing.addEventListener('click', function() { recordJobAction(selectedId,'listing_opened'); });
     var activityTarget = document.querySelector('[data-job-activity]');
     if (activityTarget) loadJobActivity(activityTarget, selectedId);
+    var journeyTarget = document.querySelector('[data-job-journey]');
+    var journeyJob = journeyTarget && jobs.find(function (j) { return j.id === journeyTarget.getAttribute('data-job-journey'); });
+    if (journeyJob) loadJobJourney(journeyJob);
 
     var selectedSummary = jobs.find(function (j) { return j.id === selectedId; });
     if (selectedId && !selectedMissing && (!selectedSummary || !Object.prototype.hasOwnProperty.call(selectedSummary, 'jobDescription'))) {

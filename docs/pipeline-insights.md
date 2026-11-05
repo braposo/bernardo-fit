@@ -29,6 +29,10 @@ Browser helpers live in [`public/pipeline-insights.js`](../public/pipeline-insig
 
 The flow chart encodes one distinction in colour: roles that moved on (accent `#6055a6`) versus roles that dropped (`#ae4554`); screened out is neutral grey. Every node carries a direct label and the Stage by stage table repeats the numbers, so nothing depends on colour or hover. The weekly chart uses accent for Added and `#c46a1e` for Applied. These pairs pass the dataviz palette validator (lightness, chroma, colour-vision separation, contrast).
 
+## One role's timeline
+
+Each role's Overview shows its own **Timeline** from the same recorded `status.changed`, `agent.moved` and `job.archived` events: `GET /api/admin/jobs?id=<id>&journey=1`, built by [`lib/job-journey.js`](../lib/job-journey.js). It returns every stage with its entry and exit dates and duration (the current one up to now), whether the review agent made the move, the latest move to Applied (and how many there were), days from added to first application, total time in the pipeline (until it closed or was archived) and, for legacy roles, when recording began. Legacy roles' earlier stages have no dates and are never timed. The browser keeps the result per role until its stage or archive state changes.
+
 ## Tests
 
-`node tests/test-pipeline-overview.mjs` (server derivation and endpoint) and `node tests/test-pipeline-insights.mjs` (layout and formatting).
+`node tests/test-pipeline-overview.mjs` (server derivation and endpoint), `node tests/test-job-journey.mjs` (one role's timeline) and `node tests/test-pipeline-insights.mjs` (layout and formatting).
