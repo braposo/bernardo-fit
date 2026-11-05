@@ -40,9 +40,11 @@ import { routineHandler, listProposalsResponse, proposalAction } from "../../lib
 import { POSTING_ACTIONS, checkable, postingActionPatch, requestPostingCheck } from "../../lib/posting-check.js";
 import { postingCheckSettings } from "../../lib/sanity/analysis-settings.js";
 import { pipelineOverviewResponse } from "../../lib/pipeline-overview.js";
+import { jobJourneyResponse } from "../../lib/job-journey.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // GET    /api/admin/jobs?filtered=1   -> { filtered, listedAt } (screened out, not moved or cleared)
+// GET    /api/admin/jobs?id=abc&journey=1 -> one role's stage timeline (lib/job-journey.js)
 // GET    /api/admin/jobs?overview=1&range=7|14|30|90 -> pipeline insights (lib/pipeline-overview.js)
 // GET    /api/admin/jobs?reviewReasons=1 -> { advance, drop } (published quick picks, then learned ones)
 // GET    /api/admin/jobs?needsYou=1   -> { items, agreement } (New jobs with a review agent suggestion,
@@ -80,6 +82,7 @@ async function handler(req, res) {
       if (req.query?.id) {
         const job = await getJob(req.query.id);
         if (!job) return res.status(404).json({ error: "Job not found" });
+        if (req.query.journey === "1") return res.status(200).json(await jobJourneyResponse(job));
         if (req.query.activity === "1") {
           const offset = Math.max(0, Math.floor(Number(req.query.offset) || 0));
           const snapshot = Math.min(Date.now(), Number(req.query.snapshot) || Date.now());

@@ -986,7 +986,7 @@ body {
 /* Fit estimates keep uncertainty adjacent to each score at every viewport. */
 .jev-gauges { grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); align-items:start; }
 .assessment-dimension { min-width:0; }
-.overview-summary, .interview-timeline { margin-top:32px; max-width:76ch; }
+.overview-summary, .interview-timeline, .job-journey { margin-top:32px; max-width:76ch; }
 .overview-summary h3, .posting-check h3, .interview-timeline h3 { font-size:14px; font-weight:600; margin:20px 0 6px; }
 .overview-summary p { font-size:15px; line-height:1.7; margin:0 0 16px; overflow-wrap:anywhere; }
 .assessment-dimension .field-help { margin:8px 0; font-size:12px; }
@@ -1317,6 +1317,17 @@ h2.pipeline-company {
 .jobs-tab-count { font-size:12px; font-weight:400; color:var(--sub); font-variant-numeric:tabular-nums; }
 .jobs-tabs [aria-current=page] .jobs-tab-count { color:var(--primary); }
 .waiting-days { font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+/* Overview: one role's stage timeline, built from the Dashboard's key-number tiles and Waiting longest rows. */
+.job-journey .field-help { margin-bottom:12px; }
+.insights-kpis.journey-kpis { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.journey-bar { display:flex; gap:2px; height:8px; margin:16px 0 12px; border-radius:4px; overflow:hidden; }
+.journey-bar span { flex-basis:0; min-width:4px; }
+.journey-list { margin-top:12px; }
+.journey-bar + .journey-list { margin-top:0; }
+.waiting-item.journey-item { flex-direction:row; align-items:center; }
+.waiting-item.journey-item:hover { border-color:var(--border); }
+.waiting-item.journey-item.is-current { background:#f8f7ff; border-color:#9487ce; }
+.journey-stage { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
 @media(max-width:1100px) {
   .insights { padding:24px 20px 48px; }
   .insights-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -1331,7 +1342,7 @@ h2.pipeline-company {
   .flow-canvas { min-width:900px; }
 }
 @media(max-width:600px) {
-  .insights-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .insights-kpis,.insights-kpis.journey-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .insights-kpi-value { font-size:26px; }
   .waiting-item { flex-direction:column; align-items:flex-start; }
 }

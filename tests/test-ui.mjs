@@ -26,7 +26,8 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "autoMoveBadgeHtml", "postingCheckHtml", "timelineHtml", "timelineDateText", "gapItemHtml", "answerItemHtml", "draftOf", "jevAssessmentHtml", "percentWords", "leanBadgeHtml", "agentReviewHtml", "jobHtml", "pipelineItemHtml"];
+  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "autoMoveBadgeHtml", "postingCheckHtml", "timelineHtml", "timelineDateText", "gapItemHtml", "answerItemHtml", "draftOf", "jevAssessmentHtml", "percentWords", "leanBadgeHtml", "agentReviewHtml", "jobHtml", "pipelineItemHtml",
+  "journeyKey", "journeyDay", "journeyBadge", "journeyBodyHtml", "journeyHtml", "insightsKpi", "stageBadge"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
 
@@ -35,9 +36,10 @@ const sandbox = [
   'var MODELS=[{id:"gpt-5.6-sol",label:"Sol"},{id:"claude-opus-5",label:"Opus"}];',
   'var workspaceSection="overview",selectedId="j1",showArchived=false,showNeeds=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true,jevEnabled=true;',
   'var needsUi={editing:{},drafts:{},kept:{},busy:{}}, pcPaste={}, tlDrafts={}; var TIMELINE_KIND_LABELS={phone:\"Phone\",video:\"Video\",onsite:\"On-site\",assessment:\"Assessment\",other:\"Other\"}; var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
-  ...[/var LEAN_LABELS = [^\n]*;/, /var LEAN_ARIA = [^\n]*;/].map(pattern => script.match(pattern)?.[0] || ''),
+  'var journeyCache={}; var stageName=s=>({new:"New",reviewing:"Reviewing",applied:"Applied",interviewing:"Interviewing",rejected:"Rejected"})[s]||s; var daysText=v=>v==null?"—":v+" days";',
+  ...[/var LEAN_LABELS = [^\n]*;/, /var LEAN_ARIA = [^\n]*;/, /var JOURNEY_COLORS = [^\n]*;/].map(pattern => script.match(pattern)?.[0] || ''),
   needed.map(grab).join("\n"),
-  'return {postingCheckHtml,timelineHtml,jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
+  'return {journeyCache,journeyBodyHtml,postingCheckHtml,timelineHtml,jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
 ].join("\n");
 let R;
 try { R = new Function(sandbox)(); check("render helpers evaluate", true); }
@@ -54,6 +56,24 @@ const base = {
 };
 const render = (section, over = {}) => { R.setSection(section); return R.jobHtml({ ...base, ...over }); };
 const actions = (markup) => [...markup.matchAll(/data-act="([^"]+)"/g)].map((match) => match[1]);
+
+console.log("\n--- stage timeline ---");
+const journeyLoading = render("overview");
+check("overview has a timeline section after the summary", journeyLoading.indexOf("Timeline</h2>") > journeyLoading.indexOf("Summary</h2>") && /data-job-journey="j1"/.test(journeyLoading));
+check("timeline loads until its data arrives", /Loading timeline/.test(journeyLoading));
+const journeyData = { addedAt: "2026-10-01T00:00:00Z", source: "LinkedIn", complete: true, historyFrom: null, open: true, totalDays: 20, appliedAt: "2026-10-09T00:00:00Z", appliedTimes: 1, daysToApply: 8,
+  stages: [{ stage: "new", from: "2026-10-01T00:00:00Z", to: "2026-10-03T00:00:00Z", days: 2 }, { stage: "reviewing", from: "2026-10-03T00:00:00Z", to: "2026-10-09T00:00:00Z", days: 6, byAgent: true },
+    { stage: "applied", from: "2026-10-09T00:00:00Z", to: "2026-10-15T00:00:00Z", days: 6 }, { stage: "interviewing", from: "2026-10-15T00:00:00Z", to: null, days: 6, current: true }] };
+R.journeyCache.j1 = { key: "j1:interviewing:false", data: journeyData };
+const journey = render("overview");
+check("cached timeline renders without loading", !/Loading timeline/.test(journey) && /journey-list/.test(journey));
+check("timeline shows a row per stage", (journey.match(/journey-item/g) || []).length === 4);
+check("current stage reads so far", /6 days so far/.test(journey) && /journey-item is-current/.test(journey));
+check("agent move is badged", /Moved by agent/.test(journey));
+check("applied tile says how soon", /8 days after it was added/.test(journey));
+const legacyJourney = R.journeyBodyHtml({ ...journeyData, complete: false, historyFrom: "2026-10-05T00:00:00Z", stages: [{ stage: "reviewing", from: null, to: "2026-10-09T00:00:00Z", days: null }, journeyData.stages[3]] });
+check("legacy timeline has no bar and says when recording began", !/journey-bar/.test(legacyJourney) && /Stage changes are recorded from/.test(legacyJourney) && /Until /.test(legacyJourney));
+R.journeyCache.j1 = null;
 
 console.log("\n--- compact pipeline ---");
 const mixedRow = R.pipelineItemHtml(base);
