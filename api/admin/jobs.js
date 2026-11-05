@@ -39,6 +39,7 @@ import { listPreferencesResponse, preferenceAction } from "../../lib/handlers/re
 import { routineHandler, listProposalsResponse, proposalAction } from "../../lib/handlers/status-proposals.js";
 import { POSTING_ACTIONS, checkable, postingActionPatch, requestPostingCheck } from "../../lib/posting-check.js";
 import { postingCheckSettings } from "../../lib/sanity/analysis-settings.js";
+import { pipelineOverviewResponse } from "../../lib/pipeline-overview.js";
 
 // GET    /api/admin/jobs              -> { jobs, stages }   (jobs carry .stats)
 // GET    /api/admin/jobs?filtered=1   -> { filtered, listedAt } (screened out, not moved or cleared)
