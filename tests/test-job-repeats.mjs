@@ -53,6 +53,43 @@ await test("different cities and reworded titles are close calls for Jev, not re
     [job("5", "Wise", "Senior Software Engineer II - Engineering Experience", "London")]).near, []);
 });
 
+await test("other job sites' company names, titles and places still reach Jev (November 2026 misses)", async () => {
+  // Pairs that reached production in November 2026: JSearch listings of roles
+  // already in the pipeline from LinkedIn, renamed and cut to a summary.
+  assert.equal(companyKey("Pigment SAS"), companyKey("Pigment"));
+  assert.equal(companyKey("Turnitin, LLC"), companyKey("Turnitin"));
+  assert.equal(companyKey("Capital One UK"), companyKey("Capital One Group"));
+  assert.equal(companyKey("Google (via hackajob)"), companyKey("Google"));
+  assert.equal(placeKey("Anywhere"), "");
+  const jsearch = (company, role) => ({ company, role, location: "Anywhere", externalId: `jsearch-${role.length}`,
+    sourceUrl: `https://example.test/${role.length}`, source: "JSearch · JobLeads" });
+  for (const [posting, existing] of [
+    [jsearch("Lokalise", "Remote Engineering Manager, AI-Driven Editing Experience"), job("1", "Lokalise", "Engineering Manager", "United Kingdom")],
+    [jsearch("Turnitin, LLC", "Remote Engineering Manager, Global Teams"), job("2", "Turnitin", "Manager, Software Engineering (UK Remote)", "Manchester, England, United Kingdom")],
+    [jsearch("Pigment SAS", "Engineering Manager — Remote, Equity, Growth"), job("3", "Pigment", "Engineering Manager", "London, England, United Kingdom")],
+    [jsearch("Capital One UK", "Hiring: Software Engineering Manager (Permanent)"), job("4", "Capital One", "Software Engineering Manager", "London")],
+  ]) assert.deepEqual(findRepeat(posting, [existing]).near.map(r => r.id), [existing.id], posting.role);
+});
+
+await test("a reworded title over the same description is settled by the rules", async () => {
+  const text = "We're looking for an Engineering Manager to lead and grow our core engineering teams, building a high-performing team, ensuring predictable delivery and partnering with Product and DevOps to scale the platform.";
+  const match = await checkRepeat({ company: "Runware", role: "Remote Engineering Manager — Lead Scale & Delivery", location: "Anywhere", jobDescription: text },
+    [job("5", "Runware", "Engineering Manager", "London, UK (Remote-first)", { jobDescription: text + " Apply today." })],
+    { settings: DEFAULT_DUPLICATE_SETTINGS, evaluate: async () => { throw new Error("Jev should not be asked"); } });
+  assert.equal(match.by, "rules"); assert.equal(match.repeat.id, "5");
+});
+
+await test("Jev is told which posting is a short summary and where each came from", async () => {
+  let seen;
+  await judgeRepeat({ company: "Lokalise", role: "Remote Engineering Manager", source: "JSearch · JobLeads", jobDescription: "Lead the Editing Experience team." },
+    [job("6", "Lokalise", "Engineering Manager", "", { source: "LinkedIn direct search", jobDescription: "x".repeat(4000) })],
+    { settings: DEFAULT_DUPLICATE_SETTINGS, evaluate: async ({ state }) => { seen = state;
+      return { answers: { repeat_e0: { choice: "repeat", probabilities: { repeat: 0.9, different: 0.1 } } } }; } });
+  assert.equal(seen.posting.descriptionKind, "summary"); assert.equal(seen.posting.source, "JSearch · JobLeads");
+  assert.equal(seen.existing.e0.descriptionKind, "full");
+  assert.match(DEFAULT_DUPLICATE_SETTINGS.instructions, /missing detail is not evidence/);
+});
+
 await test("the same listing is left to the existing exact match", () => {
   const found = findRepeat(card("9", "Acme", "Engineering Manager", ""), [{ ...job("9", "Acme", "Engineering Manager", ""), kind: "filtered" }]);
   assert.deepEqual(found.rules, []); assert.deepEqual(found.near, []);
