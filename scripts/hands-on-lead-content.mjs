@@ -4,7 +4,7 @@ export const LEAD_CV_HEADLINE='Engineering Lead | Hands-on across product, archi
 export const LEAD_PROFILE_PARAGRAPHS=[
   "I'm an **engineer who leads**. I still design and build products myself, and I use AI to extend what I can do: I **orchestrate different models and agents**, and build agents of my own, to take a product from idea to production. Fit, my AI job-search product, is the latest example, with durable workflows, a model router and its own design system.",
   "Over 15 years I've been a **principal engineer**, a **staff engineer** and an **engineering manager**. I've built B2B analytics, a booking platform for three travel brands, a modular company website, developer docs and an AI assistant with design, marketing, sales and product. That range lets me **turn a business problem into architecture** and explain the trade-offs to the people paying for it.",
-  "As a manager I **hired and grew a team** at a pre-IPO company of more than 500 people. I gave engineers ownership of whole products, wrote the cases for their promotions and made sure their work was seen beyond the team, while staying in the code myself.",
+  "As a manager I **hired and grew a team** at SingleStore. I gave engineers ownership of whole products, wrote the cases for their promotions and made sure their work was seen beyond the team, while staying in the code myself.",
 ];
 export const LEAD_SKILLS=[
   {label:'Engineering and architecture',items:['TypeScript','React','Next.js','Node.js','GraphQL','frontend architecture','design systems','AWS','Vercel']},
@@ -15,7 +15,7 @@ export const LEAD_SKILLS=[
 ];
 export const LEAD_SINGLESTORE={
   title:'Staff Engineer and Engineering Manager',
-  scope:'Joined as a **staff engineer on the product**, then moved to the Web team as its lead and later its engineering manager, at a real-time distributed SQL database company: a pre-IPO Silicon Valley business of more than 500 people. The team owned singlestore.com, the documentation platform, CMS infrastructure and AI integrations, working closely with Marketing, Sales and Legal. Fully remote.',
+  scope:'Joined as a **staff engineer on the product**, then moved to the Web team as its lead and later its engineering manager, at a real-time distributed SQL database company. The team owned singlestore.com, the documentation platform, CMS infrastructure and AI integrations, working closely with Marketing, Sales and Legal. Fully remote.',
   stack:['TypeScript','React','Gatsby','Contentstack','Algolia','Kubernetes','Terraform','GitHub Actions','AWS','Segment','MCP'],
   responsibilities:[
     '**Led the move from Netlify to Contentstack**: designed the content schema, rebuilt the templates as modular components and built the front end from design to code, so Marketing could build the pages they needed',
