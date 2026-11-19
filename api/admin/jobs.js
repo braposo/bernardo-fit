@@ -31,14 +31,9 @@ import { applicationCvFields, generalCvFields } from "../../lib/application-cv-v
 import { listFilteredJobs, countFilteredJobs, moveFilteredJob, clearFilteredJobs, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
 import { startMovedJobCompletion } from "../../lib/filtered-job-enrich.js";
 import { reviewReasonOptions } from "../../lib/review-decisions.js";
-import { needsYouItems, needsYouResponse } from "../../lib/review-agent.js";
 import { updateJobFromBody, cvFields, cvWriteFields } from "../../lib/job-update.js";
-import { openProposalsForNeedsYou } from "../../lib/status-proposals.js";
-import { proposedRulesForNeedsYou } from "../../lib/review-preferences.js";
-import { listPreferencesResponse, preferenceAction } from "../../lib/handlers/review-preferences.js";
+import { openProposals, openProposalItems } from "../../lib/status-proposals.js";
 import { routineHandler, listProposalsResponse, proposalAction } from "../../lib/handlers/status-proposals.js";
-import { POSTING_ACTIONS, checkable, postingActionPatch, requestPostingCheck } from "../../lib/posting-check.js";
-import { postingCheckSettings } from "../../lib/sanity/analysis-settings.js";
 import { pipelineOverviewResponse } from "../../lib/pipeline-overview.js";
 import { jobJourneyResponse } from "../../lib/job-journey.js";
 
@@ -47,17 +42,10 @@ import { jobJourneyResponse } from "../../lib/job-journey.js";
 // GET    /api/admin/jobs?id=abc&journey=1 -> one role's stage timeline (lib/job-journey.js)
 // GET    /api/admin/jobs?overview=1&range=7|14|30|90 -> pipeline insights (lib/pipeline-overview.js)
 // GET    /api/admin/jobs?reviewReasons=1 -> { advance, drop } (published quick picks, then learned ones)
-// GET    /api/admin/jobs?needsYou=1   -> { items, agreement } (New jobs with a review agent suggestion,
-//                                        then Reviewing jobs with posting gaps or form answers to approve,
-//                                        then open email status proposals with kind "status-proposal",
-//                                        then proposed preference rules with kind "preference-proposal")
+// GET    /api/admin/jobs?emailProposals=1 -> { items } (open email status proposals with their job, newest first)
 // GET    /api/admin/jobs?proposals=1  -> { proposals } (email status proposals; lib/handlers/status-proposals.js)
-// GET    /api/admin/jobs?preferences=1 -> { rules, lastLearnedAt } (learned preferences; lib/handlers/review-preferences.js)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
 // POST   { action: "apply-proposal" | "dismiss-proposal" | "timeline-add" | "timeline-edit" | "timeline-remove" }
-// POST   { action: "dismiss-gap" | "draft-gap-question" | "paste-questions" | "approve-answer" |
-//          "skip-answer" | "rerun-posting-check", id, ... } -> posting check actions (docs/posting-check.md)
-// POST   { action: "accept-preference" | "reject-preference" | "edit-preference" | "delete-preference", id, text? }
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...); leaving New
 //                                        records a reviewDecision, with optional decision { reasons, note }
 // DELETE /api/admin/jobs?id=abc       -> remove
@@ -71,10 +59,12 @@ async function handler(req, res) {
     if (req.method === "GET") {
       if (req.query?.overview === "1") return res.status(200).json(await pipelineOverviewResponse(req.query));
       if (req.query?.reviewReasons === "1") return res.status(200).json(await reviewReasonOptions());
-      // Archived jobs too: review items skip them, but an email can concern a closed role.
-      if (req.query?.needsYou === "1") return res.status(200).json(await needsYouResponse(await listJobs({ includeArchived: true })));
+      // Archived jobs too: an email can concern a closed role.
+      if (req.query?.emailProposals === "1") {
+        const [proposals, jobs] = await Promise.all([openProposals(), listJobs({ includeArchived: true })]);
+        return res.status(200).json({ items: openProposalItems(proposals, jobs) });
+      }
       if (req.query?.proposals === "1") return res.status(200).json(await listProposalsResponse(req.query));
-      if (req.query?.preferences === "1") return res.status(200).json(await listPreferencesResponse(req.query));
       if (req.query?.filtered === "1") {
         const listedAt = new Date().toISOString();
         return res.status(200).json({ filtered: await listFilteredJobs(), retentionDays: filteredJobRetentionDays(), listedAt });
@@ -106,13 +96,11 @@ async function handler(req, res) {
       }
       // Attach view/interaction counts for any job with a linked fit report.
       const ids = jobs.map((j) => j.fitReportId).filter(Boolean);
-      const [stats, analysed, unlinked, activeRuns, applications, generalCv, proposals, preferences, filteredCount] = await Promise.all([
+      const [stats, analysed, unlinked, activeRuns, applications, generalCv, filteredCount] = await Promise.all([
         getStats(ids), getReportSources(ids), findUnlinkedReportIds(all),
         getActiveRuns(["jev-score-all", "adopt"]),
         getApplicationCvSummaries(jobs.map(job => job.id)),
         generalCvFields(),
-        openProposalsForNeedsYou(),
-        proposedRulesForNeedsYou(),
         countFilteredJobs().catch(() => null),
       ]);
       // Whether the row's description has moved on since it was analysed.
@@ -134,7 +122,6 @@ async function handler(req, res) {
         archivedCount: all.filter(j => j.archived).length,
         activeCount: all.filter(j => !j.archived).length,
         filteredCount,
-        needsYouCount: needsYouItems(all, { proposals, preferences }).length,
         models: MODELS.map(({ id, label }) => ({ id, label })),
         modelLabels: MODEL_LABELS,
         archiveOnStage: ARCHIVE_ON_STAGE,
@@ -192,28 +179,6 @@ async function handler(req, res) {
 
       const proposalResult = await proposalAction(body, { changeJob: updateJobFromBody });
       if (proposalResult) return res.status(proposalResult.status).json(proposalResult.json);
-      // Posting check: gaps and drafted form answers wait for Bernardo. Nothing
-      // is ever submitted; an approved answer joins the job's questions.
-      if (POSTING_ACTIONS.includes(body.action)) {
-        if (typeof body.id !== "string" || !body.id) return res.status(400).json({ error: "Missing job id" });
-        if (body.action === "rerun-posting-check") {
-          if (!postingCheckSettings()?.enabled) return res.status(409).json({ error: "Turn on the posting check in Sanity first." });
-          const job = await getJob(body.id);
-          if (!job) return res.status(404).json({ error: "Job not found" });
-          if (!checkable(job)) return res.status(409).json({ error: "Move the job to Reviewing to check its posting." });
-          const result = await requestPostingCheck(job, { force: true });
-          if (!result.requested) return res.status(502).json({ error: "The posting check could not be started. Try again." });
-          return res.status(202).json({ requested: true, runId: result.runId });
-        }
-        const job = await mutateJob(body.id, current => postingActionPatch(current, body));
-        if (!job) return res.status(404).json({ error: "Job not found" });
-        // Pasted questions are drafted by a check run (only while the check is on).
-        const requested = body.action === "paste-questions" ? (await requestPostingCheck(job)).requested : undefined;
-        return res.status(200).json({ job: { ...jobSummary(job), questions: job.questions || [] },
-          ...(requested !== undefined ? { requested } : {}) });
-      }
-      const preferenceResult = await preferenceAction(body);
-      if (preferenceResult) return res.status(preferenceResult.status).json(preferenceResult.json);
 
       if (!body.company && !body.role) {
         res.status(400).json({ error: "Need at least a company or a role." });

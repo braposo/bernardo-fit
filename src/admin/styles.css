@@ -987,7 +987,7 @@ body {
 .jev-gauges { grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); align-items:start; }
 .assessment-dimension { min-width:0; }
 .overview-summary, .interview-timeline, .job-journey { margin-top:32px; max-width:76ch; }
-.overview-summary h3, .posting-check h3, .interview-timeline h3 { font-size:14px; font-weight:600; margin:20px 0 6px; }
+.overview-summary h3, .interview-timeline h3 { font-size:14px; font-weight:600; margin:20px 0 6px; }
 .overview-summary p { font-size:15px; line-height:1.7; margin:0 0 16px; overflow-wrap:anywhere; }
 .assessment-dimension .field-help { margin:8px 0; font-size:12px; }
 .assessment-dimension .assessment-confidence-warning { color:#7a4810; background:#fff0d4; border-radius:8px; padding:6px 8px; }
@@ -1008,25 +1008,8 @@ body {
  .score-actions .assessment-status { max-width:100px; font-size:11px; }
 }
 
-/* Needs you cards for the posting check, application answers and email status proposals.
-   The card joins the pipeline card rules above; its header is the card's open button. */
-[data-slot=button].needs-open {
-  display:block;
-  width:100%;
-  min-height:0;
-  padding:0;
-  border:0;
-  border-radius:0;
-  background:transparent;
-  box-shadow:none;
-  font:inherit;
-  white-space:normal;
-  text-align:left;
-}
-[data-slot=button].needs-open:hover {
-  background:transparent;
-  filter:none;
-}
+/* Email update cards (role Overview) and the shared card text, also used by the interview timeline.
+   The card joins the pipeline card rules above. */
 .needs-body {
   display:grid;
   gap:14px;
@@ -1043,9 +1026,6 @@ body {
   border-top:1px solid var(--border);
   padding-top:14px;
 }
-.posting-check .needs-item {
-  padding:14px 0;
-}
 .needs-item-label {
   font-size:13px;
   line-height:1.5;
@@ -1059,18 +1039,14 @@ body {
   color:var(--sub);
   overflow-wrap:anywhere;
 }
-.needs-summary, .needs-quote {
+.needs-summary {
   margin:0;
   font-size:13px;
   line-height:1.5;
   color:#4b5260;
   overflow-wrap:anywhere;
 }
-.needs-quote {
-  border-left:2px solid var(--border);
-  padding-left:10px;
-}
-.needs-required, .needs-source {
+.needs-source {
   font-weight:400;
   color:var(--sub);
 }
@@ -1089,9 +1065,6 @@ body {
   width:100%;
   min-height:96px;
   resize:vertical;
-}
-.posting-check .field {
-  margin:16px 0 0;
 }
 .timeline-list {
   border-top:1px solid var(--hair);
@@ -1127,24 +1100,6 @@ body {
   .timeline-fields {
     grid-template-columns:1fr;
   }
-}
-.needs-sources {
-  list-style:none;
-  margin:0;
-  padding:0;
-  display:grid;
-}
-.needs-sources [data-slot=button] {
-  justify-content:flex-start;
-  padding-top:6px;
-  padding-bottom:6px;
-  text-align:left;
-  white-space:normal;
-  font-size:13px;
-}
-.needs-rule-text {
-  font-size:14px;
-  color:var(--foreground);
 }
 h2.pipeline-company {
   margin:0;
@@ -1287,14 +1242,14 @@ h2.pipeline-company {
 .activity-arrow { color:var(--sub); font-size:12px; }
 [data-slot=badge].activity-new { background:#f3f1f9; color:#514779; font-weight:600; }
 .waiting-meta { display:flex; align-items:center; gap:8px; flex:none; }
-/* Dashboard: what needs you and where every role is now, above the period analytics. */
+/* Dashboard: email updates and where every role is now, above the period analytics. */
 .insights-period { margin:12px 0 -4px; font-size:18px; font-weight:600; line-height:1.3; }
 .attention-text { font-size:13px; line-height:1.5; color:var(--ink); overflow-wrap:anywhere; }
 .now-count { font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; }
 @media(max-width:600px) {
   .waiting-item.now-item { flex-direction:row; align-items:center; }
 }
-/* Jobs: one view with a tab per group (Needs you, Active, Filtered, Archive). */
+/* Jobs: one view with a tab per group (Active, Filtered, Archive). */
 .jobs-tabs {
   display:flex;
   gap:18px;

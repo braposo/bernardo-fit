@@ -15,8 +15,8 @@ Every stage change from `new` to any other stage saves one `reviewDecision` docu
 | `direction` | `advance` (Reviewing, Applied, Interviewing, Offer), `drop` (Not interested) or `other` (Rejected, Expired) |
 | `reasons[]` | Up to 5 reasons, each 1–60 characters, deduplicated case-insensitively |
 | `note` | Optional free text, up to 1,000 characters |
-| `agentLean`, `agentProbability` | The [review agent](review-agent.md)'s lean on the job (`advance`, `drop` or `ask`) and its probability for the direction chosen (null for `other`); both null when the job had no suggestion |
-| `decidedBy` | `bernardo`, or `agent` for the review agent's own [automatic move](review-agent.md#automatic-moves). Missing on older records, which are his. Agent records never count towards agreement, examples or learned reasons |
+| `agentLean`, `agentProbability` | The retired review agent's lean on the job (`advance`, `drop` or `ask`) and its probability for the direction chosen (null for `other`); both null when the job had no suggestion |
+| `decidedBy` | `bernardo`, or `agent` for an automatic move by the retired review agent. Missing on older records, which are his. Agent records never count towards agreement, examples or learned reasons |
 | `overridesAgent` | True when Bernardo undid an automatic move; always counted as a disagreement |
 | `decidedAt` | ISO time of the move |
 

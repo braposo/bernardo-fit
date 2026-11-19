@@ -5,10 +5,9 @@ import { DEFAULT_EMAIL_STATUS, validateEmailStatus } from "../lib/sanity/email-s
 import { initialSettingsDocument } from "../lib/sanity/settings-document.js";
 import { settingsFromDocument, withSettingsSnapshot, emailStatusSettings, ANALYSIS_SETTINGS_QUERY } from "../lib/sanity/analysis-settings.js";
 import { validateProposalInput, matchEmailToJobs, parseSender, personalSender, createStatusProposal, listStatusProposals,
-  statusProposalDocumentId, proposalNeedsYouItems, decideStatusProposal, resetStatusProposalsForTests, setStatusProposalClient,
+  statusProposalDocumentId, openProposalItems, decideStatusProposal, resetStatusProposalsForTests, setStatusProposalClient,
   PROPOSABLE_STAGES } from "../lib/status-proposals.js";
 import { validateInterviewFields, timelineView, timelineBriefInput, MAX_TIMELINE_ENTRIES, addTimelineEntry, timelineEntry } from "../lib/interview-timeline.js";
-import { needsYouItems } from "../lib/review-agent.js";
 import { listReviewDecisions, resetReviewDecisionsForTests } from "../lib/review-decisions.js";
 import { briefInputs, briefModelInput } from "../lib/brief-inputs.js";
 import { briefFingerprint } from "../lib/generation-fingerprint.js";
@@ -247,33 +246,28 @@ await test("dismiss only marks the proposal", async () => {
   assert.deepEqual(await listStatusProposals(), []);
 });
 
-await test("open proposals appear in Needs you with their own kind, after review items", async () => {
-  const review = { lean: "ask", advanceProbability: 0.5, dropProbability: 0.3, reason: "Unclear.", question: "Worth a look?", reviewedAt: "2026-10-28T09:00:00.000Z" };
-  const jobs = [{ id: "n1", stage: "new", company: "New Co", role: "EM", jevAssessment: { score: 70 }, agentReview: review },
-    { id: "a1", stage: "applied", company: "Applied Co", role: "Head", archived: false },
+await test("open proposals are listed with their job, newest first, for the Dashboard and the role", async () => {
+  const jobs = [{ id: "a1", stage: "applied", company: "Applied Co", role: "Head", archived: false },
     { id: "r1", stage: "rejected", company: "Closed Co", role: "EM", archived: true }];
   const proposal = (id, jobId, createdAt, state = "open") => ({ id, jobId, state, company: "Snapshot", role: "Snapshot", proposedStage: "interviewing",
     summary: `Summary ${id}`, interview: null, confidence: 0.8, matchedBy: "thread", createdAt,
     email: { threadId: "t", messageId: id, subject: "Subject", from: "a@b.co", date: "2026-10-27T09:00:00.000Z", link: "" } });
   const proposals = [proposal("p1", "a1", "2026-10-27T10:00:00Z"), proposal("p2", "r1", "2026-10-28T10:00:00Z"),
     proposal("p3", "gone", "2026-10-29T10:00:00Z"), proposal("p4", "a1", "2026-10-29T11:00:00Z", "applied")];
-  const items = needsYouItems(jobs, { proposals });
-  // Existing items keep their shape and order; no proposals means no change.
-  assert.deepEqual(needsYouItems(jobs), items.slice(0, 1));
-  assert.equal("kind" in items[0], false);
-  assert.deepEqual(items.slice(1).map(i => i.id), ["p2", "p1"]);
-  assert.deepEqual(items[2], { kind: "status-proposal", id: "p1", jobId: "a1", company: "Applied Co", role: "Head", stage: "applied",
+  const items = openProposalItems(proposals, jobs);
+  assert.deepEqual(items.map(i => i.id), ["p2", "p1"]);
+  assert.deepEqual(items[1], { id: "p1", jobId: "a1", company: "Applied Co", role: "Head", stage: "applied",
     proposedStage: "interviewing", summary: "Summary p1", interview: null, confidence: 0.8, matchedBy: "thread",
     email: { subject: "Subject", from: "a@b.co", date: "2026-10-27T09:00:00.000Z", link: "" }, createdAt: "2026-10-27T10:00:00Z" });
-  assert.deepEqual(proposalNeedsYouItems(proposals, []), []);
+  assert.deepEqual(openProposalItems(proposals, []), []);
 
   const job = await create();
   await asEnabled(() => routinePost(proposalBody(job.id)));
-  const response = await call("GET", { query: { needsYou: "1" } });
+  const response = await call("GET", { query: { emailProposals: "1" } });
   assert.equal(response.status, 200);
-  assert.ok(response.body.items.some(i => i.kind === "status-proposal" && i.jobId === job.id && i.proposedStage === "rejected"));
+  assert.ok(response.body.items.some(i => i.jobId === job.id && i.proposedStage === "rejected"));
   const list = await call("GET");
-  assert.equal(list.body.needsYouCount, response.body.items.length);
+  assert.equal("needsYouCount" in list.body, false);
 });
 
 await test("timeline entries are added, edited and removed by hand", async () => {
