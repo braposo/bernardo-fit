@@ -6,4 +6,4 @@ assert.equal(swapText('a new b',[['old','new']],'t'),'a new b','already applied 
 assert.equal(swapText('nothing here',[['old','new']],'t'),'nothing here');
 assert.throws(()=>swapText('old old',[['old','new']],'t'),/expected one match/);
 assert.throws(()=>planHandsOnLeadPositioning({drafts:['drafts.x']}),/Publish or discard/);
-console.log('hands-on lead positioning: ok');
+console.log('passed 5, failed 0');
