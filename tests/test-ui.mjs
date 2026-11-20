@@ -26,7 +26,7 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "timelineHtml", "timelineDateText", "interviewLine", "proposalMoveHtml", "proposalBodyHtml", "emailProposalsHtml", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml",
+  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "timelineHtml", "timelineDateText", "interviewLine", "proposalMoveHtml", "proposalBodyHtml", "emailProposalsHtml", "ratingConfidence", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml",
   "journeyKey", "journeyDay", "journeyBadge", "journeyBodyHtml", "journeyHtml", "insightsKpi", "stageBadge"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
@@ -110,6 +110,16 @@ const provisional = render("overview", { score: 70, jevAssessment: { assessedAt:
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
 check("posting issues remain visible without reviving obsolete evidence warnings", provisional.includes('data-value="50"') && provisional.includes("Review the job description") && provisional.includes("The job description has too little detail") && !provisional.includes("Travel needs clarification") && provisional.includes("Model confidence: 40%"));
 check("lower confidence is highlighted beside the unchanged rating", provisional.includes('assessment-confidence-warning') && provisional.includes('<span>Review rating</span>'));
+{
+  // Paddle, 20 Nov: probabilities split across neighbouring levels.
+  const split = render("overview", { jevAssessment: { dimensions: [
+    { label: "Responsibilities", score: 56, weight: 30, confidence: 0.59, probabilities: { 0: 0, 1: 0.01, 2: 0.41, 3: 0.52, 4: 0.06 } },
+    { label: "Practical", score: 69, weight: 20, confidence: 0.5, probabilities: { 0: 0, 1: 0.01, 2: 0.22, 3: 0.41, 4: 0.36 } },
+    { label: "Spread", score: 50, weight: 10, confidence: 0.4, probabilities: { 0: 0.2, 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2 } }],
+    posting: { choice: "complete" } } });
+  check("confidence counts the two closest neighbouring levels", split.includes("Model confidence: 93%") && split.includes("Model confidence: 77%") && split.includes("Model confidence: 40%"));
+  check("only a genuinely spread rating asks for review", (split.match(/<span>Review rating<\/span>/g) || []).length === 1);
+}
 for (const confidence of [0, 0.59, 0.69, 0.7, 0.9, null]) {
   const current = render("overview", { jevAssessment: { dimensions: [{label:"Practical",score:76,weight:10,confidence}], posting:{choice:"complete"} } });
   check("confidence cue at " + confidence + " preserves the score and avoids missing-data claims", current.includes('data-value="76"') &&
