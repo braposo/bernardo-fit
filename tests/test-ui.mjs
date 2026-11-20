@@ -109,7 +109,7 @@ const provisional = render("overview", { score: 70, jevAssessment: { assessedAt:
   dimensions: [{ label: "Practical", score: 50, weight: 10, confidence: 0.4, evidenceLimited: true, evidenceNote: "Travel needs clarification <details>" }],
   posting: { choice: "partial" }, constraint: { choice: "unknown" } } });
 check("posting issues remain visible without reviving obsolete evidence warnings", provisional.includes('data-value="50"') && provisional.includes("Review the job description") && provisional.includes("The job description has too little detail") && !provisional.includes("Travel needs clarification") && provisional.includes("Model confidence: 40%"));
-check("lower confidence is highlighted beside the unchanged rating", provisional.includes('assessment-confidence-warning') && provisional.includes('<span>Review rating</span>'));
+check("low confidence is shown without a review flag", !provisional.includes('assessment-confidence-warning') && !provisional.includes('Review rating'));
 {
   // Paddle, 20 Nov: probabilities split across neighbouring levels.
   const split = render("overview", { jevAssessment: { dimensions: [
@@ -118,15 +118,14 @@ check("lower confidence is highlighted beside the unchanged rating", provisional
     { label: "Spread", score: 50, weight: 10, confidence: 0.4, probabilities: { 0: 0.2, 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2 } }],
     posting: { choice: "complete" } } });
   check("confidence counts the two closest neighbouring levels", split.includes("Model confidence: 93%") && split.includes("Model confidence: 77%") && split.includes("Model confidence: 40%"));
-  check("only a genuinely spread rating asks for review", (split.match(/<span>Review rating<\/span>/g) || []).length === 1);
 }
 for (const confidence of [0, 0.59, 0.69, 0.7, 0.9, null]) {
   const current = render("overview", { jevAssessment: { dimensions: [{label:"Practical",score:76,weight:10,confidence}], posting:{choice:"complete"} } });
   check("confidence cue at " + confidence + " preserves the score and avoids missing-data claims", current.includes('data-value="76"') &&
-    current.includes('assessment-confidence-warning') === (confidence == null || confidence < 0.7) &&
+    !current.includes('Review rating') &&
     !current.includes('Review the job description') && !current.includes('need clarification'));
 }
-check("outdated assessments suppress confidence cues", !jev.includes('assessment-confidence-warning'));
+check("outdated assessments show Outdated instead of confidence", !jev.includes('Model confidence'));
 check("provisional pipeline score uses an accessible warning icon", R.pipelineItemHtml({ ...base, jevAssessment: { provisional: true } }).includes('aria-label="Provisional score; see Fit assessment for details"') && R.pipelineItemHtml({ ...base, jevAssessment: { provisional: true } }).includes('>⚠</span>'));
 check("stale warning takes precedence", R.pipelineItemHtml({ ...base, jevStale: true, jevAssessment: { provisional: true } }).includes('Needs reassessment'));
 check("constraint conflict is visible in pipeline", R.pipelineItemHtml({ ...base, jevAssessment: { blocked: true, provisional: true } }).includes('Constraint conflict'));
