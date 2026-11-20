@@ -1,6 +1,6 @@
 # Pipeline insights
 
-The admin **Dashboard** (`/admin`, the admin home; formerly the Insights view) opens on what needs Bernardo (the Needs you items) and where every role is right now, each linking into the matching Jobs tab or stage. Below that it shows how roles move through the pipeline: where they drop out, how long each stage takes, what is waiting and what changed recently. It is read-only and derived; nothing new is stored.
+The admin **Dashboard** (`/admin`, the admin home; formerly the Insights view) opens on open email updates (status changes the daily email check proposes) and where every role is right now, each linking into the matching Jobs tab or stage. Below that it shows how roles move through the pipeline: where they drop out, how long each stage takes, what is waiting and what changed recently. It is read-only and derived; nothing new is stored.
 
 ## Data
 
@@ -18,9 +18,9 @@ The admin **Dashboard** (`/admin`, the admin home; formerly the Insights view) o
 - **Conversion.** Reached this stage ÷ reached the previous one. New is measured against everything discovered (pipeline + screened out).
 - **Median time in stage.** From recorded entry to recorded exit, over roles that left the stage. Time to apply is from `createdAt` to the recorded move to Applied.
 - **Waiting longest.** Open roles past New, by time since their recorded entry into the current stage (top six). Roles without a recorded entry date are left out rather than guessed.
-- **Recent activity.** The last 30 days of additions, stage changes (marked when the review agent made them) and interviews, newest first (at most 40). Items after the previous visit are marked **New**; the visit time is kept in this browser's `localStorage` (`fit.insights.seenAt`), not on the server.
+- **Recent activity.** The last 30 days of additions, stage changes (older moves by the retired review agent are marked) and interviews, newest first (at most 40). Items after the previous visit are marked **New**; the visit time is kept in this browser's `localStorage` (`fit.insights.seenAt`), not on the server.
 - **Intake chart.** One bar pair per day for ranges of two weeks or less (`intakeDays: 1`), otherwise per week (`intakeDays: 7`, 4 to 26 weeks).
-- **Pipeline now and tab counts.** `counts` gives the current active, archived and Filtered totals; `kpis.activeByStage` the active roles per stage. They ignore the range. Needs your attention reads `GET /api/admin/jobs?needsYou=1`, like the Needs you tab.
+- **Pipeline now and tab counts.** `counts` gives the current active, archived and Filtered totals; `kpis.activeByStage` the active roles per stage. They ignore the range. Email updates reads `GET /api/admin/jobs?emailProposals=1`.
 - **Sources.** LinkedIn, Job boards, Email, Fit website or Other, from `source`/`sourceType`.
 
 ## UI

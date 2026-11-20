@@ -30,7 +30,6 @@ const { prefilterReason, emailCandidates, parseEmailClassification, runGmailStat
   templatedSummary, toDate } = await import("../lib/gmail-status-check.js");
 const { validateAnswers } = await import("../lib/jev.js");
 const { createStatusProposal, listStatusProposals, resetStatusProposalsForTests, proposalMessageIds } = await import("../lib/status-proposals.js");
-const { REVIEW_NOTE_MODEL } = await import("../lib/review-agent.js");
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -223,7 +222,7 @@ await test("the prompts treat email as untrusted and use the review note's model
   }
   assert.match(EMAIL_STATUS_PROMPT, /only propose/);
   assert.match(EMAIL_WRITER_PROMPT, /Do not change or second-guess the decision/);
-  assert.equal(EMAIL_STATUS_MODEL, REVIEW_NOTE_MODEL);
+  assert.equal(EMAIL_STATUS_MODEL, "gpt-6.1-sol");
 });
 
 // Jev's raw answer for one choice: the chosen key gets p, the rest share 1 - p.

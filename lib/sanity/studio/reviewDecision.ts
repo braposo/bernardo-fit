@@ -10,7 +10,7 @@ const stages = ['new', 'reviewing', 'applied', 'interviewing', 'offer', 'rejecte
 
 export const reviewDecision = defineType({
   name: 'reviewDecision', title: 'Review decision', type: 'document', icon: CheckmarkCircleIcon, readOnly: true,
-  description: 'Bernardo\'s call on a job leaving New, with his reasons. Kept so a future review agent can learn from it.',
+  description: 'Bernardo\'s call on a job leaving New, with his reasons. Kept as a record of what gets advanced and dropped.',
   fields: [
     readOnly('jobId', 'Pipeline job ID'),
     readOnly('company', 'Company'), readOnly('role', 'Role'),

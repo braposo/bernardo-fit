@@ -23,51 +23,36 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined });
 let passed = 0;
 const check = (name, value) => { assert.ok(value, name); console.log('ok ' + name); passed++; };
-// Synthetic Needs you / posting check / interview timeline fixture. Every API call is stubbed
+// Synthetic email status proposal / interview timeline fixture. Every API call is stubbed
 // and recorded in `calls`; nothing reaches a real backend.
-async function needsFixture(browser) {
+async function proposalsFixture(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
   await context.addInitScript(() => { sessionStorage.setItem('bfit_admin_secret', 'synthetic-fixture'); });
   const base = (id, extra) => ({ id, company: 'Company ' + id, role: 'Engineering Manager', stage: 'reviewing', location: 'London', salary: '',
     jobDescription: 'A synthetic description long enough for the workspace to show it.', hasDescription: true, notes: '', instructions: '',
     createdAt: '2026-10-20T10:00:00Z', sourceUrl: 'https://example.com/jobs/' + id, score: 78, scoreBreakdown: {}, fitReportId: 'fit-' + id, questions: [],
-    hasCoverLetter: false, hasBrief: false, applicationCv: { status: 'missing' }, postingCheck: null, interviewTimeline: [], ...extra });
-  const gap = (id, kind, label, why, question, state = 'open') => ({ id, kind, label, why, question, state });
+    hasCoverLetter: false, hasBrief: false, applicationCv: { status: 'missing' }, interviewTimeline: [], ...extra });
   const jobs = [
-    base('ag1', { company: 'Agentic Works', role: 'Head of Platform', stage: 'new', fitReportId: '', score: 64,
-      agentReview: { lean: 'ask', reason: 'Strong platform scope but the location is unclear.', question: 'Is a hybrid role in Manchester workable?', advanceProbability: 0.42, dropProbability: 0.31 } }),
-    base('pc1', { company: 'Northwind Labs', role: 'Director of Engineering', score: 86, postingCheck: { status: 'checked', policy: 'p1', checkedAt: '2026-10-28T09:00:00Z', draftStatus: 'drafted',
-      gaps: [gap('g1', 'salary', 'Salary range', 'The posting does not say what the role pays.', 'What is the salary range for this role?'),
-        gap('g2', 'location', 'Office days', 'It says hybrid but not how many days are in the office.', 'How many days a week does the team work from the office?')],
-      form: { source: 'greenhouse', url: 'https://boards.greenhouse.io/northwind/jobs/1', status: 'ready', questions: [
-        { id: 'q1', text: 'Why do you want to lead engineering at Northwind?', required: true, options: [], answerDraft: 'I want to build a platform team that ships calmly.', needsYou: false, reason: '', state: 'drafted' },
-        { id: 'q2', text: 'What is your expected salary?', required: true, options: [], answerDraft: '', needsYou: true, reason: 'Salary expectations are personal.', state: 'pending' }] } } }),
-    base('pc2', { company: 'Fabrikam Systems', role: 'VP Engineering', score: 81, postingCheck: { status: 'partial', policy: 'p1', checkedAt: '2026-10-28T08:00:00Z', draftStatus: '',
-      gaps: [], form: { source: '', url: '', status: 'not-detected', questions: [] } } }),
+    base('nw1', { company: 'Northwind Labs', role: 'Director of Engineering', score: 86,
+      // Saved by the retired posting check and review agent: none of it may show.
+      agentReview: { lean: 'ask', reason: 'Unclear.', question: 'Is a hybrid role workable?', advanceProbability: 0.4, dropProbability: 0.3 },
+      postingCheck: { status: 'checked', checkedAt: '2026-10-28T09:00:00Z', gaps: [{ id: 'g1', kind: 'salary', label: 'Salary range', state: 'open' }],
+        form: { source: 'greenhouse', status: 'ready', questions: [{ id: 'q1', text: 'Why Northwind?', state: 'drafted' }] } },
+      questions: [{ id: 'mq1', q: 'Why do you want to lead engineering at Northwind?', limit: 150, a: '' }] }),
     base('ap1', { company: 'Contoso Cloud', role: 'Engineering Director', stage: 'applied', score: 83, interviewTimeline: [
       { id: 't1', date: '2026-10-22', round: 'Recruiter screen', kind: 'phone', source: 'email', notes: 'Friendly. Asked about team size.', proposalId: 'pr0', createdAt: '2026-10-21T10:00:00Z', updatedAt: '2026-10-21T10:00:00Z' },
       { id: 't2', date: '2026-10-29T14:00:00Z', round: 'Hiring manager', kind: 'video', source: 'manual', notes: '', proposalId: '', createdAt: '2026-10-25T10:00:00Z', updatedAt: '2026-10-25T10:00:00Z' }] }),
-    base('mv1', { company: 'Moved Co', role: 'Platform Lead', stage: 'reviewing', score: 79, agentReview: { lean: 'advance', advanceProbability: 0.9, dropProbability: 0.05, reason: 'Matches what you pick.', question: '', reviewedAt: '2026-10-28T07:00:00Z', autoMove: { stage: 'reviewing', at: '2026-10-28T07:05:00Z', overriddenAt: '' } } }),
-    base('mv2', { company: 'Undone Co', role: 'Platform Lead', stage: 'reviewing', score: 70, agentReview: { lean: 'advance', advanceProbability: 0.9, dropProbability: 0.05, reason: '', question: '', reviewedAt: '2026-10-28T07:00:00Z', autoMove: { stage: 'reviewing', at: '2026-10-28T07:05:00Z', overriddenAt: '2026-10-28T09:00:00Z' } } }),
     base('ap2', { company: 'Adventure Works', role: 'Head of Engineering', stage: 'new', score: 74, fitReportId: '' }),
   ];
   const applied = new Set();
-  const rules = [{ id: 'r1', text: 'Prefers hybrid roles in London.', state: 'accepted' }, { id: 'r2', text: 'Original wording.', editedText: 'Avoids agencies and consultancies.', state: 'accepted' }];
-  const needsItems = () => [
-    { id: 'ag1', company: 'Agentic Works', role: 'Head of Platform', score: 64, location: 'Manchester', lean: 'ask', reason: 'Strong platform scope but the location is unclear.', question: 'Is a hybrid role in Manchester workable?', reviewedAt: '2026-10-28T07:00:00Z' },
-    ...['pc1'].map(id => { const j = jobs.find(x => x.id === id); return { kind: 'posting-gaps', id, company: j.company, role: j.role, score: j.score, location: j.location, checkedAt: j.postingCheck.checkedAt,
-      gaps: j.postingCheck.gaps.filter(g => g.state === 'open').map(({ state, ...g }) => g) }; }),
-    ...['pc1'].map(id => { const j = jobs.find(x => x.id === id); return { kind: 'application-answers', id, company: j.company, role: j.role, score: j.score, location: j.location, checkedAt: j.postingCheck.checkedAt, source: 'greenhouse',
-      questions: j.postingCheck.form.questions.filter(q => q.state === 'drafted' || (q.state === 'pending' && q.needsYou)).map(({ state, ...q }) => q) }; }),
-    { kind: 'status-proposal', id: 'pr1', jobId: 'ap1', company: 'Contoso Cloud', role: 'Engineering Director', stage: 'applied', proposedStage: 'interviewing',
+  const proposals = () => [
+    { id: 'pr1', jobId: 'ap1', company: 'Contoso Cloud', role: 'Engineering Director', stage: 'applied', proposedStage: 'interviewing',
       summary: 'Contoso invited you to a final round with the VP of Product.', interview: { date: '2026-11-03T15:00:00Z', round: 'Final round', kind: 'video', notes: '' }, confidence: 0.92, matchedBy: 'thread',
       email: { subject: 'Final round invitation', from: 'recruiter@contoso.example', date: '2026-10-28T08:30:00Z', link: 'https://mail.google.com/mail/u/0/#all/thread1' }, createdAt: '2026-10-28T08:45:00Z' },
-    { kind: 'status-proposal', id: 'pr2', jobId: 'ap2', company: 'Adventure Works', role: 'Head of Engineering', stage: 'new', proposedStage: 'reviewing',
+    { id: 'pr2', jobId: 'ap2', company: 'Adventure Works', role: 'Head of Engineering', stage: 'new', proposedStage: 'reviewing',
       summary: 'Adventure Works asked for your CV and a short call.', interview: null, confidence: 0.7, matchedBy: 'sender',
       email: { subject: 'Next steps', from: 'talent@adventure.example', date: '2026-10-27T12:00:00Z', link: 'https://mail.google.com/mail/u/0/#all/thread2' }, createdAt: '2026-10-27T12:30:00Z' },
-    { kind: 'preference-proposal', id: 'pf1', text: 'Drops roles that need weekly travel.', sourceDecisionIds: ['d1', 'd2'], createdAt: '2026-10-28T06:00:00Z',
-      sources: [{ id: 'd1', jobId: 'ap2', company: 'Adventure Works', role: 'Head of Engineering', direction: 'drop' }, { id: 'd2', jobId: 'pc2', company: 'Fabrikam Systems', role: 'VP Engineering', direction: 'drop' }] },
   ].filter(item => !applied.has(item.id));
   const calls = [];
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -76,38 +61,23 @@ async function needsFixture(browser) {
     const reply = (json, status = 200) => route.fulfill({ status, json });
     if (url.pathname !== '/api/admin/jobs') return reply({ error: 'Unexpected fixture request' }, 404);
     if (request.method() === 'GET') {
-      if (url.searchParams.get('needsYou') === '1') return reply({ items: needsItems(), agreement: { decided: 9, agreed: 7, rate: 0.78 } });
+      if (url.searchParams.get('emailProposals') === '1') return reply({ items: proposals() });
       if (url.searchParams.get('overview') === '1') {
         const range = ['7', '14', '30', '90'].includes(url.searchParams.get('range')) ? url.searchParams.get('range') : '30';
         const overview = buildPipelineOverview({ jobs: clone(jobs), events: {}, filtered: [{ at: '2026-10-28T09:00:00Z' }], now: new Date('2026-10-30T12:00:00Z'), days: Number(range) });
         return reply({ range, ranges: ['7', '14', '30', '90'], retentionDays: 90, counts: { active: jobs.length, archived: 3, filtered: 12 }, ...overview });
       }
-      if (url.searchParams.get('preferences') === '1') return reply({ rules: clone(rules), lastLearnedAt: '2026-10-27T09:00:00Z' });
       if (url.searchParams.get('reviewReasons') === '1') return reply({ advance: [], drop: [] });
       if (url.searchParams.get('activity') === '1') return reply({ events: [], hasMore: false, snapshot: 1, stats: {}, usage: { days: [], breakdown: [] } });
       if (url.searchParams.has('id')) { const job = jobs.find(j => j.id === url.searchParams.get('id')); return job ? reply({ job: clone(job) }) : reply({ error: 'Job not found' }, 404); }
       return reply({ jobs: clone(jobs), stages: ['new', 'reviewing', 'applied', 'interviewing', 'offer', 'rejected', 'not_interested', 'expired'], archiveOnStage: ['rejected', 'not_interested', 'expired'],
-        archivedCount: 0, features: { jevEnabled: true }, needsYouCount: needsItems().length });
+        archivedCount: 3, activeCount: jobs.length, filteredCount: 12, features: { jevEnabled: true } });
     }
     if (request.method() !== 'POST') return reply({ error: 'Unexpected fixture request' }, 404);
     calls.push(body);
-    if (body.action === 'accept-preference' || body.action === 'reject-preference' || body.action === 'edit-preference') {
-      applied.add(body.id);
-      if (body.action !== 'reject-preference') rules.push({ id: body.id, text: 'Drops roles that need weekly travel.', editedText: body.text, state: 'accepted' });
-      return reply({ rule: { id: body.id } });
-    }
-    if (body.action === 'delete-preference') { rules.splice(rules.findIndex(r => r.id === body.id), 1); return reply({ deleted: body.id }); }
-    const job = jobs.find(j => j.id === body.id), pc = job?.postingCheck;
-    const out = () => reply({ job: clone(job) });
+    const job = jobs.find(j => j.id === body.id);
     switch (body.action) {
-      case 'dismiss-gap': pc.gaps.find(g => g.id === body.gapId).state = 'dismissed'; return out();
-      case 'draft-gap-question': Object.assign(pc.gaps.find(g => g.id === body.gapId), { state: 'asked', question: body.question }); return out();
-      case 'approve-answer': Object.assign(pc.form.questions.find(q => q.id === body.questionId), { state: 'approved', answerDraft: body.answer }); return out();
-      case 'skip-answer': pc.form.questions.find(q => q.id === body.questionId).state = 'skipped'; return out();
-      case 'paste-questions': pc.form = { source: 'pasted', url: '', status: 'ready', questions: body.text.split('\n').filter(Boolean).map((text, i) => ({ id: 'pq' + i, text: text.replace(/\*$/, ''), required: text.endsWith('*'), options: [], answerDraft: '', needsYou: false, reason: '', state: 'pending' })) };
-        return reply({ job: clone(job), requested: true });
-      case 'rerun-posting-check': return reply({ requested: true, runId: 'run_1' }, 202);
-      case 'apply-proposal': { const item = needsItems().find(i => i.id === body.id); const target = jobs.find(j => j.id === item.jobId); target.stage = item.proposedStage;
+      case 'apply-proposal': { const item = proposals().find(i => i.id === body.id); const target = jobs.find(j => j.id === item.jobId); target.stage = item.proposedStage;
         if (item.interview) target.interviewTimeline.push({ id: 'tn', ...item.interview, source: 'email', proposalId: item.id, createdAt: '2026-10-28T09:00:00Z', updatedAt: '2026-10-28T09:00:00Z' });
         applied.add(body.id); return reply({ proposal: { id: body.id, state: 'applied' }, job: clone(target), generationErrors: [] }); }
       case 'dismiss-proposal': applied.add(body.id); return reply({ proposal: { id: body.id, state: 'dismissed' } });
@@ -125,64 +95,6 @@ async function needsFixture(browser) {
 }
 const settle = page => page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}' });
 try {
-  if (process.env.APPLICATION_CHECKLIST_CAPTURE) {
-    const dir = process.env.APPLICATION_CHECKLIST_CAPTURE, tag = process.env.ADMIN_UX_BASELINE ? 'before' : 'after';
-    const fx = await needsFixture(browser);
-    const check = fx.jobs.find(j => j.id === 'pc1').postingCheck;
-    check.form.complete = false;
-    check.form.reason = 'Later steps need checking on the employer application form.';
-    check.form.questions.unshift(
-      {id:'contact',text:'Email address',kind:'contact',required:true,options:[],state:'approved',answerDraft:'candidate@example.com'},
-      {id:'upload',text:'Resume / CV',kind:'file',required:true,options:[],state:'pending',needsYou:true,reason:'Prepare this file for upload. Confirm its filename here once ready.'});
-    for (const width of [1280,390]) {
-      await fx.page.setViewportSize({width,height:1000});
-      await fx.page.goto(origin + '/admin.html?job=pc1&section=materials');
-      await fx.page.locator('.posting-check').waitFor();
-      await settle(fx.page);
-      await fx.page.evaluate(() => document.fonts.ready);
-      await fx.page.locator('.posting-check').evaluate(el => el.scrollIntoView({block:'start'}));
-      await fx.page.screenshot({path:dir + '/' + tag + '-' + width + '.png',fullPage:false});
-      if (tag === 'after') {
-        assert.equal(await fx.page.locator('.posting-check h2').textContent(),'Application checklist');
-        assert.equal(await fx.page.locator('[data-answer-item="upload"] [data-pc-act="skip-answer"]').count(),0);
-        assert.ok(await fx.page.locator('.posting-check').getByRole('link',{name:'Open employer application form'}).count());
-        const dimensions=await fx.page.locator('[data-answer-item="upload"] button').evaluate(el=>({height:el.getBoundingClientRect().height,radius:getComputedStyle(el).borderRadius}));
-        assert.ok(dimensions.height >= 44, JSON.stringify(dimensions));
-        console.log(width,dimensions);
-      }
-    }
-    assert.deepEqual(fx.pageErrors,[]);
-    await browser.close(); await new Promise(resolve => server.close(resolve)); process.exit(0);
-  }
-  if (process.env.ADMIN_UX_NEEDS_CAPTURE) {
-    // Screenshots of the synthetic Needs you fixture. ADMIN_UX_BASELINE serves public/admin.html from git instead.
-    const dir = process.env.ADMIN_UX_NEEDS_CAPTURE, tag = process.env.ADMIN_UX_BASELINE ? 'before' : 'after';
-    const fx = await needsFixture(browser);
-    await fx.context.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => route.abort());
-    const shot = async (name, url, size, fullPage = false, ready = '.role-header', scrollTo = '') => {
-      await fx.page.setViewportSize(size);
-      await fx.page.goto(origin + url);
-      await fx.page.locator(ready).first().waitFor();
-      await settle(fx.page);
-      await fx.page.evaluate(() => document.fonts.ready);
-      if (scrollTo) await fx.page.locator(scrollTo).first().evaluate(el => { const r = el.getBoundingClientRect(); window.scrollBy(0, r.top - 90); });
-      await fx.page.screenshot({ path: dir + '/' + name, fullPage });
-      console.log('captured ' + name);
-    };
-    await shot('needs-' + tag + '-desktop.png', '/admin.html?collection=needs', { width: 1440, height: 2150 }, false, '.pipeline-item, .needs-card');
-    if (tag === 'after') {
-      await shot('rules-after-desktop.png', '/admin.html?collection=needs', { width: 1440, height: 3000 }, false, '.learned-rules');
-      await shot('rules-after-mobile.png', '/admin.html?collection=needs', { width: 390, height: 844 }, true, '.learned-rules');
-      await shot('moved-badge-after-desktop.png', '/admin.html?job=mv1', { width: 1440, height: 1100 }, false, '.role-stage');
-      await shot('needs-after-mobile.png', '/admin.html?collection=needs', { width: 390, height: 844 }, true, '.needs-card');
-      await shot('posting-check-after-desktop.png', '/admin.html?job=pc1&section=materials', { width: 1440, height: 1900 }, false, '.posting-check');
-      await shot('timeline-after-desktop.png', '/admin.html?job=ap1&section=overview', { width: 1440, height: 1700 }, false, '.interview-timeline');
-      await shot('timeline-after-mobile.png', '/admin.html?job=ap1&section=overview', { width: 390, height: 844 }, true, '.interview-timeline');
-    }
-    await browser.close();
-    await new Promise(resolve => server.close(resolve));
-    process.exit(0);
-  }
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript(() => {
     sessionStorage.setItem('bfit_admin_secret', 'synthetic-fixture');
@@ -814,134 +726,53 @@ try {
     await boardPage.close();
   }
   {
-    // Needs you cards, posting check section, paste questions and interview timeline (stubbed API).
-    const fx = await needsFixture(browser);
-    const { page: np, calls, jobs: nJobs } = fx;
+    // Email status proposals on the role, manual questions, the interview timeline, and no Needs you (stubbed API).
+    const fx = await proposalsFixture(browser);
+    const { page: np, calls } = fx;
     const last = () => calls[calls.length - 1];
     const box = (page, selector) => page.locator(selector).first().evaluate(el => { const c = getComputedStyle(el), r = el.getBoundingClientRect();
       return { h: Math.round(r.height), w: Math.round(r.width), radius: c.borderTopLeftRadius, border: c.borderTopWidth + ' ' + c.borderTopColor, bg: c.backgroundColor, font: c.fontSize }; });
     await np.goto(origin + '/admin.html?collection=needs');
-    await np.locator('[data-needs-kind]').first().waitFor();
-    check('Needs you counts every item kind', (await np.locator('[data-collection="needs"]').textContent()).includes('6'));
-    check('review items without a kind still render as before', await np.locator('button.pipeline-item[data-select-job="ag1"]').count() === 1 &&
-      (await np.locator('button.pipeline-item[data-select-job="ag1"]').textContent()).includes('Agent: unsure') &&
-      (await np.locator('button.pipeline-item[data-select-job="ag1"]').textContent()).includes('Is a hybrid role in Manchester workable?'));
-    check('each new kind renders its own card', (await np.locator('[data-needs-kind]').evaluateAll(els => els.map(el => el.getAttribute('data-needs-kind')))).join() === 'posting-gaps,application-answers,status-proposal,status-proposal,preference-proposal');
-    check('posting gaps card lists label, why and suggested question', await np.locator('[data-needs-kind="posting-gaps"]').evaluate(el => ['Salary range', 'does not say what the role pays', 'What is the salary range for this role?'].every(t => el.textContent.includes(t))));
+    await np.locator('.jobs-tabs').waitFor();
+    const tabs = await np.locator('.jobs-tabs button').allTextContents();
+    check('an old Needs you link opens Active, and Jobs has no Needs you tab', tabs.join('|') === 'Active3|Filtered12|Archive3' &&
+      await np.locator('.jobs-tabs [data-collection="active"]').getAttribute('aria-current') === 'page', tabs);
+    check('pipeline cards carry no agent badge or question', !/Agent:|Moved by agent|hybrid role workable/.test(await np.locator('.pipeline-list').textContent()));
+    // A role with an open proposal leads its Overview with it.
+    await np.goto(origin + '/admin.html?job=ap1&section=overview');
+    const pr1 = np.locator('[data-proposal-id="pr1"]');
+    await pr1.waitFor();
+    check('the role Overview shows its email update with summary, stage badges, email and interview', await pr1.evaluate(el => ['Email update', 'invited you to a final round', 'Applied', 'Interviewing', 'Final round invitation', 'recruiter@contoso.example', 'Final round'].every(t => el.textContent.includes(t))) &&
+      await pr1.locator('a.read-link').getAttribute('href') === 'https://mail.google.com/mail/u/0/#all/thread1' && await np.locator('[data-proposal-id]').count() === 1);
     await settle(np);
-    // Measure new controls against the existing Agent recommendation card buttons (Overview) and Documents textarea.
-    const sizes = { card: await box(np, '[data-needs-kind="posting-gaps"] [data-pc-act="ask"]'), cardGhost: await box(np, '[data-needs-kind="posting-gaps"] [data-pc-act="dismiss-gap"]'),
-      answerArea: await box(np, '[data-needs-kind="application-answers"] textarea'), pipelineCard: await box(np, '.needs-card'), reviewCard: await box(np, 'button.pipeline-item[data-select-job="ag1"]') };
-    const agentBtn = await box(np, '[data-agent-decide="advance"]'), agentGhost = await box(np, '[data-agent-decide="drop"]');
-    check('Needs you cards share the review card box (border, radius, background)', sizes.pipelineCard.radius === sizes.reviewCard.radius && sizes.pipelineCard.border.split(' ')[0] === sizes.reviewCard.border.split(' ')[0] && sizes.pipelineCard.w === sizes.reviewCard.w);
-    check('Needs you buttons match the Agent recommendation buttons', [sizes.card.h, sizes.cardGhost.h].every(h => h === agentBtn.h && h === 44) && sizes.card.radius === agentBtn.radius &&
-      sizes.card.font === agentBtn.font && sizes.card.bg === agentBtn.bg && sizes.cardGhost.border === agentGhost.border && sizes.cardGhost.bg === agentGhost.bg);
-    console.log('needs-you sizes at 1440', JSON.stringify({ ...sizes, agentBtn, agentGhost }));
-    // Ask recruiter: edit, save, copy.
-    await np.locator('[data-gap-item="g1"] [data-pc-act="ask"]').click();
-    const ta = np.locator('[data-gap-item="g1"] textarea');
-    check('Ask recruiter opens the suggested question for editing', await ta.inputValue() === 'What is the salary range for this role?');
-    await ta.fill('Could you share the salary band for this role?');
-    await np.locator('[data-gap-item="g1"] [data-pc-act="save-question"]').click();
-    await np.locator('[data-gap-item="g1"] [data-pc-act="copy-question"]').waitFor();
-    check('save sends draft-gap-question with the edited text', JSON.stringify(last()) === JSON.stringify({ action: 'draft-gap-question', id: 'pc1', gapId: 'g1', question: 'Could you share the salary band for this role?' }));
-    await np.locator('[data-gap-item="g1"] [data-pc-act="copy-question"]').click();
-    check('Copy puts the saved question on the clipboard', await np.evaluate(() => navigator.clipboard.readText()) === 'Could you share the salary band for this role?');
-    check('a saved toast confirms nothing was sent', await np.getByText('Question saved').count() >= 1);
-    await np.locator('[data-gap-item="g2"] [data-pc-act="dismiss-gap"]').click();
-    await np.locator('[data-gap-item="g2"]').waitFor({ state: 'detached' });
-    check('Dismiss sends dismiss-gap and removes the gap', JSON.stringify(last()) === JSON.stringify({ action: 'dismiss-gap', id: 'pc1', gapId: 'g2' }) && await np.locator('[data-gap-item="g1"]').count() === 1);
-    // Application answers.
-    check('needs-you reason shows for personal questions', (await np.locator('[data-answer-item="q2"]').textContent()).includes('Needs you: Salary expectations are personal.'));
-    await np.locator('[data-answer-item="q1"] textarea').fill('I want to build calm, fast engineering teams.');
-    await np.locator('[data-answer-item="q1"] [data-pc-act="approve-answer"]').click();
-    await np.locator('[data-answer-item="q1"]').waitFor({ state: 'detached' });
-    check('Approve sends the edited answer', JSON.stringify(last()) === JSON.stringify({ action: 'approve-answer', id: 'pc1', questionId: 'q1', answer: 'I want to build calm, fast engineering teams.' }));
-    check('required answers cannot be skipped', await np.locator('[data-answer-item="q2"] [data-pc-act="skip-answer"]').count() === 0);
-    await np.locator('[data-answer-item="q2"] textarea').fill('120000 GBP');
-    await np.locator('[data-answer-item="q2"] [data-pc-act="approve-answer"]').click();
-    await np.locator('[data-needs-kind="application-answers"]').waitFor({ state: 'detached' });
-    check('Confirm saves the personal answer and the finished card leaves', JSON.stringify(last()) === JSON.stringify({ action: 'approve-answer', id: 'pc1', questionId: 'q2', answer: '120000 GBP' }) &&
-      (await np.locator('[data-collection="needs"]').textContent()).includes('4'));
-    // Proposals.
-    const pr1 = np.locator('[data-needs-id="pr1"]');
-    check('proposal card shows summary, stage badges, email and interview', await pr1.evaluate(el => ['invited you to a final round', 'Applied', 'Interviewing', 'Final round invitation', 'recruiter@contoso.example', 'Final round'].every(t => el.textContent.includes(t))) &&
-      await pr1.locator('a.read-link').getAttribute('href') === 'https://mail.google.com/mail/u/0/#all/thread1');
-    await np.locator('[data-px-id="pr2"][data-px-act="apply"]').click();
-    await np.getByRole('alertdialog').waitFor();
-    check('a move to Reviewing confirms and names CV generation', (await np.getByRole('alertdialog').textContent()).includes('starts its fit page and tailored CV'));
-    await np.getByRole('button', { name: 'Cancel' }).click();
-    check('cancelling the confirmation sends nothing', calls.every(c => c.action !== 'apply-proposal'));
+    const sizes = { card: await box(np, '.proposal-card'), listCard: await box(np, 'button.pipeline-item'), apply: await box(np, '[data-px-act="apply"]'), dismiss: await box(np, '[data-px-act="dismiss"]'),
+      tlAdd: await box(np, '[data-tl-act="add"]'), tlRemove: await box(np, '[data-tl-act="remove"]') };
+    check('the email update reuses the pipeline card box', sizes.card.radius === sizes.listCard.radius && sizes.card.border.split(' ')[0] === sizes.listCard.border.split(' ')[0] && sizes.card.bg === sizes.listCard.bg);
+    check('its buttons match the timeline buttons', sizes.apply.h === 44 && sizes.dismiss.h === 44 && sizes.apply.radius === sizes.tlAdd.radius && sizes.apply.bg === sizes.tlAdd.bg &&
+      sizes.dismiss.border === sizes.tlRemove.border && sizes.dismiss.bg === sizes.tlRemove.bg);
+    console.log('email update sizes at 1440', JSON.stringify(sizes));
     await np.locator('[data-px-id="pr1"][data-px-act="apply"]').click();
     await pr1.waitFor({ state: 'detached' });
     check('Apply sends apply-proposal (no confirmation for a plain move)', JSON.stringify(last()) === JSON.stringify({ action: 'apply-proposal', id: 'pr1' }));
     check('apply shows a status toast', await np.getByText('Contoso Cloud moved to Interviewing.').count() >= 1);
+    await np.goto(origin + '/admin.html?job=ap2&section=overview');
+    await np.locator('[data-proposal-id="pr2"]').waitFor();
     await np.locator('[data-px-id="pr2"][data-px-act="apply"]').click();
-    await np.getByRole('alertdialog').getByRole('button', { name: 'Move to Reviewing' }).click();
-    await np.locator('[data-needs-kind="status-proposal"]').waitFor({ state: 'detached' });
-    check('confirmed Apply sends apply-proposal', JSON.stringify(last()) === JSON.stringify({ action: 'apply-proposal', id: 'pr2' }));
-    // Learned rules: proposals, the accepted list and the Moved by agent badge.
-    await np.locator('[data-needs-kind="preference-proposal"]').waitFor();
-    const pf = np.locator('[data-needs-id="pf1"]');
-    check('rule proposal shows its text and the decisions it came from', (await pf.textContent()).includes('Drops roles that need weekly travel.') &&
-      (await pf.locator('ul.needs-sources li').allTextContents()).join('|') === 'Adventure Works · Head of Engineering · Dropped|Fabrikam Systems · VP Engineering · Dropped');
-    check('learned rules list shows edited wording and last learned time', await np.locator('[data-rule-id]').count() === 2 && (await np.locator('.learned-rules').textContent()).includes('Avoids agencies and consultancies.') && (await np.locator('.learned-rules').textContent()).includes('Last learned'));
-    const pfBtn = await box(np, '[data-pf-act="accept"]'), prBtn = await box(np, '[data-pr-act="delete"]');
-    check('rule buttons match the Needs you buttons', pfBtn.h === 44 && prBtn.h === 44 && pfBtn.radius === sizes.card.radius && prBtn.border === sizes.cardGhost.border && prBtn.bg === sizes.cardGhost.bg);
-    console.log('rule button sizes at 1440', JSON.stringify({ pfBtn, prBtn, source: await box(np, 'ul.needs-sources button') }));
-    await pf.locator('ul.needs-sources button').first().click();
+    await np.getByRole('alertdialog').waitFor();
+    check('a move to Reviewing confirms and names CV generation', (await np.getByRole('alertdialog').textContent()).includes('starts its fit page and tailored CV'));
+    await np.getByRole('button', { name: 'Cancel' }).click();
+    check('cancelling the confirmation sends nothing', calls.filter(c => c.action === 'apply-proposal').length === 1);
+    await np.locator('[data-px-id="pr2"][data-px-act="dismiss"]').click();
+    await np.locator('[data-proposal-id="pr2"]').waitFor({ state: 'detached' });
+    check('Dismiss sends dismiss-proposal and the update leaves', JSON.stringify(last()) === JSON.stringify({ action: 'dismiss-proposal', id: 'pr2' }));
+    // Retired features stay hidden even where old data remains on the role.
+    await np.goto(origin + '/admin.html?job=nw1&section=overview');
     await np.locator('.role-header').waitFor();
-    check('a source opens its job without a left-Needs-you notice', (await np.locator('.role-header').textContent()).includes('Adventure Works') && await np.locator('.workspace .notice').count() === 0);
-    await pf.locator('[data-pf-act="edit"]').click();
-    await pf.locator('textarea').fill('Drops roles needing weekly travel.');
-    await pf.locator('[data-pf-act="save-edit"]').click();
-    await pf.waitFor({ state: 'detached' });
-    check('Edit sends edit-preference with the new wording and the rule joins the list', JSON.stringify(last()) === JSON.stringify({ action: 'edit-preference', id: 'pf1', text: 'Drops roles needing weekly travel.' }) && await np.locator('[data-rule-id]').count() === 3);
-    await np.locator('[data-rule-id="r2"] [data-pr-act="edit"]').click();
-    await np.locator('[data-rule-id="r2"] textarea').fill('Avoids agencies.');
-    await np.locator('[data-rule-id="r2"] [data-pr-act="save-edit"]').click();
-    await np.getByText('Rule saved').first().waitFor();
-    check('editing a listed rule sends edit-preference', JSON.stringify(last()) === JSON.stringify({ action: 'edit-preference', id: 'r2', text: 'Avoids agencies.' }));
-    await np.locator('[data-rule-id="r1"] [data-pr-act="delete"]').click();
-    await np.getByRole('alertdialog').getByRole('button', { name: 'Delete rule' }).click();
-    await np.locator('[data-rule-id="r1"]').waitFor({ state: 'detached' });
-    check('Delete confirms and sends delete-preference', JSON.stringify(last()) === JSON.stringify({ action: 'delete-preference', id: 'r1' }));
-    check('Moved by agent badge names the stage and date, and is hidden once undone', await (async () => {
-      await np.goto(origin + '/admin.html?job=mv1');
-      await np.locator('.role-header').waitFor();
-      const label = await np.locator('.role-stage [aria-label^="Moved by agent"]').getAttribute('aria-label');
-      const card = await np.locator('[data-select-job="mv1"] [aria-label^="Moved by agent"]').count();
-      const none = await np.locator('[data-select-job="mv2"] [aria-label^="Moved by agent"]').count();
-      return /^Moved by agent to Reviewing on /.test(label) && card === 1 && none === 0;
-    })());
-    const badge = await box(np, '.role-stage [aria-label^="Moved by agent"]'), stageBadge = await box(np, '.role-stage .pipeline-stage');
-    check('the badge matches the stage badge style', badge.font === stageBadge.font && badge.radius === stageBadge.radius);
-    await np.goto(origin + '/admin.html?collection=needs');
-    await np.locator('[data-needs-kind]').first().waitFor();
-    // Open the role from a card.
-    await np.locator('[data-needs-kind="posting-gaps"] .needs-open').click();
-    await np.locator('.role-header').waitFor();
-    check('company and role open the workspace', (await np.locator('.role-header').textContent()).includes('Northwind Labs') && new URL(np.url()).searchParams.get('job') === 'pc1');
-    // Workspace posting check.
+    check('no Agent recommendation card on a role with an old review', await np.locator('[data-agent-review], [data-agent-decide]').count() === 0);
     await np.locator('[data-section="materials"]').click();
-    await np.locator('.posting-check').waitFor();
-    check('Documents shows the application checklist', await np.locator('.posting-check').evaluate(el => ['Application checklist', 'Why do you want to lead engineering', 'Open employer application form'].every(t => el.textContent.includes(t))));
-    check('legacy recruiter gaps do not appear in the checklist', await np.locator('.posting-check [data-gap-item]').count() === 0);
-    check('a fetched form has no paste box', await np.locator('[data-pc-paste]').count() === 0);
-    await np.locator('[data-pc-act="rerun"]').click();
-    await np.getByText('Posting check requested').first().waitFor();
-    check('Re-run check sends rerun-posting-check', JSON.stringify(last()) === JSON.stringify({ action: 'rerun-posting-check', id: 'pc1' }));
-    const qaBtn = await box(np, '.posting-check [data-pc-act="rerun"]');
-    check('workspace posting check buttons are 44px', qaBtn.h === 44);
-    // Paste questions (form not detected).
-    await np.goto(origin + '/admin.html?job=pc2&section=materials');
-    await np.locator('[data-pc-paste]').waitFor();
-    check('not-detected form shows the paste box', (await np.locator('.posting-check').textContent()).includes('Paste application questions'));
-    await np.locator('[data-pc-paste]').fill('Why us?\nNotice period*');
-    await np.locator('[data-pc-act="paste"]').click();
-    await np.locator('[data-answer-item="pq1"]').waitFor();
-    check('Save questions sends paste-questions', JSON.stringify(last()) === JSON.stringify({ action: 'paste-questions', id: 'pc2', text: 'Why us?\nNotice period*' }) &&
-      (await np.locator('[data-answer-item="pq1"]').textContent()).includes('Required'));
+    await np.locator('.question-list').waitFor();
+    check('Documents keeps the manual application questions and drops the automatic checklist', await np.locator('.posting-check, [data-pc-act], [data-pc-paste]').count() === 0 &&
+      (await np.locator('.question-list').textContent()).includes('Why do you want to lead engineering at Northwind?') && await np.getByRole('button', { name: 'Add a question' }).count() === 1);
     // Timeline.
     await np.goto(origin + '/admin.html?job=ap1&section=overview');
     await np.locator('.interview-timeline').waitFor();
@@ -965,34 +796,31 @@ try {
     await np.locator('[data-section="context"]').click();
     const ctxInput = await box(np, '#role');
     check('timeline inputs match Role details inputs', tlInput.h === ctxInput.h && tlSelect.h === ctxInput.h && tlInput.h === 44 && tlInput.radius === ctxInput.radius && tlInput.border === ctxInput.border && tlInput.bg === ctxInput.bg && tlButton.h === 44);
-    console.log('timeline sizes at 1440', JSON.stringify({ tlInput, tlSelect, tlButton, ctxInput, qaBtn }));
+    console.log('timeline sizes at 1440', JSON.stringify({ tlInput, tlSelect, tlButton, ctxInput }));
     // Mobile.
-    const fresh = await needsFixture(browser);
+    const fresh = await proposalsFixture(browser);
     const mp = fresh.page;
     await mp.setViewportSize({ width: 390, height: 844 });
-    await mp.goto(origin + '/admin.html?collection=needs');
-    await mp.locator('[data-needs-kind]').first().waitFor();
-    const m = { ask: await box(mp, '[data-pc-act="ask"]'), dismiss: await box(mp, '[data-pc-act="dismiss-gap"]'), area: await box(mp, '[data-needs-kind="application-answers"] textarea'), agentCard: await box(mp, 'button.pipeline-item[data-select-job="ag1"]'), needsCard: await box(mp, '.needs-card') };
-    check('mobile Needs you buttons are 44px and the cards fit', m.ask.h === 44 && m.dismiss.h === 44 && m.agentCard.w === m.needsCard.w && await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    console.log('needs-you sizes at 390', JSON.stringify(m));
-    await np.setViewportSize({ width: 390, height: 844 });
-    await np.goto(origin + '/admin.html?job=ap1&section=overview');
-    await np.locator('.interview-timeline').waitFor();
-    const mt = { input: await box(np, '[data-tl-field="round"]'), select: await box(np, '[data-tl-field="kind"]'), add: await box(np, '[data-tl-act="add"]') };
-    check('mobile timeline fields stack at 44px without sideways scroll', mt.input.h === 44 && mt.select.h === 44 && mt.add.h === 44 && mt.input.w === mt.select.w && await np.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await mp.goto(origin + '/admin.html?job=ap1&section=overview');
+    await mp.locator('.proposal-card').waitFor();
+    const m = { apply: await box(mp, '[data-px-act="apply"]'), dismiss: await box(mp, '[data-px-act="dismiss"]'), card: await box(mp, '.proposal-card'), panel: await box(mp, '#panel-overview') };
+    check('mobile email update buttons are 44px and the card fits', m.apply.h === 44 && m.dismiss.h === 44 && m.card.w <= m.panel.w && await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    console.log('email update sizes at 390', JSON.stringify(m));
+    const mt = { input: await box(mp, '[data-tl-field="round"]'), select: await box(mp, '[data-tl-field="kind"]'), add: await box(mp, '[data-tl-act="add"]') };
+    check('mobile timeline fields stack at 44px without sideways scroll', mt.input.h === 44 && mt.select.h === 44 && mt.add.h === 44 && mt.input.w === mt.select.w && await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     console.log('timeline sizes at 390', JSON.stringify(mt));
     await mp.setViewportSize({ width: 1440, height: 900 });
-    await mp.goto(origin + '/admin.html?collection=needs');
-    await mp.locator('[data-needs-kind]').first().waitFor();
+    await mp.goto(origin + '/admin.html?job=ap1&section=overview');
+    await mp.locator('.proposal-card').waitFor();
     await settle(mp);
-    const needsAudit = await new AxeBuilder({ page: mp }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
-    check('Needs you has no automated WCAG A/AA violations', needsAudit.violations.length === 0 || (console.log(JSON.stringify(needsAudit.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.target) })))), false));
-    check('no browser errors in the Needs you fixture', fx.pageErrors.length === 0 && fresh.pageErrors.length === 0);
+    const proposalAudit = await new AxeBuilder({ page: mp }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    check('a role with an email update has no automated WCAG A/AA violations', proposalAudit.violations.length === 0 || (console.log(JSON.stringify(proposalAudit.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.target) })))), false));
+    check('no browser errors in the proposals fixture', fx.pageErrors.length === 0 && fresh.pageErrors.length === 0);
     await fx.context.close(); await fresh.context.close();
   }
   {
-    // Dashboard home: what needs you and the pipeline now open Jobs at the right tab and stage.
-    const fx = await needsFixture(browser);
+    // Dashboard home: email updates and the pipeline now open Jobs at the right role, tab and stage.
+    const fx = await proposalsFixture(browser);
     const dp = fx.page;
     const box = (page, selector) => page.locator(selector).first().evaluate(el => { const c = getComputedStyle(el), r = el.getBoundingClientRect();
       return { h: Math.round(r.height), w: Math.round(r.width), radius: c.borderTopLeftRadius, border: c.borderTopWidth + ' ' + c.borderTopColor, bg: c.backgroundColor, font: c.fontSize }; });
@@ -1002,7 +830,8 @@ try {
     check('the top menu is Dashboard, Jobs and AI activity', (await dp.locator('.topnav button').allTextContents()).join('|') === 'Dashboard|Jobs|AI activity & usage');
     check('time ranges are 1 week, 2 weeks, 30 days and 3 months', (await dp.locator('[data-range]').allTextContents()).join('|') === '1 week|2 weeks|30 days|3 months' &&
       await dp.locator('[data-range="30"]').getAttribute('aria-pressed') === 'true');
-    check('Needs your attention lists what needs you first', await dp.locator('.attention-item').count() === 6 && (await dp.locator('.attention-item').first().textContent()).includes('Agentic Works'));
+    check('Email updates list each open proposal, newest first', await dp.locator('.attention-item').count() === 2 && (await dp.locator('.attention-item').first().textContent()).includes('Contoso Cloud') &&
+      (await dp.locator('#email-updates-title').textContent()) === 'Email updates');
     check('Pipeline now lists every stage with a link', await dp.locator('.now-item').count() === 7 &&
       await dp.locator('.now-item[href="/admin?collection=jobs&stage=applied"] .now-count').textContent() === '1 Applied');
     const [attention, nowRow] = [await box(dp, '.attention-item'), await box(dp, '.now-item')];
@@ -1016,10 +845,11 @@ try {
     check('Dashboard has no automated WCAG A/AA violations', dashAudit.violations.length === 0 || (console.log(JSON.stringify(dashAudit.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.target) })))), false));
     await dp.locator('.attention-item').first().click();
     await dp.locator('.workspace .role-header').waitFor();
-    check('an attention item opens Jobs > Needs you on that role', new URL(dp.url()).searchParams.get('collection') === 'needs' && new URL(dp.url()).searchParams.get('job') === 'ag1' &&
-      await dp.locator('.jobs-tabs [data-collection="needs"]').getAttribute('aria-current') === 'page' && await dp.locator('.topnav [data-collection="jobs"]').getAttribute('aria-current') === 'page');
+    await dp.locator('[data-proposal-id="pr1"]').waitFor();
+    check('an email update opens its role in Jobs with the update on top', new URL(dp.url()).searchParams.get('job') === 'ap1' &&
+      await dp.locator('.jobs-tabs [data-collection="active"]').getAttribute('aria-current') === 'page' && await dp.locator('.topnav [data-collection="jobs"]').getAttribute('aria-current') === 'page');
     const tabs = await dp.locator('.jobs-tabs button').allTextContents();
-    check('Jobs tabs are Needs you, Active, Filtered and Archive with counts', tabs.join('|') === 'Needs you6|Active7|Filtered12|Archive3', tabs);
+    check('Jobs tabs are Active, Filtered and Archive with counts', tabs.join('|') === 'Active3|Filtered12|Archive3', tabs);
     const [tab, workspaceTab] = [await box(dp, '.jobs-tabs [aria-current="page"]'), await box(dp, '.workspace-tabs [role="tab"]')];
     check('Jobs tabs match the workspace tabs (44px, same type size)', tab.h === 44 && tab.h === workspaceTab.h && tab.font === workspaceTab.font && await dp.evaluate(() => { const n = document.querySelector('.jobs-tabs'); return n.scrollWidth <= n.clientWidth; }));
     console.log('jobs tab sizes at 1440', JSON.stringify({ tab, workspaceTab }));

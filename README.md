@@ -186,15 +186,7 @@ A second daily source runs at **09:15 Europe/London**, after the LinkedIn scan o
 
 ## Review decisions
 
-When a job leaves **New**, the admin asks why, with one-tap reasons and an optional note. Each move out of New is saved as a `reviewDecision` document in Sanity (the job, its fit score, where it moved, the reasons and the note), so a future review agent can learn what gets advanced and what gets dropped. The quick picks come from the published `reviewReasons` settings, followed by the reasons used most often before. See [Review decisions](docs/review-decisions.md).
-
-## Review agent (shadow mode)
-
-After a job is admitted at **New** (by a scan or import, or when a job moved from Filtered finishes its assessment), the `review-job` Trigger task asks Jev whether Bernardo would move it forward or drop it, and why, using the saved assessment, the hard-constraint check, the description and his five most similar past review decisions. The suggestion (`advance`, `drop` or `ask` with one short question) is saved on the job as `agentReview` and listed in the admin's Needs you queue (`GET /api/admin/jobs?needsYou=1`). It never changes a stage: each later review decision records the agent's lean, and the queue reports how often Bernardo agreed. Settings are the published `reviewAgent` object, seeded disabled. See [Review agent](docs/review-agent.md).
-
-## Posting check
-
-When a job moves to **Reviewing**, the `check-posting` Trigger task asks Jev what the posting leaves out (salary, location and office days, seniority or team size, visa or contract terms) and writes a one-line recruiter question for each gap. For Greenhouse jobs it reads the public application form; for any other form Bernardo can paste the questions. Once the fit page exists, form answers are drafted with the existing answer writer, and questions only he can answer (salary expectation, notice period, right to work) are flagged. Gaps and drafts are saved on the job as `postingCheck` and listed in Needs you. Nothing is submitted: approving a draft saves it into the job's application questions. Settings are the published `postingCheck` object, seeded disabled. See [Posting check](docs/posting-check.md).
+When a job leaves **New**, the admin asks why, with one-tap reasons and an optional note. Each move out of New is saved as a `reviewDecision` document in Sanity (the job, its fit score, where it moved, the reasons and the note), so there is a record of what gets advanced and what gets dropped. The quick picks come from the published `reviewReasons` settings, followed by the reasons used most often before. See [Review decisions](docs/review-decisions.md).
 
 ## Cover letters
 

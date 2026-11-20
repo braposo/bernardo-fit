@@ -26,7 +26,7 @@ function grab(name) {
 }
 
 const needed = ["relativeTime", "timeHtml", "esc", "safeSourceUrl", "fmtDate", "fmtDateTime", "modelLabel", "countWords", "statsHtml", "staleHtml", "fmtChars",
-  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "autoMoveBadgeHtml", "postingCheckHtml", "timelineHtml", "timelineDateText", "gapItemHtml", "answerItemHtml", "draftOf", "jevAssessmentHtml", "percentWords", "leanBadgeHtml", "agentReviewHtml", "jobHtml", "pipelineItemHtml",
+  "tierClass", "assessmentStatusHtml", "stageLabel", "stageOptions", "materialRow", "applicationMaterialRow", "runStateHtml", "versionRow", "versionsHtml", "questionsHtml", "timelineHtml", "timelineDateText", "interviewLine", "proposalMoveHtml", "proposalBodyHtml", "emailProposalsHtml", "jevAssessmentHtml", "jobHtml", "pipelineItemHtml",
   "journeyKey", "journeyDay", "journeyBadge", "journeyBodyHtml", "journeyHtml", "insightsKpi", "stageBadge"];
 const missing = needed.filter((name) => !grab(name));
 check("render helpers remain testable", missing.length === 0, missing);
@@ -34,12 +34,12 @@ check("render helpers remain testable", missing.length === 0, missing);
 const sandbox = [
   'var stages=["new","reviewing","applied","interviewing","offer","rejected","not_interested","expired"];',
   'var MODELS=[{id:"gpt-5.6-sol",label:"Sol"},{id:"claude-opus-5",label:"Opus"}];',
-  'var workspaceSection="overview",selectedId="j1",showArchived=false,showNeeds=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true,jevEnabled=true;',
-  'var needsUi={editing:{},drafts:{},kept:{},busy:{}}, pcPaste={}, tlDrafts={}; var TIMELINE_KIND_LABELS={phone:\"Phone\",video:\"Video\",onsite:\"On-site\",assessment:\"Assessment\",other:\"Other\"}; var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
+  'var workspaceSection="overview",selectedId="j1",showArchived=false,stageFilter=null,coverDispatchEnabled=true,screenDispatchEnabled=true,jevEnabled=true;',
+  'var emailProposals=[], tlDrafts={}; var TIMELINE_KIND_LABELS={phone:\"Phone\",video:\"Video\",onsite:\"On-site\",assessment:\"Assessment\",other:\"Other\"}; var expandedVersions=new Set(); var location={origin:"https://fit.example"};',
   'var journeyCache={}; var stageName=s=>({new:"New",reviewing:"Reviewing",applied:"Applied",interviewing:"Interviewing",rejected:"Rejected"})[s]||s; var daysText=v=>v==null?"—":v+" days";',
-  ...[/var LEAN_LABELS = [^\n]*;/, /var LEAN_ARIA = [^\n]*;/, /var JOURNEY_COLORS = [^\n]*;/].map(pattern => script.match(pattern)?.[0] || ''),
+  ...[/var JOURNEY_COLORS = [^\n]*;/].map(pattern => script.match(pattern)?.[0] || ''),
   needed.map(grab).join("\n"),
-  'return {journeyCache,journeyBodyHtml,postingCheckHtml,timelineHtml,jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
+  'return {journeyCache,journeyBodyHtml,timelineHtml,proposalBodyHtml,setEmailProposals(v){emailProposals=v},jobHtml,pipelineItemHtml,questionsHtml,countWords,versionRow,setSection(v){workspaceSection=v},setFilter(v){stageFilter=v}};',
 ].join("\n");
 let R;
 try { R = new Function(sandbox)(); check("render helpers evaluate", true); }
@@ -85,13 +85,17 @@ check("row has no editors or generation toolbar", !/textarea|data-act="cover"|da
 
 console.log("\n--- overview ---");
 const overview = render("overview");
-const agentReview = { lean: "ask", advanceProbability: 0.41, dropProbability: 0.22, reason: "Team size is unclear.", question: "Is this a player-coach role?" };
-const withAgent = render("overview", { stage: "new", agentReview });
-check("New role shows the agent recommendation with its question and both decisions",
-  /data-agent-review/.test(withAgent) && /Is this a player-coach role\?/.test(withAgent) && /41% move forward · 22% drop/.test(withAgent)
-    && /data-agent-decide="advance"/.test(withAgent) && /data-agent-decide="drop"/.test(withAgent));
-check("agent recommendation is hidden once the role leaves New", !/data-agent-review/.test(render("overview", { stage: "reviewing", agentReview })));
-check("New pipeline card carries the lean badge", /Agent: unsure/.test(R.pipelineItemHtml({ ...base, stage: "new", agentReview })));
+const proposal = { id: "p1", jobId: "j1", company: "Sanity", role: "Engineering Manager", stage: "applied", proposedStage: "interviewing",
+  summary: "Invited to a final round.", interview: { date: "2026-11-03", round: "Final round", kind: "video" }, createdAt: "2026-10-28T08:45:00Z",
+  email: { subject: "Final round", from: "talent@sanity.example", date: "2026-10-28T08:30:00Z", link: "https://mail.google.com/mail/u/0/#all/t1" } };
+R.setEmailProposals([proposal, { ...proposal, id: "p2", jobId: "other" }]);
+const withProposal = render("overview", { stage: "applied" });
+check("Overview leads with the role's own email update, with Apply and Dismiss",
+  (withProposal.match(/data-proposal-id=/g) || []).length === 1 && withProposal.indexOf("Email update") < withProposal.indexOf("data-score-gauge") &&
+    /data-px-act="apply" data-px-id="p1"/.test(withProposal) && /data-px-act="dismiss" data-px-id="p1"/.test(withProposal) && /Final round · Video/.test(withProposal));
+check("an email that keeps the stage offers to add to the timeline", /Add to timeline/.test(R.proposalBodyHtml({ ...proposal, proposedStage: "applied" })));
+R.setEmailProposals([]);
+check("no review agent card, question or lean badge remains", !/data-agent-review|data-agent-decide|Agent: unsure|Question for you/.test(render("overview", { stage: "new", agentReview: { lean: "ask", question: "Q?" } }) + R.pipelineItemHtml({ ...base, stage: "new", agentReview: { lean: "ask" } })));
 check("unassessed overview has five empty gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 5 && (overview.match(/data-value=""/g) || []).length === 5);
 check("document shortcuts stay out of Overview", !actions(overview).some(a => ["briefopen","letteropen","copyfit"].includes(a)) && !overview.includes("Ready to use"));
 check("overview offers the standalone Jev assessment", /class="generation" data-act="jevscore"/.test(overview));
@@ -170,29 +174,14 @@ check("mobile actions do not scroll horizontally", !/material-actions[^}]*overfl
 check("generation uses amber tokens", style.includes("--generation: #fff0d4") && /\.generation \{/.test(style));
 
 
-console.log("\n--- posting check and interview timeline sections ---");
-const gaps = [{ id: "g1", kind: "salary", label: "Salary range", why: "Not stated.", question: "What is the pay?", state: "open" }];
-const checked = { status: "checked", checkedAt: "2026-10-28T09:00:00Z", draftStatus: "drafted", gaps,
-  form: { source: "greenhouse", status: "ready", questions: [{ id: "q1", text: "Why us?", required: true, options: [], answerDraft: "Because.", needsYou: false, reason: "", state: "drafted" }] } };
-const reviewing = render("materials", { stage: "reviewing", postingCheck: checked });
-check("Documents shows the posting check for Reviewing roles", /Application checklist/.test(reviewing) && !/data-pc-act="ask"/.test(reviewing) && /data-pc-act="approve-answer"/.test(reviewing) && /data-pc-act="rerun"/.test(reviewing));
-check("a fetched form has no paste box", !/data-pc-paste/.test(reviewing));
-check("a form that was not detected offers the paste box", /data-pc-paste/.test(render("materials", { stage: "reviewing", postingCheck: { ...checked, form: { source: "", status: "not-detected", questions: [] } } })));
-check("other stages and the Overview have no posting check", !/Application checklist/.test(render("materials", { stage: "interviewing", postingCheck: checked })) && !/Application checklist/.test(render("overview", { stage: "reviewing", postingCheck: checked })));
-check("a Reviewing role without a check can run one", /Run check/.test(render("materials", { stage: "reviewing", postingCheck: null })));
-check("approved answers are shown, not editable", !/data-pc-act="approve-answer"/.test(render("materials", { stage: "reviewing", postingCheck: { ...checked, form: { ...checked.form, questions: [{ ...checked.form.questions[0], state: "approved" }] } } })));
+console.log("\n--- application questions and interview timeline sections ---");
+const reviewing = render("materials", { stage: "reviewing", postingCheck: { status: "checked", gaps: [], form: { questions: [{ id: "q1", text: "Why us?", state: "drafted" }] } } });
+check("Documents keeps manual application questions and has no automatic checklist", /Add a question/.test(reviewing) && !/Application checklist|data-pc-/.test(reviewing));
 const timeline = [{ id: "t1", date: "2026-11-03", round: "Final round", kind: "video", source: "email", notes: "Prep", proposalId: "p1" }];
 const interviewing = render("overview", { stage: "interviewing", interviewTimeline: timeline });
 check("Overview shows the interview timeline with source badge and notes", /Interview timeline/.test(interviewing) && /Final round/.test(interviewing) && />Email</.test(interviewing) && /data-tl-notes/.test(interviewing) && /data-tl-act="add"/.test(interviewing) && /data-tl-act="remove"/.test(interviewing));
 check("the timeline is hidden for early roles with no entries", !/Interview timeline/.test(render("overview", { stage: "reviewing", interviewTimeline: [] })));
 check("timeline text is escaped", !/<script>/.test(render("overview", { stage: "interviewing", interviewTimeline: [{ ...timeline[0], round: "<script>x</script>" }] })));
-
-console.log("\n--- moved by agent badge ---");
-const moved = { agentReview: { lean: "advance", reason: "", autoMove: { stage: "reviewing", at: "2026-10-28T07:05:00Z", overriddenAt: "" } } };
-check("a job the agent moved shows the badge with stage and date in its label", />Moved by agent</.test(R.pipelineItemHtml({ ...base, stage: "reviewing", ...moved })) && /aria-label="Moved by agent to Reviewing on /.test(R.pipelineItemHtml({ ...base, stage: "reviewing", ...moved })));
-check("the workspace header shows it too", />Moved by agent</.test(render("overview", { stage: "reviewing", ...moved })));
-check("an overridden move shows no badge", !/Moved by agent/.test(R.pipelineItemHtml({ ...base, stage: "reviewing", agentReview: { ...moved.agentReview, autoMove: { ...moved.agentReview.autoMove, overriddenAt: "2026-10-28T09:00:00Z" } } })));
-check("jobs without an auto move show no badge", !/Moved by agent/.test(R.pipelineItemHtml(base)));
 
 console.log("\n=========================");
 console.log("passed " + pass + ", failed " + fail);
