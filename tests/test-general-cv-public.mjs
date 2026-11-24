@@ -28,6 +28,8 @@ assert.match(response.body,/class="masthead"/);
 assert.match(response.body,/<article class="cv standalone"/);
 assert.match(response.body,/<h1 id="cv-heading">Alex Morgan<span class="dot"/);
 assert.doesNotMatch(response.body,/class="report"|The fit|What I bring|Show full CV|noindex/);
+assert.match(response.body,/<header class="masthead"><a class="mark" href="\/">[^]*?<\/a><a class="download" href="\/bernardo-raposo-cv\.pdf">/,'the download pill sits in the masthead');
+assert.doesNotMatch(response.body,/class="kicker"|Curriculum vitae|<div class="section-label">CV<\/div>/);
 assert.doesNotMatch(response.body,/Role fit and supporting analysis|Tailored for|job_title|fitUrl/);
 for(const secret of ['private-identity-842','private-role-711','private-evidence-91','private-evidence-92',
   'private-evidence-93','Never render this private instruction','private-source-snapshot-41',
