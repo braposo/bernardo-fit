@@ -20,9 +20,14 @@ assert.match(response.body,/<title>Alex Morgan · CV<\/title>/);
 assert.match(response.body,/Engineering Manager/);
 assert.match(response.body,/Open-source accessibility toolkit/);
 assert.match(response.body,/Other contributions/);
-assert.match(response.body,/<a href="\/bernardo-raposo-cv\.pdf">Download CV · PDF<\/a>/,
+assert.match(response.body,/<a class="download" href="\/bernardo-raposo-cv\.pdf">Download CV · PDF<\/a>/,
   'reader download must use the canonical PDF route');
-assert.match(response.body,/<footer>More about my work: <a id="fit-link" href="https:\/\/fit\.bernardoraposo\.com\/">/);
+assert.match(response.body,/<p class="cv-footer">More about my work: <a id="fit-link" href="https:\/\/fit\.bernardoraposo\.com\/">/);
+// The reader uses the fit page design: the shared template, masthead and CV sheet, with no report.
+assert.match(response.body,/class="masthead"/);
+assert.match(response.body,/<article class="cv standalone"/);
+assert.match(response.body,/<h1 id="cv-heading">Alex Morgan<span class="dot"/);
+assert.doesNotMatch(response.body,/class="report"|The fit|What I bring|Show full CV|noindex/);
 assert.doesNotMatch(response.body,/Role fit and supporting analysis|Tailored for|job_title|fitUrl/);
 for(const secret of ['private-identity-842','private-role-711','private-evidence-91','private-evidence-92',
   'private-evidence-93','Never render this private instruction','private-source-snapshot-41',
@@ -104,7 +109,7 @@ try{
     await page.goto('http://127.0.0.1:'+server.address().port+'/cv',{waitUntil:'networkidle'});
     await page.evaluate(()=>document.fonts.ready);
     const layoutState=await page.evaluate(()=>({width:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,
-      bodyWidth:document.body.scrollWidth,download:document.querySelector('nav.download a')?.getAttribute('href')}));
+      bodyWidth:document.body.scrollWidth,download:document.querySelector('a.download')?.getAttribute('href')}));
     assert.ok(layoutState.scrollWidth<=layoutState.width,`public /cv page overflows at ${width}: ${JSON.stringify(layoutState)}`);
     assert.ok(layoutState.bodyWidth<=layoutState.width,`public /cv body overflows at ${width}: ${JSON.stringify(layoutState)}`);
     assert.equal(layoutState.download,'/bernardo-raposo-cv.pdf');
