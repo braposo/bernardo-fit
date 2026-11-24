@@ -4,6 +4,7 @@ export function coverPhaseText(run) {
   if (run?.status === "WAITING") return "Waiting…";
   if (run?.status === "DELAYED") return "Scheduled…";
   if (run?.phase === "fetching") return "Fetching job details…";
+  if (run?.phase === "checking") return "Checking it isn’t already in your pipeline…";
   if (run?.phase === "scoring") return "Assessing fit…";
   if (run?.phase === "researching") return "Researching…";
   if (run?.phase === "analysing") return "Analysing…";
@@ -32,6 +33,11 @@ export function workCompletion(out) {
     if (out.d.result?.outcome === "needs_review") return { text: "This CV attempt could not be used. Generate a new version.", tone: "err", open: false };
     if (out.d.result?.outcome === "completed" && out.d.result.publication === "published") return { text: "Customised CV published", tone: "ok", open: false };
     if (out.d.result?.outcome === "completed" && out.d.result.publication === "saved") return { text: "Customised CV saved", tone: "ok", open: false };
+  }
+  if (out.d.kind === "filtered-enrich" && out.d.result?.outcome === "duplicate") {
+    const name = [out.d.result.company, out.d.result.role].filter(Boolean).join(" · ");
+    return { text: `Already ${out.d.result.archived ? "in your archive" : "in your pipeline"}${name ? `: ${name}` : ""}`, tone: "", open: false,
+      jobId: out.d.result.repeatOf || "" };
   }
   if (out.d?.result?.outcome !== "completed") return { text: "Task completed, but its result details are unavailable.", tone: "err", open: false };
   if (out.d.kind === "jev-score" || out.d.kind === "filtered-enrich") return { text: "Fit assessment ready", tone: "ok", open: false };
