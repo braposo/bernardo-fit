@@ -324,6 +324,11 @@
   .pipeline-list .pipeline-meta { justify-content: flex-start; }
   .pipeline-meta .pipeline-added { margin-left: auto; }
   .pipeline-empty button { margin-top: 12px; }
+  .link-add p { margin: 0; }
+  .link-add .field-help { margin-top: 8px; }
+  .link-add .field-status:empty { display: none; }
+  .link-add .field-status { margin-top: 8px; min-height: 0; color: var(--weak); }
+  .link-add [data-clear-search] { display: block; }
   .bulkbar { padding: 0 14px 16px 0; }
   .workspace { min-width: 0; padding: 24px clamp(20px, 3vw, 32px) 60px; }
   .workspace-empty { max-width: 540px; padding: 15vh 0; color: var(--sub); }
@@ -473,6 +478,7 @@ import { subscribeRun, taskToast } from "./assets/task-ui.js";
 import { coverCompletion, coverPhaseText, workCompletion, createRunWatcher } from "./admin-run.js";
 import { summariseUsage } from "./admin-usage.js";
 import { BOARD_COLUMNS, groupByColumn, columnActivity, boardColumnId } from "./pipeline-board.js";
+import { linkedInJobId } from "./linkedin-job-link.js";
 import { flowSvg, flowColumnsHtml, withoutScreening, weeklySvg, activityText, activityGroups, isNewSince, percent, daysText, stageName, RANGES, RANGE_LABELS, RANGE_SPANS, WEEK_COLORS } from "./pipeline-insights.js";
 import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLabel, showAdminError, mountAdminChat } from "./assets/admin-ui.js";
 (function () {
@@ -622,6 +628,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
 
   var VALID_SECTIONS = ["overview", "materials", "context", "activity"];
+  var pendingLinkAdd = "";
   function readNavigationState() {
     var p = new URLSearchParams(location.search);
     var collection = p.get("collection");
@@ -634,6 +641,12 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     stageFilter = p.get("stage") || null;
     searchQuery = p.get("q") || "";
     selectedId = p.get("job") || "";
+    // /admin?add=<LinkedIn job link> adds that role as soon as the list loads,
+    // so a link can be sent from a phone's share sheet or a shortcut.
+    if (linkedInJobId(p.get("add"))) {
+      pendingLinkAdd = p.get("add"); showInsights = false; showArchived = false; showFiltered = false;
+      searchQuery = pendingLinkAdd; selectedId = ""; stageFilter = null;
+    }
     workspaceSection = VALID_SECTIONS.indexOf(p.get("section")) !== -1 ? p.get("section") : "overview";
   }
   function navigationUrl() {
@@ -792,6 +805,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
   function actionTitle(id, kind) {
     var job = jobs.find(function (j) { return j.id === id; });
+    if (job && job.source === 'LinkedIn link' && /^Job \d+$/.test(job.role || '')) return 'Adding LinkedIn job';
     return (actionNames[kind] || 'Background work') + (job ? ' · ' + (job.company || job.role) : '');
   }
   function actionBusy(id, kind, questionId) {
@@ -857,6 +871,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       taskToast(toastId, { message: message });
     }).then(function (out) {
       var done = kind === 'cover' ? coverCompletion(out) : workCompletion(out);
+      // A link-added role that turned out to be an opening already saved was
+      // dropped: point at the saved role instead.
+      if (done.jobId) {
+        href = '/admin?job=' + encodeURIComponent(done.jobId);
+        jobs = jobs.filter(function (j) { return j.id !== id; });
+        if (selectedId === id) { selectedId = done.jobId; writeNavigation('replace'); }
+        id = done.jobId;
+      }
       if (out.d.result && out.d.result.reportId && done.tone === 'ok') href = '/?r=' + encodeURIComponent(out.d.result.reportId);
       taskToast(toastId, { message: done.text, tone: done.tone, terminal: true, href: href, linkLabel: href.indexOf('/?r=') === 0 ? 'Open analysis' : id === 'batch' ? 'Open pipeline' : 'Open role' });
       showGenerationErrors(id, out.d.result && out.d.result.generationErrors, runId);
@@ -1839,6 +1861,33 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     });
   }
 
+  // Adds a role from a LinkedIn job link. The server saves it at New and starts
+  // the same background completion as Move to pipeline (details, then fit).
+  var linkAdding = false, linkAddError = '';
+  function addLinkedInLink(link) {
+    if (linkAdding) return;
+    linkAdding = true; linkAddError = ''; renderJobs();
+    api('/api/admin/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add-linkedin', url: link }) }).then(function (out) {
+      linkAdding = false;
+      if (unauthorised(out)) return;
+      if (!out.ok) { linkAddError = (out.d && out.d.error) || "Couldn't add this job."; renderJobs(); return; }
+      var job = out.d.job || out.d.existing;
+      searchQuery = ''; searchMatches = null; searchRequested = ''; stageFilter = null; selectedId = job.id; workspaceSection = 'overview';
+      if (out.d.existing) {
+        var name = [job.company, job.role].filter(Boolean).join(' · ');
+        taskToast('link:' + job.id, { title: job.archived ? 'Already in your archive' : 'Already in your pipeline', message: name, tone: '', terminal: true,
+          href: '/admin?' + (job.archived ? 'collection=archive&' : 'collection=jobs&') + 'job=' + encodeURIComponent(job.id), linkLabel: 'Open role' });
+        if (job.archived && !showArchived) { showArchived = true; writeNavigation('push'); jobs = []; loadJobs(false); return; }
+        writeNavigation('push'); renderJobs(); return;
+      }
+      if (!jobs.some(function (j) { return j.id === job.id; })) jobs.unshift(job);
+      writeNavigation('push'); renderJobs();
+      var run = job.jevRun;
+      if (run && run.runId && ['dispatching', 'queued'].indexOf(run.status) !== -1) watchWork(job.id, run.runId, null, 'jev-score', false);
+      else if (out.d.completionError) notifyAdmin('The role was added, but fetching its details could not start: ' + out.d.completionError + ' Add the description in Role details, then use Assess fit.');
+    });
+  }
+
   function renderJobs(workspaceOnly) {
     if (showFiltered || showInsights) return;
     var board = boardActive();
@@ -1879,8 +1928,14 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
 
     var emptyText = !collectionJobs.length ? (showArchived ? 'Nothing archived.' : 'No opportunities yet.') :
       searchLoading ? 'Searching…' : q && !searched.length ? 'No roles match this search.' : 'No roles match this stage.';
-    var listHtml = (shown.length ? shown.map(pipelineItemHtml).join('') : '<div class="pipeline-empty">' + emptyText +
-      (q && !searchLoading ? '<br><button class="ghost" data-clear-search>Clear search</button>' : stageFilter ? '<br><button class="ghost" data-all-stages>Show all stages</button>' : '') + '</div>');
+    // A pasted LinkedIn job link that matches no role offers to add it.
+    var addableLink = !showArchived && !searchLoading && !searched.length && linkedInJobId(searchQuery);
+    var listHtml = shown.length ? shown.map(pipelineItemHtml).join('') : addableLink ? '<div class="pipeline-empty link-add">' +
+      '<p>This LinkedIn job isn’t in your pipeline yet.</p><button data-add-linkedin' + (linkAdding ? ' disabled aria-busy="true"' : '') + '>' + (linkAdding ? 'Adding…' : 'Add to pipeline') + '</button>' +
+      '<p class="field-help">It’s added at New, then the job details are fetched and the fit score and summary are written.</p>' +
+      '<p class="field-status" role="status" data-link-status>' + esc(linkAddError) + '</p><button class="ghost" data-clear-search>Clear search</button></div>' :
+      '<div class="pipeline-empty">' + emptyText +
+      (q && !searchLoading ? '<br><button class="ghost" data-clear-search>Clear search</button>' : stageFilter ? '<br><button class="ghost" data-all-stages>Show all stages</button>' : '') + '</div>';
     var workspaceHtml = selectedMissing ? '<div class="workspace-empty"><h1>Role unavailable</h1><p>This role no longer exists or cannot be opened.</p><button class="ghost" data-return-list>Return to pipeline</button></div>' :
       selected ? (!selectedVisible ? '<div class="notice">This role no longer matches the current pipeline view.' + '<button class="read-link" data-return-list>Return to the list</button></div>' : '') + jobHtml(selected) :
       '<div class="workspace-empty"><h1>Select a role</h1><p>Choose a role from the pipeline to review its fit, materials, context and activity.</p></div>';
@@ -1898,7 +1953,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       '<button class="pipeline-toggle" type="button" aria-label="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '" aria-expanded="' + !pipelineCollapsed + '" title="' + (pipelineCollapsed ? 'Expand pipeline sidebar' : 'Collapse pipeline sidebar') + '"><span data-icon="sidebar-toggle"></span></button>' +
       '<div class="pipeline-head"><div class="pipeline-titlebar"><h1>Jobs</h1>' +
       '<span class="pipeline-total">'+shown.length+(showArchived ? ' archived' : ' opportunities')+'</span>' + '</div>' + jobsTabsHtml() +
-      ('<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="Search roles…" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="Search roles">' +
+      ('<div class="pipeline-controls"><input type="search" id="search" class="searchbox" placeholder="' + (showArchived ? 'Search roles…' : 'Search roles or paste a LinkedIn job link') + '" value="' + esc(searchQuery) + '" autocomplete="off" spellcheck="false" aria-label="' + (showArchived ? 'Search roles' : 'Search roles or paste a LinkedIn job link') + '">' +
       '<div class="pipeline-filter-row">' + (board ? '' : '<label class="sr-only" for="stagefilter">Filter by stage</label><select id="stagefilter" aria-label="Filter by stage"' + (searchLoading ? ' aria-busy="true"' : '') + '>' + filterOptions + '</select>') + sortControlHtml() + (boardAllowed() ? viewSwitchHtml(board ? 'board' : 'list') : '') + '</div></div>') + '</div>' +
       (unlinked ? '<button class="adoptbanner" id="adopt">' + unlinked + ' saved analys' + (unlinked === 1 ? 'is is' : 'es are') + ' not in the pipeline yet · add to pipeline</button>' : '') +
       ((!showArchived && jevEnabled && assessmentIds.length && !searchLoading || activeRuns['jev-score-all']) ? '<div class="bulkbar"><button class="generation" id="assesslisted"' + (activeRuns['jev-score-all'] ? ' disabled' : '') + '>' +
@@ -2026,6 +2081,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     });
     var clearSearch = workspaceOnly ? null : document.querySelector('[data-clear-search]');
     if (clearSearch) clearSearch.addEventListener('click', function () { searchQuery = ""; searchMatches = null; writeNavigation('push'); renderJobs(); });
+    var addLink = workspaceOnly ? null : document.querySelector('[data-add-linkedin]');
+    if (addLink) addLink.addEventListener('click', function () { addLinkedInLink(searchQuery); });
     var allStages = workspaceOnly ? null : document.querySelector('[data-all-stages]');
     if (allStages) allStages.addEventListener('click', function () { stageFilter = null; writeNavigation('push'); renderJobs(); });
 
@@ -3068,7 +3125,8 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
       activeRuns = out.d.activeRuns || {};
       if (stageFilter && stages.indexOf(stageFilter) === -1) stageFilter = null;
       renderJobs();
-      if (searchQuery.trim() && searchRequested !== searchQuery.trim().toLowerCase()) applySearch();
+      if (pendingLinkAdd && !showArchived) { var link = pendingLinkAdd; pendingLinkAdd = ''; addLinkedInLink(link); }
+      else if (searchQuery.trim() && searchRequested !== searchQuery.trim().toLowerCase()) applySearch();
       else restorePipelineScroll();
     });
     // A role's open email updates show on its Overview once they arrive.

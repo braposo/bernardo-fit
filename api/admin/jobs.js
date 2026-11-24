@@ -30,6 +30,7 @@ import { getApplicationCvSummaries } from "../../lib/application-cv-store.js";
 import { applicationCvFields, generalCvFields } from "../../lib/application-cv-view.js";
 import { listFilteredJobs, countFilteredJobs, moveFilteredJob, clearFilteredJobs, filteredJobRetentionDays } from "../../lib/filtered-jobs.js";
 import { startMovedJobCompletion } from "../../lib/filtered-job-enrich.js";
+import { addLinkedInJob } from "../../lib/linkedin-link.js";
 import { reviewReasonOptions } from "../../lib/review-decisions.js";
 import { updateJobFromBody, cvFields, cvWriteFields } from "../../lib/job-update.js";
 import { openProposals, openProposalItems } from "../../lib/status-proposals.js";
@@ -45,6 +46,8 @@ import { jobJourneyResponse } from "../../lib/job-journey.js";
 // GET    /api/admin/jobs?emailProposals=1 -> { items } (open email status proposals with their job, newest first)
 // GET    /api/admin/jobs?proposals=1  -> { proposals } (email status proposals; lib/handlers/status-proposals.js)
 // POST   /api/admin/jobs              -> create one, or { action: "import" }
+// POST   { action: "add-linkedin", url } -> { job } added at New (details, fit score and summary follow
+//                                        in the background), or { existing } when the posting is already a role
 // POST   { action: "apply-proposal" | "dismiss-proposal" | "timeline-add" | "timeline-edit" | "timeline-remove" }
 // PATCH  /api/admin/jobs?id=abc       -> partial update (stage, notes, fitReportId, ...); leaving New
 //                                        records a reviewDecision, with optional decision { reasons, note }
@@ -155,6 +158,15 @@ async function handler(req, res) {
         try { completed = await startMovedJobCompletion(job) || job; }
         catch (error) { completionError = error.message || "Could not start the fit assessment."; }
         return res.status(200).json({ job: jobSummary(completed), ...(completionError ? { completionError } : {}) });
+      }
+
+      if (body.action === "add-linkedin") {
+        if (typeof body.url !== "string" || !body.url.trim() || body.url.length > 2000) return res.status(400).json({ error: "Paste a LinkedIn job link." });
+        const added = await addLinkedInJob(body.url);
+        if (added.existing) return res.status(200).json({ existing: jobSummary(added.existing) });
+        try { await appendAudit("job", added.job.id, auditEvent("admin.linkedin_link_added", "Added from a LinkedIn link", "", { actor: "admin" })); }
+        catch { console.warn("Added a role from a LinkedIn link; its audit entry could not be written."); }
+        return res.status(200).json({ job: jobSummary(added.job), ...(added.completionError ? { completionError: added.completionError } : {}) });
       }
 
       // Empties Filtered up to when the list was loaded. Records stay hidden so
