@@ -23,13 +23,12 @@ assert.match(response.body,/Other contributions/);
 assert.match(response.body,/<a class="download" href="\/bernardo-raposo-cv\.pdf">Download CV · PDF<\/a>/,
   'reader download must use the canonical PDF route');
 assert.match(response.body,/<p class="cv-footer">More about my work: <a id="fit-link" href="https:\/\/fit\.bernardoraposo\.com\/">/);
-// The reader uses the fit page design: the shared template, masthead and CV sheet, with no report.
-assert.match(response.body,/class="masthead"/);
+// The reader uses the fit page design: the shared template and CV sheet, with no masthead or report.
 assert.match(response.body,/<article class="cv standalone"/);
 assert.match(response.body,/<h1 id="cv-heading">Alex Morgan<span class="dot"/);
 assert.doesNotMatch(response.body,/class="report"|The fit|What I bring|Show full CV|noindex/);
-assert.match(response.body,/<header class="masthead"><a class="mark" href="\/">[^]*?<\/a><a class="download" href="\/bernardo-raposo-cv\.pdf">/,'the download pill sits in the masthead');
-assert.doesNotMatch(response.body,/class="kicker"|Curriculum vitae|<div class="section-label">CV<\/div>/);
+assert.match(response.body,/<\/p><\/div><a class="download" href="\/bernardo-raposo-cv\.pdf">/,'the download pill sits in the card beside the name');
+assert.doesNotMatch(response.body,/class="masthead"|class="kicker"|<div class="section-label">CV<\/div>/);
 assert.doesNotMatch(response.body,/Role fit and supporting analysis|Tailored for|job_title|fitUrl/);
 for(const secret of ['private-identity-842','private-role-711','private-evidence-91','private-evidence-92',
   'private-evidence-93','Never render this private instruction','private-source-snapshot-41',
