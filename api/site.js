@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { createContentClient } from "../lib/sanity/client.js";
 import { createApplicationHandler } from "../lib/handlers/application.js";
-import {renderApplicationCvHtml} from '../lib/application-cv-render.js';
 import {publicCvVersion,getPublicApplicationIdForReport} from '../lib/application-cv-store.js';
 import {renderPublicApplication} from '../lib/handlers/application.js';
 import {getSharedReport} from '../lib/store.js';
@@ -79,7 +78,9 @@ export function createSiteHandler(getClient = createContentClient, applicationHa
         const safe=generalCvContent(page);
         if (!safe) throw new Error('General CV unavailable');
         const saved=JSON.parse(page.generalCv.content.payload);
-        const html=await renderApplicationCvHtml({...safe,variant:'general',publicUrl:saved.publicUrl},{showDownload:true});
+        // The reader uses the fit page design: the same template and CV sheet, shown in full.
+        const template=await readFile(new URL('../lib/templates/application.html',import.meta.url),'utf8');
+        const html=renderPublicApplication({version:{content:safe},publicUrl:saved.publicUrl},template,{standalone:true});
         res.setHeader('Content-Type','text/html; charset=utf-8');
         return res.status(200).send(req.method==='HEAD'?'':html);
       }
