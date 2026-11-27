@@ -1711,23 +1711,22 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
   }
   function proposalBodyHtml(item) {
     var email = item.email || {}, link = safeSourceUrl(email.link);
-    var sameStage = item.stage === item.proposedStage;
     var line = interviewLine(item.interview);
     return '<div class="needs-body">' +
       (item.summary ? '<p class="needs-summary">' + esc(item.summary) + '</p>' : '') +
       (line ? '<p class="needs-item-why"><strong>Interview:</strong> ' + esc(line) + '</p>' : '') +
       '<p class="needs-item-why"><strong>Email:</strong> ' + esc(email.subject || 'No subject') + (email.from ? ' · ' + esc(email.from) : '') + (email.date ? ' · ' + esc(fmtDate(email.date)) : '') + '</p>' +
-      '<div class="needs-actions"><button type="button" data-px-act="apply" data-px-id="' + esc(item.id) + '">' + (sameStage ? 'Add to timeline' : 'Apply') + '</button>' +
+      '<div class="needs-actions"><button type="button" data-px-act="apply" data-px-id="' + esc(item.id) + '">Apply</button>' +
       '<button class="ghost" type="button" data-px-act="dismiss" data-px-id="' + esc(item.id) + '">Dismiss</button>' +
       (link ? '<a class="read-link" href="' + esc(link) + '" target="_blank" rel="noopener">Open email ↗</a>' : '') + '</div></div>';
   }
   // The role's open email status proposals, first on its Overview: the change the
   // email suggests, what it said, and Apply or Dismiss.
   function emailProposalsHtml(j) {
-    var items = emailProposals.filter(function (item) { return item.jobId === j.id; });
+    var items = emailProposals.filter(function (item) { return item.jobId === j.id && item.proposedStage !== j.stage; });
     return items.map(function (item) {
       return '<section class="needs-card proposal-card" data-proposal-id="' + esc(item.id) + '" aria-label="Email update for ' + esc(j.company || 'this role') + '">' +
-        '<div class="needs-open"><h2 class="pipeline-company">Email update</h2><span class="pipeline-meta">' + proposalMoveHtml(item) +
+        '<div class="needs-open"><h2 class="pipeline-company">Email update</h2><span class="pipeline-meta">' + proposalMoveHtml(Object.assign({}, item, { stage: j.stage })) +
         '<span class="pipeline-added">' + timeHtml(item.createdAt, 'Proposed ') + '</span></span></div>' + proposalBodyHtml(item) + '</section>';
     }).join('');
   }
@@ -2863,7 +2862,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     var items = emailProposals;
     var head = '<div class="insights-card-head"><h2 id="email-updates-title">Email updates</h2><p>' +
       (!emailProposalsLoaded ? (emailProposalsError ? "Couldn't load email updates." : 'Loading…') : items.length ? items.length + ' update' + (items.length === 1 ? '' : 's') + ' to apply or dismiss' : 'Nothing to apply') + '</p></div>';
-    var body = !emailProposalsLoaded ? '' : !items.length ? '<p class="insights-empty">Stage changes and interviews the daily email check finds appear here.</p>' :
+    var body = !emailProposalsLoaded ? '' : !items.length ? '<p class="insights-empty">Suggested stage changes from the daily email check appear here.</p>' :
       '<ul class="activity-list attention-list">' + items.slice(0, EMAIL_PREVIEW).map(function (item) {
         return '<li><a class="activity-item attention-item" href="' + insightsRoleHref(item.jobId, false) + '" data-open-role="' + esc(item.jobId) + '" data-archived="false">' +
           '<span class="activity-top"><span class="activity-copy"><span class="activity-company">' + esc(item.company || 'No company') + '</span><span class="activity-role">' + esc(item.role || 'Untitled role') + '</span></span>' +
@@ -3131,7 +3130,7 @@ import { renderAdmin, createAdminDialog, confirmAdmin, notifyAdmin, setButtonLab
     });
     // A role's open email updates show on its Overview once they arrive.
     loadEmailProposals().then(function (changed) {
-      if (changed && sequence === listSequence && !showInsights && !showFiltered && selectedId && emailProposals.some(function (item) { return item.jobId === selectedId; })) renderJobs(true);
+      if (changed && sequence === listSequence && !showInsights && !showFiltered && selectedId) renderJobs(true);
     });
   }
 

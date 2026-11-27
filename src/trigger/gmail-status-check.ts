@@ -3,7 +3,8 @@ import { hasKV, kv } from '../../lib/kv.js';
 import { withGenerationContext } from '../../lib/generation-context.js';
 import { gmailEnabled } from '../../lib/gmail-source.js';
 import { runGmailStatusCheck } from '../../lib/gmail-status-check.js';
-import { listJobs } from '../../lib/store.js';
+import { createStatusProposal } from '../../lib/status-proposals.js';
+import { getJob, listJobs } from '../../lib/store.js';
 import { emailStatusSettings } from '../../lib/sanity/analysis-settings.js';
 import { GMAIL_REQUEST_TASK_ID, GMAIL_STATUS_CHECK_TASK_ID } from '../../lib/task-policy.js';
 import type { gmailRequest } from './gmail-request';
@@ -51,6 +52,8 @@ export const gmailStatusCheck = schedules.task({
         settings,
         gmail: { list: ({ query, maxResults }: { query: string; maxResults: number }) => request({ op: 'list', query, maxResults }), get: (id: string) => request({ op: 'get', id }) },
         loadJobs: () => listJobs({ includeArchived: true }),
+        // The job may have moved while Gmail or the models were running.
+        propose: async (body, { settings, now }) => createStatusProposal(body, { job: await getJob(body.jobId), settings, now }),
         seen: {
           has: async (ids: string[]) => {
             if (!ids.length) return new Set<string>();

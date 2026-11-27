@@ -45,7 +45,7 @@ const settings = { enabled: true, minimumConfidence: 0.6, gmailCheck: { ...struc
 const jobs = [
   { id: "j1", company: "Lead Forensics Ltd", role: "Engineering Manager", stage: "applied" },
   { id: "j2", company: "Monzo", role: "Head of Engineering", stage: "reviewing" },
-  { id: "j3", company: "Acme Robotics", role: "Engineering Lead", stage: "interviewing" },
+  { id: "j3", company: "Acme Robotics", role: "Engineering Lead", stage: "applied" },
 ];
 const gmailMessage = ({ id, threadId = `t-${id}`, from, subject, text, html, labelIds = ["INBOX"], headers = [] }) => ({
   id, threadId, labelIds, internalDate: String(Date.parse("2026-10-28T09:30:00Z")),
@@ -317,7 +317,7 @@ const decisions = {
 };
 const writing = {
   "m-reject": { summary: "Lead Forensics: rejection email on 28 Oct, move to Rejected?", interview: null },
-  "m-invite": { summary: "Acme Robotics: video interview on 3 Nov at 14:00, add the round?",
+  "m-invite": { summary: "Acme Robotics: video interview on 3 Nov at 14:00, move to Interviewing?",
     interview: { date: "2026-11-03T14:00:00Z", round: "Video interview", kind: "video", notes: "" } },
 };
 const jevRun = () => ({ jev: jevStub(decisions), writer: writerStub(writing) });
@@ -354,16 +354,14 @@ await test("the whole run: prefilter, match, Jev decides only on candidates, the
 await test("a writer answer that fails validation keeps the proposal with the templated summary and no interview", async () => {
   const message = parseGmailMessage(invite);
   const events = [];
-  // At Applied, so a proposal without interview details is not already at stage.
-  const applied = jobs.map(j => j.id === "j3" ? { ...j, stage: "applied" } : j);
-  const outcome = await checkMessage(message, { jobs: applied, settings, useJev: true, evaluate: jevStub(decisions).evaluate, track: e => events.push(e),
+  const outcome = await checkMessage(message, { jobs, settings, useJev: true, evaluate: jevStub(decisions).evaluate, track: e => events.push(e),
     write: writerStub({ "m-invite": { summary: "Acme: interview", interview: { date: "next Tuesday", round: "x", kind: "video", notes: "" } } }).write });
   assert.equal(outcome, "proposed"); assert.deepEqual(events, ["templatedSummaries"]);
   const [proposal] = await listStatusProposals();
   assert.equal(proposal.summary, "Acme Robotics: interview email on 28 Oct, move to Interviewing?");
   assert.equal(proposal.interview ?? null, null);
   resetStatusProposalsForTests();
-  assert.equal(await checkMessage(message, { jobs: applied, settings, useJev: true, evaluate: jevStub(decisions).evaluate, write: async () => "not json" }), "proposed");
+  assert.equal(await checkMessage(message, { jobs, settings, useJev: true, evaluate: jevStub(decisions).evaluate, write: async () => "not json" }), "proposed");
   assert.match((await listStatusProposals())[0].summary, /^Acme Robotics: interview email on 28 Oct/);
 });
 
@@ -399,6 +397,15 @@ const answers = {
     interview: { date: "2026-11-03T14:00:00Z", round: "Video interview", kind: "video", notes: "" } },
   "m-thanks": { relevant: false },
 };
+
+await test("both Gmail classifiers skip a follow-up for a job already Interviewing", async () => {
+  const message = parseGmailMessage(invite);
+  const followUp = jobs.map(job => job.id === "j3" ? { ...job, stage: "interviewing" } : job);
+  const options = { jobs: followUp, settings,
+    write: async () => assert.fail("no summary needed"), propose: async () => assert.fail("no proposal needed") };
+  assert.equal(await checkMessage(message, { ...options, useJev: true, evaluate: jevStub(decisions).evaluate }), "skipped:already-at-stage");
+  assert.equal(await checkMessage(message, { ...options, useJev: false, classify: modelStub(answers).classify }), "skipped:already-at-stage");
+});
 
 await test("a manual run can pass now as an ISO string", async () => {
   const { gmail } = gmailStub([rejection]);

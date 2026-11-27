@@ -161,16 +161,16 @@ await test("create validates, dedupes by message and job, and skips low confiden
   assert.deepEqual([low.status, low.body.reason], [200, "low-confidence"]);
   const same = await asEnabled(() => routinePost(proposalBody(job.id, { proposedStage: "applied", email: { ...proposalBody(job.id).email, messageId: "m-102" } })));
   assert.deepEqual([same.status, same.body.reason], [200, "already-at-stage"]);
-  // The same stage with an interview is a new round worth recording.
-  const round = await asEnabled(() => routinePost(proposalBody(job.id, { proposedStage: "applied", interview, email: { ...proposalBody(job.id).email, messageId: "m-103" } })));
-  assert.equal(round.status, 201);
+  const interviewing = await create({ stage: "interviewing" });
+  const round = await asEnabled(() => routinePost(proposalBody(interviewing.id, { proposedStage: "interviewing", interview })));
+  assert.deepEqual([round.status, round.body.reason], [200, "already-at-stage"]);
   assert.equal((await asEnabled(() => routinePost(proposalBody("missing")))).status, 404);
   const invalid = await asEnabled(() => routinePost(proposalBody(job.id, { proposedStage: "new" })));
   assert.equal(invalid.status, 400);
-  assert.equal((await listStatusProposals({ state: "open" })).length, 2);
+  assert.equal((await listStatusProposals({ state: "all" })).length, 1);
   const listed = await call("GET", { query: { proposals: "1", jobId: job.id } });
   assert.equal(listed.status, 200);
-  assert.deepEqual(listed.body.proposals.map(p => p.email.messageId).sort(), ["m-100", "m-103"]);
+  assert.deepEqual(listed.body.proposals.map(p => p.email.messageId), ["m-100"]);
   assert.equal((await call("GET", { query: { proposals: "1", state: "weird" } })).status, 400);
 });
 
@@ -206,7 +206,7 @@ await test("apply moves the stage through the PATCH path and adds the interview 
   assert.equal(matchEmailToJobs([saved], { threadId: "t-100" })[0].matchedBy, "thread");
 });
 
-await test("apply to Rejected archives like a manual move; a same-stage round leaves the stage alone", async () => {
+await test("apply to Rejected archives like a manual move; applying a stale card leaves its stage alone", async () => {
   const job = await create();
   const reject = (await asEnabled(() => routinePost(proposalBody(job.id)))).body.proposal;
   const applied = await call("POST", { body: { action: "apply-proposal", id: reject.id } });
@@ -216,10 +216,12 @@ await test("apply to Rejected archives like a manual move; a same-stage round le
   assert.deepEqual(saved.interviewTimeline, []);
   assert.deepEqual(await listReviewDecisions(), []);
 
-  const live = await create({ stage: "interviewing", company: "Acme" });
+  const live = await create({ stage: "applied", company: "Acme" });
   const round = (await asEnabled(() => routinePost(proposalBody(live.id, { proposedStage: "interviewing", interview,
     email: { ...proposalBody(live.id).email, threadId: "t-200", messageId: "m-200", from: "no-reply@greenhouse.io" } })))).body.proposal;
+  assert.equal((await call("PATCH", { query: { id: live.id }, body: { stage: "interviewing" } })).status, 200);
   const before = await getJob(live.id);
+  const auditBefore = await getJobAudit(before);
   assert.equal((await call("POST", { body: { action: "apply-proposal", id: round.id } })).status, 200);
   const after = await getJob(live.id);
   assert.equal(after.stage, "interviewing");
@@ -229,7 +231,7 @@ await test("apply to Rejected archives like a manual move; a same-stage round le
   // A shared robot sender is not learned.
   assert.deepEqual(after.emailSenders, []);
   const audit = await getJobAudit(after);
-  assert.equal(audit.events.some(e => e.type === "status.changed"), false);
+  assert.deepEqual(audit.events.filter(e => e.type === "status.changed"), auditBefore.events.filter(e => e.type === "status.changed"));
 });
 
 await test("dismiss only marks the proposal", async () => {
@@ -246,14 +248,17 @@ await test("dismiss only marks the proposal", async () => {
   assert.deepEqual(await listStatusProposals(), []);
 });
 
-await test("open proposals are listed with their job, newest first, for the Dashboard and the role", async () => {
+await test("open stage changes are listed with their job, newest first, for the Dashboard and the role", async () => {
   const jobs = [{ id: "a1", stage: "applied", company: "Applied Co", role: "Head", archived: false },
-    { id: "r1", stage: "rejected", company: "Closed Co", role: "EM", archived: true }];
+    { id: "r1", stage: "rejected", company: "Closed Co", role: "EM", archived: true },
+    { id: "i1", stage: "interviewing" }];
   const proposal = (id, jobId, createdAt, state = "open") => ({ id, jobId, state, company: "Snapshot", role: "Snapshot", proposedStage: "interviewing",
     summary: `Summary ${id}`, interview: null, confidence: 0.8, matchedBy: "thread", createdAt,
     email: { threadId: "t", messageId: id, subject: "Subject", from: "a@b.co", date: "2026-10-27T09:00:00.000Z", link: "" } });
   const proposals = [proposal("p1", "a1", "2026-10-27T10:00:00Z"), proposal("p2", "r1", "2026-10-28T10:00:00Z"),
-    proposal("p3", "gone", "2026-10-29T10:00:00Z"), proposal("p4", "a1", "2026-10-29T11:00:00Z", "applied")];
+    proposal("p3", "gone", "2026-10-29T10:00:00Z"), proposal("p4", "a1", "2026-10-29T11:00:00Z", "applied"),
+    { ...proposal("p5", "i1", "2026-10-29T12:00:00Z"), currentStage: "applied", interview },
+    { ...proposal("p6", "r1", "2026-10-29T13:00:00Z"), currentStage: "interviewing", interview }];
   const items = openProposalItems(proposals, jobs);
   assert.deepEqual(items.map(i => i.id), ["p2", "p1"]);
   assert.deepEqual(items[1], { id: "p1", jobId: "a1", company: "Applied Co", role: "Head", stage: "applied",
@@ -266,6 +271,9 @@ await test("open proposals are listed with their job, newest first, for the Dash
   const response = await call("GET", { query: { emailProposals: "1" } });
   assert.equal(response.status, 200);
   assert.ok(response.body.items.some(i => i.jobId === job.id && i.proposedStage === "rejected"));
+  assert.equal((await call("PATCH", { query: { id: job.id }, body: { stage: "rejected" } })).status, 200);
+  assert.deepEqual((await call("GET", { query: { emailProposals: "1" } })).body.items, []);
+  assert.equal((await listStatusProposals({ jobId: job.id })).length, 1);
   const list = await call("GET");
   assert.equal("needsYouCount" in list.body, false);
 });

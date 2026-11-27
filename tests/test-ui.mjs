@@ -93,7 +93,8 @@ const withProposal = render("overview", { stage: "applied" });
 check("Overview leads with the role's own email update, with Apply and Dismiss",
   (withProposal.match(/data-proposal-id=/g) || []).length === 1 && withProposal.indexOf("Email update") < withProposal.indexOf("data-score-gauge") &&
     /data-px-act="apply" data-px-id="p1"/.test(withProposal) && /data-px-act="dismiss" data-px-id="p1"/.test(withProposal) && /Final round · Video/.test(withProposal));
-check("an email that keeps the stage offers to add to the timeline", /Add to timeline/.test(R.proposalBodyHtml({ ...proposal, proposedStage: "applied" })));
+check("Overview hides a pending email update as soon as the role reaches its proposed stage",
+  !/data-proposal-id=/.test(render("overview", { stage: "interviewing" })));
 R.setEmailProposals([]);
 check("no review agent card, question or lean badge remains", !/data-agent-review|data-agent-decide|Agent: unsure|Question for you/.test(render("overview", { stage: "new", agentReview: { lean: "ask", question: "Q?" } }) + R.pipelineItemHtml({ ...base, stage: "new", agentReview: { lean: "ask" } })));
 check("unassessed overview has five empty gauge mounts", (overview.match(/data-score-gauge=/g) || []).length === 5 && (overview.match(/data-value=""/g) || []).length === 5);
