@@ -99,7 +99,7 @@ At most five candidates, best first, archived jobs included. Signals: `thread` (
 | 201 | `{ created: true, proposal }` | Saved |
 | 200 | `{ created: false, reason: "duplicate", proposal }` | A proposal for this message and job already exists (the existing one is returned, unchanged) |
 | 200 | `{ created: false, reason: "low-confidence" }` | Below `minimumConfidence` |
-| 200 | `{ created: false, reason: "already-at-stage" }` | The job is already at `proposedStage` and there is no interview |
+| 200 | `{ created: false, reason: "already-at-stage" }` | The job is already at `proposedStage`, including emails with interview details |
 | 400 | `{ error }` | Invalid body |
 | 401 | `{ error }` | Missing or wrong secret |
 | 403 | `{ error }` | Proposals are disabled or unpublished |
@@ -120,11 +120,11 @@ Authenticated with `x-admin-secret`, like the rest of the admin.
 | `POST { action: "timeline-edit", id: <job id>, entryId, entry: { date?, round?, kind?, notes? } }` | Same; only the fields sent change |
 | `POST { action: "timeline-remove", id: <job id>, entryId }` | Same |
 
-When the job is already at the proposed stage (an interview round while Interviewing), Apply leaves the stage alone and only adds the timeline entry and learned email IDs, so no stage side effects run.
+If the job reaches the proposed stage before Apply, the existing Apply request can still save the interview and learned email IDs, with no stage side effects. Interview rounds that come in after the job reaches Interviewing can be added manually from the role's timeline.
 
 ### Email updates in the admin
 
-`GET ?emailProposals=1` returns `{ items }`: open proposals, newest first, whose job still exists (archived included). The Dashboard lists them under Email updates, and each role's Overview opens with its own, to apply or dismiss:
+`GET ?emailProposals=1` returns `{ items }`: open stage-change proposals, newest first, whose job still exists (archived included). Proposals that repeat the job's current stage or repeated its stage when first recorded are hidden. The Dashboard lists the rest under Email updates, and each role's Overview opens with its own, to apply or dismiss:
 
 ```json
 { "id": "status-proposal.…", "jobId": "a1b2", "company": "Lead Forensics Ltd", "role": "Engineering Manager",
@@ -160,7 +160,7 @@ Send the header x-routine-secret with the value of the EMAIL_ROUTINE_SECRET envi
    - An application confirmation for a job at New or Reviewing: "applied".
    - Anything else (a thank-you, a generic update, a question for Bernardo): skip.
 
-4. Create the proposal:
+4. Skip the email if the candidate is already at the proposed stage, even when the email includes a new interview date. Otherwise create the proposal:
    POST <endpoint>?routine=proposal with JSON
    { "jobId", "proposedStage", "summary", "confidence", "matchedBy", "email": { "threadId", "messageId", "subject", "from", "date", "link" }, "interview" (only when there is one) }
    - summary: one line starting with the company, saying what happened and when, ending with the proposed move as a question. Example: "Lead Forensics: rejection email on 27 Oct, move to Rejected?" At most 300 characters. Plain text.
